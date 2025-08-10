@@ -29,5 +29,5 @@ export function matchFilenames(
     });
     list.push({ filename, has });
   }
-  return list.sort((a, b) => a.filename.localeCompare(b.filename));
+  return list.sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true }));
 }

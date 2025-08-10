@@ -139,6 +139,7 @@ export default function App() {
   const [numViewers, setNumViewers] = useState(2);
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [indicator, setIndicator] = useState<{ cx: number, cy: number } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fileOf = (key: FolderKey, item: MatchedItem | null) => {
     if (!item) return undefined;
@@ -176,6 +177,15 @@ export default function App() {
     () => matchFilenames(activeFolders, stripExt),
     [activeFolders, stripExt]
   );
+
+  const filteredMatched = useMemo(() => {
+    if (!searchQuery) {
+      return matched;
+    }
+    return matched.filter(item =>
+      item.filename.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [matched, searchQuery]);
 
   const resetView = () => setViewport({ scale: 1, cx: 0.5, cy: 0.5 });
 
@@ -226,9 +236,17 @@ export default function App() {
       </header>
       <main>
         <aside className="filelist">
-          <div className="count">Matched: {matched.length}</div>
+          <div className="filelist-header">
+            <input
+              type="text"
+              placeholder="Search files..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+            <div className="count">Matched: {filteredMatched.length}</div>
+          </div>
           <ul>
-            {matched.map(m => (
+            {filteredMatched.map(m => (
               <li key={m.filename}
                   className={current?.filename === m.filename ? "active": ""}
                   onClick={()=>setCurrent(m)}>

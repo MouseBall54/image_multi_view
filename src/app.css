@@ -7,8 +7,10 @@ header { display:flex; flex-direction: column; gap: 8px; padding: 8px; border-bo
 .viewport-controls input { width: 80px; text-align: right; }
 main { flex:1; display:flex; min-height: 0; }
 
-.filelist { width: 280px; border-right: 1px solid #eee; overflow:auto; padding: 8px; }
-.filelist ul { list-style:none; padding:0; margin:0; }
+.filelist { width: 280px; border-right: 1px solid #eee; display: flex; flex-direction: column; }
+.filelist-header { padding: 8px; border-bottom: 1px solid #eee; }
+.filelist-header input { width: 100%; padding: 4px; box-sizing: border-box; margin-bottom: 8px; }
+.filelist ul { list-style:none; padding:0; margin:0; flex: 1; overflow-y: auto; }
 .filelist li { padding: 6px 8px; cursor:pointer; display:flex; justify-content:space-between; }
 .filelist li.active { background:#eef7ff; }
 
