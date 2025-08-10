@@ -4,7 +4,7 @@ import { filesFromInput, pickDirectory, FolderData } from "./utils/folder";
 import { ImageCanvas } from "./components/ImageCanvas";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { useStore } from "./store";
-import type { FolderKey, MatchedItem } from "./types";
+import type { FolderKey, MatchedItem, AppMode } from "./types";
 import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP } from "./config";
 
 function useFolderPickers() {
@@ -137,12 +137,13 @@ export default function App() {
   const { A, B, C, D, pick, inputRefs, onInput } = useFolderPickers();
   const [stripExt, setStripExt] = useState(true);
   const [current, setCurrent] = useState<MatchedItem | null>(null);
-  const { syncMode, setSyncMode, setViewport, fitScaleFn } = useStore();
+  const { appMode, setAppMode, syncMode, setSyncMode, setViewport, fitScaleFn } = useStore();
   const [numViewers, setNumViewers] = useState(2);
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [indicator, setIndicator] = useState<{ cx: number, cy: number, key: number } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showInfoPanel, setShowInfoPanel] = useState(false);
+  const [toggleSource, setToggleSource] = useState<FolderKey>('A');
 
   const fileOf = (key: FolderKey, item: MatchedItem | null) => {
     if (!item) return undefined;
@@ -171,10 +172,12 @@ export default function App() {
 
   const activeFolders = useMemo(() => {
     const folders: any = { A: A?.files, B: B?.files };
-    if (numViewers >= 3) folders.C = C?.files;
-    if (numViewers >= 4) folders.D = D?.files;
+    if (appMode === 'compare') {
+      if (numViewers >= 3) folders.C = C?.files;
+      if (numViewers >= 4) folders.D = D?.files;
+    }
     return folders;
-  }, [A, B, C, D, numViewers]);
+  }, [A, B, C, D, numViewers, appMode]);
 
   const matched = useMemo(
     () => matchFilenames(activeFolders, stripExt),
@@ -205,6 +208,12 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) {
+        return;
+      }
+      
+      if (appMode === 'toggle' && e.key === ' ') {
+        e.preventDefault();
+        setToggleSource(prev => prev === 'A' ? 'B' : 'A');
         return;
       }
 
@@ -276,7 +285,10 @@ export default function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [current, filteredMatched, syncMode, setSyncMode, setViewport, resetView, imageDimensions]);
+  }, [current, filteredMatched, syncMode, setSyncMode, setViewport, resetView, imageDimensions, appMode]);
+
+  const currentFolders = appMode === 'toggle' ? { A, B } : { A, B, C, D };
+  const viewersCount = appMode === 'compare' ? numViewers : 1;
 
   return (
     <div className="app">
@@ -286,8 +298,8 @@ export default function App() {
           <div className="controls">
             <button onClick={() => pick("A")}>Pick Folder A</button>
             <button onClick={() => pick("B")}>Pick Folder B</button>
-            {numViewers >= 3 && <button onClick={() => pick("C")}>Pick Folder C</button>}
-            {numViewers >= 4 && <button onClick={() => pick("D")}>Pick Folder D</button>}
+            {appMode === 'compare' && numViewers >= 3 && <button onClick={() => pick("C")}>Pick Folder C</button>}
+            {appMode === 'compare' && numViewers >= 4 && <button onClick={() => pick("D")}>Pick Folder D</button>}
             <div style={{ display: 'none' }}>
               <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
               <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
@@ -295,13 +307,22 @@ export default function App() {
               <input ref={inputRefs.D} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("D", e)} />
             </div>
             <label>
-              Viewers:
-              <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-                <option value={4}>4</option>
+              Mode:
+              <select value={appMode} onChange={e => setAppMode(e.target.value as AppMode)}>
+                <option value="compare">Compare</option>
+                <option value="toggle">Toggle</option>
               </select>
             </label>
+            {appMode === 'compare' && (
+              <label>
+                Viewers:
+                <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
+                  <option value={2}>2</option>
+                  <option value={3}>3</option>
+                  <option value={4}>4</option>
+                </select>
+              </label>
+            )}
             <label>
               <input type="checkbox" checked={stripExt} onChange={(e)=>setStripExt(e.target.checked)} />
               <span>Ignore extension</span>
@@ -342,7 +363,7 @@ export default function App() {
             ))}
           </ul>
         </aside>
-        <section className={`viewers viewers-${numViewers}`}>
+        <section className={`viewers viewers-${viewersCount}`}>
           {showInfoPanel && 
             <ImageInfoPanel 
               file={fileOf("A", current)} 
@@ -350,12 +371,24 @@ export default function App() {
               onClose={() => setShowInfoPanel(false)} 
             />
           }
-          <ImageCanvas label={A?.name || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} />
-          <ImageCanvas label={B?.name || 'B'} file={fileOf("B", current)} indicator={indicator} />
-          {numViewers >= 3 && <ImageCanvas label={C?.name || 'C'} file={fileOf("C", current)} indicator={indicator} />}
-          {numViewers >= 4 && <ImageCanvas label={D?.name || 'D'} file={fileOf("D", current)} indicator={indicator} />}
+          {appMode === 'compare' ? (
+            <>
+              <ImageCanvas label={A?.name || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} />
+              <ImageCanvas label={B?.name || 'B'} file={fileOf("B", current)} indicator={indicator} />
+              {numViewers >= 3 && <ImageCanvas label={C?.name || 'C'} file={fileOf("C", current)} indicator={indicator} />}
+              {numViewers >= 4 && <ImageCanvas label={D?.name || 'D'} file={fileOf("D", current)} indicator={indicator} />}
+            </>
+          ) : (
+            <ImageCanvas 
+              label={currentFolders[toggleSource]?.name || toggleSource} 
+              file={fileOf(toggleSource, current)} 
+              indicator={indicator} 
+              isReference={true} 
+            />
+          )}
         </section>
       </main>
     </div>
   );
 }
+

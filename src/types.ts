@@ -1,5 +1,6 @@
 // src/types.ts
 export type FolderKey = "A" | "B" | "C" | "D";
+export type AppMode = "compare" | "toggle";
 
 export interface PickedFolder {
   key: FolderKey;
