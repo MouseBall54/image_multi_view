@@ -10,6 +10,7 @@ function useFolderPickers() {
   const [A, setA] = useState<Map<string, File> | undefined>();
   const [B, setB] = useState<Map<string, File> | undefined>();
   const [C, setC] = useState<Map<string, File> | undefined>();
+  const [D, setD] = useState<Map<string, File> | undefined>();
 
   const pick = async (key: FolderKey) => {
     try {
@@ -17,6 +18,7 @@ function useFolderPickers() {
       if (key === "A") setA(map);
       if (key === "B") setB(map);
       if (key === "C") setC(map);
+      if (key === "D") setD(map);
     } catch (error) {
       console.error("Error picking directory:", error);
       // Fallback for browsers that do not support showDirectoryPicker
@@ -30,6 +32,7 @@ function useFolderPickers() {
     A: useRef<HTMLInputElement>(null),
     B: useRef<HTMLInputElement>(null),
     C: useRef<HTMLInputElement>(null),
+    D: useRef<HTMLInputElement>(null),
   };
 
   const onInput = (key: FolderKey, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,25 +41,29 @@ function useFolderPickers() {
     if (key === "A") setA(map);
     if (key === "B") setB(map);
     if (key === "C") setC(map);
+    if (key === "D") setD(map);
   };
 
-  return { A, B, C, pick, inputRefs, onInput };
+  return { A, B, C, D, pick, inputRefs, onInput };
 }
 
 export default function App() {
-  const { A, B, C, pick, inputRefs, onInput } = useFolderPickers();
+  const { A, B, C, D, pick, inputRefs, onInput } = useFolderPickers();
   const [stripExt, setStripExt] = useState(false);
   const [current, setCurrent] = useState<MatchedItem | null>(null);
   const { syncMode, setSyncMode, setViewport } = useStore();
-  const [numViewers, setNumViewers] = useState(3);
+  const [numViewers, setNumViewers] = useState(2);
 
   const activeFolders = useMemo(() => {
     const folders: any = { A, B };
-    if (numViewers === 3) {
+    if (numViewers >= 3) {
       folders.C = C;
     }
+    if (numViewers >= 4) {
+      folders.D = D;
+    }
     return folders;
-  }, [A, B, C, numViewers]);
+  }, [A, B, C, D, numViewers]);
 
   const matched = useMemo(
     () => matchFilenames(activeFolders, stripExt),
@@ -65,7 +72,7 @@ export default function App() {
 
   const fileOf = (key: FolderKey, item: MatchedItem | null) => {
     if (!item) return undefined;
-    const map = (key === "A" ? A : key === "B" ? B : C);
+    const map = (key === "A" ? A : key === "B" ? B : key === "C" ? C : D);
     if (!map) return undefined;
     // stripExt일 때 실제 파일명 찾아 매핑
     const name = stripExt
@@ -83,13 +90,15 @@ export default function App() {
         <div className="controls">
           <button onClick={() => pick("A")}>Pick Folder A</button>
           <button onClick={() => pick("B")}>Pick Folder B</button>
-          {numViewers === 3 && <button onClick={() => pick("C")}>Pick Folder C</button>}
+          {numViewers >= 3 && <button onClick={() => pick("C")}>Pick Folder C</button>}
+          {numViewers >= 4 && <button onClick={() => pick("D")}>Pick Folder D</button>}
 
           {/* Fallbacks */}
           <div style={{ display: 'none' }}>
             <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
             <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
             <input ref={inputRefs.C} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("C", e)} />
+            <input ref={inputRefs.D} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("D", e)} />
           </div>
 
           <label>
@@ -97,6 +106,7 @@ export default function App() {
             <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
               <option value={2}>2</option>
               <option value={3}>3</option>
+              <option value={4}>4</option>
             </select>
           </label>
 
@@ -127,7 +137,7 @@ export default function App() {
                   onClick={()=>setCurrent(m)}>
                 {m.filename}
                 <span className="has">
-                  {m.has.A ? " A" : ""}{m.has.B ? " B" : ""}{m.has.C && numViewers === 3 ? " C" : ""}
+                  {m.has.A ? " A" : ""}{m.has.B ? " B" : ""}{m.has.C && numViewers >= 3 ? " C" : ""}{m.has.D && numViewers >= 4 ? " D" : ""}
                 </span>
               </li>
             ))}
@@ -137,7 +147,8 @@ export default function App() {
         <section className={`viewers viewers-${numViewers}`}>
           <ImageCanvas label="A" file={fileOf("A", current)} />
           <ImageCanvas label="B" file={fileOf("B", current)} />
-          {numViewers === 3 && <ImageCanvas label="C" file={fileOf("C", current)} />}
+          {numViewers >= 3 && <ImageCanvas label="C" file={fileOf("C", current)} />}
+          {numViewers >= 4 && <ImageCanvas label="D" file={fileOf("D", current)} />}
         </section>
       </main>
     </div>

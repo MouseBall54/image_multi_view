@@ -1,5 +1,5 @@
 // src/types.ts
-export type FolderKey = "A" | "B" | "C";
+export type FolderKey = "A" | "B" | "C" | "D";
 
 export interface PickedFolder {
   key: FolderKey;

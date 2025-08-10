@@ -18,7 +18,7 @@ export function matchFilenames(
 
   const list: MatchedItem[] = [];
   for (const filename of intersect) {
-    const has: any = { A: false, B: false, C: false };
+    const has: any = { A: false, B: false, C: false, D: false };
     keys.forEach(k => {
       const map = folders[k]!;
       // stripExt 매칭 시 실제 파일명 다시 찾아 매핑(간단화: 첫 일치)
