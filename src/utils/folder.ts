@@ -1,11 +1,21 @@
 // src/utils/folder.ts
+
+const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.tif', '.tiff']);
+
+function isImageFile(filename: string): boolean {
+  const i = filename.lastIndexOf('.');
+  if (i < 0) return false;
+  const ext = filename.substring(i).toLowerCase();
+  return IMAGE_EXTENSIONS.has(ext);
+}
+
 export async function pickDirectory(): Promise<Map<string, File>> {
   // File System Access API
   // @ts-ignore
   const handle: FileSystemDirectoryHandle = await (window as any).showDirectoryPicker();
   const map = new Map<string, File>();
   for await (const [name, entry] of (handle as any).entries()) {
-    if (entry.kind === "file") {
+    if (entry.kind === "file" && isImageFile(name)) {
       const file = await entry.getFile();
       map.set(name, file);
     }
@@ -16,7 +26,11 @@ export async function pickDirectory(): Promise<Map<string, File>> {
 // <input webkitdirectory> fallback 처리
 export function filesFromInput(fileList: FileList): Map<string, File> {
   const map = new Map<string, File>();
-  Array.from(fileList).forEach(f => map.set(f.name, f));
+  Array.from(fileList).forEach(f => {
+    if (isImageFile(f.name)) {
+      map.set(f.name, f);
+    }
+  });
   return map;
 }
 
