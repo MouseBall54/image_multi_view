@@ -9,29 +9,42 @@ function isImageFile(filename: string): boolean {
   return IMAGE_EXTENSIONS.has(ext);
 }
 
-export async function pickDirectory(): Promise<Map<string, File>> {
+export type FolderData = {
+  name: string;
+  files: Map<string, File>;
+};
+
+export async function pickDirectory(): Promise<FolderData> {
   // File System Access API
   // @ts-ignore
   const handle: FileSystemDirectoryHandle = await (window as any).showDirectoryPicker();
-  const map = new Map<string, File>();
+  const files = new Map<string, File>();
   for await (const [name, entry] of (handle as any).entries()) {
     if (entry.kind === "file" && isImageFile(name)) {
       const file = await entry.getFile();
-      map.set(name, file);
+      files.set(name, file);
     }
   }
-  return map;
+  return { name: handle.name, files };
 }
 
 // <input webkitdirectory> fallback 처리
-export function filesFromInput(fileList: FileList): Map<string, File> {
-  const map = new Map<string, File>();
+export function filesFromInput(fileList: FileList): FolderData | null {
+  if (fileList.length === 0) return null;
+
+  const files = new Map<string, File>();
   Array.from(fileList).forEach(f => {
     if (isImageFile(f.name)) {
-      map.set(f.name, f);
+      files.set(f.name, f);
     }
   });
-  return map;
+
+  if (files.size === 0) return null;
+
+  const firstFile = Array.from(fileList).find(f => isImageFile(f.name));
+  const folderName = firstFile ? firstFile.webkitRelativePath.split('/')[0] : "Unknown";
+  
+  return { name: folderName, files };
 }
 
 // 확장자 제외 매칭을 원하면 아래 유틸 활용

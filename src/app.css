@@ -1,24 +1,198 @@
-/* src/app.css (임의) */
-.app { display:flex; flex-direction: column; gap: 8px; height: 100vh; }
-header { display:flex; flex-direction: column; gap: 8px; padding: 8px; border-bottom: 1px solid #ddd; }
-.controls { display:flex; gap: 8px; flex-wrap: wrap; align-items:center; }
-.viewport-controls { display:flex; gap: 16px; align-items:center; padding-top: 8px; }
-.viewport-controls label { display:flex; gap: 4px; align-items:center; }
-.viewport-controls input { width: 80px; text-align: right; }
-main { flex:1; display:flex; min-height: 0; }
+:root {
+  --bg-dark: #1a1a1a;
+  --bg-med: #2a2a2a;
+  --bg-light: #3a3a3a;
+  --text-primary: #f0f0f0;
+  --text-secondary: #a0a0a0;
+  --accent-primary: #007bff;
+  --accent-hover: #0056b3;
+  --border-color: #444;
+  --danger-color: #dc3545;
+}
 
-.filelist { width: 280px; border-right: 1px solid #eee; display: flex; flex-direction: column; }
-.filelist-header { padding: 8px; border-bottom: 1px solid #eee; }
-.filelist-header input { width: 100%; padding: 4px; box-sizing: border-box; margin-bottom: 8px; }
-.filelist ul { list-style:none; padding:0; margin:0; flex: 1; overflow-y: auto; }
-.filelist li { padding: 6px 8px; cursor:pointer; display:flex; justify-content:space-between; }
-.filelist li.active { background:#eef7ff; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  margin: 0;
+}
 
-.viewers { flex:1; display:grid; gap: 8px; padding: 8px; min-width:0; }
+.app { 
+  display:flex; 
+  flex-direction: column; 
+  height: 100vh; 
+  background-color: var(--bg-dark);
+}
+
+header { 
+  display:flex; 
+  flex-direction: column; 
+  gap: 12px; 
+  padding: 16px; 
+  border-bottom: 1px solid var(--border-color); 
+  background-color: var(--bg-med);
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.controls, .viewport-controls {
+  display:flex; 
+  gap: 12px; 
+  flex-wrap: wrap; 
+  align-items:center; 
+}
+
+.controls button, .controls select, .controls input[type="checkbox"] + label,
+.viewport-controls input, .viewport-controls label {
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.controls button {
+  cursor: pointer;
+}
+
+.controls button:hover {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-hover);
+}
+
+.controls label, .viewport-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.controls input[type="checkbox"] {
+  margin-right: 4px;
+}
+
+.viewport-controls input { 
+  width: 80px; 
+  text-align: right; 
+}
+
+main { 
+  flex:1; 
+  display:flex; 
+  min-height: 0; 
+}
+
+.filelist { 
+  width: 300px; 
+  border-right: 1px solid var(--border-color); 
+  display: flex; 
+  flex-direction: column;
+  background-color: var(--bg-med);
+}
+
+.filelist-header { 
+  padding: 12px; 
+  border-bottom: 1px solid var(--border-color); 
+}
+
+.filelist-header input { 
+  width: 100%; 
+  padding: 8px; 
+  box-sizing: border-box; 
+  margin-bottom: 8px; 
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 6px;
+}
+
+.filelist-header .count {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.filelist ul { 
+  list-style:none; 
+  padding:0; 
+  margin:0; 
+  flex: 1; 
+  overflow-y: auto; 
+}
+
+.filelist li { 
+  padding: 10px 12px; 
+  cursor:pointer; 
+  display:flex; 
+  justify-content:space-between; 
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s;
+}
+
+.filelist li:hover {
+  background-color: var(--bg-light);
+}
+
+.filelist li.active { 
+  background: var(--accent-primary); 
+  color: white;
+}
+
+.filelist li .has {
+  color: var(--text-secondary);
+}
+
+.filelist li.active .has {
+  color: #e0e0e0;
+}
+
+.viewers { 
+  flex:1; 
+  display:grid; 
+  gap: 4px; 
+  padding: 4px; 
+  min-width:0; 
+}
 .viewers.viewers-2 { grid-template-columns: repeat(2, 1fr); }
 .viewers.viewers-3 { grid-template-columns: repeat(3, 1fr); }
 .viewers.viewers-4 { grid-template-columns: repeat(2, 1fr); }
-.viewer { position: relative; background:#111; border-radius: 6px; overflow:hidden; }
-.viewer__canvas { width: 100%; height: 100%; display:block; }
-.viewer__label { position:absolute; top:6px; left:6px; color:#fff; font-weight:bold; background:rgba(0,0,0,.4); padding:2px 6px; border-radius:4px; }
-.viewer__placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#999; }
+
+.viewer { 
+  position: relative; 
+  background:#000; 
+  border-radius: 6px; 
+  overflow:hidden; 
+}
+
+.viewer__canvas { 
+  width: 100%; 
+  height: 100%; 
+  display:block; 
+}
+
+.viewer__label { 
+  position:absolute; 
+  top:8px; 
+  left:8px; 
+  color:#fff; 
+  font-weight:bold; 
+  background:rgba(0,0,0,.5); 
+  padding:4px 8px; 
+  border-radius:4px; 
+  font-size: 0.9rem;
+}
+
+.viewer__placeholder { 
+  position:absolute; 
+  inset:0; 
+  display:flex; 
+  align-items:center; 
+  justify-content:center; 
+  color:var(--text-secondary); 
+}

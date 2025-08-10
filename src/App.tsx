@@ -1,24 +1,24 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { matchFilenames } from "./utils/match";
-import { filesFromInput, pickDirectory } from "./utils/folder";
+import { filesFromInput, pickDirectory, FolderData } from "./utils/folder";
 import { ImageCanvas } from "./components/ImageCanvas";
 import { useStore } from "./store";
 import type { FolderKey, MatchedItem } from "./types";
 import { MAX_ZOOM, MIN_ZOOM } from "./config";
 
 function useFolderPickers() {
-  const [A, setA] = useState<Map<string, File> | undefined>();
-  const [B, setB] = useState<Map<string, File> | undefined>();
-  const [C, setC] = useState<Map<string, File> | undefined>();
-  const [D, setD] = useState<Map<string, File> | undefined>();
+  const [A, setA] = useState<FolderData | undefined>();
+  const [B, setB] = useState<FolderData | undefined>();
+  const [C, setC] = useState<FolderData | undefined>();
+  const [D, setD] = useState<FolderData | undefined>();
 
   const pick = async (key: FolderKey) => {
     try {
-      const map = await pickDirectory();
-      if (key === "A") setA(map);
-      if (key === "B") setB(map);
-      if (key === "C") setC(map);
-      if (key === "D") setD(map);
+      const folderData = await pickDirectory();
+      if (key === "A") setA(folderData);
+      if (key === "B") setB(folderData);
+      if (key === "C") setC(folderData);
+      if (key === "D") setD(folderData);
     } catch (error) {
       console.error("Error picking directory:", error);
       if (inputRefs[key].current) {
@@ -36,11 +36,12 @@ function useFolderPickers() {
 
   const onInput = (key: FolderKey, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
-    const map = filesFromInput(e.target.files);
-    if (key === "A") setA(map);
-    if (key === "B") setB(map);
-    if (key === "C") setC(map);
-    if (key === "D") setD(map);
+    const folderData = filesFromInput(e.target.files);
+    if (!folderData) return;
+    if (key === "A") setA(folderData);
+    if (key === "B") setB(folderData);
+    if (key === "C") setC(folderData);
+    if (key === "D") setD(folderData);
   };
 
   return { A, B, C, D, pick, inputRefs, onInput };
@@ -93,7 +94,7 @@ function ViewportControls({ imageDimensions, onViewportSet }: {
   return (
     <div className="viewport-controls">
       <label>
-        Scale:
+        <span>Scale:</span>
         <input
           type="text"
           value={scaleInput}
@@ -101,10 +102,10 @@ function ViewportControls({ imageDimensions, onViewportSet }: {
           onBlur={applyChanges}
           onKeyDown={handleKeyDown}
         />
-        %
+        <span>%</span>
       </label>
       <label>
-        X:
+        <span>X:</span>
         <input
           type="text"
           value={xInput}
@@ -113,10 +114,10 @@ function ViewportControls({ imageDimensions, onViewportSet }: {
           onBlur={applyChanges}
           onKeyDown={handleKeyDown}
         />
-        px
+        <span>px</span>
       </label>
       <label>
-        Y:
+        <span>Y:</span>
         <input
           type="text"
           value={yInput}
@@ -125,7 +126,7 @@ function ViewportControls({ imageDimensions, onViewportSet }: {
           onBlur={applyChanges}
           onKeyDown={handleKeyDown}
         />
-        px
+        <span>px</span>
       </label>
     </div>
   );
@@ -143,12 +144,12 @@ export default function App() {
 
   const fileOf = (key: FolderKey, item: MatchedItem | null) => {
     if (!item) return undefined;
-    const map = (key === "A" ? A : key === "B" ? B : key === "C" ? C : D);
-    if (!map) return undefined;
+    const folder = (key === "A" ? A : key === "B" ? B : key === "C" ? C : D);
+    if (!folder?.files) return undefined;
     const name = stripExt
-      ? Array.from(map.keys()).find(n => n.replace(/\.[^/.]+$/, "") === item.filename)
+      ? Array.from(folder.files.keys()).find(n => n.replace(/\.[^/.]+$/, "") === item.filename)
       : item.filename;
-    return name ? map.get(name) : undefined;
+    return name ? folder.files.get(name) : undefined;
   };
 
   useEffect(() => {
@@ -167,9 +168,9 @@ export default function App() {
   }, [current, A]);
 
   const activeFolders = useMemo(() => {
-    const folders: any = { A, B };
-    if (numViewers >= 3) folders.C = C;
-    if (numViewers >= 4) folders.D = D;
+    const folders: any = { A: A?.files, B: B?.files };
+    if (numViewers >= 3) folders.C = C?.files;
+    if (numViewers >= 4) folders.D = D?.files;
     return folders;
   }, [A, B, C, D, numViewers]);
 
@@ -221,7 +222,7 @@ export default function App() {
           </label>
           <label>
             <input type="checkbox" checked={stripExt} onChange={(e)=>setStripExt(e.target.checked)} />
-            match by filename (no extension)
+            <span>match by filename (no extension)</span>
           </label>
           <label>
             Sync:
@@ -259,10 +260,10 @@ export default function App() {
           </ul>
         </aside>
         <section className={`viewers viewers-${numViewers}`}>
-          <ImageCanvas label="A" file={fileOf("A", current)} indicator={indicator} />
-          <ImageCanvas label="B" file={fileOf("B", current)} indicator={indicator} />
-          {numViewers >= 3 && <ImageCanvas label="C" file={fileOf("C", current)} indicator={indicator} />}
-          {numViewers >= 4 && <ImageCanvas label="D" file={fileOf("D", current)} indicator={indicator} />}
+          <ImageCanvas label={A?.name || 'A'} file={fileOf("A", current)} indicator={indicator} />
+          <ImageCanvas label={B?.name || 'B'} file={fileOf("B", current)} indicator={indicator} />
+          {numViewers >= 3 && <ImageCanvas label={C?.name || 'C'} file={fileOf("C", current)} indicator={indicator} />}
+          {numViewers >= 4 && <ImageCanvas label={D?.name || 'D'} file={fileOf("D", current)} indicator={indicator} />}
         </section>
       </main>
     </div>
