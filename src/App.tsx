@@ -1,7 +1,7 @@
 // src/App.tsx
 import React, { useMemo, useRef, useState } from "react";
-import { filesFromInput, matchFilenames } from "./utils/match";
-import { pickDirectory } from "./utils/folder";
+import { matchFilenames } from "./utils/match";
+import { filesFromInput, pickDirectory } from "./utils/folder";
 import { ImageCanvas } from "./components/ImageCanvas";
 import { useStore } from "./store";
 import type { FolderKey, MatchedItem } from "./types";
@@ -48,10 +48,19 @@ export default function App() {
   const [stripExt, setStripExt] = useState(false);
   const [current, setCurrent] = useState<MatchedItem | null>(null);
   const { syncMode, setSyncMode, setViewport } = useStore();
+  const [numViewers, setNumViewers] = useState(3);
+
+  const activeFolders = useMemo(() => {
+    const folders: any = { A, B };
+    if (numViewers === 3) {
+      folders.C = C;
+    }
+    return folders;
+  }, [A, B, C, numViewers]);
 
   const matched = useMemo(
-    () => matchFilenames({ A, B, C }, stripExt),
-    [A, B, C, stripExt]
+    () => matchFilenames(activeFolders, stripExt),
+    [activeFolders, stripExt]
   );
 
   const fileOf = (key: FolderKey, item: MatchedItem | null) => {
@@ -74,14 +83,22 @@ export default function App() {
         <div className="controls">
           <button onClick={() => pick("A")}>Pick Folder A</button>
           <button onClick={() => pick("B")}>Pick Folder B</button>
-          <button onClick={() => pick("C")}>Pick Folder C</button>
+          {numViewers === 3 && <button onClick={() => pick("C")}>Pick Folder C</button>}
 
           {/* Fallbacks */}
           <div style={{ display: 'none' }}>
-            <input ref={inputRefs.A} type="file" webkitdirectory="true" multiple onChange={(e)=>onInput("A", e)} />
-            <input ref={inputRefs.B} type="file" webkitdirectory="true" multiple onChange={(e)=>onInput("B", e)} />
-            <input ref={inputRefs.C} type="file" webkitdirectory="true" multiple onChange={(e)=>onInput("C", e)} />
+            <input ref={inputRefs.A} type="file" webkitDirectory multiple onChange={(e)=>onInput("A", e)} />
+            <input ref={inputRefs.B} type="file" webkitDirectory multiple onChange={(e)=>onInput("B", e)} />
+            <input ref={inputRefs.C} type="file" webkitDirectory multiple onChange={(e)=>onInput("C", e)} />
           </div>
+
+          <label>
+            Viewers:
+            <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+            </select>
+          </label>
 
           <label>
             <input type="checkbox" checked={stripExt} onChange={(e)=>setStripExt(e.target.checked)} />
@@ -110,17 +127,17 @@ export default function App() {
                   onClick={()=>setCurrent(m)}>
                 {m.filename}
                 <span className="has">
-                  {m.has.A ? " A" : ""}{m.has.B ? " B" : ""}{m.has.C ? " C" : ""}
+                  {m.has.A ? " A" : ""}{m.has.B ? " B" : ""}{m.has.C && numViewers === 3 ? " C" : ""}
                 </span>
               </li>
             ))}
           </ul>
         </aside>
 
-        <section className="viewers">
+        <section className={`viewers viewers-${numViewers}`}>
           <ImageCanvas label="A" file={fileOf("A", current)} />
           <ImageCanvas label="B" file={fileOf("B", current)} />
-          <ImageCanvas label="C" file={fileOf("C", current)} />
+          {numViewers === 3 && <ImageCanvas label="C" file={fileOf("C", current)} />}
         </section>
       </main>
     </div>

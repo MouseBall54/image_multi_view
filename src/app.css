@@ -9,12 +9,10 @@ main { flex:1; display:flex; min-height: 0; }
 .filelist li { padding: 6px 8px; cursor:pointer; display:flex; justify-content:space-between; }
 .filelist li.active { background:#eef7ff; }
 
-.viewers { flex:1; display:grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 8px; min-width:0; }
+.viewers { flex:1; display:grid; gap: 8px; padding: 8px; min-width:0; }
+.viewers.viewers-2 { grid-template-columns: repeat(2, 1fr); }
+.viewers.viewers-3 { grid-template-columns: repeat(3, 1fr); }
 .viewer { position: relative; background:#111; border-radius: 6px; overflow:hidden; }
 .viewer__canvas { width: 100%; height: 100%; display:block; }
 .viewer__label { position:absolute; top:6px; left:6px; color:#fff; font-weight:bold; background:rgba(0,0,0,.4); padding:2px 6px; border-radius:4px; }
 .viewer__placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#999; }
-
-@media (max-width: 1200px) {
-  .viewers { grid-template-columns: repeat(2, 1fr); }
-}
