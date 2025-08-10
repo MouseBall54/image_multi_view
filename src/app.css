@@ -196,3 +196,17 @@ main {
   justify-content:center; 
   color:var(--text-secondary); 
 }
+
+.minimap {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  border: 1px solid var(--border-color);
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.minimap canvas {
+  display: block;
+}

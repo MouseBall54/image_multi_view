@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, PAN_SPEED, RESPECT_EXIF, WHEEL_ZOOM_STEP, USE_OFFSCREEN } from "../config";
+import { Minimap } from "./Minimap";
 
 type Props = {
   file?: File;
@@ -171,6 +172,7 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator }) => {
       <div className="viewer__label">{label}</div>
       <canvas ref={canvasRef} className="viewer__canvas" />
       {!file && <div className="viewer__placeholder">No Image</div>}
+      <Minimap bitmap={bitmap} viewport={viewport} />
     </div>
   );
 };
