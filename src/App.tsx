@@ -139,7 +139,7 @@ export default function App() {
   const { syncMode, setSyncMode, setViewport } = useStore();
   const [numViewers, setNumViewers] = useState(2);
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
-  const [indicator, setIndicator] = useState<{ cx: number, cy: number } | null>(null);
+  const [indicator, setIndicator] = useState<{ cx: number, cy: number, key: number } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const fileOf = (key: FolderKey, item: MatchedItem | null) => {
@@ -192,8 +192,8 @@ export default function App() {
 
   const handleViewportSet = (vp: { cx?: number, cy?: number }) => {
     if (vp.cx !== undefined && vp.cy !== undefined) {
-      setIndicator({ cx: vp.cx, cy: vp.cy });
-      setTimeout(() => setIndicator(null), 1000);
+      setIndicator({ cx: vp.cx, cy: vp.cy, key: Date.now() });
+      setTimeout(() => setIndicator(null), 2000);
     }
   };
 
@@ -201,39 +201,41 @@ export default function App() {
     <div className="app">
       <header>
         <h1>Image Compare Viewer</h1>
-        <div className="controls">
-          <button onClick={() => pick("A")}>Pick Folder A</button>
-          <button onClick={() => pick("B")}>Pick Folder B</button>
-          {numViewers >= 3 && <button onClick={() => pick("C")}>Pick Folder C</button>}
-          {numViewers >= 4 && <button onClick={() => pick("D")}>Pick Folder D</button>}
-          <div style={{ display: 'none' }}>
-            <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
-            <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
-            <input ref={inputRefs.C} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("C", e)} />
-            <input ref={inputRefs.D} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("D", e)} />
+        <div className="top-controls-wrapper">
+          <div className="controls">
+            <button onClick={() => pick("A")}>Pick Folder A</button>
+            <button onClick={() => pick("B")}>Pick Folder B</button>
+            {numViewers >= 3 && <button onClick={() => pick("C")}>Pick Folder C</button>}
+            {numViewers >= 4 && <button onClick={() => pick("D")}>Pick Folder D</button>}
+            <div style={{ display: 'none' }}>
+              <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
+              <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
+              <input ref={inputRefs.C} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("C", e)} />
+              <input ref={inputRefs.D} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("D", e)} />
+            </div>
+            <label>
+              Viewers:
+              <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+              </select>
+            </label>
+            <label>
+              <input type="checkbox" checked={stripExt} onChange={(e)=>setStripExt(e.target.checked)} />
+              <span>match by filename (no extension)</span>
+            </label>
+            <label>
+              Sync:
+              <select value={syncMode} onChange={e => setSyncMode(e.target.value as any)}>
+                <option value="locked">locked</option>
+                <option value="unlocked">unlocked</option>
+              </select>
+            </label>
+            <button onClick={resetView}>Reset View</button>
           </div>
-          <label>
-            Viewers:
-            <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
-              <option value={2}>2</option>
-              <option value={3}>3</option>
-              <option value={4}>4</option>
-            </select>
-          </label>
-          <label>
-            <input type="checkbox" checked={stripExt} onChange={(e)=>setStripExt(e.target.checked)} />
-            <span>match by filename (no extension)</span>
-          </label>
-          <label>
-            Sync:
-            <select value={syncMode} onChange={e => setSyncMode(e.target.value as any)}>
-              <option value="locked">locked</option>
-              <option value="unlocked">unlocked</option>
-            </select>
-          </label>
-          <button onClick={resetView}>Reset View</button>
+          <ViewportControls imageDimensions={imageDimensions} onViewportSet={handleViewportSet} />
         </div>
-        <ViewportControls imageDimensions={imageDimensions} onViewportSet={handleViewportSet} />
       </header>
       <main>
         <aside className="filelist">

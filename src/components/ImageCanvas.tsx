@@ -7,7 +7,7 @@ import { Minimap } from "./Minimap";
 type Props = {
   file?: File;
   label: string;
-  indicator?: { cx: number, cy: number } | null;
+  indicator?: { cx: number, cy: number, key: number } | null;
 };
 
 export const ImageCanvas: React.FC<Props> = ({ file, label, indicator }) => {
@@ -51,17 +51,8 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator }) => {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(bitmap, x, y, drawW, drawH);
-
-    if (indicator) {
-      const indicatorX = x + indicator.cx * drawW;
-      const indicatorY = y + indicator.cy * drawH;
-      ctx.beginPath();
-      ctx.arc(indicatorX, indicatorY, 15, 0, 2 * Math.PI);
-      ctx.strokeStyle = "rgba(255, 0, 0, 0.75)";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    }
-  }, [bitmap, viewport, indicator]);
+    
+  }, [bitmap, viewport]);
 
   // 상호작용: wheel zoom / drag pan
   useEffect(() => {
@@ -172,6 +163,33 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator }) => {
       <div className="viewer__label">{label}</div>
       <canvas ref={canvasRef} className="viewer__canvas" />
       {!file && <div className="viewer__placeholder">No Image</div>}
+      {indicator && bitmap && canvasRef.current && (
+        (() => {
+          const canvas = canvasRef.current;
+          const scale = viewport.scale;
+          const cx = viewport.cx * bitmap.width;
+          const cy = viewport.cy * bitmap.height;
+          const drawW = bitmap.width * scale;
+          const drawH = bitmap.height * scale;
+          
+          const x = (canvas.width / 2) - (cx * scale);
+          const y = (canvas.height / 2) - (cy * scale);
+
+          const indicatorX = x + indicator.cx * drawW;
+          const indicatorY = y + indicator.cy * drawH;
+
+          return (
+            <div
+              key={indicator.key}
+              className="indicator-dot"
+              style={{
+                left: `${indicatorX}px`,
+                top: `${indicatorY}px`,
+              }}
+            />
+          );
+        })()
+      )}
       <Minimap bitmap={bitmap} viewport={viewport} />
     </div>
   );
