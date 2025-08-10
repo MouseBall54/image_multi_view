@@ -87,9 +87,9 @@ export default function App() {
 
           {/* Fallbacks */}
           <div style={{ display: 'none' }}>
-            <input ref={inputRefs.A} type="file" webkitDirectory multiple onChange={(e)=>onInput("A", e)} />
-            <input ref={inputRefs.B} type="file" webkitDirectory multiple onChange={(e)=>onInput("B", e)} />
-            <input ref={inputRefs.C} type="file" webkitDirectory multiple onChange={(e)=>onInput("C", e)} />
+            <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
+            <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
+            <input ref={inputRefs.C} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("C", e)} />
           </div>
 
           <label>

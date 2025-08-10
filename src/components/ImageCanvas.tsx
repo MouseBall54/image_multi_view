@@ -12,6 +12,7 @@ export const ImageCanvas: React.FC<Props> = ({ file, label }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
   const { viewport, setViewport, syncMode } = useStore();
+  const animationFrameId = useRef<number | null>(null);
 
   // 이미지 로드
   useEffect(() => {
@@ -71,58 +72,78 @@ export const ImageCanvas: React.FC<Props> = ({ file, label }) => {
       const mx = e.clientX - left;
       const my = e.clientY - top;
 
-      const preScale = viewport.scale;
+      const { viewport: currentViewport } = useStore.getState();
+      const preScale = currentViewport.scale;
       const delta = e.deltaY < 0 ? WHEEL_ZOOM_STEP : (1 / WHEEL_ZOOM_STEP);
       let next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, preScale * delta));
       if (next === preScale) return;
 
-      let { cx, cy } = viewport;
+      let { cx, cy } = currentViewport;
 
       if (CURSOR_ZOOM_CENTERED) {
-        // 화면좌표(mx,my)를 이미지 정규좌표로 역변환 → center 보정
         const imgW = bitmap.width, imgH = bitmap.height;
         const drawW = imgW * preScale, drawH = imgH * preScale;
         const x = (canvas.width / 2) - (cx * imgW * preScale);
         const y = (canvas.height / 2) - (cy * imgH * preScale);
-        const imgX = (mx - x) / drawW; // [0..1]
+        const imgX = (mx - x) / drawW;
         const imgY = (my - y) / drawH;
 
-        // 새 scale에 맞춰 center 유지
         const drawW2 = imgW * next, drawH2 = imgH * next;
         const x2 = mx - imgX * drawW2;
         const y2 = my - imgY * drawH2;
-        const newCxPx = ( (canvas.width/2) - x2 ) / next; // px
-        const newCyPx = ( (canvas.height/2) - y2 ) / next;
+        const newCxPx = ((canvas.width / 2) - x2) / next;
+        const newCyPx = ((canvas.height / 2) - y2) / next;
         cx = newCxPx / imgW;
         cy = newCyPx / imgH;
       }
-      // 동기화 모드일 때 전역 변경
       if (syncMode === "locked") {
         setViewport({ scale: next, cx, cy });
       }
     };
 
-    const onDown = (e: MouseEvent) => { isDown = true; lastX = e.clientX; lastY = e.clientY; };
-    const onUp = () => { isDown = false; };
+    const onDown = (e: MouseEvent) => {
+      isDown = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      canvas.style.cursor = 'grabbing';
+    };
+    const onUp = () => {
+      isDown = false;
+      canvas.style.cursor = 'grab';
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
+    };
     const onMove = (e: MouseEvent) => {
       if (!isDown) return;
       e.preventDefault();
-      const dx = (e.clientX - lastX) * PAN_SPEED;
-      const dy = (e.clientY - lastY) * PAN_SPEED;
-      lastX = e.clientX; lastY = e.clientY;
 
-      // 화면 이동 → center 보정
-      const imgW = bitmap.width, imgH = bitmap.height;
-      const dpX = -dx / (viewport.scale * imgW);
-      const dpY = -dy / (viewport.scale * imgH);
-      let cx = viewport.cx + dpX;
-      let cy = viewport.cy + dpY;
+      if (animationFrameId.current) {
+        return;
+      }
 
-      // 경계 제한(여유 허용 가능)
-      cx = Math.min(1.2, Math.max(-0.2, cx));
-      cy = Math.min(1.2, Math.max(-0.2, cy));
+      animationFrameId.current = requestAnimationFrame(() => {
+        const dx = (e.clientX - lastX) * PAN_SPEED;
+        const dy = (e.clientY - lastY) * PAN_SPEED;
+        lastX = e.clientX;
+        lastY = e.clientY;
 
-      if (syncMode === "locked") setViewport({ cx, cy });
+        const { viewport: currentViewport } = useStore.getState();
+        const imgW = bitmap.width, imgH = bitmap.height;
+        const dpX = -dx / (currentViewport.scale * imgW);
+        const dpY = -dy / (currentViewport.scale * imgH);
+        let cx = currentViewport.cx + dpX;
+        let cy = currentViewport.cy + dpY;
+
+        cx = Math.min(1.2, Math.max(-0.2, cx));
+        cy = Math.min(1.2, Math.max(-0.2, cy));
+
+        if (syncMode === "locked") {
+          setViewport({ cx, cy });
+        }
+        animationFrameId.current = null;
+      });
     };
 
     canvas.addEventListener("wheel", onWheel, { passive: false });
@@ -135,8 +156,11 @@ export const ImageCanvas: React.FC<Props> = ({ file, label }) => {
       canvas.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mousemove", onMove);
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
     };
-  }, [bitmap, viewport, syncMode, setViewport]);
+  }, [bitmap, syncMode, setViewport]);
 
   return (
     <div className="viewer">
