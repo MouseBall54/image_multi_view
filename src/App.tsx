@@ -296,10 +296,10 @@ export default function App() {
         <h1>Image Compare Viewer</h1>
         <div className="top-controls-wrapper">
           <div className="controls">
-            <button onClick={() => pick("A")}>Pick Folder A</button>
-            <button onClick={() => pick("B")}>Pick Folder B</button>
-            {appMode === 'compare' && numViewers >= 3 && <button onClick={() => pick("C")}>Pick Folder C</button>}
-            {appMode === 'compare' && numViewers >= 4 && <button onClick={() => pick("D")}>Pick Folder D</button>}
+            <button onClick={() => pick("A")} className={A ? 'loaded' : ''}>{A ? `A: ${A.name}` : 'Pick Folder A'}</button>
+            <button onClick={() => pick("B")} className={B ? 'loaded' : ''}>{B ? `B: ${B.name}` : 'Pick Folder B'}</button>
+            {appMode === 'compare' && numViewers >= 3 && <button onClick={() => pick("C")} className={C ? 'loaded' : ''}>{C ? `C: ${C.name}` : 'Pick Folder C'}</button>}
+            {appMode === 'compare' && numViewers >= 4 && <button onClick={() => pick("D")} className={D ? 'loaded' : ''}>{D ? `D: ${D.name}` : 'Pick Folder D'}</button>}
             <div style={{ display: 'none' }}>
               <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
               <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
@@ -356,9 +356,6 @@ export default function App() {
                   className={current?.filename === m.filename ? "active": ""}
                   onClick={()=>setCurrent(m)}>
                 {m.filename}
-                <span className="has">
-                  {m.has.A ? " A" : ""}{m.has.B ? " B" : ""}{m.has.C && numViewers >= 3 ? " C" : ""}{m.has.D && numViewers >= 4 ? " D" : ""}
-                </span>
               </li>
             ))}
           </ul>
