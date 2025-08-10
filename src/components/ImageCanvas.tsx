@@ -13,8 +13,31 @@ type Props = {
 export const ImageCanvas: React.FC<Props> = ({ file, label, indicator }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
-  const { viewport, setViewport, syncMode } = useStore();
+  const { viewport, setViewport, syncMode, setFitScaleFn } = useStore();
   const animationFrameId = useRef<number | null>(null);
+
+  const getFitScale = () => {
+    if (!canvasRef.current || !bitmap) {
+      return 1;
+    }
+    const canvas = canvasRef.current;
+    const canvasAspect = canvas.width / canvas.height;
+    const imageAspect = bitmap.width / bitmap.height;
+
+    if (canvasAspect > imageAspect) {
+      // Canvas is wider than image, fit to height
+      return canvas.height / bitmap.height;
+    } else {
+      // Canvas is taller than image, fit to width
+      return canvas.width / bitmap.width;
+    }
+  };
+
+  useEffect(() => {
+    if (label === 'A') {
+      setFitScaleFn(getFitScale);
+    }
+  }, [bitmap, label, setFitScaleFn]);
 
   // 이미지 로드
   useEffect(() => {

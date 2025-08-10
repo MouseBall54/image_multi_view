@@ -136,7 +136,7 @@ export default function App() {
   const { A, B, C, D, pick, inputRefs, onInput } = useFolderPickers();
   const [stripExt, setStripExt] = useState(false);
   const [current, setCurrent] = useState<MatchedItem | null>(null);
-  const { syncMode, setSyncMode, setViewport } = useStore();
+  const { syncMode, setSyncMode, setViewport, fitScaleFn } = useStore();
   const [numViewers, setNumViewers] = useState(2);
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [indicator, setIndicator] = useState<{ cx: number, cy: number, key: number } | null>(null);
@@ -188,7 +188,10 @@ export default function App() {
     );
   }, [matched, searchQuery]);
 
-  const resetView = () => setViewport({ scale: 1, cx: 0.5, cy: 0.5 });
+  const resetView = () => {
+    const newScale = fitScaleFn ? fitScaleFn() : 1;
+    setViewport({ scale: newScale, cx: 0.5, cy: 0.5 });
+  };
 
   const handleViewportSet = (vp: { cx?: number, cy?: number }) => {
     if (vp.cx !== undefined && vp.cy !== undefined) {
@@ -196,6 +199,40 @@ export default function App() {
       setTimeout(() => setIndicator(null), 2000);
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) {
+        return;
+      }
+
+      if (!current || filteredMatched.length === 0) {
+        return;
+      }
+
+      const currentIndex = filteredMatched.findIndex(item => item.filename === current.filename);
+      if (currentIndex === -1) {
+        return;
+      }
+
+      if (e.key === 'a' || e.key === 'A') {
+        const prevIndex = currentIndex - 1;
+        if (prevIndex >= 0) {
+          setCurrent(filteredMatched[prevIndex]);
+        }
+      } else if (e.key === 'd' || e.key === 'D') {
+        const nextIndex = currentIndex + 1;
+        if (nextIndex < filteredMatched.length) {
+          setCurrent(filteredMatched[nextIndex]);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [current, filteredMatched, setCurrent]);
 
   return (
     <div className="app">

@@ -1,19 +1,21 @@
-// src/store.ts
 import { create } from "zustand";
 import type { FolderKey, Viewport, SyncMode } from "./types";
 import { DEFAULT_VIEWPORT } from "./config";
 
 interface State {
   syncMode: SyncMode;
-  viewport: Viewport;              // 기준 viewport
+  viewport: Viewport;
+  fitScaleFn: (() => number) | null;
   setSyncMode: (m: SyncMode) => void;
   setViewport: (vp: Partial<Viewport>) => void;
-  // 각 뷰어가 로컬 보정이 필요하면 per-view 로컬 상태를 추가
+  setFitScaleFn: (fn: () => number) => void;
 }
 
 export const useStore = create<State>((set) => ({
   syncMode: "locked",
   viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5 },
+  fitScaleFn: null,
   setSyncMode: (m) => set({ syncMode: m }),
   setViewport: (vp) => set(s => ({ viewport: { ...s.viewport, ...vp } })),
+  setFitScaleFn: (fn) => set({ fitScaleFn: fn }),
 }));
