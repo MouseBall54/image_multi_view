@@ -4,11 +4,12 @@ import { useStore } from "../store";
 import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, PAN_SPEED, RESPECT_EXIF, WHEEL_ZOOM_STEP, USE_OFFSCREEN } from "../config";
 
 type Props = {
-  file?: File;     // 없는 폴더면 undefined 가능
-  label: string;   // "A" | "B" | "C"
+  file?: File;
+  label: string;
+  indicator?: { cx: number, cy: number } | null;
 };
 
-export const ImageCanvas: React.FC<Props> = ({ file, label }) => {
+export const ImageCanvas: React.FC<Props> = ({ file, label, indicator }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
   const { viewport, setViewport, syncMode } = useStore();
@@ -32,11 +33,9 @@ export const ImageCanvas: React.FC<Props> = ({ file, label }) => {
     if (!canvas || !bitmap) return;
     const ctx = canvas.getContext("2d")!;
     const { width, height } = canvas.getBoundingClientRect();
-    // 실제 pixel size 반영
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
 
-    // viewport -> 화면 변환
     const scale = viewport.scale;
     const cx = viewport.cx * bitmap.width;
     const cy = viewport.cy * bitmap.height;
@@ -47,16 +46,21 @@ export const ImageCanvas: React.FC<Props> = ({ file, label }) => {
     const x = Math.round((canvas.width / 2) - (cx * scale));
     const y = Math.round((canvas.height / 2) - (cy * scale));
 
-    // 성능: OffscreenCanvas 사용 (선택)
-    if (USE_OFFSCREEN && (canvas as any).transferControlToOffscreen) {
-      // 단순도 위해 여기서는 2D 동기 렌더
-    }
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(bitmap, x, y, drawW, drawH);
-  }, [bitmap, viewport]);
+
+    if (indicator) {
+      const indicatorX = x + indicator.cx * drawW;
+      const indicatorY = y + indicator.cy * drawH;
+      ctx.beginPath();
+      ctx.arc(indicatorX, indicatorY, 15, 0, 2 * Math.PI);
+      ctx.strokeStyle = "rgba(255, 0, 0, 0.75)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+  }, [bitmap, viewport, indicator]);
 
   // 상호작용: wheel zoom / drag pan
   useEffect(() => {
@@ -68,7 +72,7 @@ export const ImageCanvas: React.FC<Props> = ({ file, label }) => {
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const { left, top, width, height } = canvas.getBoundingClientRect();
+      const { left, top } = canvas.getBoundingClientRect();
       const mx = e.clientX - left;
       const my = e.clientY - top;
 
@@ -82,15 +86,15 @@ export const ImageCanvas: React.FC<Props> = ({ file, label }) => {
 
       if (CURSOR_ZOOM_CENTERED) {
         const imgW = bitmap.width, imgH = bitmap.height;
-        const drawW = imgW * preScale, drawH = imgH * preScale;
+        const drawW = imgW * preScale;
         const x = (canvas.width / 2) - (cx * imgW * preScale);
         const y = (canvas.height / 2) - (cy * imgH * preScale);
         const imgX = (mx - x) / drawW;
-        const imgY = (my - y) / drawH;
+        const imgY = (my - y) / drawW;
 
-        const drawW2 = imgW * next, drawH2 = imgH * next;
+        const drawW2 = imgW * next;
         const x2 = mx - imgX * drawW2;
-        const y2 = my - imgY * drawH2;
+        const y2 = my - imgY * drawW2;
         const newCxPx = ((canvas.width / 2) - x2) / next;
         const newCyPx = ((canvas.height / 2) - y2) / next;
         cx = newCxPx / imgW;

@@ -2,6 +2,9 @@
 .app { display:flex; flex-direction: column; gap: 8px; height: 100vh; }
 header { display:flex; flex-direction: column; gap: 8px; padding: 8px; border-bottom: 1px solid #ddd; }
 .controls { display:flex; gap: 8px; flex-wrap: wrap; align-items:center; }
+.viewport-controls { display:flex; gap: 16px; align-items:center; padding-top: 8px; }
+.viewport-controls label { display:flex; gap: 4px; align-items:center; }
+.viewport-controls input { width: 80px; text-align: right; }
 main { flex:1; display:flex; min-height: 0; }
 
 .filelist { width: 280px; border-right: 1px solid #eee; overflow:auto; padding: 8px; }
