@@ -293,7 +293,15 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>Image Compare Viewer</h1>
+        <div className="title-container">
+          <svg className="logo" width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 12C2 7.28599 2 4.92898 3.46447 3.46447C4.92898 2 7.28599 2 12 2C16.714 2 19.071 2 20.5355 3.46447C22 4.92898 22 7.28599 22 12C22 16.714 22 19.071 20.5355 20.5355C19.071 22 16.714 22 12 22C7.28599 22 4.92898 22 3.46447 20.5355C2 19.071 2 16.714 2 12Z" stroke="#f0f0f0" strokeWidth="2"/>
+            <path d="M12 2V22" stroke="#f0f0f0" strokeWidth="2"/>
+            <path d="M12 12L16 8" stroke="#f0f0f0" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M12 12L16 16" stroke="#f0f0f0" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+          <h1 className="app-title">CompareX</h1>
+        </div>
         <div className="top-controls-wrapper">
           <div className="controls">
             <button onClick={() => pick("A")} className={A ? 'loaded' : ''}>{A ? `A: ${A.name}` : 'Pick Folder A'}</button>
@@ -324,10 +332,6 @@ export default function App() {
               </label>
             )}
             <label>
-              <input type="checkbox" checked={stripExt} onChange={(e)=>setStripExt(e.target.checked)} />
-              <span>Ignore extension</span>
-            </label>
-            <label>
               Sync:
               <select value={syncMode} onChange={e => setSyncMode(e.target.value as any)}>
                 <option value="locked">locked</option>
@@ -348,7 +352,13 @@ export default function App() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
-            <div className="count">Matched: {filteredMatched.length}</div>
+            <div className="filelist-options">
+              <div className="count">Matched: {filteredMatched.length}</div>
+              <label className="strip-ext-label">
+                <input type="checkbox" checked={stripExt} onChange={(e)=>setStripExt(e.target.checked)} />
+                <span>Ignore extension</span>
+              </label>
+            </div>
           </div>
           <ul>
             {filteredMatched.map(m => (

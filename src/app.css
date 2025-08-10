@@ -35,9 +35,31 @@ header {
   background-color: var(--bg-med);
 }
 
-h1 {
+header {
+  display:flex; 
+  flex-direction: column; 
+  gap: 12px; 
+  padding: 16px; 
+  border-bottom: 1px solid var(--border-color); 
+  background-color: var(--bg-med);
+}
+
+.title-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo path {
+  stroke: var(--accent-primary);
+}
+
+.app-title {
   margin: 0;
   font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
 }
 
 .top-controls-wrapper {
@@ -128,9 +150,24 @@ main {
   border-radius: 6px;
 }
 
+.filelist-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .filelist-header .count {
   color: var(--text-secondary);
   font-size: 0.85rem;
+}
+
+.strip-ext-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 
 .filelist ul { 
