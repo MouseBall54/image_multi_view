@@ -8,36 +8,40 @@ type Props = {
   file?: File;
   label: string;
   indicator?: { cx: number, cy: number, key: number } | null;
+  isReference?: boolean;
 };
 
-export const ImageCanvas: React.FC<Props> = ({ file, label, indicator }) => {
+export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReference }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
   const { viewport, setViewport, syncMode, setFitScaleFn } = useStore();
   const animationFrameId = useRef<number | null>(null);
 
-  const getFitScale = () => {
-    if (!canvasRef.current || !bitmap) {
-      return 1;
-    }
-    const canvas = canvasRef.current;
-    const canvasAspect = canvas.width / canvas.height;
-    const imageAspect = bitmap.width / bitmap.height;
-
-    if (canvasAspect > imageAspect) {
-      // Canvas is wider than image, fit to height
-      return canvas.height / bitmap.height;
-    } else {
-      // Canvas is taller than image, fit to width
-      return canvas.width / bitmap.width;
-    }
-  };
-
   useEffect(() => {
-    if (label === 'A') {
-      setFitScaleFn(getFitScale);
+    if (isReference) {
+      const calculateFitScale = () => {
+        if (!canvasRef.current || !bitmap) {
+          return 1;
+        }
+        const canvas = canvasRef.current;
+        const { width, height } = canvas.getBoundingClientRect();
+
+        const canvasAspect = width / height;
+        const imageAspect = bitmap.width / bitmap.height;
+
+        let scale;
+        if (canvasAspect > imageAspect) {
+          // Canvas is wider than image, fit to height
+          scale = height / bitmap.height;
+        } else {
+          // Canvas is taller than image, fit to width
+          scale = width / bitmap.width;
+        }
+        return scale;
+      };
+      setFitScaleFn(calculateFitScale);
     }
-  }, [bitmap, label, setFitScaleFn]);
+  }, [bitmap, isReference, setFitScaleFn]);
 
   // 이미지 로드
   useEffect(() => {

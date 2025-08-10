@@ -299,7 +299,7 @@ export default function App() {
           </ul>
         </aside>
         <section className={`viewers viewers-${numViewers}`}>
-          <ImageCanvas label={A?.name || 'A'} file={fileOf("A", current)} indicator={indicator} />
+          <ImageCanvas label={A?.name || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} />
           <ImageCanvas label={B?.name || 'B'} file={fileOf("B", current)} indicator={indicator} />
           {numViewers >= 3 && <ImageCanvas label={C?.name || 'C'} file={fileOf("C", current)} indicator={indicator} />}
           {numViewers >= 4 && <ImageCanvas label={D?.name || 'D'} file={fileOf("D", current)} indicator={indicator} />}
