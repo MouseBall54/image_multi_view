@@ -134,7 +134,7 @@ function ViewportControls({ imageDimensions, onViewportSet }: {
 
 export default function App() {
   const { A, B, C, D, pick, inputRefs, onInput } = useFolderPickers();
-  const [stripExt, setStripExt] = useState(false);
+  const [stripExt, setStripExt] = useState(true);
   const [current, setCurrent] = useState<MatchedItem | null>(null);
   const { syncMode, setSyncMode, setViewport, fitScaleFn } = useStore();
   const [numViewers, setNumViewers] = useState(2);
@@ -260,7 +260,7 @@ export default function App() {
             </label>
             <label>
               <input type="checkbox" checked={stripExt} onChange={(e)=>setStripExt(e.target.checked)} />
-              <span>match by filename (no extension)</span>
+              <span>Ignore extension</span>
             </label>
             <label>
               Sync:
