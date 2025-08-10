@@ -244,3 +244,47 @@ main {
 .minimap canvas {
   display: block;
 }
+
+.info-panel {
+  position: absolute;
+  top: 80px;
+  right: 20px;
+  background: rgba(40, 40, 40, 0.9);
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 8px;
+  padding: 15px;
+  width: 300px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  z-index: 100;
+  font-size: 14px;
+}
+
+.info-panel h3 {
+  margin-top: 0;
+  border-bottom: 1px solid #666;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.info-panel ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.info-panel li {
+  margin-bottom: 8px;
+}
+
+.info-panel .close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+}

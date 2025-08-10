@@ -2,9 +2,10 @@ import React, { useMemo, useRef, useState, useEffect } from "react";
 import { matchFilenames } from "./utils/match";
 import { filesFromInput, pickDirectory, FolderData } from "./utils/folder";
 import { ImageCanvas } from "./components/ImageCanvas";
+import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { useStore } from "./store";
 import type { FolderKey, MatchedItem } from "./types";
-import { MAX_ZOOM, MIN_ZOOM } from "./config";
+import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP } from "./config";
 
 function useFolderPickers() {
   const [A, setA] = useState<FolderData | undefined>();
@@ -141,6 +142,7 @@ export default function App() {
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [indicator, setIndicator] = useState<{ cx: number, cy: number, key: number } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
 
   const fileOf = (key: FolderKey, item: MatchedItem | null) => {
     if (!item) return undefined;
@@ -206,25 +208,67 @@ export default function App() {
         return;
       }
 
-      if (!current || filteredMatched.length === 0) {
-        return;
-      }
+      const { viewport } = useStore.getState();
+      const KEY_PAN_AMOUNT = 50; // pixels
 
-      const currentIndex = filteredMatched.findIndex(item => item.filename === current.filename);
-      if (currentIndex === -1) {
-        return;
-      }
+      switch (e.key.toLowerCase()) {
+        // Image navigation
+        case 'a': {
+          if (!current || filteredMatched.length === 0) return;
+          const currentIndex = filteredMatched.findIndex(item => item.filename === current.filename);
+          if (currentIndex > 0) setCurrent(filteredMatched[currentIndex - 1]);
+          break;
+        }
+        case 'd': {
+          if (!current || filteredMatched.length === 0) return;
+          const currentIndex = filteredMatched.findIndex(item => item.filename === current.filename);
+          if (currentIndex < filteredMatched.length - 1) setCurrent(filteredMatched[currentIndex + 1]);
+          break;
+        }
 
-      if (e.key === 'a' || e.key === 'A') {
-        const prevIndex = currentIndex - 1;
-        if (prevIndex >= 0) {
-          setCurrent(filteredMatched[prevIndex]);
-        }
-      } else if (e.key === 'd' || e.key === 'D') {
-        const nextIndex = currentIndex + 1;
-        if (nextIndex < filteredMatched.length) {
-          setCurrent(filteredMatched[nextIndex]);
-        }
+        // View controls
+        case 'r':
+          resetView();
+          break;
+        case 'l':
+          setSyncMode(syncMode === 'locked' ? 'unlocked' : 'locked');
+          break;
+        case 'i':
+          setShowInfoPanel(prev => !prev);
+          break;
+        case '=':
+        case '+':
+          setViewport({ scale: Math.min(MAX_ZOOM, viewport.scale * WHEEL_ZOOM_STEP) });
+          break;
+        case '-':
+          setViewport({ scale: Math.max(MIN_ZOOM, viewport.scale / WHEEL_ZOOM_STEP) });
+          break;
+        
+        // Panning
+        case 'arrowup':
+          e.preventDefault();
+          if (imageDimensions) {
+            setViewport({ cy: viewport.cy - (KEY_PAN_AMOUNT / (viewport.scale * imageDimensions.height)) });
+          }
+          break;
+        case 'arrowdown':
+          e.preventDefault();
+          if (imageDimensions) {
+            setViewport({ cy: viewport.cy + (KEY_PAN_AMOUNT / (viewport.scale * imageDimensions.height)) });
+          }
+          break;
+        case 'arrowleft':
+          e.preventDefault();
+          if (imageDimensions) {
+            setViewport({ cx: viewport.cx - (KEY_PAN_AMOUNT / (viewport.scale * imageDimensions.width)) });
+          }
+          break;
+        case 'arrowright':
+          e.preventDefault();
+          if (imageDimensions) {
+            setViewport({ cx: viewport.cx + (KEY_PAN_AMOUNT / (viewport.scale * imageDimensions.width)) });
+          }
+          break;
       }
     };
 
@@ -232,7 +276,7 @@ export default function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [current, filteredMatched, setCurrent]);
+  }, [current, filteredMatched, syncMode, setSyncMode, setViewport, resetView, imageDimensions]);
 
   return (
     <div className="app">
@@ -299,6 +343,13 @@ export default function App() {
           </ul>
         </aside>
         <section className={`viewers viewers-${numViewers}`}>
+          {showInfoPanel && 
+            <ImageInfoPanel 
+              file={fileOf("A", current)} 
+              dimensions={imageDimensions} 
+              onClose={() => setShowInfoPanel(false)} 
+            />
+          }
           <ImageCanvas label={A?.name || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} />
           <ImageCanvas label={B?.name || 'B'} file={fileOf("B", current)} indicator={indicator} />
           {numViewers >= 3 && <ImageCanvas label={C?.name || 'C'} file={fileOf("C", current)} indicator={indicator} />}
