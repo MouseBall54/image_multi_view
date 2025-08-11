@@ -483,3 +483,29 @@ main {
 .repick-button:hover svg {
   stroke: var(--accent-primary);
 }
+
+.pinpoint-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding-left: 12px;
+}
+
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  flex-grow: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pinpoint-control button:hover {
+  background-color: var(--bg-dark);
+}

@@ -12,6 +12,11 @@ interface FolderState {
   alias: string;
 }
 
+interface PinpointImage {
+  file: File;
+  refPoint: { x: number, y: number } | null;
+}
+
 function useFolderPickers() {
   const [A, setA] = useState<FolderState | undefined>();
   const [B, setB] = useState<FolderState | undefined>();
@@ -73,7 +78,7 @@ function ViewportControls({ imageDimensions, onViewportSet }: {
 
   useEffect(() => {
     setScaleInput((viewport.scale * 100).toFixed(0));
-    if (imageDimensions) {
+    if (imageDimensions && viewport.cx && viewport.cy) {
       setXInput(Math.round(viewport.cx * imageDimensions.width).toString());
       setYInput(Math.round(viewport.cy * imageDimensions.height).toString());
     }
@@ -149,9 +154,10 @@ function ViewportControls({ imageDimensions, onViewportSet }: {
 
 export default function App() {
   const { A, B, C, D, pick, inputRefs, onInput, updateAlias } = useFolderPickers();
+  const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [stripExt, setStripExt] = useState(true);
   const [current, setCurrent] = useState<MatchedItem | null>(null);
-  const { appMode, setAppMode, syncMode, setSyncMode, setViewport, fitScaleFn } = useStore();
+  const { appMode, setAppMode, syncMode, setSyncMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn } = useStore();
   const [numViewers, setNumViewers] = useState(2);
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [indicator, setIndicator] = useState<{ cx: number, cy: number, key: number } | null>(null);
@@ -164,6 +170,36 @@ export default function App() {
   const [captureDataUrl, setCaptureDataUrl] = useState<string | null>(null);
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
 
+  const pinpointFileInputRefs = {
+    A: useRef<HTMLInputElement>(null),
+    B: useRef<HTMLInputElement>(null),
+    C: useRef<HTMLInputElement>(null),
+    D: useRef<HTMLInputElement>(null),
+  };
+
+  const handlePinpointFileSelect = (key: FolderKey, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setPinpointImages(prev => ({
+        ...prev,
+        [key]: { file, refPoint: null }
+      }));
+    }
+  };
+
+  const handleSetRefPoint = useCallback((key: FolderKey, imgPoint: { x: number, y: number }, screenPoint: {x: number, y: number}) => {
+    setPinpointImages(prev => {
+      const currentImage = prev[key];
+      if (!currentImage) return prev;
+      return {
+        ...prev,
+        [key]: { ...currentImage, refPoint: imgPoint }
+      };
+    });
+    // Update global viewport's reference screen point
+    setViewport({ refScreenX: screenPoint.x, refScreenY: screenPoint.y });
+  }, [setViewport]);
+
   const canvasRefs = {
     A: useRef<ImageCanvasHandle>(null),
     B: useRef<ImageCanvasHandle>(null),
@@ -172,15 +208,10 @@ export default function App() {
     toggle: useRef<ImageCanvasHandle>(null),
   };
 
-  useEffect(() => {
-    const cache = bitmapCache.current;
-    for (const bitmap of cache.values()) {
-      bitmap.close();
+  const fileOf = (key: FolderKey, item: MatchedItem | null): File | undefined => {
+    if (appMode === 'pinpoint') {
+      return pinpointImages[key]?.file;
     }
-    cache.clear();
-  }, [A, B, C, D]);
-
-  const fileOf = (key: FolderKey, item: MatchedItem | null) => {
     if (!item) return undefined;
     const folderState = (key === "A" ? A : key === "B" ? B : key === "C" ? C : D);
     if (!folderState?.data.files) return undefined;
@@ -191,10 +222,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    const fileA = fileOf("A", current);
-    if (fileA) {
+    const firstFile = appMode === 'pinpoint' ? pinpointImages.A?.file : fileOf("A", current);
+    if (firstFile) {
       let revoked = false;
-      createImageBitmap(fileA).then(bmp => {
+      createImageBitmap(firstFile).then(bmp => {
         if (!revoked) {
           setImageDimensions({ width: bmp.width, height: bmp.height });
         }
@@ -203,20 +234,19 @@ export default function App() {
     } else {
       setImageDimensions(null);
     }
-  }, [current, A]);
+  }, [current, A, appMode, pinpointImages]);
 
   const activeFolders = useMemo(() => {
+    if (appMode !== 'compare') return {};
     const folders: any = { A: A?.data.files, B: B?.data.files };
-    if (appMode === 'compare') {
-      if (numViewers >= 3) folders.C = C?.data.files;
-      if (numViewers >= 4) folders.D = D?.data.files;
-    }
+    if (numViewers >= 3) folders.C = C?.data.files;
+    if (numViewers >= 4) folders.D = D?.data.files;
     return folders;
   }, [A, B, C, D, numViewers, appMode]);
 
   const matched = useMemo(
-    () => matchFilenames(activeFolders, stripExt),
-    [activeFolders, stripExt]
+    () => appMode === 'compare' ? matchFilenames(activeFolders, stripExt) : [],
+    [activeFolders, stripExt, appMode]
   );
 
   const filteredMatched = useMemo(() => {
@@ -230,7 +260,13 @@ export default function App() {
 
   const resetView = () => {
     const newScale = fitScaleFn ? fitScaleFn() : 1;
-    setViewport({ scale: newScale, cx: 0.5, cy: 0.5 });
+    if (appMode === 'pinpoint') {
+      setViewport({ scale: newScale, refScreenX: undefined, refScreenY: undefined });
+      // Optionally, clear all pinpoints when resetting view in pinpoint mode
+      // setPinpointImages({}); 
+    } else {
+      setViewport({ scale: newScale, cx: 0.5, cy: 0.5 });
+    }
   };
 
   const handleViewportSet = (vp: { cx?: number, cy?: number }) => {
@@ -246,7 +282,7 @@ export default function App() {
   };
 
   const currentFolders: Partial<Record<FolderKey, FolderState>> = appMode === 'toggle' ? { A, B } : { A, B, C, D };
-  const viewersCount = appMode === 'compare' ? numViewers : 1;
+  const viewersCount = appMode === 'pinpoint' ? numViewers : (appMode === 'compare' ? numViewers : 1);
 
   const generateCapture = useCallback((withLabels: boolean): string | null => {
     const viewersSection = document.querySelector('.viewers') as HTMLElement;
@@ -287,12 +323,12 @@ export default function App() {
         }
       }
     } else {
-      const gridCols = numViewers <= 2 ? numViewers : 2;
-      const gridRows = Math.ceil(numViewers / 2);
+      const gridCols = viewersCount <= 2 ? viewersCount : 2;
+      const gridRows = Math.ceil(viewersCount / 2);
       const itemWidth = width / gridCols;
       const itemHeight = height / gridRows;
 
-      const activeCanvasKeys: FolderKey[] = ['A', 'B', 'C', 'D'].slice(0, numViewers) as FolderKey[];
+      const activeCanvasKeys: FolderKey[] = ['A', 'B', 'C', 'D'].slice(0, viewersCount) as FolderKey[];
 
       activeCanvasKeys.forEach((key, index) => {
         const ref = canvasRefs[key];
@@ -310,7 +346,9 @@ export default function App() {
             ref.current.drawToContext(subCtx);
             ctx.drawImage(subCanvas, x, y);
             if (withLabels) {
-              const label = (key === 'A' ? A : key === 'B' ? B : key === 'C' ? C : D)?.alias || key;
+              const label = appMode === 'pinpoint' 
+                ? (pinpointImages[key]?.file.name || key)
+                : ((key === 'A' ? A : key === 'B' ? B : key === 'C' ? C : D)?.alias || key);
               drawLabel(label, x, y);
             }
           }
@@ -319,7 +357,7 @@ export default function App() {
     }
 
     return canvas.toDataURL('image/png');
-  }, [appMode, numViewers, canvasRefs, A, B, C, D, toggleSource, currentFolders]);
+  }, [appMode, numViewers, viewersCount, canvasRefs, A, B, C, D, toggleSource, currentFolders, pinpointImages]);
 
   useEffect(() => {
     if (showCaptureModal) {
@@ -371,13 +409,13 @@ export default function App() {
       switch (e.key.toLowerCase()) {
         // Image navigation
         case 'a': {
-          if (!current || filteredMatched.length === 0) return;
+          if (appMode !== 'compare' || !current || filteredMatched.length === 0) return;
           const currentIndex = filteredMatched.findIndex(item => item.filename === current.filename);
           if (currentIndex > 0) setCurrent(filteredMatched[currentIndex - 1]);
           break;
         }
         case 'd': {
-          if (!current || filteredMatched.length === 0) return;
+          if (appMode !== 'compare' || !current || filteredMatched.length === 0) return;
           const currentIndex = filteredMatched.findIndex(item => item.filename === current.filename);
           if (currentIndex < filteredMatched.length - 1) setCurrent(filteredMatched[currentIndex + 1]);
           break;
@@ -395,35 +433,35 @@ export default function App() {
           break;
         case '=':
         case '+':
-          setViewport({ scale: Math.min(MAX_ZOOM, viewport.scale * WHEEL_ZOOM_STEP) });
+          setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) * WHEEL_ZOOM_STEP) });
           break;
         case '-':
-          setViewport({ scale: Math.max(MIN_ZOOM, viewport.scale / WHEEL_ZOOM_STEP) });
+          setViewport({ scale: Math.max(MIN_ZOOM, (viewport.scale || 1) / WHEEL_ZOOM_STEP) });
           break;
         
         // Panning
         case 'arrowup':
           e.preventDefault();
-          if (imageDimensions) {
-            setViewport({ cy: viewport.cy - (KEY_PAN_AMOUNT / (viewport.scale * imageDimensions.height)) });
+          if (imageDimensions && viewport.cy) {
+            setViewport({ cy: viewport.cy - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) });
           }
           break;
         case 'arrowdown':
           e.preventDefault();
-          if (imageDimensions) {
-            setViewport({ cy: viewport.cy + (KEY_PAN_AMOUNT / (viewport.scale * imageDimensions.height)) });
+          if (imageDimensions && viewport.cy) {
+            setViewport({ cy: viewport.cy + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) });
           }
           break;
         case 'arrowleft':
           e.preventDefault();
-          if (imageDimensions) {
-            setViewport({ cx: viewport.cx - (KEY_PAN_AMOUNT / (viewport.scale * imageDimensions.width)) });
+          if (imageDimensions && viewport.cx) {
+            setViewport({ cx: viewport.cx - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) });
           }
           break;
         case 'arrowright':
           e.preventDefault();
-          if (imageDimensions) {
-            setViewport({ cx: viewport.cx + (KEY_PAN_AMOUNT / (viewport.scale * imageDimensions.width)) });
+          if (imageDimensions && viewport.cx) {
+            setViewport({ cx: viewport.cx + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) });
           }
           break;
       }
@@ -475,38 +513,149 @@ export default function App() {
     );
   };
 
+  const renderPinpointControl = (key: FolderKey) => {
+    const image = pinpointImages[key];
+    return (
+      <div className="pinpoint-control">
+        <span className="folder-key-label">{key}</span>
+        <button onClick={() => pinpointFileInputRefs[key].current?.click()}>
+          {image ? image.file.name : `Select Image ${key}`}
+        </button>
+        <input 
+          ref={pinpointFileInputRefs[key]} 
+          type="file" 
+          accept="image/*" 
+          style={{ display: 'none' }} 
+          onChange={(e) => handlePinpointFileSelect(key, e)}
+        />
+      </div>
+    );
+  };
+
+  const renderControls = () => {
+    if (appMode === 'pinpoint') {
+      return (
+        <>
+          {renderPinpointControl('A')}
+          {renderPinpointControl('B')}
+          {numViewers >= 3 && renderPinpointControl('C')}
+          {numViewers >= 4 && renderPinpointControl('D')}
+        </>
+      );
+    }
+    return (
+      <>
+        {renderFolderControl('A', A)}
+        {renderFolderControl('B', B)}
+        {appMode === 'compare' && numViewers >= 3 && renderFolderControl('C', C)}
+        {appMode === 'compare' && numViewers >= 4 && renderFolderControl('D', D)}
+        <div style={{ display: 'none' }}>
+          <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
+          <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
+          <input ref={inputRefs.C} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("C", e)} />
+          <input ref={inputRefs.D} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("D", e)} />
+        </div>
+      </>
+    );
+  };
+
+  const renderFilelist = () => {
+    if (appMode === 'pinpoint') return null; // Hide file list in pinpoint mode
+    return (
+      <aside className="filelist">
+        <div className="filelist-header">
+          <input
+            type="text"
+            placeholder="Search files..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+          <div className="filelist-options">
+            <div className="count">Matched: {filteredMatched.length}</div>
+            <label className="strip-ext-label">
+              <input type="checkbox" checked={stripExt} onChange={(e)=>setStripExt(e.target.checked)} />
+              <span>Ignore extension</span>
+            </label>
+          </div>
+        </div>
+        <ul>
+          {filteredMatched.map(m => (
+            <li key={m.filename}
+                className={current?.filename === m.filename ? "active": ""}
+                onClick={()=>setCurrent(m)}>
+              {m.filename}
+            </li>
+          ))}
+        </ul>
+      </aside>
+    );
+  }
+
+  const renderViewers = () => {
+    if (appMode === 'pinpoint') {
+      const keys: FolderKey[] = ['A', 'B', 'C', 'D'].slice(0, numViewers) as FolderKey[];
+      return keys.map(key => (
+        <ImageCanvas 
+          key={key}
+          ref={canvasRefs[key]}
+          label={pinpointImages[key]?.file.name || key}
+          file={pinpointImages[key]?.file}
+          indicator={indicator} 
+          isReference={key === 'A'} 
+          cache={bitmapCache.current}
+          appMode={appMode} // Pass appMode
+          refPoint={pinpointImages[key]?.refPoint} // Pass refPoint
+          onSetRefPoint={handleSetRefPoint} // Pass onSetRefPoint
+          folderKey={key} // Pass folderKey
+        />
+      ));
+    }
+
+    if (appMode === 'toggle') {
+      return (
+        <ImageCanvas 
+          ref={canvasRefs.toggle}
+          label={currentFolders[toggleSource]?.alias || toggleSource} 
+          file={fileOf(toggleSource, current)}
+          appMode={appMode}
+          folderKey={toggleSource}
+          indicator={indicator} 
+          isReference={true} 
+          cache={bitmapCache.current}
+        />
+      );
+    }
+
+    // Compare mode
+    return (
+      <>
+        <ImageCanvas ref={canvasRefs.A} label={A?.alias || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} cache={bitmapCache.current} appMode={appMode} folderKey="A" />
+        <ImageCanvas ref={canvasRefs.B} label={B?.alias || 'B'} file={fileOf("B", current)} indicator={indicator} cache={bitmapCache.current} appMode={appMode} folderKey="B" />
+        {numViewers >= 3 && <ImageCanvas ref={canvasRefs.C} label={C?.alias || 'C'} file={fileOf("C", current)} indicator={indicator} cache={bitmapCache.current} appMode={appMode} folderKey="C" />}
+        {numViewers >= 4 && <ImageCanvas ref={canvasRefs.D} label={D?.alias || 'D'} file={fileOf("D", current)} indicator={indicator} cache={bitmapCache.current} appMode={appMode} folderKey="D" />}
+      </>
+    );
+  }
+
   return (
     <div className="app">
       <header>
         <div className="title-container">
-          <svg className="logo" width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M2 12C2 7.28599 2 4.92898 3.46447 3.46447C4.92898 2 7.28599 2 12 2C16.714 2 19.071 2 20.5355 3.46447C22 4.92898 22 7.28599 22 12C22 16.714 22 19.071 20.5355 20.5355C19.071 22 16.714 22 12 22C7.28599 22 4.92898 22 3.46447 20.5355C2 19.071 2 16.714 2 12Z" stroke="#f0f0f0" strokeWidth="2"/>
-            <path d="M12 2V22" stroke="#f0f0f0" strokeWidth="2"/>
-            <path d="M12 12L16 8" stroke="#f0f0f0" strokeWidth="2" strokeLinecap="round"/>
-            <path d="M12 12L16 16" stroke="#f0f0f0" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
+          {/* ... logo ... */}
           <h1 className="app-title">CompareX</h1>
         </div>
         <div className="top-controls-wrapper">
           <div className="controls">
-            {renderFolderControl('A', A)}
-            {renderFolderControl('B', B)}
-            {appMode === 'compare' && numViewers >= 3 && renderFolderControl('C', C)}
-            {appMode === 'compare' && numViewers >= 4 && renderFolderControl('D', D)}
-            <div style={{ display: 'none' }}>
-              <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
-              <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
-              <input ref={inputRefs.C} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("C", e)} />
-              <input ref={inputRefs.D} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("D", e)} />
-            </div>
+            {renderControls()}
             <label>
               Mode:
               <select value={appMode} onChange={e => setAppMode(e.target.value as AppMode)}>
                 <option value="compare">Compare</option>
                 <option value="toggle">Toggle</option>
+                <option value="pinpoint">Pinpoint</option>
               </select>
             </label>
-            {appMode === 'compare' && (
+            {(appMode === 'compare' || appMode === 'pinpoint') && (
               <label>
                 Viewers:
                 <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
@@ -523,6 +672,15 @@ export default function App() {
                 <option value="unlocked">unlocked</option>
               </select>
             </label>
+            {appMode === 'pinpoint' && (
+              <label>
+                Mouse:
+                <select value={pinpointMouseMode} onChange={e => setPinpointMouseMode(e.target.value as any)}>
+                  <option value="pin">Pin</option>
+                  <option value="pan">Pan</option>
+                </select>
+              </label>
+            )}
             <button onClick={resetView}>Reset View</button>
             <button onClick={handleCaptureClick}>Capture</button>
           </div>
@@ -530,57 +688,16 @@ export default function App() {
         </div>
       </header>
       <main>
-        <aside className="filelist">
-          <div className="filelist-header">
-            <input
-              type="text"
-              placeholder="Search files..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-            <div className="filelist-options">
-              <div className="count">Matched: {filteredMatched.length}</div>
-              <label className="strip-ext-label">
-                <input type="checkbox" checked={stripExt} onChange={(e)=>setStripExt(e.target.checked)} />
-                <span>Ignore extension</span>
-              </label>
-            </div>
-          </div>
-          <ul>
-            {filteredMatched.map(m => (
-              <li key={m.filename}
-                  className={current?.filename === m.filename ? "active": ""}
-                  onClick={()=>setCurrent(m)}>
-                {m.filename}
-              </li>
-            ))}
-          </ul>
-        </aside>
+        {renderFilelist()}
         <section className={`viewers viewers-${viewersCount}`}>
           {showInfoPanel && 
             <ImageInfoPanel 
-              file={fileOf("A", current)} 
+              file={appMode === 'pinpoint' ? pinpointImages.A?.file : fileOf("A", current)} 
               dimensions={imageDimensions} 
               onClose={() => setShowInfoPanel(false)} 
             />
           }
-          {appMode === 'compare' ? (
-            <>
-              <ImageCanvas ref={canvasRefs.A} label={A?.alias || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} cache={bitmapCache.current} />
-              <ImageCanvas ref={canvasRefs.B} label={B?.alias || 'B'} file={fileOf("B", current)} indicator={indicator} cache={bitmapCache.current} />
-              {numViewers >= 3 && <ImageCanvas ref={canvasRefs.C} label={C?.alias || 'C'} file={fileOf("C", current)} indicator={indicator} cache={bitmapCache.current} />}
-              {numViewers >= 4 && <ImageCanvas ref={canvasRefs.D} label={D?.alias || 'D'} file={fileOf("D", current)} indicator={indicator} cache={bitmapCache.current} />}
-            </>
-          ) : (
-            <ImageCanvas 
-              ref={canvasRefs.toggle}
-              label={currentFolders[toggleSource]?.alias || toggleSource} 
-              file={fileOf(toggleSource, current)} 
-              indicator={indicator} 
-              isReference={true} 
-              cache={bitmapCache.current}
-            />
-          )}
+          {renderViewers()}
         </section>
       </main>
       {showCaptureModal && (

@@ -1,6 +1,7 @@
 // src/types.ts
 export type FolderKey = "A" | "B" | "C" | "D";
-export type AppMode = "compare" | "toggle";
+export type AppMode = "compare" | "toggle" | "pinpoint";
+export type PinpointMouseMode = "pin" | "pan";
 
 export interface PickedFolder {
   key: FolderKey;
@@ -13,10 +14,17 @@ export interface MatchedItem {
   has: Record<FolderKey, boolean>;
 }
 
+export interface Pinpoint {
+  x: number; // normalized image coordinate
+  y: number; // normalized image coordinate
+}
+
 export interface Viewport {
-  scale: number;     // zoom
-  cx: number;        // center x (image coords)
-  cy: number;        // center y (image coords)
+  scale: number;
+  cx?: number;        // center x (image coords)
+  cy?: number;        // center y (image coords)
+  refScreenX?: number; // For pinpoint mode: screen x of the common reference point
+  refScreenY?: number; // For pinpoint mode: screen y of the common reference point
 }
 
 export type SyncMode = "locked" | "unlocked";

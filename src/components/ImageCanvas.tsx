@@ -1,8 +1,9 @@
 // src/components/ImageCanvas.tsx
-import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from "react";
+import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef, useCallback } from "react";
 import { useStore } from "../store";
 import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, PAN_SPEED, RESPECT_EXIF, WHEEL_ZOOM_STEP, SHOW_FOLDER_LABEL } from "../config";
 import { Minimap } from "./Minimap";
+import { AppMode, FolderKey } from "../types";
 
 type Props = {
   file?: File;
@@ -10,36 +11,68 @@ type Props = {
   indicator?: { cx: number, cy: number, key: number } | null;
   isReference?: boolean;
   cache: Map<string, ImageBitmap>;
+  appMode: AppMode;
+  refPoint?: { x: number, y: number } | null;
+  onSetRefPoint?: (key: FolderKey, imgPoint: { x: number, y: number }, screenPoint: {x: number, y: number}) => void;
+  folderKey: FolderKey;
 };
 
 export interface ImageCanvasHandle {
   drawToContext: (ctx: CanvasRenderingContext2D) => void;
 }
 
-export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, indicator, isReference, cache }, ref) => {
+export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, indicator, isReference, cache, appMode, refPoint, onSetRefPoint, folderKey }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
-  const { viewport, setViewport, syncMode, setFitScaleFn } = useStore();
+  const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode } = useStore();
   const animationFrameId = useRef<number | null>(null);
 
-  const drawImage = (ctx: CanvasRenderingContext2D, currentBitmap: ImageBitmap) => {
+  const drawMarker = (ctx: CanvasRenderingContext2D, x: number, y: number, color: string) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.beginPath();
+    ctx.moveTo(0, -15);
+    ctx.lineTo(0, 15);
+    ctx.moveTo(-15, 0);
+    ctx.lineTo(15, 0);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentBitmap: ImageBitmap) => {
     const { width, height } = ctx.canvas;
     ctx.clearRect(0, 0, width, height);
 
     const scale = viewport.scale;
-    const cx = viewport.cx * currentBitmap.width;
-    const cy = viewport.cy * currentBitmap.height;
-
     const drawW = currentBitmap.width * scale;
     const drawH = currentBitmap.height * scale;
+    let x = 0, y = 0;
 
-    const x = Math.round((width / 2) - (cx * scale));
-    const y = Math.round((height / 2) - (cy * scale));
+    if (appMode === 'pinpoint' && refPoint) {
+      const refScreenX = viewport.refScreenX || (width / 2);
+      const refScreenY = viewport.refScreenY || (height / 2);
+      // Calculate the image's top-left corner based on the pinpoint and its screen position
+      x = Math.round(refScreenX - (refPoint.x * scale));
+      y = Math.round(refScreenY - (refPoint.y * scale));
+    } else {
+      const cx = (viewport.cx || 0.5) * currentBitmap.width;
+      const cy = (viewport.cy || 0.5) * currentBitmap.height;
+      x = Math.round((width / 2) - (cx * scale));
+      y = Math.round((height / 2) - (cy * scale));
+    }
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(currentBitmap, x, y, drawW, drawH);
-  };
+
+    if (appMode === 'pinpoint' && refPoint) {
+      const refScreenX = viewport.refScreenX || (width / 2);
+      const refScreenY = viewport.refScreenY || (height / 2);
+      drawMarker(ctx, refScreenX, refScreenY, 'red');
+    }
+  }, [viewport, appMode, refPoint]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D) => {
@@ -52,21 +85,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   useEffect(() => {
     if (isReference) {
       const calculateFitScale = () => {
-        if (!canvasRef.current || !bitmap) {
-          return 1;
-        }
-        const canvas = canvasRef.current;
-        const { width, height } = canvas.getBoundingClientRect();
-
-        const canvasAspect = width / height;
-        const imageAspect = bitmap.width / bitmap.height;
-
-        let scale;
-        if (canvasAspect > imageAspect) {
-          scale = height / bitmap.height;
-        } else {
-          scale = width / bitmap.width;
-        }
+        if (!canvasRef.current || !bitmap) return 1;
+        const { width, height } = canvasRef.current.getBoundingClientRect();
+        const scale = Math.min(width / bitmap.width, height / bitmap.height);
         return scale;
       };
       setFitScaleFn(calculateFitScale);
@@ -79,81 +100,26 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       setBitmap(null);
       return;
     }
-
     const cacheKey = `${label}-${file.name}`;
     const cachedBitmap = cache.get(cacheKey);
     if (cachedBitmap) {
       setBitmap(cachedBitmap);
       return;
     }
-
-    const isTiff = file.name.toLowerCase().endsWith('.tif') || file.name.toLowerCase().endsWith('.tiff');
-
     (async () => {
-      let newBitmap: ImageBitmap | null = null;
-      if (isTiff) {
-        const Tiff = await import('tiff');
-        const buffer = await file.arrayBuffer();
-        const ifds = Tiff.decode(buffer);
-
-        if (ifds && ifds.length > 0) {
-          const tiffImage = ifds[0];
-          const width = tiffImage.width;
-          const height = tiffImage.height;
-          const samplesPerPixel = tiffImage.samplesPerPixel;
-          const tiffData = tiffImage.data;
-          
-          let rgba;
-
-          if (samplesPerPixel === 1) {
-            rgba = new Uint8ClampedArray(width * height * 4);
-            for (let i = 0; i < tiffData.length; i++) {
-              rgba[i * 4] = tiffData[i];
-              rgba[i * 4 + 1] = tiffData[i];
-              rgba[i * 4 + 2] = tiffData[i];
-              rgba[i * 4 + 3] = 255;
-            }
-          } else if (samplesPerPixel === 3) {
-            rgba = new Uint8ClampedArray(width * height * 4);
-            for (let i = 0; i < width * height; i++) {
-              rgba[i * 4] = tiffData[i * 3];
-              rgba[i * 4 + 1] = tiffData[i * 3 + 1];
-              rgba[i * 4 + 2] = tiffData[i * 3 + 2];
-              rgba[i * 4 + 3] = 255;
-            }
-          } else if (samplesPerPixel === 4) {
-            rgba = new Uint8ClampedArray(tiffData);
-          } else {
-            console.error(`Unsupported samplesPerPixel: ${samplesPerPixel}`);
-            setBitmap(null);
-            return;
-          }
-
-          const imageData = new ImageData(rgba, width, height);
-          newBitmap = await createImageBitmap(imageData);
-        } else {
-          console.error("Could not decode TIFF file");
+      const opts: ImageBitmapOptions = RESPECT_EXIF ? { imageOrientation: "from-image" as any } : {};
+      try {
+        const newBitmap = await createImageBitmap(file, opts);
+        if (!revoked) {
+          cache.set(cacheKey, newBitmap);
+          setBitmap(newBitmap);
         }
-      } else {
-        const opts: ImageBitmapOptions = RESPECT_EXIF ? { imageOrientation: "from-image" as any } : {};
-        try {
-          newBitmap = await createImageBitmap(file, opts);
-        } catch (error) {
-          console.error("Error loading image:", error);
-        }
-      }
-
-      if (!revoked && newBitmap) {
-        cache.set(cacheKey, newBitmap);
-        setBitmap(newBitmap);
-      } else if (!revoked) {
-        setBitmap(null);
+      } catch (error) {
+        console.error("Error loading image:", error);
+        if (!revoked) setBitmap(null);
       }
     })();
-
-    return () => {
-      revoked = true;
-    };
+    return () => { revoked = true; };
   }, [file, label, cache]);
 
   useEffect(() => {
@@ -164,7 +130,60 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
     drawImage(ctx, bitmap);
-  }, [bitmap, viewport]);
+  }, [bitmap, drawImage, viewport]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !bitmap || appMode !== 'pinpoint' || !onSetRefPoint || pinpointMouseMode !== 'pin') return;
+
+    const handleClick = (e: MouseEvent) => {
+      const { left, top, width, height } = canvas.getBoundingClientRect();
+      const canvasX = e.clientX - left;
+      const canvasY = e.clientY - top;
+      const scale = viewport.scale;
+      let imgX = 0, imgY = 0;
+
+      if (appMode === 'pinpoint' && refPoint) {
+        const refScreenX = viewport.refScreenX || (width / 2);
+        const refScreenY = viewport.refScreenY || (height / 2);
+        const drawX = refScreenX - (refPoint.x * scale);
+        const drawY = refScreenY - (refPoint.y * scale);
+        imgX = (canvasX - drawX) / scale;
+        imgY = (canvasY - drawY) / scale;
+      } else {
+        const cx = (viewport.cx || 0.5) * bitmap.width;
+        const cy = (viewport.cy || 0.5) * bitmap.height;
+        const drawX = (width / 2) - (cx * scale);
+        const drawY = (height / 2) - (cy * scale);
+        imgX = (canvasX - drawX) / scale;
+        imgY = (canvasY - drawY) / scale;
+      }
+
+      if (imgX >= 0 && imgX <= bitmap.width && imgY >= 0 && imgY <= bitmap.height) {
+        onSetRefPoint(folderKey, { x: imgX, y: imgY }, { x: canvasX, y: canvasY });
+      }
+    };
+
+    canvas.addEventListener('click', handleClick);
+    return () => canvas.removeEventListener('click', handleClick);
+  }, [bitmap, appMode, onSetRefPoint, viewport, folderKey, refPoint, pinpointMouseMode]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || appMode !== 'pinpoint') return;
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      const { pinpointMouseMode, setPinpointMouseMode } = useStore.getState();
+      setPinpointMouseMode(pinpointMouseMode === 'pin' ? 'pan' : 'pin');
+    };
+
+    canvas.addEventListener('contextmenu', handleContextMenu);
+
+    return () => {
+      canvas.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, [appMode]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -175,82 +194,85 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const { left, top } = canvas.getBoundingClientRect();
+      const { left, top, width, height } = canvas.getBoundingClientRect();
       const mx = e.clientX - left;
       const my = e.clientY - top;
 
       const { viewport: currentViewport } = useStore.getState();
       const preScale = currentViewport.scale;
       const delta = e.deltaY < 0 ? WHEEL_ZOOM_STEP : (1 / WHEEL_ZOOM_STEP);
-      let next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, preScale * delta));
-      if (next === preScale) return;
+      let nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, preScale * delta));
+      if (nextScale === preScale) return;
 
-      let { cx, cy } = currentViewport;
+      if (appMode === 'pinpoint') {
+        const refScreenX = currentViewport.refScreenX || (width / 2);
+        const refScreenY = currentViewport.refScreenY || (height / 2);
+        const nextRefScreenX = mx + (refScreenX - mx) * (nextScale / preScale);
+        const nextRefScreenY = my + (refScreenY - my) * (nextScale / preScale);
+        if (syncMode === "locked") {
+          setViewport({ scale: nextScale, refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
+        }
+      } else {
+        let { cx, cy } = currentViewport;
+        if (CURSOR_ZOOM_CENTERED) {
+          const imgW = bitmap.width, imgH = bitmap.height;
+          const drawW = imgW * preScale;
+          const x = (width / 2) - ((cx || 0.5) * imgW * preScale);
+          const y = (height / 2) - ((cy || 0.5) * imgH * preScale);
+          const imgX = (mx - x) / drawW;
+          const imgY = (my - y) / drawW;
 
-      if (CURSOR_ZOOM_CENTERED) {
-        const imgW = bitmap.width, imgH = bitmap.height;
-        const drawW = imgW * preScale;
-        const x = (canvas.width / 2) - (cx * imgW * preScale);
-        const y = (canvas.height / 2) - (cy * imgH * preScale);
-        const imgX = (mx - x) / drawW;
-        const imgY = (my - y) / drawW;
-
-        const drawW2 = imgW * next;
-        const x2 = mx - imgX * drawW2;
-        const y2 = my - imgY * drawW2;
-        const newCxPx = ((canvas.width / 2) - x2) / next;
-        const newCyPx = ((canvas.height / 2) - y2) / next;
-        cx = newCxPx / imgW;
-        cy = newCyPx / imgH;
-      }
-      if (syncMode === "locked") {
-        setViewport({ scale: next, cx, cy });
+          const drawW2 = imgW * nextScale;
+          const x2 = mx - imgX * drawW2;
+          const y2 = my - imgY * drawW2;
+          const newCxPx = ((width / 2) - x2) / nextScale;
+          const newCyPx = ((height / 2) - y2) / nextScale;
+          cx = newCxPx / imgW;
+          cy = newCyPx / imgH;
+        }
+        if (syncMode === "locked") {
+          setViewport({ scale: nextScale, cx, cy });
+        }
       }
     };
 
     const onDown = (e: MouseEvent) => {
+      if (appMode === 'pinpoint' && pinpointMouseMode !== 'pan') return;
       isDown = true;
       lastX = e.clientX;
       lastY = e.clientY;
       canvas.style.cursor = 'grabbing';
     };
-    const onUp = () => {
-      isDown = false;
-      canvas.style.cursor = 'grab';
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-        animationFrameId.current = null;
-      }
+    const onUp = () => { 
+      isDown = false; 
+      canvas.style.cursor = appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab'; 
     };
     const onMove = (e: MouseEvent) => {
       if (!isDown) return;
+      if (appMode === 'pinpoint' && pinpointMouseMode !== 'pan') return;
       e.preventDefault();
+      const dx = (e.clientX - lastX);
+      const dy = (e.clientY - lastY);
+      lastX = e.clientX;
+      lastY = e.clientY;
 
-      if (animationFrameId.current) {
-        return;
-      }
+      if (syncMode !== 'locked') return;
 
-      animationFrameId.current = requestAnimationFrame(() => {
-        const dx = (e.clientX - lastX) * PAN_SPEED;
-        const dy = (e.clientY - lastY) * PAN_SPEED;
-        lastX = e.clientX;
-        lastY = e.clientY;
-
-        const { viewport: currentViewport } = useStore.getState();
+      const { viewport: currentViewport } = useStore.getState();
+      if (appMode === 'pinpoint') {
+        const refScreenX = (currentViewport.refScreenX || (canvas.width / 2)) + dx;
+        const refScreenY = (currentViewport.refScreenY || (canvas.height / 2)) + dy;
+        setViewport({ refScreenX, refScreenY });
+      } else {
         const imgW = bitmap.width, imgH = bitmap.height;
         const dpX = -dx / (currentViewport.scale * imgW);
         const dpY = -dy / (currentViewport.scale * imgH);
-        let cx = currentViewport.cx + dpX;
-        let cy = currentViewport.cy + dpY;
-
+        let cx = (currentViewport.cx || 0.5) + dpX;
+        let cy = (currentViewport.cy || 0.5) + dpY;
         cx = Math.min(1.2, Math.max(-0.2, cx));
         cy = Math.min(1.2, Math.max(-0.2, cy));
-
-        if (syncMode === "locked") {
-          setViewport({ cx, cy });
-        }
-        animationFrameId.current = null;
-      });
+        setViewport({ cx, cy });
+      }
     };
 
     canvas.addEventListener("wheel", onWheel, { passive: false });
@@ -263,23 +285,20 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       canvas.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mousemove", onMove);
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-      }
     };
-  }, [bitmap, syncMode, setViewport]);
+  }, [bitmap, syncMode, setViewport, appMode, pinpointMouseMode]);
 
   return (
     <div className="viewer">
       {SHOW_FOLDER_LABEL && <div className="viewer__label">{label}</div>}
-      <canvas ref={canvasRef} className="viewer__canvas" />
-      {!file && <div className="viewer__placeholder">No Image</div>}
+      <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} />
+      {!file && <div className="viewer__placeholder">{appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image'}</div>}
       {indicator && bitmap && canvasRef.current && (
         (() => {
           const canvas = canvasRef.current;
           const scale = viewport.scale;
-          const cx = viewport.cx * bitmap.width;
-          const cy = viewport.cy * bitmap.height;
+          const cx = (viewport.cx || 0.5) * bitmap.width;
+          const cy = (viewport.cy || 0.5) * bitmap.height;
           const drawW = bitmap.width * scale;
           const drawH = bitmap.height * scale;
           
@@ -301,7 +320,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           );
         })()
       )}
-      <Minimap bitmap={bitmap} viewport={viewport} />
+      {/* <Minimap bitmap={bitmap} viewport={viewport} /> */}
     </div>
   );
 });
