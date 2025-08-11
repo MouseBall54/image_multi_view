@@ -144,6 +144,15 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [toggleSource, setToggleSource] = useState<FolderKey>('A');
+  const bitmapCache = useRef(new Map<string, ImageBitmap>());
+
+  useEffect(() => {
+    const cache = bitmapCache.current;
+    for (const bitmap of cache.values()) {
+      bitmap.close();
+    }
+    cache.clear();
+  }, [A, B, C, D]);
 
   const fileOf = (key: FolderKey, item: MatchedItem | null) => {
     if (!item) return undefined;
@@ -380,10 +389,10 @@ export default function App() {
           }
           {appMode === 'compare' ? (
             <>
-              <ImageCanvas label={A?.name || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} />
-              <ImageCanvas label={B?.name || 'B'} file={fileOf("B", current)} indicator={indicator} />
-              {numViewers >= 3 && <ImageCanvas label={C?.name || 'C'} file={fileOf("C", current)} indicator={indicator} />}
-              {numViewers >= 4 && <ImageCanvas label={D?.name || 'D'} file={fileOf("D", current)} indicator={indicator} />}
+              <ImageCanvas label={A?.name || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} cache={bitmapCache.current} />
+              <ImageCanvas label={B?.name || 'B'} file={fileOf("B", current)} indicator={indicator} cache={bitmapCache.current} />
+              {numViewers >= 3 && <ImageCanvas label={C?.name || 'C'} file={fileOf("C", current)} indicator={indicator} cache={bitmapCache.current} />}
+              {numViewers >= 4 && <ImageCanvas label={D?.name || 'D'} file={fileOf("D", current)} indicator={indicator} cache={bitmapCache.current} />}
             </>
           ) : (
             <ImageCanvas 
@@ -391,6 +400,7 @@ export default function App() {
               file={fileOf(toggleSource, current)} 
               indicator={indicator} 
               isReference={true} 
+              cache={bitmapCache.current}
             />
           )}
         </section>
@@ -398,4 +408,3 @@ export default function App() {
     </div>
   );
 }
-

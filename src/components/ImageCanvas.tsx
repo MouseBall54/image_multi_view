@@ -9,9 +9,10 @@ type Props = {
   label: string;
   indicator?: { cx: number, cy: number, key: number } | null;
   isReference?: boolean;
+  cache: Map<string, ImageBitmap>;
 };
 
-export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReference }) => {
+export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReference, cache }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
   const { viewport, setViewport, syncMode, setFitScaleFn } = useStore();
@@ -51,9 +52,17 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReferen
       return;
     }
 
+    const cacheKey = `${label}-${file.name}`;
+    const cachedBitmap = cache.get(cacheKey);
+    if (cachedBitmap) {
+      setBitmap(cachedBitmap);
+      return;
+    }
+
     const isTiff = file.name.toLowerCase().endsWith('.tif') || file.name.toLowerCase().endsWith('.tiff');
 
     (async () => {
+      let newBitmap: ImageBitmap | null = null;
       if (isTiff) {
         const Tiff = await import('tiff');
         const buffer = await file.arrayBuffer();
@@ -93,32 +102,31 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReferen
           }
 
           const imageData = new ImageData(rgba, width, height);
-          const bmp = await createImageBitmap(imageData);
-          if (!revoked) {
-            setBitmap(bmp);
-          }
+          newBitmap = await createImageBitmap(imageData);
         } else {
           console.error("Could not decode TIFF file");
-          setBitmap(null);
         }
       } else {
         const opts: ImageBitmapOptions = RESPECT_EXIF ? { imageOrientation: "from-image" as any } : {};
         try {
-          const bmp = await createImageBitmap(file, opts);
-          if (!revoked) {
-            setBitmap(bmp);
-          }
+          newBitmap = await createImageBitmap(file, opts);
         } catch (error) {
           console.error("Error loading image:", error);
-          setBitmap(null);
         }
+      }
+
+      if (!revoked && newBitmap) {
+        cache.set(cacheKey, newBitmap);
+        setBitmap(newBitmap);
+      } else if (!revoked) {
+        setBitmap(null);
       }
     })();
 
     return () => {
       revoked = true;
     };
-  }, [file]);
+  }, [file, label, cache]);
 
   // 렌더링
   useEffect(() => {
