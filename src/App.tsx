@@ -7,19 +7,25 @@ import { useStore } from "./store";
 import type { FolderKey, MatchedItem, AppMode } from "./types";
 import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP } from "./config";
 
+interface FolderState {
+  data: FolderData;
+  alias: string;
+}
+
 function useFolderPickers() {
-  const [A, setA] = useState<FolderData | undefined>();
-  const [B, setB] = useState<FolderData | undefined>();
-  const [C, setC] = useState<FolderData | undefined>();
-  const [D, setD] = useState<FolderData | undefined>();
+  const [A, setA] = useState<FolderState | undefined>();
+  const [B, setB] = useState<FolderState | undefined>();
+  const [C, setC] = useState<FolderState | undefined>();
+  const [D, setD] = useState<FolderState | undefined>();
 
   const pick = async (key: FolderKey) => {
     try {
       const folderData = await pickDirectory();
-      if (key === "A") setA(folderData);
-      if (key === "B") setB(folderData);
-      if (key === "C") setC(folderData);
-      if (key === "D") setD(folderData);
+      const newState = { data: folderData, alias: folderData.name };
+      if (key === "A") setA(newState);
+      if (key === "B") setB(newState);
+      if (key === "C") setC(newState);
+      if (key === "D") setD(newState);
     } catch (error) {
       console.error("Error picking directory:", error);
       if (inputRefs[key].current) {
@@ -39,13 +45,21 @@ function useFolderPickers() {
     if (!e.target.files) return;
     const folderData = filesFromInput(e.target.files);
     if (!folderData) return;
-    if (key === "A") setA(folderData);
-    if (key === "B") setB(folderData);
-    if (key === "C") setC(folderData);
-    if (key === "D") setD(folderData);
+    const newState = { data: folderData, alias: folderData.name };
+    if (key === "A") setA(newState);
+    if (key === "B") setB(newState);
+    if (key === "C") setC(newState);
+    if (key === "D") setD(newState);
   };
 
-  return { A, B, C, D, pick, inputRefs, onInput };
+  const updateAlias = (key: FolderKey, newAlias: string) => {
+    if (key === "A") setA(prev => prev ? { ...prev, alias: newAlias } : undefined);
+    if (key === "B") setB(prev => prev ? { ...prev, alias: newAlias } : undefined);
+    if (key === "C") setC(prev => prev ? { ...prev, alias: newAlias } : undefined);
+    if (key === "D") setD(prev => prev ? { ...prev, alias: newAlias } : undefined);
+  };
+
+  return { A, B, C, D, pick, inputRefs, onInput, updateAlias };
 }
 
 function ViewportControls({ imageDimensions, onViewportSet }: {
@@ -134,7 +148,7 @@ function ViewportControls({ imageDimensions, onViewportSet }: {
 }
 
 export default function App() {
-  const { A, B, C, D, pick, inputRefs, onInput } = useFolderPickers();
+  const { A, B, C, D, pick, inputRefs, onInput, updateAlias } = useFolderPickers();
   const [stripExt, setStripExt] = useState(true);
   const [current, setCurrent] = useState<MatchedItem | null>(null);
   const { appMode, setAppMode, syncMode, setSyncMode, setViewport, fitScaleFn } = useStore();
@@ -146,6 +160,7 @@ export default function App() {
   const [toggleSource, setToggleSource] = useState<FolderKey>('A');
   const bitmapCache = useRef(new Map<string, ImageBitmap>());
   const [captureDataUrl, setCaptureDataUrl] = useState<string | null>(null);
+  const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
 
   const canvasRefs = {
     A: useRef<ImageCanvasHandle>(null),
@@ -165,12 +180,12 @@ export default function App() {
 
   const fileOf = (key: FolderKey, item: MatchedItem | null) => {
     if (!item) return undefined;
-    const folder = (key === "A" ? A : key === "B" ? B : key === "C" ? C : D);
-    if (!folder?.files) return undefined;
+    const folderState = (key === "A" ? A : key === "B" ? B : key === "C" ? C : D);
+    if (!folderState?.data.files) return undefined;
     const name = stripExt
-      ? Array.from(folder.files.keys()).find(n => n.replace(/\.[^/.]+$/, "") === item.filename)
+      ? Array.from(folderState.data.files.keys()).find(n => n.replace(/\.[^/.]+$/, "") === item.filename)
       : item.filename;
-    return name ? folder.files.get(name) : undefined;
+    return name ? folderState.data.files.get(name) : undefined;
   };
 
   useEffect(() => {
@@ -189,10 +204,10 @@ export default function App() {
   }, [current, A]);
 
   const activeFolders = useMemo(() => {
-    const folders: any = { A: A?.files, B: B?.files };
+    const folders: any = { A: A?.data.files, B: B?.data.files };
     if (appMode === 'compare') {
-      if (numViewers >= 3) folders.C = C?.files;
-      if (numViewers >= 4) folders.D = D?.files;
+      if (numViewers >= 3) folders.C = C?.data.files;
+      if (numViewers >= 4) folders.D = D?.data.files;
     }
     return folders;
   }, [A, B, C, D, numViewers, appMode]);
@@ -221,6 +236,11 @@ export default function App() {
       setIndicator({ cx: vp.cx, cy: vp.cy, key: Date.now() });
       setTimeout(() => setIndicator(null), 2000);
     }
+  };
+
+  const handleAliasChange = (key: FolderKey, newAlias: string) => {
+    updateAlias(key, newAlias);
+    setEditingAlias(null);
   };
 
   const handleCapture = async () => {
@@ -370,8 +390,48 @@ export default function App() {
     };
   }, [current, filteredMatched, syncMode, setSyncMode, setViewport, resetView, imageDimensions, appMode]);
 
-  const currentFolders = appMode === 'toggle' ? { A, B } : { A, B, C, D };
+  const currentFolders: Partial<Record<FolderKey, FolderState>> = appMode === 'toggle' ? { A, B } : { A, B, C, D };
   const viewersCount = appMode === 'compare' ? numViewers : 1;
+
+  const renderFolderControl = (key: FolderKey, state: FolderState | undefined) => {
+    if (!state) {
+      return (
+        <button className="folder-picker-initial" onClick={() => pick(key)}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          <span>Folder {key}</span>
+        </button>
+      );
+    }
+
+    return (
+      <div className="folder-control">
+        <span className="folder-key-label">{key}</span>
+        <div className="alias-editor">
+          {editingAlias === key ? (
+            <input
+              type="text"
+              defaultValue={state.alias}
+              onBlur={(e) => handleAliasChange(key, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleAliasChange(key, (e.target as HTMLInputElement).value);
+                }
+                if (e.key === 'Escape') {
+                  setEditingAlias(null);
+                }
+              }}
+              autoFocus
+            />
+          ) : (
+            <span className="alias-text" onClick={() => setEditingAlias(key)} title={state.alias}>{state.alias}</span>
+          )}
+        </div>
+        <button onClick={() => pick(key)} className="repick-button" title={`Repick Folder ${key}`}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><path d="M12 11v6"></path><path d="m15 14-3 3-3-3"></path></svg>
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div className="app">
@@ -387,10 +447,10 @@ export default function App() {
         </div>
         <div className="top-controls-wrapper">
           <div className="controls">
-            <button onClick={() => pick("A")} className={A ? 'loaded' : ''}>{A ? `A: ${A.name}` : 'Pick Folder A'}</button>
-            <button onClick={() => pick("B")} className={B ? 'loaded' : ''}>{B ? `B: ${B.name}` : 'Pick Folder B'}</button>
-            {appMode === 'compare' && numViewers >= 3 && <button onClick={() => pick("C")} className={C ? 'loaded' : ''}>{C ? `C: ${C.name}` : 'Pick Folder C'}</button>}
-            {appMode === 'compare' && numViewers >= 4 && <button onClick={() => pick("D")} className={D ? 'loaded' : ''}>{D ? `D: ${D.name}` : 'Pick Folder D'}</button>}
+            {renderFolderControl('A', A)}
+            {renderFolderControl('B', B)}
+            {appMode === 'compare' && numViewers >= 3 && renderFolderControl('C', C)}
+            {appMode === 'compare' && numViewers >= 4 && renderFolderControl('D', D)}
             <div style={{ display: 'none' }}>
               <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
               <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
@@ -464,15 +524,15 @@ export default function App() {
           }
           {appMode === 'compare' ? (
             <>
-              <ImageCanvas ref={canvasRefs.A} label={A?.name || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} cache={bitmapCache.current} />
-              <ImageCanvas ref={canvasRefs.B} label={B?.name || 'B'} file={fileOf("B", current)} indicator={indicator} cache={bitmapCache.current} />
-              {numViewers >= 3 && <ImageCanvas ref={canvasRefs.C} label={C?.name || 'C'} file={fileOf("C", current)} indicator={indicator} cache={bitmapCache.current} />}
-              {numViewers >= 4 && <ImageCanvas ref={canvasRefs.D} label={D?.name || 'D'} file={fileOf("D", current)} indicator={indicator} cache={bitmapCache.current} />}
+              <ImageCanvas ref={canvasRefs.A} label={A?.alias || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} cache={bitmapCache.current} />
+              <ImageCanvas ref={canvasRefs.B} label={B?.alias || 'B'} file={fileOf("B", current)} indicator={indicator} cache={bitmapCache.current} />
+              {numViewers >= 3 && <ImageCanvas ref={canvasRefs.C} label={C?.alias || 'C'} file={fileOf("C", current)} indicator={indicator} cache={bitmapCache.current} />}
+              {numViewers >= 4 && <ImageCanvas ref={canvasRefs.D} label={D?.alias || 'D'} file={fileOf("D", current)} indicator={indicator} cache={bitmapCache.current} />}
             </>
           ) : (
             <ImageCanvas 
               ref={canvasRefs.toggle}
-              label={currentFolders[toggleSource]?.name || toggleSource} 
+              label={currentFolders[toggleSource]?.alias || toggleSource} 
               file={fileOf(toggleSource, current)} 
               indicator={indicator} 
               isReference={true} 
