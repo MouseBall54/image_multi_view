@@ -46,13 +46,78 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReferen
   // 이미지 로드
   useEffect(() => {
     let revoked = false;
-    if (!file) { setBitmap(null); return; }
+    if (!file) {
+      setBitmap(null);
+      return;
+    }
+
+    const isTiff = file.name.toLowerCase().endsWith('.tif') || file.name.toLowerCase().endsWith('.tiff');
+
     (async () => {
-      const opts: ImageBitmapOptions = RESPECT_EXIF ? { imageOrientation: "from-image" as any } : {};
-      const bmp = await createImageBitmap(file, opts);
-      if (!revoked) setBitmap(bmp);
+      if (isTiff) {
+        const Tiff = await import('tiff');
+        const buffer = await file.arrayBuffer();
+        const ifds = Tiff.decode(buffer);
+
+        if (ifds && ifds.length > 0) {
+          const tiffImage = ifds[0];
+          const width = tiffImage.width;
+          const height = tiffImage.height;
+          const samplesPerPixel = tiffImage.samplesPerPixel;
+          const tiffData = tiffImage.data;
+          
+          let rgba;
+
+          if (samplesPerPixel === 1) { // Grayscale
+            rgba = new Uint8ClampedArray(width * height * 4);
+            for (let i = 0; i < tiffData.length; i++) {
+              rgba[i * 4] = tiffData[i];
+              rgba[i * 4 + 1] = tiffData[i];
+              rgba[i * 4 + 2] = tiffData[i];
+              rgba[i * 4 + 3] = 255;
+            }
+          } else if (samplesPerPixel === 3) { // RGB
+            rgba = new Uint8ClampedArray(width * height * 4);
+            for (let i = 0; i < width * height; i++) {
+              rgba[i * 4] = tiffData[i * 3];
+              rgba[i * 4 + 1] = tiffData[i * 3 + 1];
+              rgba[i * 4 + 2] = tiffData[i * 3 + 2];
+              rgba[i * 4 + 3] = 255;
+            }
+          } else if (samplesPerPixel === 4) { // RGBA
+            rgba = new Uint8ClampedArray(tiffData);
+          } else {
+            console.error(`Unsupported samplesPerPixel: ${samplesPerPixel}`);
+            setBitmap(null);
+            return;
+          }
+
+          const imageData = new ImageData(rgba, width, height);
+          const bmp = await createImageBitmap(imageData);
+          if (!revoked) {
+            setBitmap(bmp);
+          }
+        } else {
+          console.error("Could not decode TIFF file");
+          setBitmap(null);
+        }
+      } else {
+        const opts: ImageBitmapOptions = RESPECT_EXIF ? { imageOrientation: "from-image" as any } : {};
+        try {
+          const bmp = await createImageBitmap(file, opts);
+          if (!revoked) {
+            setBitmap(bmp);
+          }
+        } catch (error) {
+          console.error("Error loading image:", error);
+          setBitmap(null);
+        }
+      }
     })();
-    return () => { revoked = true; };
+
+    return () => {
+      revoked = true;
+    };
   }, [file]);
 
   // 렌더링
