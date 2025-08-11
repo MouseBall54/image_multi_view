@@ -1,7 +1,7 @@
 // src/components/ImageCanvas.tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from "react";
 import { useStore } from "../store";
-import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, PAN_SPEED, RESPECT_EXIF, WHEEL_ZOOM_STEP, USE_OFFSCREEN } from "../config";
+import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, PAN_SPEED, RESPECT_EXIF, WHEEL_ZOOM_STEP } from "../config";
 import { Minimap } from "./Minimap";
 
 type Props = {
@@ -12,11 +12,42 @@ type Props = {
   cache: Map<string, ImageBitmap>;
 };
 
-export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReference, cache }) => {
+export interface ImageCanvasHandle {
+  drawToContext: (ctx: CanvasRenderingContext2D) => void;
+}
+
+export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, indicator, isReference, cache }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
   const { viewport, setViewport, syncMode, setFitScaleFn } = useStore();
   const animationFrameId = useRef<number | null>(null);
+
+  const drawImage = (ctx: CanvasRenderingContext2D, currentBitmap: ImageBitmap) => {
+    const { width, height } = ctx.canvas;
+    ctx.clearRect(0, 0, width, height);
+
+    const scale = viewport.scale;
+    const cx = viewport.cx * currentBitmap.width;
+    const cy = viewport.cy * currentBitmap.height;
+
+    const drawW = currentBitmap.width * scale;
+    const drawH = currentBitmap.height * scale;
+
+    const x = Math.round((width / 2) - (cx * scale));
+    const y = Math.round((height / 2) - (cy * scale));
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(currentBitmap, x, y, drawW, drawH);
+  };
+
+  useImperativeHandle(ref, () => ({
+    drawToContext: (ctx: CanvasRenderingContext2D) => {
+      if (bitmap) {
+        drawImage(ctx, bitmap);
+      }
+    }
+  }));
 
   useEffect(() => {
     if (isReference) {
@@ -32,10 +63,8 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReferen
 
         let scale;
         if (canvasAspect > imageAspect) {
-          // Canvas is wider than image, fit to height
           scale = height / bitmap.height;
         } else {
-          // Canvas is taller than image, fit to width
           scale = width / bitmap.width;
         }
         return scale;
@@ -44,7 +73,6 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReferen
     }
   }, [bitmap, isReference, setFitScaleFn]);
 
-  // 이미지 로드
   useEffect(() => {
     let revoked = false;
     if (!file) {
@@ -77,7 +105,7 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReferen
           
           let rgba;
 
-          if (samplesPerPixel === 1) { // Grayscale
+          if (samplesPerPixel === 1) {
             rgba = new Uint8ClampedArray(width * height * 4);
             for (let i = 0; i < tiffData.length; i++) {
               rgba[i * 4] = tiffData[i];
@@ -85,7 +113,7 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReferen
               rgba[i * 4 + 2] = tiffData[i];
               rgba[i * 4 + 3] = 255;
             }
-          } else if (samplesPerPixel === 3) { // RGB
+          } else if (samplesPerPixel === 3) {
             rgba = new Uint8ClampedArray(width * height * 4);
             for (let i = 0; i < width * height; i++) {
               rgba[i * 4] = tiffData[i * 3];
@@ -93,7 +121,7 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReferen
               rgba[i * 4 + 2] = tiffData[i * 3 + 2];
               rgba[i * 4 + 3] = 255;
             }
-          } else if (samplesPerPixel === 4) { // RGBA
+          } else if (samplesPerPixel === 4) {
             rgba = new Uint8ClampedArray(tiffData);
           } else {
             console.error(`Unsupported samplesPerPixel: ${samplesPerPixel}`);
@@ -128,7 +156,6 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReferen
     };
   }, [file, label, cache]);
 
-  // 렌더링
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !bitmap) return;
@@ -136,25 +163,9 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReferen
     const { width, height } = canvas.getBoundingClientRect();
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
-
-    const scale = viewport.scale;
-    const cx = viewport.cx * bitmap.width;
-    const cy = viewport.cy * bitmap.height;
-
-    const drawW = bitmap.width * scale;
-    const drawH = bitmap.height * scale;
-
-    const x = Math.round((canvas.width / 2) - (cx * scale));
-    const y = Math.round((canvas.height / 2) - (cy * scale));
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(bitmap, x, y, drawW, drawH);
-    
+    drawImage(ctx, bitmap);
   }, [bitmap, viewport]);
 
-  // 상호작용: wheel zoom / drag pan
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !bitmap) return;
@@ -293,4 +304,4 @@ export const ImageCanvas: React.FC<Props> = ({ file, label, indicator, isReferen
       <Minimap bitmap={bitmap} viewport={viewport} />
     </div>
   );
-};
+});

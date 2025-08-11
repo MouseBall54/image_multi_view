@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { matchFilenames } from "./utils/match";
 import { filesFromInput, pickDirectory, FolderData } from "./utils/folder";
-import { ImageCanvas } from "./components/ImageCanvas";
+import { ImageCanvas, ImageCanvasHandle } from "./components/ImageCanvas";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { useStore } from "./store";
 import type { FolderKey, MatchedItem, AppMode } from "./types";
@@ -145,6 +145,15 @@ export default function App() {
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [toggleSource, setToggleSource] = useState<FolderKey>('A');
   const bitmapCache = useRef(new Map<string, ImageBitmap>());
+  const [captureDataUrl, setCaptureDataUrl] = useState<string | null>(null);
+
+  const canvasRefs = {
+    A: useRef<ImageCanvasHandle>(null),
+    B: useRef<ImageCanvasHandle>(null),
+    C: useRef<ImageCanvasHandle>(null),
+    D: useRef<ImageCanvasHandle>(null),
+    toggle: useRef<ImageCanvasHandle>(null),
+  };
 
   useEffect(() => {
     const cache = bitmapCache.current;
@@ -211,6 +220,71 @@ export default function App() {
     if (vp.cx !== undefined && vp.cy !== undefined) {
       setIndicator({ cx: vp.cx, cy: vp.cy, key: Date.now() });
       setTimeout(() => setIndicator(null), 2000);
+    }
+  };
+
+  const handleCapture = async () => {
+    const viewersSection = document.querySelector('.viewers') as HTMLElement;
+    if (!viewersSection) return;
+
+    const { width, height } = viewersSection.getBoundingClientRect();
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, width, height);
+
+    if (appMode === 'toggle') {
+      const ref = canvasRefs.toggle.current;
+      if (ref) {
+        ref.drawToContext(ctx);
+      }
+    } else {
+      const gridCols = numViewers <= 2 ? numViewers : 2;
+      const gridRows = Math.ceil(numViewers / 2);
+      const itemWidth = width / gridCols;
+      const itemHeight = height / gridRows;
+
+      const activeCanvasRefs = [canvasRefs.A, canvasRefs.B, canvasRefs.C, canvasRefs.D].slice(0, numViewers);
+
+      activeCanvasRefs.forEach((ref, index) => {
+        if (ref.current) {
+          const row = Math.floor(index / gridCols);
+          const col = index % gridCols;
+          const x = col * itemWidth;
+          const y = row * itemHeight;
+
+          const subCanvas = document.createElement('canvas');
+          subCanvas.width = itemWidth;
+          subCanvas.height = itemHeight;
+          const subCtx = subCanvas.getContext('2d');
+          if (subCtx) {
+            ref.current.drawToContext(subCtx);
+            ctx.drawImage(subCanvas, x, y);
+          }
+        }
+      });
+    }
+
+    setCaptureDataUrl(canvas.toDataURL('image/png'));
+  };
+
+  const handleCopyToClipboard = async () => {
+    if (!captureDataUrl) return;
+    try {
+      const blob = await (await fetch(captureDataUrl)).blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type]: blob })
+      ]);
+      alert('Copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      alert('Failed to copy to clipboard.');
+    } finally {
+      setCaptureDataUrl(null);
     }
   };
 
@@ -348,6 +422,7 @@ export default function App() {
               </select>
             </label>
             <button onClick={resetView}>Reset View</button>
+            <button onClick={handleCapture}>Capture</button>
           </div>
           <ViewportControls imageDimensions={imageDimensions} onViewportSet={handleViewportSet} />
         </div>
@@ -389,13 +464,14 @@ export default function App() {
           }
           {appMode === 'compare' ? (
             <>
-              <ImageCanvas label={A?.name || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} cache={bitmapCache.current} />
-              <ImageCanvas label={B?.name || 'B'} file={fileOf("B", current)} indicator={indicator} cache={bitmapCache.current} />
-              {numViewers >= 3 && <ImageCanvas label={C?.name || 'C'} file={fileOf("C", current)} indicator={indicator} cache={bitmapCache.current} />}
-              {numViewers >= 4 && <ImageCanvas label={D?.name || 'D'} file={fileOf("D", current)} indicator={indicator} cache={bitmapCache.current} />}
+              <ImageCanvas ref={canvasRefs.A} label={A?.name || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} cache={bitmapCache.current} />
+              <ImageCanvas ref={canvasRefs.B} label={B?.name || 'B'} file={fileOf("B", current)} indicator={indicator} cache={bitmapCache.current} />
+              {numViewers >= 3 && <ImageCanvas ref={canvasRefs.C} label={C?.name || 'C'} file={fileOf("C", current)} indicator={indicator} cache={bitmapCache.current} />}
+              {numViewers >= 4 && <ImageCanvas ref={canvasRefs.D} label={D?.name || 'D'} file={fileOf("D", current)} indicator={indicator} cache={bitmapCache.current} />}
             </>
           ) : (
             <ImageCanvas 
+              ref={canvasRefs.toggle}
               label={currentFolders[toggleSource]?.name || toggleSource} 
               file={fileOf(toggleSource, current)} 
               indicator={indicator} 
@@ -405,6 +481,21 @@ export default function App() {
           )}
         </section>
       </main>
+      {captureDataUrl && (
+        <div className="capture-modal">
+          <div className="capture-modal-content">
+            <h3>Capture Complete</h3>
+            <img src={captureDataUrl} alt="capture-preview" style={{ maxWidth: '100%', maxHeight: '300px' }} />
+            <div className="capture-modal-actions">
+              <button onClick={handleCopyToClipboard}>Copy to Clipboard</button>
+              <a href={captureDataUrl} download="capture.png" onClick={() => setCaptureDataUrl(null)}>
+                Save as PNG
+              </a>
+              <button onClick={() => setCaptureDataUrl(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
