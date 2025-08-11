@@ -365,6 +365,18 @@ main {
   margin: 15px 0;
 }
 
+.capture-modal-options {
+  margin-bottom: 15px;
+}
+
+.capture-modal-options label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
 .capture-modal-actions {
   display: flex;
   gap: 15px;

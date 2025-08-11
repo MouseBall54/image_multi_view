@@ -8,3 +8,4 @@ export const DEFAULT_VIEWPORT: { scale: number } = { scale: 1 };
 export const CURSOR_ZOOM_CENTERED = true; // 커서 기준 zoom
 export const RESPECT_EXIF = true;         // EXIF 회전 처리(createImageBitmap 옵션)
 export const USE_OFFSCREEN = true;        // OffscreenCanvas 사용(지원시)
+export const SHOW_FOLDER_LABEL = true;    // 뷰어에 폴더명 표시

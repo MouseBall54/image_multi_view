@@ -1,7 +1,7 @@
 // src/components/ImageCanvas.tsx
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from "react";
 import { useStore } from "../store";
-import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, PAN_SPEED, RESPECT_EXIF, WHEEL_ZOOM_STEP } from "../config";
+import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, PAN_SPEED, RESPECT_EXIF, WHEEL_ZOOM_STEP, SHOW_FOLDER_LABEL } from "../config";
 import { Minimap } from "./Minimap";
 
 type Props = {
@@ -271,7 +271,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
   return (
     <div className="viewer">
-      <div className="viewer__label">{label}</div>
+      {SHOW_FOLDER_LABEL && <div className="viewer__label">{label}</div>}
       <canvas ref={canvasRef} className="viewer__canvas" />
       {!file && <div className="viewer__placeholder">No Image</div>}
       {indicator && bitmap && canvasRef.current && (

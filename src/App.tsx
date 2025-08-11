@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useEffect } from "react";
+import React, { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { matchFilenames } from "./utils/match";
 import { filesFromInput, pickDirectory, FolderData } from "./utils/folder";
 import { ImageCanvas, ImageCanvasHandle } from "./components/ImageCanvas";
@@ -159,6 +159,8 @@ export default function App() {
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [toggleSource, setToggleSource] = useState<FolderKey>('A');
   const bitmapCache = useRef(new Map<string, ImageBitmap>());
+  const [showCaptureModal, setShowCaptureModal] = useState(false);
+  const [captureWithLabels, setCaptureWithLabels] = useState(true);
   const [captureDataUrl, setCaptureDataUrl] = useState<string | null>(null);
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
 
@@ -243,24 +245,46 @@ export default function App() {
     setEditingAlias(null);
   };
 
-  const handleCapture = async () => {
+  const currentFolders: Partial<Record<FolderKey, FolderState>> = appMode === 'toggle' ? { A, B } : { A, B, C, D };
+  const viewersCount = appMode === 'compare' ? numViewers : 1;
+
+  const generateCapture = useCallback((withLabels: boolean): string | null => {
     const viewersSection = document.querySelector('.viewers') as HTMLElement;
-    if (!viewersSection) return;
+    if (!viewersSection) return null;
 
     const { width, height } = viewersSection.getBoundingClientRect();
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) return null;
 
     ctx.fillStyle = '#111';
     ctx.fillRect(0, 0, width, height);
+
+    const drawLabel = (label: string, x: number, y: number) => {
+      const fontSize = 24;
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      const textMetrics = ctx.measureText(label);
+      const textWidth = textMetrics.width;
+      const padding = 8;
+      
+      ctx.fillRect(x + padding / 2, y + padding / 2, textWidth + padding, fontSize + padding);
+
+      ctx.fillStyle = '#fff';
+      ctx.textBaseline = 'top';
+      ctx.fillText(label, x + padding, y + padding);
+    };
 
     if (appMode === 'toggle') {
       const ref = canvasRefs.toggle.current;
       if (ref) {
         ref.drawToContext(ctx);
+        if (withLabels) {
+          const label = currentFolders[toggleSource]?.alias || toggleSource;
+          drawLabel(label, 0, 0);
+        }
       }
     } else {
       const gridCols = numViewers <= 2 ? numViewers : 2;
@@ -268,10 +292,11 @@ export default function App() {
       const itemWidth = width / gridCols;
       const itemHeight = height / gridRows;
 
-      const activeCanvasRefs = [canvasRefs.A, canvasRefs.B, canvasRefs.C, canvasRefs.D].slice(0, numViewers);
+      const activeCanvasKeys: FolderKey[] = ['A', 'B', 'C', 'D'].slice(0, numViewers) as FolderKey[];
 
-      activeCanvasRefs.forEach((ref, index) => {
-        if (ref.current) {
+      activeCanvasKeys.forEach((key, index) => {
+        const ref = canvasRefs[key];
+        if (ref?.current) {
           const row = Math.floor(index / gridCols);
           const col = index % gridCols;
           const x = col * itemWidth;
@@ -284,12 +309,32 @@ export default function App() {
           if (subCtx) {
             ref.current.drawToContext(subCtx);
             ctx.drawImage(subCanvas, x, y);
+            if (withLabels) {
+              const label = (key === 'A' ? A : key === 'B' ? B : key === 'C' ? C : D)?.alias || key;
+              drawLabel(label, x, y);
+            }
           }
         }
       });
     }
 
-    setCaptureDataUrl(canvas.toDataURL('image/png'));
+    return canvas.toDataURL('image/png');
+  }, [appMode, numViewers, canvasRefs, A, B, C, D, toggleSource, currentFolders]);
+
+  useEffect(() => {
+    if (showCaptureModal) {
+      const url = generateCapture(captureWithLabels);
+      setCaptureDataUrl(url);
+    }
+  }, [showCaptureModal, captureWithLabels, generateCapture]);
+
+  const handleCaptureClick = () => {
+    setShowCaptureModal(true);
+  };
+
+  const handleCloseCaptureModal = () => {
+    setShowCaptureModal(false);
+    setCaptureDataUrl(null);
   };
 
   const handleCopyToClipboard = async () => {
@@ -304,7 +349,7 @@ export default function App() {
       console.error('Failed to copy: ', err);
       alert('Failed to copy to clipboard.');
     } finally {
-      setCaptureDataUrl(null);
+      handleCloseCaptureModal();
     }
   };
 
@@ -389,9 +434,6 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [current, filteredMatched, syncMode, setSyncMode, setViewport, resetView, imageDimensions, appMode]);
-
-  const currentFolders: Partial<Record<FolderKey, FolderState>> = appMode === 'toggle' ? { A, B } : { A, B, C, D };
-  const viewersCount = appMode === 'compare' ? numViewers : 1;
 
   const renderFolderControl = (key: FolderKey, state: FolderState | undefined) => {
     if (!state) {
@@ -482,7 +524,7 @@ export default function App() {
               </select>
             </label>
             <button onClick={resetView}>Reset View</button>
-            <button onClick={handleCapture}>Capture</button>
+            <button onClick={handleCaptureClick}>Capture</button>
           </div>
           <ViewportControls imageDimensions={imageDimensions} onViewportSet={handleViewportSet} />
         </div>
@@ -541,17 +583,23 @@ export default function App() {
           )}
         </section>
       </main>
-      {captureDataUrl && (
+      {showCaptureModal && (
         <div className="capture-modal">
           <div className="capture-modal-content">
             <h3>Capture Complete</h3>
-            <img src={captureDataUrl} alt="capture-preview" style={{ maxWidth: '100%', maxHeight: '300px' }} />
+            {captureDataUrl && <img src={captureDataUrl} alt="capture-preview" style={{ maxWidth: '100%', maxHeight: '300px' }} />}
+            <div className="capture-modal-options">
+              <label>
+                <input type="checkbox" checked={captureWithLabels} onChange={e => setCaptureWithLabels(e.target.checked)} />
+                Include Labels
+              </label>
+            </div>
             <div className="capture-modal-actions">
               <button onClick={handleCopyToClipboard}>Copy to Clipboard</button>
-              <a href={captureDataUrl} download="capture.png" onClick={() => setCaptureDataUrl(null)}>
+              <a href={captureDataUrl || ''} download="capture.png" onClick={() => !captureDataUrl && event.preventDefault()}>
                 Save as PNG
               </a>
-              <button onClick={() => setCaptureDataUrl(null)}>Close</button>
+              <button onClick={handleCloseCaptureModal}>Close</button>
             </div>
           </div>
         </div>
