@@ -167,6 +167,7 @@ export default function App() {
   const bitmapCache = useRef(new Map<string, ImageBitmap>());
   const [showCaptureModal, setShowCaptureModal] = useState(false);
   const [captureWithLabels, setCaptureWithLabels] = useState(true);
+  const [captureWithCrosshair, setCaptureWithCrosshair] = useState(true);
   const [captureDataUrl, setCaptureDataUrl] = useState<string | null>(null);
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
 
@@ -284,7 +285,7 @@ export default function App() {
   const currentFolders: Partial<Record<FolderKey, FolderState>> = appMode === 'toggle' ? { A, B } : { A, B, C, D };
   const viewersCount = appMode === 'pinpoint' ? numViewers : (appMode === 'compare' ? numViewers : 1);
 
-  const generateCapture = useCallback((withLabels: boolean): string | null => {
+  const generateCapture = useCallback((withLabels: boolean, withCrosshair: boolean): string | null => {
     const viewersSection = document.querySelector('.viewers') as HTMLElement;
     if (!viewersSection) return null;
 
@@ -316,7 +317,7 @@ export default function App() {
     if (appMode === 'toggle') {
       const ref = canvasRefs.toggle.current;
       if (ref) {
-        ref.drawToContext(ctx);
+        ref.drawToContext(ctx, false);
         if (withLabels) {
           const label = currentFolders[toggleSource]?.alias || toggleSource;
           drawLabel(label, 0, 0);
@@ -343,7 +344,7 @@ export default function App() {
           subCanvas.height = itemHeight;
           const subCtx = subCanvas.getContext('2d');
           if (subCtx) {
-            ref.current.drawToContext(subCtx);
+            ref.current.drawToContext(subCtx, withCrosshair);
             ctx.drawImage(subCanvas, x, y);
             if (withLabels) {
               const label = appMode === 'pinpoint' 
@@ -361,10 +362,10 @@ export default function App() {
 
   useEffect(() => {
     if (showCaptureModal) {
-      const url = generateCapture(captureWithLabels);
+      const url = generateCapture(captureWithLabels, captureWithCrosshair);
       setCaptureDataUrl(url);
     }
-  }, [showCaptureModal, captureWithLabels, generateCapture]);
+  }, [showCaptureModal, captureWithLabels, captureWithCrosshair, generateCapture]);
 
   const handleCaptureClick = () => {
     setShowCaptureModal(true);
@@ -710,6 +711,12 @@ export default function App() {
                 <input type="checkbox" checked={captureWithLabels} onChange={e => setCaptureWithLabels(e.target.checked)} />
                 Include Labels
               </label>
+              {appMode === 'pinpoint' && (
+                <label>
+                  <input type="checkbox" checked={captureWithCrosshair} onChange={e => setCaptureWithCrosshair(e.target.checked)} />
+                  Include Crosshair
+                </label>
+              )}
             </div>
             <div className="capture-modal-actions">
               <button onClick={handleCopyToClipboard}>Copy to Clipboard</button>

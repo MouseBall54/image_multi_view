@@ -18,7 +18,7 @@ type Props = {
 };
 
 export interface ImageCanvasHandle {
-  drawToContext: (ctx: CanvasRenderingContext2D) => void;
+  drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => void;
 }
 
 export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, indicator, isReference, cache, appMode, refPoint, onSetRefPoint, folderKey }, ref) => {
@@ -41,7 +41,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     ctx.restore();
   };
 
-  const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentBitmap: ImageBitmap) => {
+  const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentBitmap: ImageBitmap, withCrosshair: boolean) => {
     const { width, height } = ctx.canvas;
     ctx.clearRect(0, 0, width, height);
 
@@ -67,7 +67,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(currentBitmap, x, y, drawW, drawH);
 
-    if (appMode === 'pinpoint' && refPoint) {
+    if (appMode === 'pinpoint' && refPoint && withCrosshair) {
       const refScreenX = viewport.refScreenX || (width / 2);
       const refScreenY = viewport.refScreenY || (height / 2);
       drawMarker(ctx, refScreenX, refScreenY, 'red');
@@ -75,9 +75,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   }, [viewport, appMode, refPoint]);
 
   useImperativeHandle(ref, () => ({
-    drawToContext: (ctx: CanvasRenderingContext2D) => {
+    drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {
       if (bitmap) {
-        drawImage(ctx, bitmap);
+        drawImage(ctx, bitmap, withCrosshair);
       }
     }
   }));
@@ -129,7 +129,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const { width, height } = canvas.getBoundingClientRect();
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
-    drawImage(ctx, bitmap);
+    drawImage(ctx, bitmap, true);
   }, [bitmap, drawImage, viewport]);
 
   useEffect(() => {
