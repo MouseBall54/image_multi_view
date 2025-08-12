@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useStore } from '../store';
 import { useFolderPickers, FolderState } from '../hooks/useFolderPickers';
 import { matchFilenames } from '../utils/match';
@@ -7,6 +7,10 @@ import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import type { FolderKey, MatchedItem } from '../types';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
+
+export interface CompareModeHandle {
+  capture: (options: { showLabels: boolean }) => Promise<string | null>;
+}
 
 interface CompareModeProps {
   numViewers: number;
@@ -17,8 +21,8 @@ interface CompareModeProps {
   setPrimaryFile: (file: File | null) => void;
 }
 
-export const CompareMode: React.FC<CompareModeProps> = ({ numViewers, stripExt, bitmapCache, indicator, setStripExt, setPrimaryFile }) => {
-  const { A, B, C, D, pick, inputRefs, onInput, updateAlias } = useFolderPickers();
+export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, stripExt, bitmapCache, indicator, setStripExt, setPrimaryFile }, ref) => {
+  const { A, B, C, D, pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { current, setCurrent } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
@@ -29,6 +33,66 @@ export const CompareMode: React.FC<CompareModeProps> = ({ numViewers, stripExt, 
     C: useRef<ImageCanvasHandle>(null),
     D: useRef<ImageCanvasHandle>(null),
   };
+
+  useImperativeHandle(ref, () => ({
+    capture: async ({ showLabels }) => {
+      const FOLDER_KEYS = (['A', 'B', 'C', 'D'] as FolderKey[]).slice(0, numViewers);
+
+      const firstOnscreenCanvas = canvasRefs.A.current?.getCanvas() || canvasRefs.B.current?.getCanvas();
+      if (!firstOnscreenCanvas) return null;
+      const { width, height } = firstOnscreenCanvas;
+
+      const tempCanvases = FOLDER_KEYS.map(key => {
+        const handle = canvasRefs[key].current;
+        if (!handle) return null;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) return null;
+        handle.drawToContext(tempCtx, false); // 'false' for withCrosshair
+        return tempCanvas;
+      }).filter((c): c is HTMLCanvasElement => !!c);
+
+      if (tempCanvases.length === 0) return null;
+
+      const isGridLayout = numViewers > 2;
+      const combinedWidth = isGridLayout ? width * 2 : width * tempCanvases.length;
+      const combinedHeight = isGridLayout ? (numViewers === 3 ? height * 2 : height * 2) : height;
+
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = combinedWidth;
+      finalCanvas.height = combinedHeight;
+      const finalCtx = finalCanvas.getContext('2d');
+      if (!finalCtx) return null;
+
+      finalCtx.fillStyle = '#111';
+      finalCtx.fillRect(0, 0, combinedWidth, combinedHeight);
+
+      tempCanvases.forEach((canvas, index) => {
+        const key = FOLDER_KEYS[index];
+        let dx = 0, dy = 0;
+        if (isGridLayout) {
+            dx = (index % 2) * width;
+            dy = Math.floor(index / 2) * height;
+        } else {
+            dx = index * width;
+        }
+        finalCtx.drawImage(canvas, dx, dy);
+
+        if (showLabels) {
+          const label = allFolders[key]?.alias || key;
+          finalCtx.font = '16px sans-serif';
+          finalCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          finalCtx.fillRect(dx + 5, dy + 5, finalCtx.measureText(label).width + 10, 24);
+          finalCtx.fillStyle = 'white';
+          finalCtx.fillText(label, dx + 10, dy + 22);
+        }
+      });
+
+      return finalCanvas.toDataURL('image/png');
+    }
+  }));
 
   const fileOf = (key: FolderKey, item: MatchedItem | null): File | undefined => {
     if (!item) return undefined;
@@ -156,4 +220,4 @@ export const CompareMode: React.FC<CompareModeProps> = ({ numViewers, stripExt, 
       </main>
     </>
   );
-};
+});

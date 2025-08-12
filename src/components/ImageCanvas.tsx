@@ -24,6 +24,7 @@ type Props = {
 
 export interface ImageCanvasHandle {
   drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => void;
+  getCanvas: () => HTMLCanvasElement | null;
 }
 
 export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, indicator, isReference, cache, appMode, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
@@ -79,7 +80,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       if (image) {
         drawImage(ctx, image, withCrosshair);
       }
-    }
+    },
+    getCanvas: () => canvasRef.current,
   }));
 
   useEffect(() => {

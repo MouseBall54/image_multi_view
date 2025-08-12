@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { useStore } from '../store';
 import { useFolderPickers, FolderState } from '../hooks/useFolderPickers';
@@ -12,6 +12,10 @@ interface PinpointImage {
   refPoint: { x: number, y: number } | null;
 }
 
+export interface PinpointModeHandle {
+  capture: (options: { showLabels: boolean, showCrosshair: boolean }) => Promise<string | null>;
+}
+
 interface PinpointModeProps {
   numViewers: number;
   bitmapCache: React.MutableRefObject<Map<string, DrawableImage>>;
@@ -19,9 +23,9 @@ interface PinpointModeProps {
   setPrimaryFile: (file: File | null) => void;
 }
 
-export const PinpointMode: React.FC<PinpointModeProps> = ({ numViewers, bitmapCache, indicator, setPrimaryFile }) => {
-  const { A, B, C, D, pick, inputRefs, onInput, updateAlias } = useFolderPickers();
-  const { current, setCurrent, setViewport } = useStore();
+export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({ numViewers, bitmapCache, indicator, setPrimaryFile }, ref) => {
+  const { A, B, C, D, pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
+  const { current, setCurrent, setViewport, viewport } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
@@ -41,6 +45,66 @@ export const PinpointMode: React.FC<PinpointModeProps> = ({ numViewers, bitmapCa
     C: useRef<ImageCanvasHandle>(null),
     D: useRef<ImageCanvasHandle>(null),
   };
+
+  useImperativeHandle(ref, () => ({
+    capture: async ({ showLabels, showCrosshair }) => {
+      const FOLDER_KEYS = (['A', 'B', 'C', 'D'] as FolderKey[]).slice(0, numViewers);
+      
+      const firstOnscreenCanvas = canvasRefs.A.current?.getCanvas();
+      if (!firstOnscreenCanvas) return null;
+      const { width, height } = firstOnscreenCanvas;
+
+      const tempCanvases = FOLDER_KEYS.map(key => {
+        const handle = canvasRefs[key].current;
+        if (!handle) return null;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) return null;
+        handle.drawToContext(tempCtx, showCrosshair);
+        return tempCanvas;
+      }).filter((c): c is HTMLCanvasElement => !!c);
+
+      if (tempCanvases.length === 0) return null;
+
+      const isGridLayout = numViewers > 2;
+      const combinedWidth = isGridLayout ? width * 2 : width * tempCanvases.length;
+      const combinedHeight = isGridLayout ? (numViewers === 3 ? height * 2 : height * 2) : height;
+
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = combinedWidth;
+      finalCanvas.height = combinedHeight;
+      const finalCtx = finalCanvas.getContext('2d');
+      if (!finalCtx) return null;
+
+      finalCtx.fillStyle = '#111';
+      finalCtx.fillRect(0, 0, combinedWidth, combinedHeight);
+
+      tempCanvases.forEach((canvas, index) => {
+        const key = FOLDER_KEYS[index];
+        let dx = 0, dy = 0;
+        if (isGridLayout) {
+            dx = (index % 2) * width;
+            dy = Math.floor(index / 2) * height;
+        } else {
+            dx = index * width;
+        }
+        finalCtx.drawImage(canvas, dx, dy);
+
+        if (showLabels) {
+          const label = allFolders[key]?.alias || pinpointImages[key]?.file?.name || key;
+          finalCtx.font = '16px sans-serif';
+          finalCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          finalCtx.fillRect(dx + 5, dy + 5, finalCtx.measureText(label).width + 10, 24);
+          finalCtx.fillStyle = 'white';
+          finalCtx.fillText(label, dx + 10, dy + 22);
+        }
+      });
+
+      return finalCanvas.toDataURL('image/png');
+    }
+  }));
 
   const activeFolders = useMemo(() => {
     const folders: any = { A: A?.data.files, B: B?.data.files };
@@ -267,4 +331,4 @@ export const PinpointMode: React.FC<PinpointModeProps> = ({ numViewers, bitmapCa
       </main>
     </>
   );
-};
+});

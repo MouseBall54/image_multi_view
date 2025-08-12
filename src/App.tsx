@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useStore } from "./store";
 import type { AppMode } from "./types";
-import { CompareMode } from './modes/CompareMode';
-import { ToggleMode } from './modes/ToggleMode';
-import { PinpointMode } from './modes/PinpointMode';
+import { CompareMode, CompareModeHandle } from './modes/CompareMode';
+import { ToggleMode, ToggleModeHandle } from './modes/ToggleMode';
+import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP, UTIF_OPTIONS } from "./config";
 import { decodeTiffWithUTIF } from "./utils/utif";
@@ -67,6 +67,52 @@ export default function App() {
   const bitmapCache = useRef(new Map<string, DrawableImage>());
   
   const primaryFileRef = useRef<File | null>(null);
+  const compareModeRef = useRef<CompareModeHandle>(null);
+  const toggleModeRef = useRef<ToggleModeHandle>(null);
+  const pinpointModeRef = useRef<PinpointModeHandle>(null);
+
+  const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true });
+  const [clipboardStatus, setClipboardStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  const runCapture = useCallback(async () => {
+    if (!isCaptureModalOpen) return;
+    let dataUrl: string | null = null;
+    const opts = { ...captureOptions };
+
+    if (appMode === 'compare' && compareModeRef.current) {
+      dataUrl = await compareModeRef.current.capture(opts);
+    } else if (appMode === 'toggle' && toggleModeRef.current) {
+      dataUrl = await toggleModeRef.current.capture(opts);
+    } else if (appMode === 'pinpoint' && pinpointModeRef.current) {
+      dataUrl = await pinpointModeRef.current.capture(opts);
+    }
+    if (dataUrl) {
+      setCapturedImage(dataUrl);
+    }
+  }, [appMode, isCaptureModalOpen, captureOptions]);
+
+  useEffect(() => {
+    runCapture();
+  }, [runCapture]);
+
+  const handleOpenCaptureModal = () => {
+    setClipboardStatus('idle');
+    setCaptureModalOpen(true);
+  };
+
+  const handleCopyToClipboard = async () => {
+    if (!capturedImage) return;
+    try {
+      const blob = await (await fetch(capturedImage)).blob();
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      setClipboardStatus('success');
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      setClipboardStatus('error');
+    }
+  };
 
   const resetView = () => {
     const newScale = fitScaleFn ? fitScaleFn() : 1;
@@ -138,11 +184,11 @@ export default function App() {
 
     switch (appMode) {
       case 'compare':
-        return <CompareMode numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
+        return <CompareMode ref={compareModeRef} numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
       case 'toggle':
-        return <ToggleMode numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
+        return <ToggleMode ref={toggleModeRef} numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
       case 'pinpoint':
-        return <PinpointMode numViewers={numViewers} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
+        return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
       default:
         return null;
     }
@@ -187,6 +233,7 @@ export default function App() {
               </label>
             )}
             <button onClick={resetView}>Reset View</button>
+            <button onClick={handleOpenCaptureModal}>Capture</button>
           </div>
           <ViewportControls imageDimensions={imageDimensions} />
         </div>
@@ -201,6 +248,38 @@ export default function App() {
           onClose={() => setShowInfoPanel(false)} 
         />
       }
+
+      {isCaptureModalOpen && (
+        <div className="capture-modal" onClick={() => setCaptureModalOpen(false)}>
+          <div className="capture-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Capture Options</h3>
+            <div className="capture-modal-preview">
+              {capturedImage ? <img src={capturedImage} alt="Captured content" /> : <div className="loading-spinner"></div>}
+            </div>
+            <div className="capture-modal-options">
+              <label>
+                <input type="checkbox" checked={captureOptions.showLabels} onChange={(e) => setCaptureOptions(o => ({...o, showLabels: e.target.checked}))} />
+                Show Labels
+              </label>
+              {appMode === 'pinpoint' && (
+                <label>
+                  <input type="checkbox" checked={captureOptions.showCrosshair} onChange={(e) => setCaptureOptions(o => ({...o, showCrosshair: e.target.checked}))} />
+                  Show Crosshair
+                </label>
+              )}
+            </div>
+            <div className="capture-modal-actions">
+              <button onClick={handleCopyToClipboard}>
+                {clipboardStatus === 'idle' && 'Copy to Clipboard'}
+                {clipboardStatus === 'success' && 'Copied!'}
+                {clipboardStatus === 'error' && 'Error!'}
+              </button>
+              {capturedImage && <a href={capturedImage} download={`capture-${new Date().toISOString()}.png`}>Save as File...</a>}
+              <button onClick={() => setCaptureModalOpen(false)} className="close-button">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

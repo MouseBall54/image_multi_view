@@ -1,20 +1,15 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useStore } from '../store';
 import { useFolderPickers, FolderState } from '../hooks/useFolderPickers';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import type { FolderKey, MatchedItem } from '../types';
-
 import { matchFilenames } from '../utils/match';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
-interface ToggleModeProps {
-  stripExt: boolean;
-  setStripExt: (value: boolean) => void;
-  bitmapCache: React.MutableRefObject<Map<string, DrawableImage>>;
-  indicator: { cx: number, cy: number, key: number } | null;
-  setPrimaryFile: (file: File | null) => void;
+export interface ToggleModeHandle {
+  capture: (options: { showLabels: boolean }) => Promise<string | null>;
 }
 
 interface ToggleModeProps {
@@ -26,13 +21,44 @@ interface ToggleModeProps {
   setPrimaryFile: (file: File | null) => void;
 }
 
-export const ToggleMode: React.FC<ToggleModeProps> = ({ numViewers, stripExt, setStripExt, bitmapCache, indicator, setPrimaryFile }) => {
+export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numViewers, stripExt, setStripExt, bitmapCache, indicator, setPrimaryFile }, ref) => {
   const { A, B, C, D, pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { current, setCurrent } = useStore();
   const [toggleSource, setToggleSource] = useState<FolderKey>('A');
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
   const canvasRef = useRef<ImageCanvasHandle>(null);
+
+  useImperativeHandle(ref, () => ({
+    capture: async ({ showLabels }) => {
+      const handle = canvasRef.current;
+      if (!handle) return null;
+      
+      const onscreenCanvas = handle.getCanvas();
+      if (!onscreenCanvas) return null;
+      const { width, height } = onscreenCanvas;
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = width;
+      tempCanvas.height = height;
+      const ctx = tempCanvas.getContext('2d');
+      if (!ctx) return null;
+
+      // Draw the image content without any UI elements
+      handle.drawToContext(ctx, false); // 'false' for withCrosshair
+
+      if (showLabels) {
+        const label = allFolders[toggleSource]?.alias || toggleSource;
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(5, 5, ctx.measureText(label).width + 10, 24);
+        ctx.fillStyle = 'white';
+        ctx.fillText(label, 10, 22);
+      }
+
+      return tempCanvas.toDataURL('image/png');
+    }
+  }));
 
   const FOLDER_KEYS = React.useMemo(() => (['A', 'B', 'C', 'D'] as FolderKey[]).slice(0, numViewers), [numViewers]);
 
@@ -68,7 +94,7 @@ export const ToggleMode: React.FC<ToggleModeProps> = ({ numViewers, stripExt, se
     return name ? folderState.data.files.get(name) : undefined;
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     const primaryFile = fileOf(toggleSource, current);
     setPrimaryFile(primaryFile || null);
   }, [current, toggleSource, allFolders, setPrimaryFile]);
@@ -116,7 +142,7 @@ export const ToggleMode: React.FC<ToggleModeProps> = ({ numViewers, stripExt, se
   };
 
   // This effect will toggle the source when space is pressed
-  React.useEffect(() => {
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === ' ') {
         e.preventDefault();
@@ -184,4 +210,4 @@ export const ToggleMode: React.FC<ToggleModeProps> = ({ numViewers, stripExt, se
       </main>
     </>
   );
-};
+});
