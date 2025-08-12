@@ -11,14 +11,15 @@ type DrawableImage = ImageBitmap | HTMLImageElement;
 
 interface ToggleModeProps {
   stripExt: boolean;
+  setStripExt: (value: boolean) => void;
   bitmapCache: React.MutableRefObject<Map<string, DrawableImage>>;
   indicator: { cx: number, cy: number, key: number } | null;
   setPrimaryFile: (file: File | null) => void;
 }
 
-export const ToggleMode: React.FC<ToggleModeProps> = ({ stripExt, bitmapCache, indicator, setPrimaryFile }) => {
+export const ToggleMode: React.FC<ToggleModeProps> = ({ stripExt, setStripExt, bitmapCache, indicator, setPrimaryFile }) => {
   const { A, B, pick, inputRefs, onInput, updateAlias } = useFolderPickers();
-  const { current } = useStore();
+  const { current, setCurrent } = useStore();
   const [toggleSource, setToggleSource] = useState<FolderKey>('A');
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);

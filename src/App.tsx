@@ -137,7 +137,7 @@ export default function App() {
       case 'compare':
         return <CompareMode numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
       case 'toggle':
-        return <ToggleMode stripExt={stripExt} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
+        return <ToggleMode stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
       case 'pinpoint':
         return <PinpointMode numViewers={numViewers} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
       default:
