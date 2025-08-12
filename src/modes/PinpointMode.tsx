@@ -113,15 +113,36 @@ export const PinpointMode: React.FC<PinpointModeProps> = ({ numViewers, bitmapCa
   const handleFileListItemClick = useCallback((item: MatchedItem) => {
     setCurrent(item); // Set the global current
     if (activeCanvasKey) {
-      const fileToLoad = fileOf(activeCanvasKey, item);
+      // Find the actual File object from any of the folders that has it
+      let fileToLoad: File | undefined;
+      const folderKeys: FolderKey[] = ['A', 'B', 'C', 'D']; // All possible folder keys
+      for (const folderKeyIter of folderKeys) {
+        if (item.has[folderKeyIter]) { // Check if this folder has the file
+          const folderState = (folderKeyIter === "A" ? A : folderKeyIter === "B" ? B : folderKeyIter === "C" ? C : D);
+          if (folderState?.data.files) {
+            const name = Array.from(folderState.data.files.keys()).find(n => n.replace(/\.[^/.]+$/, "") === item.filename);
+            if (name) {
+              fileToLoad = folderState.data.files.get(name);
+              break; // Found the file, no need to check other folders
+            }
+          }
+        }
+      }
+
       if (fileToLoad) {
         setPinpointImages(prev => ({
           ...prev,
           [activeCanvasKey]: { file: fileToLoad, refPoint: prev[activeCanvasKey]?.refPoint || null }
         }));
+      } else {
+        // If no file is found (e.g., due to a filter or a bug), clear the canvas
+        setPinpointImages(prev => ({
+          ...prev,
+          [activeCanvasKey]: { file: null, refPoint: null }
+        }));
       }
     }
-  }, [activeCanvasKey, fileOf, setCurrent]);
+  }, [activeCanvasKey, A, B, C, D, setCurrent]);
 
   const handleCanvasClick = useCallback((key: FolderKey) => {
     if (current) {
