@@ -1,16 +1,19 @@
 // src/components/ImageCanvas.tsx
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef, useCallback } from "react";
 import { useStore } from "../store";
-import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, PAN_SPEED, RESPECT_EXIF, WHEEL_ZOOM_STEP, SHOW_FOLDER_LABEL } from "../config";
+import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, PAN_SPEED, RESPECT_EXIF, WHEEL_ZOOM_STEP, SHOW_FOLDER_LABEL, UTIF_OPTIONS } from "../config";
 import { Minimap } from "./Minimap";
 import { AppMode, FolderKey } from "../types";
+import { decodeTiffWithUTIF } from '../utils/utif';
+
+type DrawableImage = ImageBitmap | HTMLImageElement;
 
 type Props = {
   file?: File;
   label: string;
   indicator?: { cx: number, cy: number, key: number } | null;
   isReference?: boolean;
-  cache: Map<string, ImageBitmap>;
+  cache: Map<string, DrawableImage>;
   appMode: AppMode;
   refPoint?: { x: number, y: number } | null;
   onSetRefPoint?: (key: FolderKey, imgPoint: { x: number, y: number }, screenPoint: {x: number, y: number}) => void;
@@ -23,61 +26,55 @@ export interface ImageCanvasHandle {
 
 export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, indicator, isReference, cache, appMode, refPoint, onSetRefPoint, folderKey }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
+  const [image, setImage] = useState<DrawableImage | null>(null);
   const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode } = useStore();
-  const animationFrameId = useRef<number | null>(null);
 
-  const drawMarker = (ctx: CanvasRenderingContext2D, x: number, y: number, color: string) => {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.beginPath();
-    ctx.moveTo(0, -15);
-    ctx.lineTo(0, 15);
-    ctx.moveTo(-15, 0);
-    ctx.lineTo(15, 0);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.restore();
-  };
-
-  const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentBitmap: ImageBitmap, withCrosshair: boolean) => {
+  const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
     const { width, height } = ctx.canvas;
     ctx.clearRect(0, 0, width, height);
 
     const scale = viewport.scale;
-    const drawW = currentBitmap.width * scale;
-    const drawH = currentBitmap.height * scale;
+    const drawW = currentImage.width * scale;
+    const drawH = currentImage.height * scale;
     let x = 0, y = 0;
 
     if (appMode === 'pinpoint' && refPoint) {
       const refScreenX = viewport.refScreenX || (width / 2);
       const refScreenY = viewport.refScreenY || (height / 2);
-      // Calculate the image's top-left corner based on the pinpoint and its screen position
       x = Math.round(refScreenX - (refPoint.x * scale));
       y = Math.round(refScreenY - (refPoint.y * scale));
     } else {
-      const cx = (viewport.cx || 0.5) * currentBitmap.width;
-      const cy = (viewport.cy || 0.5) * currentBitmap.height;
+      const cx = (viewport.cx || 0.5) * currentImage.width;
+      const cy = (viewport.cy || 0.5) * currentImage.height;
       x = Math.round((width / 2) - (cx * scale));
       y = Math.round((height / 2) - (cy * scale));
     }
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(currentBitmap, x, y, drawW, drawH);
+    ctx.drawImage(currentImage, x, y, drawW, drawH);
 
     if (appMode === 'pinpoint' && refPoint && withCrosshair) {
       const refScreenX = viewport.refScreenX || (width / 2);
       const refScreenY = viewport.refScreenY || (height / 2);
-      drawMarker(ctx, refScreenX, refScreenY, 'red');
+      ctx.save();
+      ctx.translate(refScreenX, refScreenY);
+      ctx.beginPath();
+      ctx.moveTo(0, -15);
+      ctx.lineTo(0, 15);
+      ctx.moveTo(-15, 0);
+      ctx.lineTo(15, 0);
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
     }
   }, [viewport, appMode, refPoint]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {
-      if (bitmap) {
-        drawImage(ctx, bitmap, withCrosshair);
+      if (image) {
+        drawImage(ctx, image, withCrosshair);
       }
     }
   }));
@@ -85,56 +82,61 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   useEffect(() => {
     if (isReference) {
       const calculateFitScale = () => {
-        if (!canvasRef.current || !bitmap) return 1;
+        if (!canvasRef.current || !image) return 1;
         const { width, height } = canvasRef.current.getBoundingClientRect();
-        const scale = Math.min(width / bitmap.width, height / bitmap.height);
+        const scale = Math.min(width / image.width, height / image.height);
         return scale;
       };
       setFitScaleFn(calculateFitScale);
     }
-  }, [bitmap, isReference, setFitScaleFn]);
+  }, [image, isReference, setFitScaleFn]);
 
   useEffect(() => {
     let revoked = false;
-    if (!file) {
-      setBitmap(null);
-      return;
-    }
+    if (!file) { setImage(null); return; }
+
     const cacheKey = `${label}-${file.name}`;
-    const cachedBitmap = cache.get(cacheKey);
-    if (cachedBitmap) {
-      setBitmap(cachedBitmap);
-      return;
-    }
+    const cachedImage = cache.get(cacheKey);
+    if (cachedImage) { setImage(cachedImage); return; }
+
     (async () => {
-      const opts: ImageBitmapOptions = RESPECT_EXIF ? { imageOrientation: "from-image" as any } : {};
       try {
-        const newBitmap = await createImageBitmap(file, opts);
-        if (!revoked) {
-          cache.set(cacheKey, newBitmap);
-          setBitmap(newBitmap);
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        let newImage: DrawableImage;
+
+        if (ext === 'tif' || ext === 'tiff') {
+          newImage = await decodeTiffWithUTIF(file, UTIF_OPTIONS);
+        } else {
+          const opts: ImageBitmapOptions = RESPECT_EXIF ? { imageOrientation: "from-image" as any } : {};
+          newImage = await createImageBitmap(file, opts);
         }
-      } catch (error) {
-        console.error("Error loading image:", error);
-        if (!revoked) setBitmap(null);
+
+        if (!revoked) {
+          cache.set(cacheKey, newImage);
+          setImage(newImage);
+        }
+      } catch (err) {
+        console.error('Error loading image:', err);
+        if (!revoked) setImage(null);
       }
     })();
+
     return () => { revoked = true; };
   }, [file, label, cache]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !bitmap) return;
+    if (!canvas || !image) return;
     const ctx = canvas.getContext("2d")!;
     const { width, height } = canvas.getBoundingClientRect();
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
-    drawImage(ctx, bitmap, true);
-  }, [bitmap, drawImage, viewport]);
+    drawImage(ctx, image, true);
+  }, [image, drawImage, viewport]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !bitmap || appMode !== 'pinpoint' || !onSetRefPoint || pinpointMouseMode !== 'pin') return;
+    if (!canvas || !image || appMode !== 'pinpoint' || !onSetRefPoint || pinpointMouseMode !== 'pin') return;
 
     const handleClick = (e: MouseEvent) => {
       const { left, top, width, height } = canvas.getBoundingClientRect();
@@ -151,22 +153,22 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         imgX = (canvasX - drawX) / scale;
         imgY = (canvasY - drawY) / scale;
       } else {
-        const cx = (viewport.cx || 0.5) * bitmap.width;
-        const cy = (viewport.cy || 0.5) * bitmap.height;
+        const cx = (viewport.cx || 0.5) * image.width;
+        const cy = (viewport.cy || 0.5) * image.height;
         const drawX = (width / 2) - (cx * scale);
         const drawY = (height / 2) - (cy * scale);
         imgX = (canvasX - drawX) / scale;
         imgY = (canvasY - drawY) / scale;
       }
 
-      if (imgX >= 0 && imgX <= bitmap.width && imgY >= 0 && imgY <= bitmap.height) {
+      if (imgX >= 0 && imgX <= image.width && imgY >= 0 && imgY <= image.height) {
         onSetRefPoint(folderKey, { x: imgX, y: imgY }, { x: canvasX, y: canvasY });
       }
     };
 
     canvas.addEventListener('click', handleClick);
     return () => canvas.removeEventListener('click', handleClick);
-  }, [bitmap, appMode, onSetRefPoint, viewport, folderKey, refPoint, pinpointMouseMode]);
+  }, [image, appMode, onSetRefPoint, viewport, folderKey, refPoint, pinpointMouseMode]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -187,7 +189,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !bitmap) return;
+    if (!canvas || !image) return;
 
     let isDown = false;
     let lastX = 0, lastY = 0;
@@ -215,7 +217,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       } else {
         let { cx, cy } = currentViewport;
         if (CURSOR_ZOOM_CENTERED) {
-          const imgW = bitmap.width, imgH = bitmap.height;
+          const imgW = image.width, imgH = image.height;
           const drawW = imgW * preScale;
           const x = (width / 2) - ((cx || 0.5) * imgW * preScale);
           const y = (height / 2) - ((cy || 0.5) * imgH * preScale);
@@ -264,7 +266,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         const refScreenY = (currentViewport.refScreenY || (canvas.height / 2)) + dy;
         setViewport({ refScreenX, refScreenY });
       } else {
-        const imgW = bitmap.width, imgH = bitmap.height;
+        const imgW = image.width, imgH = image.height;
         const dpX = -dx / (currentViewport.scale * imgW);
         const dpY = -dy / (currentViewport.scale * imgH);
         let cx = (currentViewport.cx || 0.5) + dpX;
@@ -286,21 +288,21 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mousemove", onMove);
     };
-  }, [bitmap, syncMode, setViewport, appMode, pinpointMouseMode]);
+  }, [image, syncMode, setViewport, appMode, pinpointMouseMode]);
 
   return (
     <div className="viewer">
       {SHOW_FOLDER_LABEL && <div className="viewer__label">{label}</div>}
       <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} />
       {!file && <div className="viewer__placeholder">{appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image'}</div>}
-      {indicator && bitmap && canvasRef.current && (
+      {indicator && image && canvasRef.current && (
         (() => {
           const canvas = canvasRef.current;
           const scale = viewport.scale;
-          const cx = (viewport.cx || 0.5) * bitmap.width;
-          const cy = (viewport.cy || 0.5) * bitmap.height;
-          const drawW = bitmap.width * scale;
-          const drawH = bitmap.height * scale;
+          const cx = (viewport.cx || 0.5) * image.width;
+          const cy = (viewport.cy || 0.5) * image.height;
+          const drawW = image.width * scale;
+          const drawH = image.height * scale;
           
           const x = (canvas.width / 2) - (cx * scale);
           const y = (canvas.height / 2) - (cy * scale);
@@ -320,7 +322,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           );
         })()
       )}
-      {/* <Minimap bitmap={bitmap} viewport={viewport} /> */}
+      {image instanceof ImageBitmap && <Minimap bitmap={image} viewport={viewport} />}
     </div>
   );
 });

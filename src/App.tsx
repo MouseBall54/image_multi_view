@@ -5,7 +5,8 @@ import { ImageCanvas, ImageCanvasHandle } from "./components/ImageCanvas";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { useStore } from "./store";
 import type { FolderKey, MatchedItem, AppMode } from "./types";
-import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP } from "./config";
+import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP, UTIF_OPTIONS } from "./config";
+import { decodeTiffWithUTIF } from "./utils/utif";
 
 interface FolderState {
   data: FolderData;
@@ -164,7 +165,11 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [toggleSource, setToggleSource] = useState<FolderKey>('A');
-  const bitmapCache = useRef(new Map<string, ImageBitmap>());
+  type DrawableImage = ImageBitmap | HTMLImageElement;
+// ... (other imports)
+
+// ... (inside App component)
+  const bitmapCache = useRef(new Map<string, DrawableImage>());
   const [showCaptureModal, setShowCaptureModal] = useState(false);
   const [captureWithLabels, setCaptureWithLabels] = useState(true);
   const [captureWithCrosshair, setCaptureWithCrosshair] = useState(true);
@@ -225,13 +230,35 @@ export default function App() {
   useEffect(() => {
     const firstFile = appMode === 'pinpoint' ? pinpointImages.A?.file : fileOf("A", current);
     if (firstFile) {
-      let revoked = false;
-      createImageBitmap(firstFile).then(bmp => {
-        if (!revoked) {
-          setImageDimensions({ width: bmp.width, height: bmp.height });
+      let isCancelled = false;
+
+      const getDimensions = async () => {
+        try {
+          const ext = (firstFile.name.split('.').pop() || '').toLowerCase();
+          let dims: { width: number, height: number };
+
+          if (ext === 'tif' || ext === 'tiff') {
+            const imgElement = await decodeTiffWithUTIF(firstFile, UTIF_OPTIONS);
+            dims = { width: imgElement.width, height: imgElement.height };
+          } else {
+            const bmp = await createImageBitmap(firstFile);
+            dims = { width: bmp.width, height: bmp.height };
+          }
+          
+          if (!isCancelled) {
+            setImageDimensions(dims);
+          }
+        } catch (err) {
+          console.error("Failed to get image dimensions:", err);
+          if (!isCancelled) {
+            setImageDimensions(null);
+          }
         }
-      });
-      return () => { revoked = true; };
+      };
+
+      getDimensions();
+
+      return () => { isCancelled = true; };
     } else {
       setImageDimensions(null);
     }
