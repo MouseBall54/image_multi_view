@@ -68,6 +68,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
       finalCtx.fillStyle = '#111';
       finalCtx.fillRect(0, 0, combinedWidth, combinedHeight);
+      const BORDER_WIDTH = 2; // px
+      finalCtx.fillStyle = '#000'; // Black border
 
       tempCanvases.forEach((canvas, index) => {
         const key = FOLDER_KEYS[index];
@@ -79,6 +81,21 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
             dx = index * width;
         }
         finalCtx.drawImage(canvas, dx, dy);
+
+        // Draw borders around the image
+        if (index > 0) { // Draw vertical border for horizontal layout
+          if (!isGridLayout) {
+            finalCtx.fillRect(dx - BORDER_WIDTH / 2, dy, BORDER_WIDTH, height);
+          }
+        }
+        if (isGridLayout) { // Draw borders for grid layout
+          if (index % 2 > 0) { // Vertical border
+            finalCtx.fillRect(dx - BORDER_WIDTH / 2, dy, BORDER_WIDTH, height);
+          }
+          if (Math.floor(index / 2) > 0) { // Horizontal border
+            finalCtx.fillRect(dx, dy - BORDER_WIDTH / 2, width, BORDER_WIDTH);
+          }
+        }
 
         if (showLabels) {
           const label = allFolders[key]?.alias || key;
