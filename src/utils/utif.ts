@@ -17,7 +17,7 @@ interface UtifOptions {
  * @returns A promise that resolves to an HTMLImageElement.
  */
 export async function decodeTiffWithUTIF(file: File, options: UtifOptions): Promise<HTMLImageElement> {
-  console.log('[UTIF Debug] Starting TIFF decoding (HTMLImageElement method) for file:', file.name);
+//   console.log('[UTIF Debug] Starting TIFF decoding (HTMLImageElement method) for file:', file.name);
 
   const arrayBuffer = await file.arrayBuffer();
   const ifds = UTIF.decode(arrayBuffer);
@@ -56,7 +56,7 @@ export async function decodeTiffWithUTIF(file: File, options: UtifOptions): Prom
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      console.log('[UTIF Debug] Successfully loaded Data URL into HTMLImageElement.', img);
+    //   console.log('[UTIF Debug] Successfully loaded Data URL into HTMLImageElement.', img);
       resolve(img);
     };
     img.onerror = (err) => {

@@ -18,6 +18,7 @@ type Props = {
   refPoint?: { x: number, y: number } | null;
   onSetRefPoint?: (key: FolderKey, imgPoint: { x: number, y: number }, screenPoint: {x: number, y: number}) => void;
   folderKey: FolderKey;
+  onClick?: (folderKey: FolderKey) => void; // New prop
 };
 
 export interface ImageCanvasHandle {
@@ -291,7 +292,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   }, [image, syncMode, setViewport, appMode, pinpointMouseMode]);
 
   return (
-    <div className="viewer">
+    <div className="viewer" onClick={() => onClick && onClick(folderKey)}>
       {SHOW_FOLDER_LABEL && <div className="viewer__label">{label}</div>}
       <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} />
       {!file && <div className="viewer__placeholder">{appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image'}</div>}

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Viewport, SyncMode, AppMode, FolderKey, Pinpoint, PinpointMouseMode } from "./types";
+import type { Viewport, SyncMode, AppMode, FolderKey, Pinpoint, PinpointMouseMode, MatchedItem } from "./types";
 import { DEFAULT_VIEWPORT } from "./config";
 
 interface State {
@@ -9,6 +9,7 @@ interface State {
   viewport: Viewport;
   pinpoints: Partial<Record<FolderKey, Pinpoint>>;
   fitScaleFn: (() => number) | null;
+  current: MatchedItem | null; // 전역으로 현재 선택된 파일 아이템 관리
   setAppMode: (m: AppMode) => void;
   setSyncMode: (m: SyncMode) => void;
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
@@ -16,6 +17,7 @@ interface State {
   setPinpoint: (key: FolderKey, pinpoint: Pinpoint) => void;
   clearPinpoints: () => void;
   setFitScaleFn: (fn: () => number) => void;
+  setCurrent: (item: MatchedItem | null) => void; // setCurrent 함수 추가
 }
 
 export const useStore = create<State>((set) => ({
@@ -25,6 +27,7 @@ export const useStore = create<State>((set) => ({
   viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5, refScreenX: 0, refScreenY: 0 },
   pinpoints: {},
   fitScaleFn: null,
+  current: null, // 초기값은 null
   setAppMode: (m) => set({ appMode: m }),
   setSyncMode: (m) => set({ syncMode: m }),
   setPinpointMouseMode: (m) => set({ pinpointMouseMode: m }),
@@ -34,4 +37,5 @@ export const useStore = create<State>((set) => ({
   })),
   clearPinpoints: () => set({ pinpoints: {} }),
   setFitScaleFn: (fn) => set({ fitScaleFn: fn }),
+  setCurrent: (item) => set({ current: item }), // setCurrent 구현
 }));
