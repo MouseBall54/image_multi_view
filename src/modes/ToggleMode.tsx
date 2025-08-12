@@ -17,18 +17,34 @@ interface ToggleModeProps {
   setPrimaryFile: (file: File | null) => void;
 }
 
-export const ToggleMode: React.FC<ToggleModeProps> = ({ stripExt, setStripExt, bitmapCache, indicator, setPrimaryFile }) => {
-  const { A, B, pick, inputRefs, onInput, updateAlias } = useFolderPickers();
+interface ToggleModeProps {
+  numViewers: number;
+  stripExt: boolean;
+  setStripExt: (value: boolean) => void;
+  bitmapCache: React.MutableRefObject<Map<string, DrawableImage>>;
+  indicator: { cx: number, cy: number, key: number } | null;
+  setPrimaryFile: (file: File | null) => void;
+}
+
+export const ToggleMode: React.FC<ToggleModeProps> = ({ numViewers, stripExt, setStripExt, bitmapCache, indicator, setPrimaryFile }) => {
+  const { A, B, C, D, pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { current, setCurrent } = useStore();
   const [toggleSource, setToggleSource] = useState<FolderKey>('A');
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
   const canvasRef = useRef<ImageCanvasHandle>(null);
 
+  const FOLDER_KEYS = React.useMemo(() => (['A', 'B', 'C', 'D'] as FolderKey[]).slice(0, numViewers), [numViewers]);
+
   const activeFolders = React.useMemo(() => {
-    const folders: any = { A: A?.data.files, B: B?.data.files };
+    const folders: any = {};
+    FOLDER_KEYS.forEach(key => {
+      if (allFolders[key]) {
+        folders[key] = allFolders[key]!.data.files;
+      }
+    });
     return folders;
-  }, [A, B]);
+  }, [FOLDER_KEYS, allFolders]);
 
   const matched = React.useMemo(
     () => matchFilenames(activeFolders, stripExt),
@@ -44,7 +60,7 @@ export const ToggleMode: React.FC<ToggleModeProps> = ({ stripExt, setStripExt, b
 
   const fileOf = (key: FolderKey, item: MatchedItem | null): File | undefined => {
     if (!item) return undefined;
-    const folderState = (key === "A" ? A : B);
+    const folderState = allFolders[key];
     if (!folderState?.data.files) return undefined;
     const name = stripExt
       ? Array.from(folderState.data.files.keys()).find(n => n.replace(/\.[^/.]+$/, "") === item.filename)
@@ -55,7 +71,7 @@ export const ToggleMode: React.FC<ToggleModeProps> = ({ stripExt, setStripExt, b
   React.useEffect(() => {
     const primaryFile = fileOf(toggleSource, current);
     setPrimaryFile(primaryFile || null);
-  }, [current, toggleSource, A, B, setPrimaryFile]);
+  }, [current, toggleSource, allFolders, setPrimaryFile]);
 
   
   const handleAliasChange = (key: FolderKey, newAlias: string) => {
@@ -104,21 +120,26 @@ export const ToggleMode: React.FC<ToggleModeProps> = ({ stripExt, setStripExt, b
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === ' ') {
         e.preventDefault();
-        setToggleSource(prev => prev === 'A' ? 'B' : 'A');
+        const availableFolders = FOLDER_KEYS.filter(key => allFolders[key]);
+        if (availableFolders.length === 0) return;
+
+        const currentIndex = availableFolders.indexOf(toggleSource);
+        const nextIndex = (currentIndex + 1) % availableFolders.length;
+        setToggleSource(availableFolders[nextIndex]);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [toggleSource, allFolders, FOLDER_KEYS]);
 
   return (
     <>
       <div className="controls">
-        {renderFolderControl('A', A)}
-        {renderFolderControl('B', B)}
+        {FOLDER_KEYS.map(key => renderFolderControl(key, allFolders[key]))}
         <div style={{ display: 'none' }}>
-          <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
-          <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
+          {FOLDER_KEYS.map(key => (
+            <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
+          ))}
         </div>
       </div>
       <main>
@@ -151,7 +172,7 @@ export const ToggleMode: React.FC<ToggleModeProps> = ({ stripExt, setStripExt, b
         <section className="viewers viewers-1">
           <ImageCanvas 
             ref={canvasRef}
-            label={(toggleSource === 'A' ? A?.alias : B?.alias) || toggleSource} 
+            label={(allFolders[toggleSource]?.alias) || toggleSource} 
             file={fileOf(toggleSource, current)}
             appMode="toggle"
             folderKey={toggleSource}

@@ -140,7 +140,7 @@ export default function App() {
       case 'compare':
         return <CompareMode numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
       case 'toggle':
-        return <ToggleMode stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
+        return <ToggleMode numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
       case 'pinpoint':
         return <PinpointMode numViewers={numViewers} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
       default:
@@ -163,7 +163,7 @@ export default function App() {
                 <option value="pinpoint">Pinpoint</option>
               </select>
             </label>
-            {(appMode === 'compare' || appMode === 'pinpoint') && (
+            {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'toggle') && (
               <label><span>Viewers:</span>
                 <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
                   <option value={2}>2</option>
