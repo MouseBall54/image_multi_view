@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Viewport, SyncMode, AppMode, FolderKey, Pinpoint, PinpointMouseMode } from "./types";
+import type { Viewport, SyncMode, AppMode, FolderKey, Pinpoint, PinpointMouseMode, MatchedItem } from "./types";
 import { DEFAULT_VIEWPORT } from "./config";
 
 interface State {
@@ -9,6 +9,8 @@ interface State {
   viewport: Viewport;
   pinpoints: Partial<Record<FolderKey, Pinpoint>>;
   fitScaleFn: (() => number) | null;
+  current: MatchedItem | null;
+  indicator: { cx: number, cy: number, key: number } | null; // For animation trigger
   setAppMode: (m: AppMode) => void;
   setSyncMode: (m: SyncMode) => void;
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
@@ -16,6 +18,8 @@ interface State {
   setPinpoint: (key: FolderKey, pinpoint: Pinpoint) => void;
   clearPinpoints: () => void;
   setFitScaleFn: (fn: () => number) => void;
+  setCurrent: (item: MatchedItem | null) => void;
+  triggerIndicator: (cx: number, cy: number) => void; // To trigger animation
 }
 
 export const useStore = create<State>((set) => ({
@@ -25,6 +29,8 @@ export const useStore = create<State>((set) => ({
   viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5, refScreenX: 0, refScreenY: 0 },
   pinpoints: {},
   fitScaleFn: null,
+  current: null,
+  indicator: null, // Initial value
   setAppMode: (m) => set({ appMode: m }),
   setSyncMode: (m) => set({ syncMode: m }),
   setPinpointMouseMode: (m) => set({ pinpointMouseMode: m }),
@@ -34,4 +40,6 @@ export const useStore = create<State>((set) => ({
   })),
   clearPinpoints: () => set({ pinpoints: {} }),
   setFitScaleFn: (fn) => set({ fitScaleFn: fn }),
+  setCurrent: (item) => set({ current: item }),
+  triggerIndicator: (cx, cy) => set({ indicator: { cx, cy, key: Date.now() } }), // Implementation
 }));

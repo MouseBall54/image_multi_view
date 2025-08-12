@@ -3,7 +3,8 @@ import type { FolderKey, MatchedItem } from "../types";
 
 export function matchFilenames(
   folders: Partial<Record<FolderKey, Map<string, File>>>,
-  stripExt = false
+  stripExt = false,
+  mode: "intersect" | "union" = "intersect" // New parameter
 ): MatchedItem[] {
   const keys = Object.keys(folders).filter(k => folders[k as FolderKey]) as FolderKey[];
   if (keys.length === 0) {
@@ -12,12 +13,21 @@ export function matchFilenames(
   const nameSets = keys.map(k => new Set(
     Array.from(folders[k]!.keys()).map(n => stripExt ? n.replace(/\.[^/.]+$/, "") : n)
   ));
-  const intersect = nameSets.reduce((acc, s) =>
-    acc ? new Set([...acc].filter(x => s.has(x))) : s
-  , undefined as Set<string> | undefined) ?? new Set<string>();
+
+  let uniqueFilenames: Set<string>;
+  if (mode === "intersect") {
+    uniqueFilenames = nameSets.reduce((acc, s) =>
+      acc ? new Set([...acc].filter(x => s.has(x))) : s
+    , undefined as Set<string> | undefined) ?? new Set<string>();
+  } else { // mode === "union"
+    uniqueFilenames = new Set<string>();
+    nameSets.forEach(s => {
+      s.forEach(filename => uniqueFilenames.add(filename));
+    });
+  }
 
   const list: MatchedItem[] = [];
-  for (const filename of intersect) {
+  for (const filename of uniqueFilenames) {
     const has: any = { A: false, B: false, C: false, D: false };
     keys.forEach(k => {
       const map = folders[k]!;
