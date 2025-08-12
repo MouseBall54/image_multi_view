@@ -108,7 +108,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         let newImage: DrawableImage;
 
         if (ext === 'tif' || ext === 'tiff') {
-          newImage = await decodeTiffWithUTIF(file, UTIF_OPTIONS);
+          const imgElement = await decodeTiffWithUTIF(file, UTIF_OPTIONS);
+          newImage = await createImageBitmap(imgElement); // Convert HTMLImageElement to ImageBitmap
         } else {
           const opts: ImageBitmapOptions = RESPECT_EXIF ? { imageOrientation: "from-image" as any } : {};
           newImage = await createImageBitmap(file, opts);
