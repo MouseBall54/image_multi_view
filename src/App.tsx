@@ -13,7 +13,7 @@ type DrawableImage = ImageBitmap | HTMLImageElement;
 function ViewportControls({ imageDimensions }: {
   imageDimensions: { width: number, height: number } | null,
 }) {
-  const { viewport, setViewport } = useStore();
+  const { viewport, setViewport, triggerIndicator } = useStore();
   const [scaleInput, setScaleInput] = useState((viewport.scale * 100).toFixed(0));
   const [xInput, setXInput] = useState("");
   const [yInput, setYInput] = useState("");
@@ -40,6 +40,11 @@ function ViewportControls({ imageDimensions }: {
     if (!isNaN(newCy)) newViewport.cy = newCy;
     
     setViewport(newViewport);
+
+    // Trigger indicator animation if coordinates changed
+    if (!isNaN(newCx) && !isNaN(newCy)) {
+      triggerIndicator(newCx, newCy);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -184,11 +189,11 @@ export default function App() {
 
     switch (appMode) {
       case 'compare':
-        return <CompareMode ref={compareModeRef} numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
+        return <CompareMode ref={compareModeRef} numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
       case 'toggle':
-        return <ToggleMode ref={toggleModeRef} numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
+        return <ToggleMode ref={toggleModeRef} numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
       case 'pinpoint':
-        return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} indicator={null} setPrimaryFile={setPrimaryFile} />;
+        return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
       default:
         return null;
     }

@@ -27,10 +27,10 @@ export interface ImageCanvasHandle {
   getCanvas: () => HTMLCanvasElement | null;
 }
 
-export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, indicator, isReference, cache, appMode, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
+export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<DrawableImage | null>(null);
-  const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode } = useStore();
+  const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode, indicator } = useStore();
 
   const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
     const { width, height } = ctx.canvas;
@@ -301,32 +301,15 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       {SHOW_FOLDER_LABEL && <div className="viewer__label">{label}</div>}
       <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} />
       {!file && <div className="viewer__placeholder">{appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image'}</div>}
-      {indicator && image && canvasRef.current && (
-        (() => {
-          const canvas = canvasRef.current;
-          const scale = viewport.scale;
-          const cx = (viewport.cx || 0.5) * image.width;
-          const cy = (viewport.cy || 0.5) * image.height;
-          const drawW = image.width * scale;
-          const drawH = image.height * scale;
-          
-          const x = (canvas.width / 2) - (cx * scale);
-          const y = (canvas.height / 2) - (cy * scale);
-
-          const indicatorX = x + indicator.cx * drawW;
-          const indicatorY = y + indicator.cy * drawH;
-
-          return (
-            <div
-              key={indicator.key}
-              className="indicator-dot"
-              style={{
-                left: `${indicatorX}px`,
-                top: `${indicatorY}px`,
-              }}
-            />
-          );
-        })()
+      {indicator && image && canvasRef.current && appMode !== 'pinpoint' && (
+        <div
+          key={indicator.key}
+          className="indicator-dot"
+          style={{
+            left: `50%`,
+            top: `50%`,
+          }}
+        />
       )}
       {image instanceof ImageBitmap && <Minimap bitmap={image} viewport={viewport} />}
     </div>

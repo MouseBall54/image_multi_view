@@ -301,21 +301,22 @@ main {
 
 .indicator-dot {
   position: absolute;
-  width: 30px;
-  height: 30px;
-  border: 3px solid gold;
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--danger-color); /* Use red variable */
   border-radius: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(0);
   transform-origin: center;
-  animation: ripple 2s ease-out forwards;
+  animation: ripple 1.5s ease-out forwards; /* Changed duration to 1.5s */
   pointer-events: none;
   z-index: 10;
+  opacity: 1;
 }
 
 @keyframes ripple {
   from {
     transform: translate(-50%, -50%) scale(0);
-    opacity: 1;
+    opacity: 0.8;
   }
   to {
     transform: translate(-50%, -50%) scale(1.5);
