@@ -113,6 +113,9 @@ export default function App() {
       const KEY_PAN_AMOUNT = 50;
 
       switch (e.key.toLowerCase()) {
+        case '1': setAppMode('compare'); break;
+        case '2': setAppMode('toggle'); break;
+        case '3': setAppMode('pinpoint'); break;
         case 'r': resetView(); break;
         case 'l': setSyncMode(syncMode === 'locked' ? 'unlocked' : 'locked'); break;
         case 'i': setShowInfoPanel(prev => !prev); break;
@@ -126,7 +129,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [syncMode, setSyncMode, setViewport, resetView, imageDimensions]);
+  }, [syncMode, setSyncMode, setViewport, resetView, imageDimensions, setAppMode]);
 
   const renderCurrentMode = () => {
     const setPrimaryFile = (file: File | null) => {
