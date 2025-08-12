@@ -161,7 +161,7 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
   return (
     <>
       <div className="controls">
-        {FOLDER_KEYS.map(key => renderFolderControl(key, allFolders[key]))}
+        {FOLDER_KEYS.map(key => React.cloneElement(renderFolderControl(key, allFolders[key]), { key }))}
         <div style={{ display: 'none' }}>
           {FOLDER_KEYS.map(key => (
             <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
