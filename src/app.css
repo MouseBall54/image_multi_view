@@ -501,3 +501,7 @@ main {
 .pinpoint-control button:hover {
   background-color: var(--bg-dark);
 }
+
+.viewer.active {
+  border: 2px solid var(--accent-primary);
+}

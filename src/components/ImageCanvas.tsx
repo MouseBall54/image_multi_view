@@ -18,14 +18,15 @@ type Props = {
   refPoint?: { x: number, y: number } | null;
   onSetRefPoint?: (key: FolderKey, imgPoint: { x: number, y: number }, screenPoint: {x: number, y: number}) => void;
   folderKey: FolderKey;
-  onClick?: (folderKey: FolderKey) => void; // New prop
+  onClick?: (folderKey: FolderKey) => void;
+  isActive?: boolean; // New prop
 };
 
 export interface ImageCanvasHandle {
   drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => void;
 }
 
-export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, indicator, isReference, cache, appMode, refPoint, onSetRefPoint, folderKey }, ref) => {
+export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, indicator, isReference, cache, appMode, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<DrawableImage | null>(null);
   const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode } = useStore();
@@ -39,11 +40,12 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const drawH = currentImage.height * scale;
     let x = 0, y = 0;
 
-    if (appMode === 'pinpoint' && refPoint) {
+    if (appMode === 'pinpoint') {
+      const currentRefPoint = refPoint || { x: currentImage.width / 2, y: currentImage.height / 2 }; // Use center as fallback
       const refScreenX = viewport.refScreenX || (width / 2);
       const refScreenY = viewport.refScreenY || (height / 2);
-      x = Math.round(refScreenX - (refPoint.x * scale));
-      y = Math.round(refScreenY - (refPoint.y * scale));
+      x = Math.round(refScreenX - (currentRefPoint.x * scale));
+      y = Math.round(refScreenY - (currentRefPoint.y * scale));
     } else {
       const cx = (viewport.cx || 0.5) * currentImage.width;
       const cy = (viewport.cy || 0.5) * currentImage.height;
@@ -292,7 +294,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   }, [image, syncMode, setViewport, appMode, pinpointMouseMode]);
 
   return (
-    <div className="viewer" onClick={() => onClick && onClick(folderKey)}>
+    <div className={`viewer ${isActive ? 'active' : ''}`} onClick={() => onClick && onClick(folderKey)}>
       {SHOW_FOLDER_LABEL && <div className="viewer__label">{label}</div>}
       <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} />
       {!file && <div className="viewer__placeholder">{appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image'}</div>}

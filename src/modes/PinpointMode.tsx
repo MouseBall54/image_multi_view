@@ -25,6 +25,7 @@ export const PinpointMode: React.FC<PinpointModeProps> = ({ numViewers, bitmapCa
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
+  const [activeCanvasKey, setActiveCanvasKey] = useState<FolderKey | null>(null);
   const [folderFilter, setFolderFilter] = useState<FolderKey | 'all'>('all');
 
   const pinpointFileInputRefs = {
@@ -89,20 +90,7 @@ export const PinpointMode: React.FC<PinpointModeProps> = ({ numViewers, bitmapCa
     setPrimaryFile(primaryFile || null);
   }, [pinpointImages, setPrimaryFile]);
 
-  useEffect(() => {
-    if (current) {
-      setPinpointImages(prev => {
-        const newPinpointImages: Partial<Record<FolderKey, PinpointImage>> = { ...prev };
-        const keys: FolderKey[] = ['A', 'B', 'C', 'D'].slice(0, numViewers) as FolderKey[]; // Get active keys
-
-        keys.forEach(key => {
-          const fileToLoad = fileOf(key, current);
-          newPinpointImages[key] = { file: fileToLoad || null, refPoint: prev[key]?.refPoint || null };
-        });
-        return newPinpointImages;
-      });
-    }
-  }, [current, A, B, C, D, fileOf, numViewers]);
+  
 
   const handleSetRefPoint = useCallback((key: FolderKey, imgPoint: { x: number, y: number }, screenPoint: {x: number, y: number}) => {
     setPinpointImages(prev => {
@@ -121,6 +109,19 @@ export const PinpointMode: React.FC<PinpointModeProps> = ({ numViewers, bitmapCa
     updateAlias(key, newAlias);
     setEditingAlias(null);
   };
+
+  const handleFileListItemClick = useCallback((item: MatchedItem) => {
+    setCurrent(item); // Set the global current
+    if (activeCanvasKey) {
+      const fileToLoad = fileOf(activeCanvasKey, item);
+      if (fileToLoad) {
+        setPinpointImages(prev => ({
+          ...prev,
+          [activeCanvasKey]: { file: fileToLoad, refPoint: prev[activeCanvasKey]?.refPoint || null }
+        }));
+      }
+    }
+  }, [activeCanvasKey, fileOf, setCurrent]);
 
   const handleCanvasClick = useCallback((key: FolderKey) => {
     if (current) {
@@ -214,7 +215,7 @@ export const PinpointMode: React.FC<PinpointModeProps> = ({ numViewers, bitmapCa
             {filteredMatched.map(m => (
               <li key={m.filename}
                   className={current?.filename === m.filename ? "active": ""}
-                  onClick={()=>setCurrent(m)}>
+                  onClick={() => handleFileListItemClick(m)}>
                 {m.filename}
                 <span className="has">
                   {m.has.A ? "A" : ""}{m.has.B ? "B" : ""}{m.has.C ? "C" : ""}{m.has.D ? "D" : ""}
@@ -237,7 +238,8 @@ export const PinpointMode: React.FC<PinpointModeProps> = ({ numViewers, bitmapCa
               refPoint={pinpointImages[key]?.refPoint}
               onSetRefPoint={handleSetRefPoint}
               folderKey={key}
-              onClick={handleCanvasClick} // Pass the new handler
+              onClick={() => setActiveCanvasKey(key)} // Set active canvas on click
+              isActive={activeCanvasKey === key} // Pass isActive prop
             />
           ))}
         </section>
