@@ -31,13 +31,15 @@ export interface ImageCanvasHandle {
 export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<DrawableImage | null>(null);
-  const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode, indicator, setPinpointScale } = useStore();
+  const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode, indicator, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale } = useStore();
 
   const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
     const { width, height } = ctx.canvas;
     ctx.clearRect(0, 0, width, height);
 
-    const scale = overrideScale ?? viewport.scale;
+    const individualScale = overrideScale ?? viewport.scale;
+    const scale = appMode === 'pinpoint' ? individualScale * pinpointGlobalScale : individualScale;
+    
     const drawW = currentImage.width * scale;
     const drawH = currentImage.height * scale;
     let x = 0, y = 0;
@@ -74,7 +76,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ctx.stroke();
       ctx.restore();
     }
-  }, [viewport, appMode, refPoint, overrideScale]);
+  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {
@@ -139,7 +141,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
     drawImage(ctx, image, true);
-  }, [image, drawImage, viewport]);
+  }, [image, drawImage, viewport, pinpointGlobalScale]); // Add pinpointGlobalScale dependency
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -149,7 +151,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const { left, top, width, height } = canvas.getBoundingClientRect();
       const canvasX = e.clientX - left;
       const canvasY = e.clientY - top;
-      const scale = overrideScale ?? viewport.scale;
+      
+      const individualScale = overrideScale ?? viewport.scale;
+      const scale = individualScale * pinpointGlobalScale;
       let imgX = 0, imgY = 0;
 
       if (appMode === 'pinpoint' && refPoint) {
@@ -175,7 +179,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
     canvas.addEventListener('click', handleClick);
     return () => canvas.removeEventListener('click', handleClick);
-  }, [image, appMode, onSetRefPoint, viewport, folderKey, refPoint, pinpointMouseMode, overrideScale]);
+  }, [image, appMode, onSetRefPoint, viewport, folderKey, refPoint, pinpointMouseMode, overrideScale, pinpointGlobalScale]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -207,25 +211,33 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const mx = e.clientX - left;
       const my = e.clientY - top;
 
-      const { viewport: currentViewport } = useStore.getState();
-      const preScale = overrideScale ?? currentViewport.scale;
+      const { viewport: currentViewport, pinpointGlobalScale: currentGlobalScale, setPinpointGlobalScale } = useStore.getState();
       const delta = e.deltaY < 0 ? WHEEL_ZOOM_STEP : (1 / WHEEL_ZOOM_STEP);
-      let nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, preScale * delta));
-      if (nextScale === preScale) return;
 
       if (appMode === 'pinpoint') {
-        // Update individual scale
-        setPinpointScale(folderKey, nextScale);
+        const preScale = (overrideScale ?? currentViewport.scale) * currentGlobalScale;
+        const nextGlobalScale = currentGlobalScale * delta;
+        const nextScale = (overrideScale ?? currentViewport.scale) * nextGlobalScale;
+        
+        // Clamp the final scale, not the global multiplier
+        if (nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
+
+        setPinpointGlobalScale(nextGlobalScale);
         
         // Pan to keep zoom centered on cursor
         const refScreenX = currentViewport.refScreenX || (width / 2);
         const refScreenY = currentViewport.refScreenY || (height / 2);
         const nextRefScreenX = mx + (refScreenX - mx) * (nextScale / preScale);
         const nextRefScreenY = my + (refScreenY - my) * (nextScale / preScale);
+
         if (syncMode === "locked") {
           setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
         }
       } else {
+        const preScale = currentViewport.scale;
+        let nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, preScale * delta));
+        if (nextScale === preScale) return;
+
         let { cx, cy } = currentViewport;
         if (CURSOR_ZOOM_CENTERED) {
           const imgW = image.width, imgH = image.height;

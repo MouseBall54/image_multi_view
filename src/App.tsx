@@ -64,7 +64,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, syncMode, setSyncMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales } = useStore();
+  const { appMode, setAppMode, syncMode, setSyncMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale } = useStore();
   const [numViewers, setNumViewers] = useState(2);
   const [stripExt, setStripExt] = useState(true);
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
@@ -123,6 +123,7 @@ export default function App() {
     const newScale = fitScaleFn ? fitScaleFn() : 1;
     if (appMode === 'pinpoint') {
       clearPinpointScales();
+      setPinpointGlobalScale(1);
       setViewport({ scale: newScale, refScreenX: undefined, refScreenY: undefined });
     } else {
       setViewport({ scale: newScale, cx: 0.5, cy: 0.5 });

@@ -15,16 +15,18 @@ interface PinpointImage {
 
 // A new component for individual scale control
 function PinpointScaleControl({ folderKey }: { folderKey: FolderKey }) {
-  const { pinpointScales, setPinpointScale, viewport } = useStore();
-  const scale = pinpointScales[folderKey] ?? viewport.scale;
-  const [scaleInput, setScaleInput] = useState((scale * 100).toFixed(0));
+  const { pinpointScales, setPinpointScale, viewport, pinpointGlobalScale } = useStore();
+  const individualScale = pinpointScales[folderKey] ?? viewport.scale;
+  const totalScale = individualScale * pinpointGlobalScale;
+  
+  const [scaleInput, setScaleInput] = useState((individualScale * 100).toFixed(0));
 
   useEffect(() => {
-    setScaleInput((scale * 100).toFixed(0));
-  }, [scale]);
+    setScaleInput((individualScale * 100).toFixed(0));
+  }, [individualScale]);
 
-  const applyScale = (newScale: number) => {
-    const clampedScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
+  const applyScale = (newIndividualScale: number) => {
+    const clampedScale = Math.max(MIN_ZOOM / pinpointGlobalScale, Math.min(MAX_ZOOM / pinpointGlobalScale, newIndividualScale));
     setPinpointScale(folderKey, clampedScale);
   };
 
@@ -37,7 +39,7 @@ function PinpointScaleControl({ folderKey }: { folderKey: FolderKey }) {
     if (!isNaN(newScale)) {
       applyScale(newScale);
     } else {
-      setScaleInput((scale * 100).toFixed(0)); // Reset if invalid
+      setScaleInput((individualScale * 100).toFixed(0)); // Reset if invalid
     }
   };
   
@@ -49,20 +51,23 @@ function PinpointScaleControl({ folderKey }: { folderKey: FolderKey }) {
   };
 
   const adjustScale = (factor: number) => {
-    applyScale(scale * factor);
+    applyScale(individualScale * factor);
   };
 
   return (
     <div className="pinpoint-scale-control">
       <button onClick={() => adjustScale(1 / WHEEL_ZOOM_STEP)}>-</button>
-      <input 
-        type="text" 
-        value={scaleInput}
-        onChange={handleInputChange}
-        onBlur={handleInputBlur}
-        onKeyDown={handleKeyDown}
-      />
-      <span>%</span>
+      <div className="scale-inputs">
+        <input 
+          type="text" 
+          value={scaleInput}
+          onChange={handleInputChange}
+          onBlur={handleInputBlur}
+          onKeyDown={handleKeyDown}
+          title="Individual Scale"
+        />
+        <span className="total-scale" title="Total Scale (Individual * Global)">{(totalScale * 100).toFixed(0)}%</span>
+      </div>
       <button onClick={() => adjustScale(WHEEL_ZOOM_STEP)}>+</button>
     </div>
   );
@@ -81,7 +86,7 @@ interface PinpointModeProps {
 
 export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
   const { A, B, C, D, pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, setViewport, viewport, pinpointScales, setPinpointScale, clearPinpointScales } = useStore();
+  const { current, setCurrent, setViewport, viewport, pinpointScales, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
@@ -280,7 +285,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   const handleCanvasClick = useCallback((key: FolderKey) => {
     if (current) {
       const fileToLoad = fileOf(key, current);
-      if (fileTo.load) {
+      if (fileToLoad) {
         setPinpointImages(prev => ({
           ...prev,
           [key]: { file: fileToLoad, refPoint: prev[key]?.refPoint || null }
@@ -331,10 +336,17 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   return (
     <>
       <div className="controls">
-        {renderFolderControl('A', A)}
-        {renderFolderControl('B', B)}
-        {numViewers >= 3 && renderFolderControl('C', C)}
-        {numViewers >= 4 && renderFolderControl('D', D)}
+        <div className="folder-controls-wrapper">
+          {renderFolderControl('A', A)}
+          {renderFolderControl('B', B)}
+          {numViewers >= 3 && renderFolderControl('C', C)}
+          {numViewers >= 4 && renderFolderControl('D', D)}
+        </div>
+        <div className="global-scale-control">
+          <label>Global Scale:</label>
+          <span>{(pinpointGlobalScale * 100).toFixed(0)}%</span>
+          <button onClick={() => setPinpointGlobalScale(1)}>Reset</button>
+        </div>
         <div style={{ display: 'none' }}>
           <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
           <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
@@ -361,7 +373,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                 {numViewers >= 4 && <option value="D">Folder D</option>}
               </select>
               <label className="strip-ext-label">
-                <input type="checkbox" checked={true} onChange={(e)=> { /* stripExt is always true for pinpoint mode */ }} />
+                <input type="checkbox" checked={true} readOnly />
                 <span>Ignore extension</span>
               </label>
             </div>

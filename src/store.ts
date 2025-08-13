@@ -9,6 +9,7 @@ interface State {
   viewport: Viewport;
   pinpoints: Partial<Record<FolderKey, Pinpoint>>;
   pinpointScales: Partial<Record<FolderKey, number>>; // For individual scales
+  pinpointGlobalScale: number; // For global scaling in pinpoint mode
   fitScaleFn: (() => number) | null;
   current: MatchedItem | null;
   indicator: { cx: number, cy: number, key: number } | null; // For animation trigger
@@ -20,6 +21,7 @@ interface State {
   clearPinpoints: () => void;
   setPinpointScale: (key: FolderKey, scale: number) => void;
   clearPinpointScales: () => void;
+  setPinpointGlobalScale: (scale: number) => void;
   setFitScaleFn: (fn: () => number) => void;
   setCurrent: (item: MatchedItem | null) => void;
   triggerIndicator: (cx: number, cy: number) => void; // To trigger animation
@@ -32,6 +34,7 @@ export const useStore = create<State>((set) => ({
   viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5, refScreenX: undefined, refScreenY: undefined },
   pinpoints: {},
   pinpointScales: {}, // Initial value
+  pinpointGlobalScale: 1, // Initial value
   fitScaleFn: null,
   current: null,
   indicator: null, // Initial value
@@ -47,6 +50,7 @@ export const useStore = create<State>((set) => ({
     pinpointScales: { ...state.pinpointScales, [key]: scale }
   })),
   clearPinpointScales: () => set({ pinpointScales: {} }),
+  setPinpointGlobalScale: (scale) => set({ pinpointGlobalScale: scale }),
   setFitScaleFn: (fn) => set({ fitScaleFn: fn }),
   setCurrent: (item) => set({ current: item }),
   triggerIndicator: (cx, cy) => set({ indicator: { cx, cy, key: Date.now() } }), // Implementation
