@@ -1,31 +1,27 @@
 
-import { useState, useRef } from 'react';
-import { pickDirectory, filesFromInput, FolderData } from '../utils/folder';
+import { useRef } from 'react';
+import { pickDirectory, filesFromInput } from '../utils/folder';
 import type { FolderKey } from '../types';
-
-export interface FolderState {
-  data: FolderData;
-  alias: string;
-}
+import { useStore } from '../store';
 
 export function useFolderPickers() {
-  const [A, setA] = useState<FolderState | undefined>();
-  const [B, setB] = useState<FolderState | undefined>();
-  const [C, setC] = useState<FolderState | undefined>();
-  const [D, setD] = useState<FolderState | undefined>();
+  const { folders, setFolder, updateFolderAlias: updateAliasInStore } = useStore();
 
   const pick = async (key: FolderKey) => {
     try {
       const folderData = await pickDirectory();
       const newState = { data: folderData, alias: folderData.name };
-      if (key === "A") setA(newState);
-      if (key === "B") setB(newState);
-      if (key === "C") setC(newState);
-      if (key === "D") setD(newState);
+      setFolder(key, newState);
     } catch (error) {
-      console.error("Error picking directory:", error);
-      if (inputRefs[key].current) {
-        inputRefs[key].current?.click();
+      const err = error as Error;
+      if (err.name === 'AbortError') {
+        console.log("Directory picker was dismissed.");
+      } else {
+        console.error("Error picking directory:", error);
+        // Fallback to input click if the picker fails for other reasons
+        if (inputRefs[key].current) {
+          inputRefs[key].current?.click();
+        }
       }
     }
   };
@@ -42,20 +38,12 @@ export function useFolderPickers() {
     const folderData = filesFromInput(e.target.files);
     if (!folderData) return;
     const newState = { data: folderData, alias: folderData.name };
-    if (key === "A") setA(newState);
-    if (key === "B") setB(newState);
-    if (key === "C") setC(newState);
-    if (key === "D") setD(newState);
+    setFolder(key, newState);
   };
 
   const updateAlias = (key: FolderKey, newAlias: string) => {
-    if (key === "A") setA(prev => prev ? { ...prev, alias: newAlias } : undefined);
-    if (key === "B") setB(prev => prev ? { ...prev, alias: newAlias } : undefined);
-    if (key === "C") setC(prev => prev ? { ...prev, alias: newAlias } : undefined);
-    if (key === "D") setD(prev => prev ? { ...prev, alias: newAlias } : undefined);
+    updateAliasInStore(key, newAlias);
   };
 
-  const allFolders = { A, B, C, D };
-
-  return { A, B, C, D, pick, inputRefs, onInput, updateAlias, allFolders };
+  return { ...folders, pick, inputRefs, onInput, updateAlias, allFolders: folders };
 }

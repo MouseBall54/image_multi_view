@@ -66,7 +66,6 @@ function ViewportControls({ imageDimensions }: {
 export default function App() {
   const { appMode, setAppMode, syncMode, setSyncMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale } = useStore();
   const [numViewers, setNumViewers] = useState(2);
-  const [stripExt, setStripExt] = useState(true);
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const bitmapCache = useRef(new Map<string, DrawableImage>());
@@ -208,9 +207,9 @@ export default function App() {
 
     switch (appMode) {
       case 'compare':
-        return <CompareMode ref={compareModeRef} numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
+        return <CompareMode ref={compareModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
       case 'toggle':
-        return <ToggleMode ref={toggleModeRef} numViewers={numViewers} stripExt={stripExt} setStripExt={setStripExt} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
+        return <ToggleMode ref={toggleModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
       case 'pinpoint':
         return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
       default:
