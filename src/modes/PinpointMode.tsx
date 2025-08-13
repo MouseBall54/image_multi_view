@@ -206,10 +206,10 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       const file = e.target.files[0];
       setPinpointImages(prev => ({
         ...prev,
-        [key]: { file, refPoint: null }
+        [key]: { file, refPoint: { x: 0.5, y: 0.5 } }
       }));
-      setPinpointScale(key, viewport.scale); // Initialize scale
-      setViewport({ refScreenX: undefined, refScreenY: undefined }); // Reset viewport refScreen on new image load
+      setPinpointScale(key, 1);
+      setViewport({ refScreenX: undefined, refScreenY: undefined });
     }
   };
   
@@ -226,7 +226,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     setPrimaryFile(primaryFile || null);
   }, [pinpointImages, setPrimaryFile]);
 
-  const handleSetRefPoint = useCallback((key: FolderKey, imgPoint: { x: number, y: number }, screenPoint: {x: number, y: number}) => {
+  const handleSetRefPoint = (key: FolderKey, imgPoint: { x: number, y: number }, screenPoint: {x: number, y: number}) => {
     setPinpointImages(prev => {
       const currentImage = prev[key];
       if (!currentImage) return prev;
@@ -237,7 +237,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     });
     // Update global viewport's reference screen point
     setViewport({ refScreenX: screenPoint.x, refScreenY: screenPoint.y });
-  }, [setViewport]);
+  };
 
   const handleAliasChange = (key: FolderKey, newAlias: string) => {
     updateAlias(key, newAlias);
@@ -266,17 +266,17 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       if (fileToLoad) {
         setPinpointImages(prev => ({
           ...prev,
-          [activeCanvasKey]: { file: fileToLoad, refPoint: prev[activeCanvasKey]?.refPoint || null }
+          [activeCanvasKey]: { file: fileToLoad, refPoint: { x: 0.5, y: 0.5 } }
         }));
-        setPinpointScale(activeCanvasKey, viewport.scale); // Initialize scale
-        setViewport({ refScreenX: undefined, refScreenY: undefined }); // Reset viewport refScreen on new image load
+        setPinpointScale(activeCanvasKey, 1);
+        setViewport({ refScreenX: undefined, refScreenY: undefined });
       } else {
         // If no file is found (e.g., due to a filter or a bug), clear the canvas
         setPinpointImages(prev => ({
           ...prev,
           [activeCanvasKey]: { file: null, refPoint: null }
         }));
-        setViewport({ refScreenX: undefined, refScreenY: undefined }); // Reset viewport refScreen on clear
+        setViewport({ refScreenX: undefined, refScreenY: undefined });
       }
     }
   }, [activeCanvasKey, A, B, C, D, setCurrent, viewport.scale, setPinpointScale]);
@@ -287,12 +287,13 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       if (fileToLoad) {
         setPinpointImages(prev => ({
           ...prev,
-          [key]: { file: fileToLoad, refPoint: prev[key]?.refPoint || null }
+          [key]: { file: fileToLoad, refPoint: { x: 0.5, y: 0.5 } }
         }));
-        setPinpointScale(key, viewport.scale); // Initialize scale
+        setPinpointScale(key, 1);
+        setViewport({ refScreenX: undefined, refScreenY: undefined });
       }
     }
-  }, [current, fileOf, viewport.scale, setPinpointScale]);
+  }, [current, fileOf, setPinpointScale, setViewport]);
 
   const renderFolderControl = (key: FolderKey, state: FolderState | undefined) => {
     if (!state) {

@@ -45,11 +45,17 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     let x = 0, y = 0;
 
     if (appMode === 'pinpoint') {
-      const currentRefPoint = refPoint || { x: currentImage.width / 2, y: currentImage.height / 2 }; // Use center as fallback
-      const refScreenX = viewport.refScreenX || (width / 2);
-      const refScreenY = viewport.refScreenY || (height / 2);
-      x = Math.round(refScreenX - (currentRefPoint.x * scale));
-      y = Math.round(refScreenY - (currentRefPoint.y * scale));
+      // When no specific point is pinned, default to centering the image.
+      const currentRefPoint = refPoint || { x: 0.5, y: 0.5 }; // Normalized coordinates
+      const refScreenX = viewport.refScreenX ?? (width / 2);
+      const refScreenY = viewport.refScreenY ?? (height / 2);
+      
+      // Convert normalized refPoint to image pixel coordinates
+      const refImgX = currentRefPoint.x * currentImage.width;
+      const refImgY = currentRefPoint.y * currentImage.height;
+
+      x = Math.round(refScreenX - (refImgX * scale));
+      y = Math.round(refScreenY - (refImgY * scale));
     } else {
       const cx = (viewport.cx || 0.5) * currentImage.width;
       const cy = (viewport.cy || 0.5) * currentImage.height;
@@ -62,8 +68,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     ctx.drawImage(currentImage, x, y, drawW, drawH);
 
     if (appMode === 'pinpoint' && refPoint && withCrosshair) {
-      const refScreenX = viewport.refScreenX || (width / 2);
-      const refScreenY = viewport.refScreenY || (height / 2);
+      const refScreenX = viewport.refScreenX ?? (width / 2);
+      const refScreenY = viewport.refScreenY ?? (height / 2);
       ctx.save();
       ctx.translate(refScreenX, refScreenY);
       ctx.beginPath();
@@ -154,26 +160,23 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       
       const individualScale = overrideScale ?? viewport.scale;
       const scale = individualScale * pinpointGlobalScale;
-      let imgX = 0, imgY = 0;
+      
+      // Since this effect is only for pinpoint mode, we can simplify the logic.
+      const currentRefPoint = refPoint || { x: 0.5, y: 0.5 };
+      const refScreenX = viewport.refScreenX || (width / 2);
+      const refScreenY = viewport.refScreenY || (height / 2);
 
-      if (appMode === 'pinpoint' && refPoint) {
-        const refScreenX = viewport.refScreenX || (width / 2);
-        const refScreenY = viewport.refScreenY || (height / 2);
-        const drawX = refScreenX - (refPoint.x * scale);
-        const drawY = refScreenY - (refPoint.y * scale);
-        imgX = (canvasX - drawX) / scale;
-        imgY = (canvasY - drawY) / scale;
-      } else {
-        const cx = (viewport.cx || 0.5) * image.width;
-        const cy = (viewport.cy || 0.5) * image.height;
-        const drawX = (width / 2) - (cx * scale);
-        const drawY = (height / 2) - (cy * scale);
-        imgX = (canvasX - drawX) / scale;
-        imgY = (canvasY - drawY) / scale;
-      }
+      const refImgX = currentRefPoint.x * image.width;
+      const refImgY = currentRefPoint.y * image.height;
+
+      const drawX = refScreenX - (refImgX * scale);
+      const drawY = refScreenY - (refImgY * scale);
+
+      const imgX = (canvasX - drawX) / scale;
+      const imgY = (canvasY - drawY) / scale;
 
       if (imgX >= 0 && imgX <= image.width && imgY >= 0 && imgY <= image.height) {
-        onSetRefPoint(folderKey, { x: imgX, y: imgY }, { x: canvasX, y: canvasY });
+        onSetRefPoint(folderKey, { x: imgX / image.width, y: imgY / image.height }, { x: canvasX, y: canvasY });
       }
     };
 
