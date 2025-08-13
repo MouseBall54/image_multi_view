@@ -13,6 +13,8 @@ interface State {
   syncMode: SyncMode;
   pinpointMouseMode: PinpointMouseMode;
   stripExt: boolean;
+  numViewers: number;
+  showMinimap: boolean;
   viewport: Viewport;
   pinpoints: Partial<Record<FolderKey, Pinpoint>>;
   pinpointScales: Partial<Record<FolderKey, number>>; // For individual scales
@@ -26,6 +28,8 @@ interface State {
   setSyncMode: (m: SyncMode) => void;
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
   setStripExt: (strip: boolean) => void;
+  setNumViewers: (n: number) => void;
+  setShowMinimap: (show: boolean) => void;
   setViewport: (vp: Partial<Viewport>) => void;
   setPinpoint: (key: FolderKey, pinpoint: Pinpoint) => void;
   clearPinpoints: () => void;
@@ -45,6 +49,8 @@ export const useStore = create<State>((set) => ({
   syncMode: "locked",
   pinpointMouseMode: "pin",
   stripExt: true,
+  numViewers: 2,
+  showMinimap: false,
   viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5, refScreenX: undefined, refScreenY: undefined },
   pinpoints: {},
   pinpointScales: {}, // Initial value
@@ -58,6 +64,8 @@ export const useStore = create<State>((set) => ({
   setSyncMode: (m) => set({ syncMode: m }),
   setPinpointMouseMode: (m) => set({ pinpointMouseMode: m }),
   setStripExt: (strip) => set({ stripExt: strip }),
+  setNumViewers: (n) => set({ numViewers: n }),
+  setShowMinimap: (show) => set({ showMinimap: show }),
   setViewport: (vp) => set(s => ({ viewport: { ...s.viewport, ...vp } })),
   setPinpoint: (key, pinpoint) => set(state => ({
     pinpoints: { ...state.pinpoints, [key]: pinpoint }

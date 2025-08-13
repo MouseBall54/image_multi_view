@@ -31,7 +31,7 @@ export interface ImageCanvasHandle {
 export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<DrawableImage | null>(null);
-  const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode, indicator, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale } = useStore();
+  const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode, indicator, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale, showMinimap } = useStore();
 
   const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
     const { width, height } = ctx.canvas;
@@ -331,7 +331,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           }}
         />
       )}
-      {image instanceof ImageBitmap && <Minimap bitmap={image} viewport={viewport} />}
+      {showMinimap && image instanceof ImageBitmap && <Minimap bitmap={image} viewport={viewport} />}
     </div>
   );
 });

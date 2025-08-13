@@ -851,3 +851,8 @@ main {
   background-color: var(--accent-primary);
 }
 
+.controls-main button.active {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
