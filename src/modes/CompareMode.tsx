@@ -14,16 +14,14 @@ export interface CompareModeHandle {
 
 interface CompareModeProps {
   numViewers: number;
-  stripExt: boolean;
   bitmapCache: React.MutableRefObject<Map<string, DrawableImage>>;
   indicator: { cx: number, cy: number, key: number } | null;
-  setStripExt: (value: boolean) => void;
   setPrimaryFile: (file: File | null) => void;
 }
 
-export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, stripExt, bitmapCache, indicator, setStripExt, setPrimaryFile }, ref) => {
+export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, bitmapCache, indicator, setPrimaryFile }, ref) => {
   const { A, B, C, D, pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent } = useStore();
+  const { current, setCurrent, stripExt, setStripExt } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
 
