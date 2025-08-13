@@ -155,6 +155,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         ...prev,
         [key]: { file, refPoint: null }
       }));
+      setViewport({ refScreenX: undefined, refScreenY: undefined }); // Reset viewport refScreen on new image load
     }
   };
   
@@ -215,12 +216,14 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
           ...prev,
           [activeCanvasKey]: { file: fileToLoad, refPoint: prev[activeCanvasKey]?.refPoint || null }
         }));
+        setViewport({ refScreenX: undefined, refScreenY: undefined }); // Reset viewport refScreen on new image load
       } else {
         // If no file is found (e.g., due to a filter or a bug), clear the canvas
         setPinpointImages(prev => ({
           ...prev,
           [activeCanvasKey]: { file: null, refPoint: null }
         }));
+        setViewport({ refScreenX: undefined, refScreenY: undefined }); // Reset viewport refScreen on clear
       }
     }
   }, [activeCanvasKey, A, B, C, D, setCurrent]);

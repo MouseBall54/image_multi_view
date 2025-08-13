@@ -26,7 +26,7 @@ export const useStore = create<State>((set) => ({
   appMode: "compare",
   syncMode: "locked",
   pinpointMouseMode: "pin",
-  viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5, refScreenX: 0, refScreenY: 0 },
+  viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5, refScreenX: undefined, refScreenY: undefined },
   pinpoints: {},
   fitScaleFn: null,
   current: null,
