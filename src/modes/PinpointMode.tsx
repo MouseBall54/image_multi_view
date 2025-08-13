@@ -86,11 +86,10 @@ interface PinpointModeProps {
 
 export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
   const { A, B, C, D, pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, setViewport, viewport, pinpointScales, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale } = useStore();
+  const { current, setCurrent, setViewport, viewport, pinpointScales, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale, activeCanvasKey, setActiveCanvasKey } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
-  const [activeCanvasKey, setActiveCanvasKey] = useState<FolderKey | null>(null);
   const [folderFilter, setFolderFilter] = useState<FolderKey | 'all'>('all');
 
   const canvasRefs = {
@@ -405,7 +404,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                 refPoint={pinpointImages[key]?.refPoint}
                 onSetRefPoint={handleSetRefPoint}
                 folderKey={key}
-                onClick={() => setActiveCanvasKey(key)} // Set active canvas on click
+                onClick={setActiveCanvasKey} // Set active canvas on click
                 isActive={activeCanvasKey === key} // Pass isActive prop
               />
               <PinpointScaleControl folderKey={key} />

@@ -162,18 +162,35 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
       
-      const { viewport } = useStore.getState();
+      const state = useStore.getState();
+      const { viewport, appMode, activeCanvasKey, pinpointScales, pinpointGlobalScale, syncMode, setAppMode, setSyncMode, setViewport, setShowInfoPanel } = state;
       const KEY_PAN_AMOUNT = 50;
 
-      switch (e.key.toLowerCase()) {
+      const key = e.key.toLowerCase();
+
+      if (appMode === 'pinpoint' && activeCanvasKey && (key === '=' || key === '+' || key === '-')) {
+        e.preventDefault();
+        const individualScale = pinpointScales[activeCanvasKey] ?? viewport.scale;
+        const increment = 0.01; // 1% increment
+        const direction = (key === '=' || key === '+') ? 1 : -1;
+        const newIndividualScale = individualScale + (increment * direction);
+        
+        const totalScale = newIndividualScale * pinpointGlobalScale;
+        if (totalScale > MAX_ZOOM || totalScale < MIN_ZOOM) return;
+
+        state.setPinpointScale(activeCanvasKey, newIndividualScale);
+        return;
+      }
+
+      switch (key) {
         case '1': setAppMode('compare'); break;
         case '2': setAppMode('toggle'); break;
         case '3': setAppMode('pinpoint'); break;
         case 'r': resetView(); break;
         case 'l': setSyncMode(syncMode === 'locked' ? 'unlocked' : 'locked'); break;
         case 'i': setShowInfoPanel(prev => !prev); break;
-        case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) * WHEEL_ZOOM_STEP) }); break;
-        case '-': setViewport({ scale: Math.max(MIN_ZOOM, (viewport.scale || 1) / WHEEL_ZOOM_STEP) }); break;
+        case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
+        case '-': setViewport({ scale: Math.max(MIN_ZOOM, (viewport.scale || 1) - 0.01) }); break;
         case 'arrowup': e.preventDefault(); if (imageDimensions && viewport.cy) setViewport({ cy: viewport.cy - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); break;
         case 'arrowdown': e.preventDefault(); if (imageDimensions && viewport.cy) setViewport({ cy: viewport.cy + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); break;
         case 'arrowleft': e.preventDefault(); if (imageDimensions && viewport.cx) setViewport({ cx: viewport.cx - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); break;
