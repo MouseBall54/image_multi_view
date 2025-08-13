@@ -64,7 +64,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, syncMode, setSyncMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current } = useStore();
+  const { appMode, setAppMode, syncMode, setSyncMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales } = useStore();
   const [numViewers, setNumViewers] = useState(2);
   const [stripExt, setStripExt] = useState(true);
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
@@ -122,6 +122,7 @@ export default function App() {
   const resetView = () => {
     const newScale = fitScaleFn ? fitScaleFn() : 1;
     if (appMode === 'pinpoint') {
+      clearPinpointScales();
       setViewport({ scale: newScale, refScreenX: undefined, refScreenY: undefined });
     } else {
       setViewport({ scale: newScale, cx: 0.5, cy: 0.5 });
@@ -246,7 +247,7 @@ export default function App() {
               Capture
             </button>
           </div>
-          <ViewportControls imageDimensions={imageDimensions} />
+          {appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
         </div>
       </header>
       

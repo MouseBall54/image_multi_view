@@ -4,6 +4,7 @@ import { useStore } from '../store';
 import { useFolderPickers, FolderState } from '../hooks/useFolderPickers';
 import { matchFilenames } from '../utils/match';
 import type { FolderKey, MatchedItem } from '../types';
+import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP } from '../config';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -12,6 +13,62 @@ interface PinpointImage {
   refPoint: { x: number, y: number } | null;
 }
 
+// A new component for individual scale control
+function PinpointScaleControl({ folderKey }: { folderKey: FolderKey }) {
+  const { pinpointScales, setPinpointScale, viewport } = useStore();
+  const scale = pinpointScales[folderKey] ?? viewport.scale;
+  const [scaleInput, setScaleInput] = useState((scale * 100).toFixed(0));
+
+  useEffect(() => {
+    setScaleInput((scale * 100).toFixed(0));
+  }, [scale]);
+
+  const applyScale = (newScale: number) => {
+    const clampedScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
+    setPinpointScale(folderKey, clampedScale);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setScaleInput(e.target.value);
+  };
+
+  const handleInputBlur = () => {
+    const newScale = parseFloat(scaleInput) / 100;
+    if (!isNaN(newScale)) {
+      applyScale(newScale);
+    } else {
+      setScaleInput((scale * 100).toFixed(0)); // Reset if invalid
+    }
+  };
+  
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleInputBlur();
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  const adjustScale = (factor: number) => {
+    applyScale(scale * factor);
+  };
+
+  return (
+    <div className="pinpoint-scale-control">
+      <button onClick={() => adjustScale(1 / WHEEL_ZOOM_STEP)}>-</button>
+      <input 
+        type="text" 
+        value={scaleInput}
+        onChange={handleInputChange}
+        onBlur={handleInputBlur}
+        onKeyDown={handleKeyDown}
+      />
+      <span>%</span>
+      <button onClick={() => adjustScale(WHEEL_ZOOM_STEP)}>+</button>
+    </div>
+  );
+}
+
+
 export interface PinpointModeHandle {
   capture: (options: { showLabels: boolean, showCrosshair: boolean }) => Promise<string | null>;
 }
@@ -19,25 +76,17 @@ export interface PinpointModeHandle {
 interface PinpointModeProps {
   numViewers: number;
   bitmapCache: React.MutableRefObject<Map<string, DrawableImage>>;
-  indicator: { cx: number, cy: number, key: number } | null;
   setPrimaryFile: (file: File | null) => void;
 }
 
-export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({ numViewers, bitmapCache, indicator, setPrimaryFile }, ref) => {
+export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
   const { A, B, C, D, pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, setViewport, viewport } = useStore();
+  const { current, setCurrent, setViewport, viewport, pinpointScales, setPinpointScale, clearPinpointScales } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
   const [activeCanvasKey, setActiveCanvasKey] = useState<FolderKey | null>(null);
   const [folderFilter, setFolderFilter] = useState<FolderKey | 'all'>('all');
-
-  const pinpointFileInputRefs = {
-    A: useRef<HTMLInputElement>(null),
-    B: useRef<HTMLInputElement>(null),
-    C: useRef<HTMLInputElement>(null),
-    D: useRef<HTMLInputElement>(null),
-  };
 
   const canvasRefs = {
     A: useRef<ImageCanvasHandle>(null),
@@ -155,6 +204,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         ...prev,
         [key]: { file, refPoint: null }
       }));
+      setPinpointScale(key, viewport.scale); // Initialize scale
       setViewport({ refScreenX: undefined, refScreenY: undefined }); // Reset viewport refScreen on new image load
     }
   };
@@ -171,8 +221,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     const primaryFile = pinpointImages['A']?.file;
     setPrimaryFile(primaryFile || null);
   }, [pinpointImages, setPrimaryFile]);
-
-  
 
   const handleSetRefPoint = useCallback((key: FolderKey, imgPoint: { x: number, y: number }, screenPoint: {x: number, y: number}) => {
     setPinpointImages(prev => {
@@ -216,6 +264,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
           ...prev,
           [activeCanvasKey]: { file: fileToLoad, refPoint: prev[activeCanvasKey]?.refPoint || null }
         }));
+        setPinpointScale(activeCanvasKey, viewport.scale); // Initialize scale
         setViewport({ refScreenX: undefined, refScreenY: undefined }); // Reset viewport refScreen on new image load
       } else {
         // If no file is found (e.g., due to a filter or a bug), clear the canvas
@@ -226,19 +275,20 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         setViewport({ refScreenX: undefined, refScreenY: undefined }); // Reset viewport refScreen on clear
       }
     }
-  }, [activeCanvasKey, A, B, C, D, setCurrent]);
+  }, [activeCanvasKey, A, B, C, D, setCurrent, viewport.scale, setPinpointScale]);
 
   const handleCanvasClick = useCallback((key: FolderKey) => {
     if (current) {
       const fileToLoad = fileOf(key, current);
-      if (fileToLoad) {
+      if (fileTo.load) {
         setPinpointImages(prev => ({
           ...prev,
           [key]: { file: fileToLoad, refPoint: prev[key]?.refPoint || null }
         }));
+        setPinpointScale(key, viewport.scale); // Initialize scale
       }
     }
-  }, [current, fileOf]);
+  }, [current, fileOf, viewport.scale, setPinpointScale]);
 
   const renderFolderControl = (key: FolderKey, state: FolderState | undefined) => {
     if (!state) {
@@ -331,21 +381,23 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         </aside>
         <section className={`viewers viewers-${numViewers}`}>
           {keys.map(key => (
-            <ImageCanvas 
-              key={key}
-              ref={canvasRefs[key]}
-              label={pinpointImages[key]?.file?.name || key}
-              file={pinpointImages[key]?.file}
-              indicator={indicator} 
-              isReference={key === 'A'} 
-              cache={bitmapCache.current}
-              appMode="pinpoint"
-              refPoint={pinpointImages[key]?.refPoint}
-              onSetRefPoint={handleSetRefPoint}
-              folderKey={key}
-              onClick={() => setActiveCanvasKey(key)} // Set active canvas on click
-              isActive={activeCanvasKey === key} // Pass isActive prop
-            />
+            <div key={key} className="viewer-container">
+              <ImageCanvas 
+                ref={canvasRefs[key]}
+                label={pinpointImages[key]?.file?.name || key}
+                file={pinpointImages[key]?.file}
+                isReference={key === 'A'} 
+                cache={bitmapCache.current}
+                appMode="pinpoint"
+                overrideScale={pinpointScales[key]}
+                refPoint={pinpointImages[key]?.refPoint}
+                onSetRefPoint={handleSetRefPoint}
+                folderKey={key}
+                onClick={() => setActiveCanvasKey(key)} // Set active canvas on click
+                isActive={activeCanvasKey === key} // Pass isActive prop
+              />
+              <PinpointScaleControl folderKey={key} />
+            </div>
           ))}
         </section>
       </main>

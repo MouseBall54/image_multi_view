@@ -15,6 +15,7 @@ type Props = {
   isReference?: boolean;
   cache: Map<string, DrawableImage>;
   appMode: AppMode;
+  overrideScale?: number; // Individual scale for pinpoint mode
   refPoint?: { x: number, y: number } | null;
   onSetRefPoint?: (key: FolderKey, imgPoint: { x: number, y: number }, screenPoint: {x: number, y: number}) => void;
   folderKey: FolderKey;
@@ -27,16 +28,16 @@ export interface ImageCanvasHandle {
   getCanvas: () => HTMLCanvasElement | null;
 }
 
-export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
+export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<DrawableImage | null>(null);
-  const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode, indicator } = useStore();
+  const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode, indicator, setPinpointScale } = useStore();
 
   const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
     const { width, height } = ctx.canvas;
     ctx.clearRect(0, 0, width, height);
 
-    const scale = viewport.scale;
+    const scale = overrideScale ?? viewport.scale;
     const drawW = currentImage.width * scale;
     const drawH = currentImage.height * scale;
     let x = 0, y = 0;
@@ -73,7 +74,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ctx.stroke();
       ctx.restore();
     }
-  }, [viewport, appMode, refPoint]);
+  }, [viewport, appMode, refPoint, overrideScale]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {
@@ -148,7 +149,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const { left, top, width, height } = canvas.getBoundingClientRect();
       const canvasX = e.clientX - left;
       const canvasY = e.clientY - top;
-      const scale = viewport.scale;
+      const scale = overrideScale ?? viewport.scale;
       let imgX = 0, imgY = 0;
 
       if (appMode === 'pinpoint' && refPoint) {
@@ -174,7 +175,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
     canvas.addEventListener('click', handleClick);
     return () => canvas.removeEventListener('click', handleClick);
-  }, [image, appMode, onSetRefPoint, viewport, folderKey, refPoint, pinpointMouseMode]);
+  }, [image, appMode, onSetRefPoint, viewport, folderKey, refPoint, pinpointMouseMode, overrideScale]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -207,18 +208,22 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const my = e.clientY - top;
 
       const { viewport: currentViewport } = useStore.getState();
-      const preScale = currentViewport.scale;
+      const preScale = overrideScale ?? currentViewport.scale;
       const delta = e.deltaY < 0 ? WHEEL_ZOOM_STEP : (1 / WHEEL_ZOOM_STEP);
       let nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, preScale * delta));
       if (nextScale === preScale) return;
 
       if (appMode === 'pinpoint') {
+        // Update individual scale
+        setPinpointScale(folderKey, nextScale);
+        
+        // Pan to keep zoom centered on cursor
         const refScreenX = currentViewport.refScreenX || (width / 2);
         const refScreenY = currentViewport.refScreenY || (height / 2);
         const nextRefScreenX = mx + (refScreenX - mx) * (nextScale / preScale);
         const nextRefScreenY = my + (refScreenY - my) * (nextScale / preScale);
         if (syncMode === "locked") {
-          setViewport({ scale: nextScale, refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
+          setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
         }
       } else {
         let { cx, cy } = currentViewport;
@@ -294,7 +299,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mousemove", onMove);
     };
-  }, [image, syncMode, setViewport, appMode, pinpointMouseMode]);
+  }, [image, syncMode, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, setPinpointScale]);
 
   return (
     <div className={`viewer ${isActive ? 'active' : ''}`} onClick={() => onClick && onClick(folderKey)}>

@@ -684,3 +684,61 @@ main {
   border: 2px solid var(--accent-primary);
 }
 
+.viewer-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.viewer-container .viewer {
+  flex-grow: 1;
+  min-height: 0;
+}
+
+.pinpoint-scale-control {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 4px 8px;
+  border-radius: 6px;
+  z-index: 20;
+}
+
+.pinpoint-scale-control input {
+  width: 50px;
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  text-align: center;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.pinpoint-scale-control span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.pinpoint-scale-control button {
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pinpoint-scale-control button:hover {
+  background-color: var(--accent-primary);
+}
+
