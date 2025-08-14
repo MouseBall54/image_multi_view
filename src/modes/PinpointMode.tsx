@@ -292,12 +292,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             <button onClick={() => setPinpointGlobalScale(1)}>Reset</button>
           </div>
         </div>
-        <div style={{ display: 'none' }}>
-          <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
-          <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
-          <input ref={inputRefs.C} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("C", e)} />
-          <input ref={inputRefs.D} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("D", e)} />
-        </div>
       </div>
       <main>
         <aside className="filelist">
@@ -361,6 +355,12 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
           ))}
         </section>
       </main>
+      <div style={{ display: 'none' }}>
+        <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
+        <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
+        <input ref={inputRefs.C} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("C", e)} />
+        <input ref={inputRefs.D} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("D", e)} />
+      </div>
     </>
   );
 });

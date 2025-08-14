@@ -611,6 +611,66 @@ main {
   stroke: var(--accent-primary);
 }
 
+/* Pinpoint Mode Controls - Single Header Bar */
+.pinpoint-controls-header {
+  display: flex;
+  justify-content: space-between; /* Key for alignment */
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-med);
+}
+
+.folder-controls-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.global-controls-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.global-scale-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.global-scale-control label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.global-scale-control span {
+  font-variant-numeric: tabular-nums;
+  font-weight: bold;
+  color: var(--text-primary);
+  background-color: var(--bg-dark);
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.global-scale-control button {
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.global-scale-control button:hover {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-hover);
+}
+
 .folder-picker-initial {
   display: flex;
   align-items: center;
