@@ -176,6 +176,10 @@ main {
   min-height: 0; 
 }
 
+.toggle-mode-main .viewers {
+  grid-template-columns: 1fr;
+}
+
 .filelist { 
   width: 300px; 
   border-right: 1px solid var(--border-color); 

@@ -169,7 +169,7 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
           ))}
         </div>
       </div>
-      <main>
+      <main className="toggle-mode-main">
         <aside className="filelist">
           <div className="filelist-header">
             <input
@@ -196,18 +196,7 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
             ))}
           </ul>
         </aside>
-        <section className="viewers viewers-1">
-          <ImageCanvas 
-            ref={canvasRef}
-            label={(allFolders[toggleSource]?.alias) || toggleSource} 
-            file={fileOf(toggleSource, current)}
-            appMode="toggle"
-            folderKey={toggleSource}
-            indicator={indicator} 
-            isReference={true} 
-            cache={bitmapCache.current}
-          />
-        </section>
+        <section className="viewers">
       </main>
     </>
   );

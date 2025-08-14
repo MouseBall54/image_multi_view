@@ -262,7 +262,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
           </div>
         </div>
       </div>
-      <main>
+      <main className="pinpoint-mode-main">
         <aside className="filelist">
           <div className="filelist-header">
             <input

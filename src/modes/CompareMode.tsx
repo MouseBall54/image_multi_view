@@ -191,7 +191,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
           ))}
         </div>
       </div>
-      <main>
+      <main className="compare-mode-main">
         <aside className="filelist">
           <div className="filelist-header">
             <input
