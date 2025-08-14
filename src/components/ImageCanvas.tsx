@@ -31,11 +31,17 @@ export interface ImageCanvasHandle {
 export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<DrawableImage | null>(null);
-  const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode, indicator, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale, showMinimap } = useStore();
+  const { 
+    viewport, setViewport, syncMode, setFitScaleFn, 
+    pinpointMouseMode, indicator, setPinpointScale, 
+    pinpointGlobalScale, setPinpointGlobalScale, showMinimap,
+    pinpointRotations
+  } = useStore();
 
   const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
     const { width, height } = ctx.canvas;
     ctx.clearRect(0, 0, width, height);
+    ctx.save();
 
     const individualScale = overrideScale ?? viewport.scale;
     const scale = appMode === 'pinpoint' ? individualScale * pinpointGlobalScale : individualScale;
@@ -45,17 +51,25 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     let x = 0, y = 0;
 
     if (appMode === 'pinpoint') {
-      // When no specific point is pinned, default to centering the image.
-      const currentRefPoint = refPoint || { x: 0.5, y: 0.5 }; // Normalized coordinates
+      const currentRefPoint = refPoint || { x: 0.5, y: 0.5 };
       const refScreenX = viewport.refScreenX ?? (width / 2);
       const refScreenY = viewport.refScreenY ?? (height / 2);
-      
-      // Convert normalized refPoint to image pixel coordinates
       const refImgX = currentRefPoint.x * currentImage.width;
       const refImgY = currentRefPoint.y * currentImage.height;
-
       x = Math.round(refScreenX - (refImgX * scale));
       y = Math.round(refScreenY - (refImgY * scale));
+
+      const angle = pinpointRotations[folderKey] || 0;
+
+      if (angle !== 0) {
+        // Translate context to the center of the image
+        const centerX = x + drawW / 2;
+        const centerY = y + drawH / 2;
+        ctx.translate(centerX, centerY);
+        ctx.rotate(angle * Math.PI / 180);
+        ctx.translate(-centerX, -centerY);
+      }
+
     } else {
       const cx = (viewport.cx || 0.5) * currentImage.width;
       const cy = (viewport.cy || 0.5) * currentImage.height;
@@ -66,6 +80,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(currentImage, x, y, drawW, drawH);
+    ctx.restore(); // Restore context to pre-rotation state
 
     if (appMode === 'pinpoint' && refPoint && withCrosshair) {
       const refScreenX = viewport.refScreenX ?? (width / 2);
@@ -82,7 +97,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ctx.stroke();
       ctx.restore();
     }
-  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale]);
+  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {
@@ -147,7 +162,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
     drawImage(ctx, image, true);
-  }, [image, drawImage, viewport, pinpointGlobalScale]); // Add pinpointGlobalScale dependency
+  }, [image, drawImage, viewport, pinpointGlobalScale, pinpointRotations]); // Add rotation dependencies
 
   useEffect(() => {
     const canvas = canvasRef.current;

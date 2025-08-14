@@ -17,12 +17,13 @@ interface State {
   showMinimap: boolean;
   viewport: Viewport;
   pinpoints: Partial<Record<FolderKey, Pinpoint>>;
-  pinpointScales: Partial<Record<FolderKey, number>>; // For individual scales
-  pinpointGlobalScale: number; // For global scaling in pinpoint mode
-  activeCanvasKey: FolderKey | null; // To track the active canvas
+  pinpointScales: Partial<Record<FolderKey, number>>;
+  pinpointGlobalScale: number;
+  pinpointRotations: Partial<Record<FolderKey, number>>;
+  activeCanvasKey: FolderKey | null;
   fitScaleFn: (() => number) | null;
   current: MatchedItem | null;
-  indicator: { cx: number, cy: number, key: number } | null; // For animation trigger
+  indicator: { cx: number, cy: number, key: number } | null;
   folders: Partial<Record<FolderKey, FolderState>>;
   setAppMode: (m: AppMode) => void;
   setSyncMode: (m: SyncMode) => void;
@@ -36,10 +37,11 @@ interface State {
   setPinpointScale: (key: FolderKey, scale: number) => void;
   clearPinpointScales: () => void;
   setPinpointGlobalScale: (scale: number) => void;
+  setPinpointRotation: (key: FolderKey, angle: number) => void;
   setActiveCanvasKey: (key: FolderKey | null) => void;
   setFitScaleFn: (fn: () => number) => void;
   setCurrent: (item: MatchedItem | null) => void;
-  triggerIndicator: (cx: number, cy: number) => void; // To trigger animation
+  triggerIndicator: (cx: number, cy: number) => void;
   setFolder: (key: FolderKey, folderState: FolderState) => void;
   updateFolderAlias: (key: FolderKey, alias: string) => void;
 }
@@ -53,12 +55,13 @@ export const useStore = create<State>((set) => ({
   showMinimap: false,
   viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5, refScreenX: undefined, refScreenY: undefined },
   pinpoints: {},
-  pinpointScales: {}, // Initial value
-  pinpointGlobalScale: 1, // Initial value
-  activeCanvasKey: null, // Initial value
+  pinpointScales: {},
+  pinpointGlobalScale: 1,
+  pinpointRotations: {},
+  activeCanvasKey: null,
   fitScaleFn: null,
   current: null,
-  indicator: null, // Initial value
+  indicator: null,
   folders: {},
   setAppMode: (m) => set({ appMode: m }),
   setSyncMode: (m) => set({ syncMode: m }),
@@ -76,10 +79,13 @@ export const useStore = create<State>((set) => ({
   })),
   clearPinpointScales: () => set({ pinpointScales: {} }),
   setPinpointGlobalScale: (scale) => set({ pinpointGlobalScale: scale }),
+  setPinpointRotation: (key, angle) => set(state => ({
+    pinpointRotations: { ...state.pinpointRotations, [key]: angle }
+  })),
   setActiveCanvasKey: (key) => set({ activeCanvasKey: key }),
   setFitScaleFn: (fn) => set({ fitScaleFn: fn }),
   setCurrent: (item) => set({ current: item }),
-  triggerIndicator: (cx, cy) => set({ indicator: { cx, cy, key: Date.now() } }), // Implementation
+  triggerIndicator: (cx, cy) => set({ indicator: { cx, cy, key: Date.now() } }),
   setFolder: (key, folderState) => set(state => ({
     folders: { ...state.folders, [key]: folderState }
   })),
@@ -100,7 +106,6 @@ export const useStore = create<State>((set) => ({
 useStore.subscribe((state, prevState) => {
   if (state.appMode !== prevState.appMode) {
     console.log(`App mode changed from ${prevState.appMode} to ${state.appMode}`);
-    // Reset viewport when mode changes, except for pinpoint mode which has its own logic
     if (state.appMode !== 'pinpoint') {
       const { fitScaleFn } = useStore.getState();
       const newScale = fitScaleFn ? fitScaleFn() : 1;
@@ -109,7 +114,9 @@ useStore.subscribe((state, prevState) => {
         pinpoints: {},
         pinpointScales: {},
         pinpointGlobalScale: 1,
+        pinpointRotations: {},
       });
     }
   }
 });
+

@@ -74,6 +74,8 @@ function PinpointScaleControl({ folderKey }: { folderKey: FolderKey }) {
 }
 
 
+import { PinpointRotationControl } from '../components/PinpointRotationControl';
+
 export interface PinpointModeHandle {
   capture: (options: { showLabels: boolean, showCrosshair: boolean }) => Promise<string | null>;
 }
@@ -342,10 +344,12 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
           {numViewers >= 3 && renderFolderControl('C', C)}
           {numViewers >= 4 && renderFolderControl('D', D)}
         </div>
-        <div className="global-scale-control">
-          <label>Global Scale:</label>
-          <span>{(pinpointGlobalScale * 100).toFixed(0)}%</span>
-          <button onClick={() => setPinpointGlobalScale(1)}>Reset</button>
+        <div className="global-controls-wrapper">
+          <div className="global-scale-control">
+            <label>Global Scale:</label>
+            <span>{(pinpointGlobalScale * 100).toFixed(0)}%</span>
+            <button onClick={() => setPinpointGlobalScale(1)}>Reset</button>
+          </div>
         </div>
         <div style={{ display: 'none' }}>
           <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
@@ -408,7 +412,10 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                 onClick={setActiveCanvasKey} // Set active canvas on click
                 isActive={activeCanvasKey === key} // Pass isActive prop
               />
-              <PinpointScaleControl folderKey={key} />
+              <div className="viewer-controls">
+                <PinpointRotationControl folderKey={key} />
+                <PinpointScaleControl folderKey={key} />
+              </div>
             </div>
           ))}
         </section>
