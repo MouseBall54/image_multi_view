@@ -29,4 +29,19 @@ export interface Viewport {
 
 export type SyncMode = "locked" | "unlocked";
 
-export type FilterType = "none" | "grayscale" | "invert" | "sepia" | "sobel";
+export type FilterType = 
+  | "none" 
+  | "grayscale" 
+  | "invert" 
+  | "sepia" 
+  | "sobel"
+  // Smoothing
+  | "gaussianblur"
+  | "boxblur"
+  // Sharpening
+  | "sharpen"
+  | "laplacian"
+  // Edge Detection
+  | "prewitt"
+  | "scharr";
+

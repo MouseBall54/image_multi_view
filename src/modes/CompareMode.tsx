@@ -203,7 +203,16 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
               <li onClick={() => handleFilterSelect(contextMenu.key, 'grayscale')}>Grayscale</li>
               <li onClick={() => handleFilterSelect(contextMenu.key, 'invert')}>Invert</li>
               <li onClick={() => handleFilterSelect(contextMenu.key, 'sepia')}>Sepia</li>
-              <li onClick={() => handleFilterSelect(contextMenu.key, 'sobel')}>Sobel Edge Detect</li>
+              <hr />
+              <li onClick={() => handleFilterSelect(contextMenu.key, 'boxblur')}>Box Blur</li>
+              <li onClick={() => handleFilterSelect(contextMenu.key, 'gaussianblur')}>Gaussian Blur</li>
+              <hr />
+              <li onClick={() => handleFilterSelect(contextMenu.key, 'sharpen')}>Sharpen</li>
+              <li onClick={() => handleFilterSelect(contextMenu.key, 'laplacian')}>Laplacian</li>
+              <hr />
+              <li onClick={() => handleFilterSelect(contextMenu.key, 'sobel')}>Sobel</li>
+              <li onClick={() => handleFilterSelect(contextMenu.key, 'prewitt')}>Prewitt</li>
+              <li onClick={() => handleFilterSelect(contextMenu.key, 'scharr')}>Scharr</li>
             </ul>
           </div>
         )}
