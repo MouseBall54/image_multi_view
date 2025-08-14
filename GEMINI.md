@@ -1,7 +1,95 @@
-# ✅ 개요(요점 정리)
+## 📄 Grayscale 이미지 분석 필터 작업 지시서 (Markdown 문서)
 
-- **목표:** React + TypeScript로 *서버 없이* 로컬 폴더(전·후 2~3개)를 불러와 **동일 파일명** 이미지의 **동기화된 zoom/pan** 비교 뷰어 구현
-- **핵심 포인트:** File System Access API(또는 `input[webkitdirectory]`)로 폴더 로드 → 파일명 매칭 → 각 뷰어의 **viewport**(scale, center)를 **sync**
-- **우선 구현 기능:** 폴더 선택(2~3개), 파일 매칭 리스트, 이미지 전환, **wheel zoom(커서 기준)**, drag pan, **sync on/off**, zoom/position reset
-- **테스트 편의:** 상단 `config.ts`에서 **배율/속도/성능 옵션** 즉시 조정
-- **확장 아이디어:** difference/blend 모드, minimap, ruler/crosshair, blink, split slider
+---
+
+### 📝 개요
+
+이 문서는 **AI Agent**가 Grayscale 이미지를 분석할 때 적용할 수 있는 다양한 필터와 그 목적, 특징, 사용 예시를 정리한 작업 지시서입니다.
+AI Agent는 아래 필터별 설명과 예시 코드를 기반으로 이미지 전처리, 특징 추출, 분석 작업을 수행해야 합니다.
+
+---
+
+## 1. Smoothing (Blurring) Filters
+
+**목적:** 노이즈 제거, 세부 구조 완화, 분석 전처리
+**지시사항:** 입력 이미지를 지정된 커널 크기와 방식으로 블러링 처리하라.
+
+| 필터명                  | 특징                                   |
+| -------------------- | ------------------------------------ |
+| **Mean Filter**      | 주변 픽셀 평균값으로 대체. 빠르지만 엣지 손실 가능.       |
+| **Gaussian Filter**  | 가우시안 가중치 기반 블러. 자연스러운 결과, 고주파 억제 효과. |
+| **Median Filter**    | 중앙값 기반. Salt-and-Pepper 노이즈에 강함.     |
+| **Bilateral Filter** | 공간+명암 유사성 고려. 엣지 보존 블러.              |
+
+---
+
+## 2. Sharpening Filters
+
+**목적:** 이미지의 경계와 디테일을 강화
+**지시사항:** 지정된 마스크를 사용해 이미지 샤프닝을 수행하라.
+
+| 필터명                   | 특징                               |
+| --------------------- | -------------------------------- |
+| **Laplacian Filter**  | 2차 미분 기반, 경계 강조. 노이즈 민감.         |
+| **Unsharp Masking**   | 블러 이미지를 빼서 선명화.                  |
+| **High-Boost Filter** | Unsharp Mask 강화 버전, 강조 강도 조절 가능. |
+
+---
+
+## 3. Edge Detection Filters
+
+**목적:** 물체의 경계 검출
+**지시사항:** Gradient 기반 또는 Canny 알고리즘을 사용해 엣지를 추출하라.
+
+| 필터명                | 특징                                                                        |
+| ------------------ | ------------------------------------------------------------------------- |
+| **Sobel Filter**   | x, y 방향 1차 미분. 수평·수직 엣지 검출.                                               |
+| **Prewitt Filter** | Sobel보다 단순한 가중치.                                                          |
+| **Scharr Filter**  | 회전 불변성 우수.                                                                |
+| **Canny Detector** | Gaussian + Gradient + Non-Max Suppression + Hysteresis Threshold. 높은 정확도. |
+
+---
+
+## 4. Frequency Domain Filters
+
+**목적:** 주파수 영역에서 성분 제거/보존
+**지시사항:** FFT 변환 후 지정된 필터를 적용하라.
+
+| 필터명                  | 특징             |
+| -------------------- | -------------- |
+| **Low-Pass Filter**  | 고주파(노이즈) 제거.   |
+| **High-Pass Filter** | 저주파(배경) 제거.    |
+| **Band-Pass Filter** | 특정 주파수 범위만 통과. |
+| **Band-Stop Filter** | 특정 주파수 범위만 제거. |
+
+---
+
+## 5. Morphological Filters (이진화 후 적용)
+
+**목적:** 형태 보정, 노이즈 제거
+**지시사항:** Binary 이미지에 구조화 요소를 적용하라.
+
+| 연산명           | 특징         |
+| ------------- | ---------- |
+| **Erosion**   | 객체 축소.     |
+| **Dilation**  | 객체 팽창.     |
+| **Opening**   | 작은 노이즈 제거. |
+| **Closing**   | 작은 구멍 메움.  |
+| **Top-hat**   | 밝은 영역 강조.  |
+| **Black-hat** | 어두운 영역 강조. |
+
+
+---
+
+## ✅ 지시 규칙
+
+1. 입력 이미지는 반드시 **Grayscale** 상태여야 함. 아닐 경우 Grayscale로 변형 후 진행
+2. 필터 적용 전 후 이미지를 저장하여 비교 가능하게 할 것.
+3. 커널 크기, σ 값, 임계값 등 **변수는 파라미터화**하여 조정 가능하게 할 것.
+4. Morphological Filter는 이진화 후 적용할 것.
+5. 여러 필터를 조합해 실험하고 최적 조합을 보고할 것.
+
+---
+
+작업 완료 내역을 아래에 정리하기 
+
