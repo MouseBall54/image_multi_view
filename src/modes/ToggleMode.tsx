@@ -15,11 +15,10 @@ export interface ToggleModeHandle {
 interface ToggleModeProps {
   numViewers: number;
   bitmapCache: React.MutableRefObject<Map<string, DrawableImage>>;
-  indicator: { cx: number, cy: number, key: number } | null;
   setPrimaryFile: (file: File | null) => void;
 }
 
-export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numViewers, bitmapCache, indicator, setPrimaryFile }, ref) => {
+export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { current, setCurrent, stripExt, setStripExt } = useStore();
@@ -197,6 +196,16 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
           </ul>
         </aside>
         <section className="viewers">
+          <ImageCanvas 
+            ref={canvasRef}
+            label={(allFolders[toggleSource]?.alias) || toggleSource} 
+            file={fileOf(toggleSource, current)}
+            appMode="toggle"
+            folderKey={toggleSource}
+            isReference={true} 
+            cache={bitmapCache.current}
+          />
+        </section>
       </main>
     </>
   );

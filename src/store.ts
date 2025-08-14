@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Viewport, SyncMode, AppMode, FolderKey, Pinpoint, PinpointMouseMode, MatchedItem } from "./types";
+import type { Viewport, SyncMode, AppMode, FolderKey, Pinpoint, PinpointMouseMode, MatchedItem, FilterType } from "./types";
 import { DEFAULT_VIEWPORT } from "./config";
 import { FolderData } from "./utils/folder";
 
@@ -25,6 +25,7 @@ interface State {
   current: MatchedItem | null;
   indicator: { cx: number, cy: number, key: number } | null;
   folders: Partial<Record<FolderKey, FolderState>>;
+  viewerFilters: Partial<Record<FolderKey, FilterType>>;
   setAppMode: (m: AppMode) => void;
   setSyncMode: (m: SyncMode) => void;
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
@@ -44,6 +45,7 @@ interface State {
   triggerIndicator: (cx: number, cy: number) => void;
   setFolder: (key: FolderKey, folderState: FolderState) => void;
   updateFolderAlias: (key: FolderKey, alias: string) => void;
+  setViewerFilter: (key: FolderKey, filter: FilterType) => void;
 }
 
 export const useStore = create<State>((set) => ({
@@ -63,6 +65,7 @@ export const useStore = create<State>((set) => ({
   current: null,
   indicator: null,
   folders: {},
+  viewerFilters: {},
   setAppMode: (m) => set({ appMode: m }),
   setSyncMode: (m) => set({ syncMode: m }),
   setPinpointMouseMode: (m) => set({ pinpointMouseMode: m }),
@@ -101,6 +104,9 @@ export const useStore = create<State>((set) => ({
     }
     return {};
   }),
+  setViewerFilter: (key, filter) => set(state => ({
+    viewerFilters: { ...state.viewerFilters, [key]: filter }
+  })),
 }));
 
 useStore.subscribe((state, prevState) => {
