@@ -261,9 +261,18 @@ main {
   padding: 4px; 
   min-width:0; 
 }
-.viewers.viewers-2 { grid-template-columns: repeat(2, 1fr); }
-.viewers.viewers-3 { grid-template-columns: repeat(3, 1fr); }
-.viewers.viewers-4 { grid-template-columns: repeat(2, 1fr); }
+.viewers.viewers-2 { 
+  grid-template-columns: repeat(2, 1fr); 
+  grid-template-rows: 1fr;
+}
+.viewers.viewers-3 { 
+  grid-template-columns: repeat(2, 1fr); 
+  grid-template-rows: repeat(2, 1fr);
+}
+.viewers.viewers-4 { 
+  grid-template-columns: repeat(2, 1fr); 
+  grid-template-rows: repeat(2, 1fr);
+}
 
 .viewer { 
   position: relative; 
@@ -753,6 +762,7 @@ main {
   position: relative;
   display: flex;
   flex-direction: column;
+  min-height: 0; /* Crucial fix for grid layout with dynamic content */
 }
 
 .viewer-container .viewer {
