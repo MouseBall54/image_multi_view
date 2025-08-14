@@ -379,9 +379,19 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     };
   }, [image, syncMode, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, setPinpointScale]);
 
+  const rotationAngle = appMode === 'pinpoint' ? (pinpointRotations[folderKey] || 0) : 0;
+
   return (
     <div className={`viewer ${isActive ? 'active' : ''}`} onClick={() => onClick && onClick(folderKey)}>
       {SHOW_FOLDER_LABEL && <div className="viewer__label">{label}</div>}
+      
+      {appMode === 'pinpoint' && rotationAngle !== 0 && (
+        <div className="viewer__rotation-angle">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3L22 2"/></svg>
+          <span>{rotationAngle.toFixed(1)}°</span>
+        </div>
+      )}
+
       <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} />
       {!file && <div className="viewer__placeholder">{appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image'}</div>}
       {indicator && image && canvasRef.current && appMode !== 'pinpoint' && (
