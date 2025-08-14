@@ -15,15 +15,20 @@ export function PinpointRotationControl({ folderKey }: Props) {
 
   const currentAngle = pinpointRotations[folderKey] || 0;
 
-  const [angleInput, setAngleInput] = useState(currentAngle.toString());
+  const [angleInput, setAngleInput] = useState(currentAngle.toFixed(1));
 
   useEffect(() => {
-    setAngleInput(currentAngle.toFixed(0));
+    // Update input only if the value is different, to avoid interrupting user input
+    if (parseFloat(angleInput) !== currentAngle) {
+      setAngleInput(currentAngle.toFixed(1));
+    }
   }, [currentAngle]);
 
   const updateRotation = (newAngle: number) => {
-    // Normalize angle to be within 0-359
-    const normalizedAngle = (newAngle % 360 + 360) % 360;
+    // Round to one decimal place to avoid floating point inaccuracies
+    const roundedAngle = Math.round(newAngle * 10) / 10;
+    // Normalize angle to be within 0-359.9
+    const normalizedAngle = (roundedAngle % 360 + 360) % 360;
     setPinpointRotation(folderKey, normalizedAngle);
   };
 
@@ -44,7 +49,7 @@ export function PinpointRotationControl({ folderKey }: Props) {
     if (!isNaN(newAngle)) {
       updateRotation(newAngle);
     } else {
-      setAngleInput(currentAngle.toString()); // Reset if invalid
+      setAngleInput(currentAngle.toFixed(1)); // Reset if invalid
     }
   };
 
@@ -57,9 +62,11 @@ export function PinpointRotationControl({ folderKey }: Props) {
 
   return (
     <div className="pinpoint-rotation-control">
-      <button onClick={() => handleRotate(-90)} title="Rotate Left 90°">↶</button>
+      <button onClick={() => handleRotate(-90)} title="Rotate Left 90°">↶ 90</button>
+      <button onClick={() => handleRotate(-1)} title="Rotate Left 1°">↶ 1</button>
       <input 
-        type="text" 
+        type="number" 
+        step="0.1"
         value={angleInput}
         onChange={handleInputChange}
         onBlur={handleInputBlur}
@@ -67,7 +74,8 @@ export function PinpointRotationControl({ folderKey }: Props) {
         title="Rotation Angle"
       />
       <span className="degree-symbol">°</span>
-      <button onClick={() => handleRotate(90)} title="Rotate Right 90°">↷</button>
+      <button onClick={() => handleRotate(1)} title="Rotate Right 1°">1 ↷</button>
+      <button onClick={() => handleRotate(90)} title="Rotate Right 90°">90 ↷</button>
       <button onClick={handleReset} title="Reset Rotation">0</button>
     </div>
   );

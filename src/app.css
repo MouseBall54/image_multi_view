@@ -695,201 +695,96 @@ main {
   min-height: 0;
 }
 
-.pinpoint-scale-control {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background-color: rgba(0, 0, 0, 0.6);
-  padding: 4px 8px;
-  border-radius: 6px;
-  z-index: 20;
-}
-
-.pinpoint-scale-control .scale-inputs {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.pinpoint-scale-control input {
-  width: 50px;
-  background-color: var(--bg-dark);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  text-align: center;
-  border-radius: 4px;
-  padding: 2px 4px;
-  font-size: 0.9rem;
-  font-weight: bold;
-}
-
-.pinpoint-scale-control .total-scale {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  font-weight: normal;
-}
-
-
-.pinpoint-scale-control button {
-  background-color: var(--bg-light);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  border-radius: 4px;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pinpoint-scale-control button:hover {
-  background-color: var(--accent-primary);
-}
-
-.global-scale-control {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background-color: var(--bg-light);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-}
-
-.global-scale-control label {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.global-scale-control span {
-  color: var(--text-primary);
-  font-weight: bold;
-  font-size: 1rem;
-}
-
-.global-scale-control button {
-  background-color: var(--bg-dark);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.global-scale-control button:hover {
-  background-color: var(--accent-primary);
-  color: white;
-}
-
-.folder-controls-wrapper {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
 .viewer-container {
   position: relative;
-  display: flex;
-  flex-direction: column;
 }
 
-.viewer-container .viewer {
-  flex-grow: 1;
-  min-height: 0;
-}
-
-.pinpoint-scale-control {
+.viewer-controls {
   position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background-color: rgba(0, 0, 0, 0.6);
-  padding: 4px 8px;
-  border-radius: 6px;
+  top: 10px;
+  right: 10px;
   z-index: 20;
+  background-color: rgba(26, 26, 26, 0.7);
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
 }
 
-.pinpoint-scale-control input {
-  width: 50px;
-  background-color: var(--bg-dark);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  text-align: center;
-  border-radius: 4px;
-  padding: 2px 4px;
-}
-
-.pinpoint-scale-control span {
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-}
-
-.pinpoint-scale-control button {
-  background-color: var(--bg-light);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  border-radius: 4px;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pinpoint-scale-control button:hover {
-  background-color: var(--accent-primary);
-}
-
-.controls-main button.active {
-  background-color: var(--accent-primary);
-  border-color: var(--accent-hover);
-  color: #fff;
+.viewer-container:hover .viewer-controls {
+  opacity: 1;
 }
 
 .pinpoint-rotation-control {
-  position: absolute;
-  bottom: 50px; /* Position above the scale control */
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 4px;
-  background-color: rgba(0, 0, 0, 0.6);
-  padding: 4px 8px;
-  border-radius: 6px;
-  z-index: 20;
+}
+
+.pinpoint-rotation-control button {
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.pinpoint-rotation-control button:hover {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-hover);
 }
 
 .pinpoint-rotation-control input {
-  width: 40px;
+  width: 50px;
   background-color: var(--bg-dark);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
   text-align: center;
   border-radius: 4px;
-  padding: 2px 4px;
+  padding: 4px;
   font-size: 0.9rem;
+  -moz-appearance: textfield; /* Firefox */
+}
+
+.pinpoint-rotation-control input::-webkit-outer-spin-button,
+.pinpoint-rotation-control input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .pinpoint-rotation-control .degree-symbol {
   color: var(--text-secondary);
   font-size: 1rem;
-  margin-left: -4px;
-  margin-right: 4px;
+  margin-left: -2px;
 }
 
-.pinpoint-rotation-control button {
+/* Scale Control moved back to bottom center */
+.pinpoint-scale-control {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 4px 8px;
+  border-radius: 6px;
+  z-index: 20;
+}
+
+.pinpoint-scale-control button {
   background-color: var(--bg-light);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
@@ -902,9 +797,41 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: 1;
 }
 
-.pinpoint-rotation-control button:hover {
+.pinpoint-scale-control button:hover {
   background-color: var(--accent-primary);
 }
+
+.pinpoint-scale-control .scale-inputs {
+  display: flex;
+  align-items: center;
+}
+
+.pinpoint-scale-control input {
+  width: 50px;
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  text-align: center;
+  border-radius: 4px;
+  padding: 4px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  -moz-appearance: textfield;
+}
+
+.pinpoint-scale-control input::-webkit-outer-spin-button,
+.pinpoint-scale-control input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pinpoint-scale-control .total-scale {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+

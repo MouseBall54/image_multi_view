@@ -222,6 +222,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
     let isDown = false;
     let lastX = 0, lastY = 0;
+    let dragMode: 'pan' | 'rotate' | null = null;
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -280,25 +281,53 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     };
 
     const onDown = (e: MouseEvent) => {
-      if (appMode === 'pinpoint' && pinpointMouseMode !== 'pan') return;
-      isDown = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      canvas.style.cursor = 'grabbing';
+      if (appMode === 'pinpoint') {
+        if (e.altKey) {
+          dragMode = 'rotate';
+          canvas.style.cursor = 'ew-resize'; // Or a custom rotation cursor
+        } else if (pinpointMouseMode === 'pan') {
+          dragMode = 'pan';
+          canvas.style.cursor = 'grabbing';
+        }
+      } else {
+        dragMode = 'pan';
+        canvas.style.cursor = 'grabbing';
+      }
+      
+      if (dragMode) {
+        isDown = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+      }
     };
+
     const onUp = () => { 
       isDown = false; 
+      dragMode = null;
       canvas.style.cursor = appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab'; 
     };
+
     const onMove = (e: MouseEvent) => {
-      if (!isDown) return;
-      if (appMode === 'pinpoint' && pinpointMouseMode !== 'pan') return;
+      if (!isDown || !dragMode) return;
       e.preventDefault();
-      const dx = (e.clientX - lastX);
-      const dy = (e.clientY - lastY);
+      
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
       lastX = e.clientX;
       lastY = e.clientY;
 
+      if (dragMode === 'rotate') {
+        const { pinpointRotations, setPinpointRotation } = useStore.getState();
+        const currentAngle = pinpointRotations[folderKey] || 0;
+        // Adjust sensitivity by dividing dx by a factor
+        const newAngle = currentAngle + dx / 2; 
+        const roundedAngle = Math.round(newAngle * 10) / 10;
+        const normalizedAngle = (roundedAngle % 360 + 360) % 360;
+        setPinpointRotation(folderKey, normalizedAngle);
+        return;
+      }
+
+      // Pan logic below
       if (syncMode !== 'locked') return;
 
       const { viewport: currentViewport } = useStore.getState();
