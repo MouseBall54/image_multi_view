@@ -14,65 +14,8 @@ interface PinpointImage {
 }
 
 // A new component for individual scale control
-function PinpointScaleControl({ folderKey }: { folderKey: FolderKey }) {
-  const { pinpointScales, setPinpointScale, viewport, pinpointGlobalScale } = useStore();
-  const individualScale = pinpointScales[folderKey] ?? viewport.scale;
-  const totalScale = individualScale * pinpointGlobalScale;
-  
-  const [scaleInput, setScaleInput] = useState((individualScale * 100).toFixed(0));
-
-  useEffect(() => {
-    setScaleInput((individualScale * 100).toFixed(0));
-  }, [individualScale]);
-
-  const applyScale = (newIndividualScale: number) => {
-    const clampedScale = Math.max(MIN_ZOOM / pinpointGlobalScale, Math.min(MAX_ZOOM / pinpointGlobalScale, newIndividualScale));
-    setPinpointScale(folderKey, clampedScale);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setScaleInput(e.target.value);
-  };
-
-  const handleInputBlur = () => {
-    const newScale = parseFloat(scaleInput) / 100;
-    if (!isNaN(newScale)) {
-      applyScale(newScale);
-    } else {
-      setScaleInput((individualScale * 100).toFixed(0)); // Reset if invalid
-    }
-  };
-  
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleInputBlur();
-      (e.target as HTMLInputElement).blur();
-    }
-  };
-
-  const adjustScale = (factor: number) => {
-    applyScale(individualScale * factor);
-  };
-
-  return (
-    <div className="pinpoint-scale-control">
-      <button onClick={() => adjustScale(1 / WHEEL_ZOOM_STEP)}>-</button>
-      <div className="scale-inputs">
-        <input 
-          type="text" 
-          value={scaleInput}
-          onChange={handleInputChange}
-          onBlur={handleInputBlur}
-          onKeyDown={handleKeyDown}
-          title="Individual Scale"
-        />
-        <span className="total-scale" title="Total Scale (Individual * Global)">{(totalScale * 100).toFixed(0)}%</span>
-      </div>
-      <button onClick={() => adjustScale(WHEEL_ZOOM_STEP)}>+</button>
-    </div>
-  );
-}
-
+import { PinpointRotationControl } from '../components/PinpointRotationControl';
+import { PinpointScaleControl } from '../components/PinpointScaleControl';
 
 export interface PinpointModeHandle {
   capture: (options: { showLabels: boolean, showCrosshair: boolean }) => Promise<string | null>;
@@ -85,29 +28,27 @@ interface PinpointModeProps {
 }
 
 export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
-  const { A, B, C, D, pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
+  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+  const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { current, setCurrent, setViewport, viewport, pinpointScales, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale, activeCanvasKey, setActiveCanvasKey } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
   const [folderFilter, setFolderFilter] = useState<FolderKey | 'all'>('all');
 
-  const canvasRefs = {
-    A: useRef<ImageCanvasHandle>(null),
-    B: useRef<ImageCanvasHandle>(null),
-    C: useRef<ImageCanvasHandle>(null),
-    D: useRef<ImageCanvasHandle>(null),
-  };
+  const canvasRefs = FOLDER_KEYS.reduce((acc, key) => {
+    acc[key] = useRef<ImageCanvasHandle>(null);
+    return acc;
+  }, {} as Record<FolderKey, React.RefObject<ImageCanvasHandle>>);
 
   useImperativeHandle(ref, () => ({
     capture: async ({ showLabels, showCrosshair }) => {
-      const FOLDER_KEYS = (['A', 'B', 'C', 'D'] as FolderKey[]).slice(0, numViewers);
-      
-      const firstOnscreenCanvas = canvasRefs.A.current?.getCanvas();
-      if (!firstOnscreenCanvas) return null;
-      const { width, height } = firstOnscreenCanvas;
+      const activeKeys = FOLDER_KEYS.slice(0, numViewers);
+      const firstCanvas = canvasRefs[activeKeys[0]]?.current?.getCanvas();
+      if (!firstCanvas) return null;
+      const { width, height } = firstCanvas;
 
-      const tempCanvases = FOLDER_KEYS.map(key => {
+      const tempCanvases = activeKeys.map(key => {
         const handle = canvasRefs[key].current;
         if (!handle) return null;
         const tempCanvas = document.createElement('canvas');
@@ -121,9 +62,10 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
       if (tempCanvases.length === 0) return null;
 
-      const isGridLayout = numViewers > 2;
-      const combinedWidth = isGridLayout ? width * 2 : width * tempCanvases.length;
-      const combinedHeight = isGridLayout ? (numViewers === 3 ? height * 2 : height * 2) : height;
+      const cols = Math.ceil(Math.sqrt(numViewers));
+      const rows = Math.ceil(numViewers / cols);
+      const combinedWidth = width * cols;
+      const combinedHeight = height * rows;
 
       const finalCanvas = document.createElement('canvas');
       finalCanvas.width = combinedWidth;
@@ -133,36 +75,21 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
       finalCtx.fillStyle = '#111';
       finalCtx.fillRect(0, 0, combinedWidth, combinedHeight);
-      const BORDER_WIDTH = 2; // px
-      finalCtx.fillStyle = '#000'; // Black border
+      const BORDER_WIDTH = 2;
+      finalCtx.fillStyle = '#000';
 
       tempCanvases.forEach((canvas, index) => {
-        const key = FOLDER_KEYS[index];
-        let dx = 0, dy = 0;
-        if (isGridLayout) {
-            dx = (index % 2) * width;
-            dy = Math.floor(index / 2) * height;
-        } else {
-            dx = index * width;
-        }
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        const dx = col * width;
+        const dy = row * height;
         finalCtx.drawImage(canvas, dx, dy);
 
-        // Draw borders around the image
-        if (index > 0) { // Draw vertical border for horizontal layout
-          if (!isGridLayout) {
-            finalCtx.fillRect(dx - BORDER_WIDTH / 2, dy, BORDER_WIDTH, height);
-          }
-        }
-        if (isGridLayout) { // Draw borders for grid layout
-          if (index % 2 > 0) { // Vertical border
-            finalCtx.fillRect(dx - BORDER_WIDTH / 2, dy, BORDER_WIDTH, height);
-          }
-          if (Math.floor(index / 2) > 0) { // Horizontal border
-            finalCtx.fillRect(dx, dy - BORDER_WIDTH / 2, width, BORDER_WIDTH);
-          }
-        }
+        if (col > 0) finalCtx.fillRect(dx - BORDER_WIDTH / 2, dy, BORDER_WIDTH, height);
+        if (row > 0) finalCtx.fillRect(dx, dy - BORDER_WIDTH / 2, width, BORDER_WIDTH);
 
         if (showLabels) {
+          const key = activeKeys[index];
           const label = allFolders[key]?.alias || pinpointImages[key]?.file?.name || key;
           finalCtx.font = '16px sans-serif';
           finalCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -176,12 +103,16 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     }
   }));
 
+  const activeKeys = useMemo(() => FOLDER_KEYS.slice(0, numViewers), [numViewers]);
+
   const activeFolders = useMemo(() => {
-    const folders: any = { A: A?.data.files, B: B?.data.files };
-    if (numViewers >= 3) folders.C = C?.data.files;
-    if (numViewers >= 4) folders.D = D?.data.files;
-    return folders;
-  }, [A, B, C, D, numViewers]);
+    return activeKeys.reduce((acc, key) => {
+      if (allFolders[key]?.data.files) {
+        acc[key] = allFolders[key]!.data.files;
+      }
+      return acc;
+    }, {} as Record<FolderKey, Map<string, File>>);
+  }, [activeKeys, allFolders]);
 
   const matched = useMemo(
     () => matchFilenames(activeFolders, true, "union"), // Use "union" mode for pinpoint
@@ -215,11 +146,11 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   
   const fileOf = useCallback((key: FolderKey, item: MatchedItem | null): File | undefined => {
     if (!item) return undefined;
-    const folderState = (key === "A" ? A : key === "B" ? B : key === "C" ? C : D);
+    const folderState = allFolders[key];
     if (!folderState?.data.files) return undefined;
     const name = Array.from(folderState.data.files.keys()).find(n => n.replace(/\.[^/.]+$/, "") === item.filename); // Always strip extension for matching
     return name ? folderState.data.files.get(name) : undefined;
-  }, [A, B, C, D]); // Dependencies for useCallback
+  }, [allFolders]);
 
   useEffect(() => {
     const primaryFile = pinpointImages['A']?.file;
@@ -235,7 +166,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         [key]: { ...currentImage, refPoint: imgPoint }
       };
     });
-    // Update global viewport's reference screen point
     setViewport({ refScreenX: screenPoint.x, refScreenY: screenPoint.y });
   };
 
@@ -245,21 +175,13 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   };
 
   const handleFileListItemClick = useCallback((item: MatchedItem) => {
-    setCurrent(item); // Set the global current
+    setCurrent(item);
     if (activeCanvasKey) {
-      // Find the actual File object from any of the folders that has it
       let fileToLoad: File | undefined;
-      const folderKeys: FolderKey[] = ['A', 'B', 'C', 'D']; // All possible folder keys
-      for (const folderKeyIter of folderKeys) {
-        if (item.has[folderKeyIter]) { // Check if this folder has the file
-          const folderState = (folderKeyIter === "A" ? A : folderKeyIter === "B" ? B : folderKeyIter === "C" ? C : D);
-          if (folderState?.data.files) {
-            const name = Array.from(folderState.data.files.keys()).find(n => n.replace(/\.[^/.]+$/, "") === item.filename);
-            if (name) {
-              fileToLoad = folderState.data.files.get(name);
-              break; // Found the file, no need to check other folders
-            }
-          }
+      for (const folderKey of activeKeys) {
+        if (item.has[folderKey]) {
+          fileToLoad = fileOf(folderKey, item);
+          if (fileToLoad) break;
         }
       }
 
@@ -271,7 +193,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         setPinpointScale(activeCanvasKey, 1);
         setViewport({ refScreenX: undefined, refScreenY: undefined });
       } else {
-        // If no file is found (e.g., due to a filter or a bug), clear the canvas
         setPinpointImages(prev => ({
           ...prev,
           [activeCanvasKey]: { file: null, refPoint: null }
@@ -279,23 +200,10 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         setViewport({ refScreenX: undefined, refScreenY: undefined });
       }
     }
-  }, [activeCanvasKey, A, B, C, D, setCurrent, viewport.scale, setPinpointScale]);
+  }, [activeCanvasKey, activeKeys, fileOf, setCurrent, setPinpointScale, setViewport]);
 
-  const handleCanvasClick = useCallback((key: FolderKey) => {
-    if (current) {
-      const fileToLoad = fileOf(key, current);
-      if (fileToLoad) {
-        setPinpointImages(prev => ({
-          ...prev,
-          [key]: { file: fileToLoad, refPoint: { x: 0.5, y: 0.5 } }
-        }));
-        setPinpointScale(key, 1);
-        setViewport({ refScreenX: undefined, refScreenY: undefined });
-      }
-    }
-  }, [current, fileOf, setPinpointScale, setViewport]);
-
-  const renderFolderControl = (key: FolderKey, state: FolderState | undefined) => {
+  const renderFolderControl = (key: FolderKey) => {
+    const state = allFolders[key];
     if (!state) {
       return (
         <button className="folder-picker-initial" onClick={() => pick(key)}>
@@ -330,28 +238,28 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       </div>
     );
   };
-
-  const keys: FolderKey[] = ['A', 'B', 'C', 'D'].slice(0, numViewers) as FolderKey[];
+  
+  const gridStyle = {
+    '--viewers': numViewers,
+    '--cols': Math.ceil(Math.sqrt(numViewers)),
+  } as React.CSSProperties;
 
   return (
     <>
-      <div className="controls">
+      <div className="controls pinpoint-controls-header">
         <div className="folder-controls-wrapper">
-          {renderFolderControl('A', A)}
-          {renderFolderControl('B', B)}
-          {numViewers >= 3 && renderFolderControl('C', C)}
-          {numViewers >= 4 && renderFolderControl('D', D)}
+          {activeKeys.map(key => (
+            <React.Fragment key={key}>
+              {renderFolderControl(key)}
+            </React.Fragment>
+          ))}
         </div>
-        <div className="global-scale-control">
-          <label>Global Scale:</label>
-          <span>{(pinpointGlobalScale * 100).toFixed(0)}%</span>
-          <button onClick={() => setPinpointGlobalScale(1)}>Reset</button>
-        </div>
-        <div style={{ display: 'none' }}>
-          <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
-          <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
-          <input ref={inputRefs.C} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("C", e)} />
-          <input ref={inputRefs.D} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("D", e)} />
+        <div className="global-controls-wrapper">
+          <div className="global-scale-control">
+            <label>Global Scale:</label>
+            <span>{(pinpointGlobalScale * 100).toFixed(0)}%</span>
+            <button onClick={() => setPinpointGlobalScale(1)}>Reset</button>
+          </div>
         </div>
       </div>
       <main>
@@ -367,10 +275,9 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
               <div className="count">Matched: {filteredMatched.length}</div>
               <select value={folderFilter} onChange={e => setFolderFilter(e.target.value as FolderKey | 'all')}>
                 <option value="all">All Folders</option>
-                <option value="A">Folder A</option>
-                <option value="B">Folder B</option>
-                {numViewers >= 3 && <option value="C">Folder C</option>}
-                {numViewers >= 4 && <option value="D">Folder D</option>}
+                {activeKeys.map(key => (
+                  <option key={key} value={key}>Folder {allFolders[key]?.alias || key}</option>
+                ))}
               </select>
               <label className="strip-ext-label">
                 <input type="checkbox" checked={true} readOnly />
@@ -385,18 +292,18 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                   onClick={() => handleFileListItemClick(m)}>
                 {m.filename}
                 <span className="has">
-                  {m.has.A ? "A" : ""}{m.has.B ? "B" : ""}{m.has.C ? "C" : ""}{m.has.D ? "D" : ""}
+                  {activeKeys.map(key => m.has[key] ? key : "").join("")}
                 </span>
               </li>
             ))}
           </ul>
         </aside>
-        <section className={`viewers viewers-${numViewers}`}>
-          {keys.map(key => (
+        <section className="viewers" style={gridStyle}>
+          {activeKeys.map(key => (
             <div key={key} className="viewer-container">
               <ImageCanvas 
                 ref={canvasRefs[key]}
-                label={pinpointImages[key]?.file?.name || key}
+                label={pinpointImages[key]?.file?.name || allFolders[key]?.alias || key}
                 file={pinpointImages[key]?.file}
                 isReference={key === 'A'} 
                 cache={bitmapCache.current}
@@ -405,14 +312,22 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                 refPoint={pinpointImages[key]?.refPoint}
                 onSetRefPoint={handleSetRefPoint}
                 folderKey={key}
-                onClick={setActiveCanvasKey} // Set active canvas on click
-                isActive={activeCanvasKey === key} // Pass isActive prop
+                onClick={setActiveCanvasKey}
+                isActive={activeCanvasKey === key}
               />
+              <div className="viewer-controls">
+                <PinpointRotationControl folderKey={key} />
+              </div>
               <PinpointScaleControl folderKey={key} />
             </div>
           ))}
         </section>
       </main>
+      <div style={{ display: 'none' }}>
+        {FOLDER_KEYS.map(key => (
+          <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
+        ))}
+      </div>
     </>
   );
 });

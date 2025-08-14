@@ -233,10 +233,10 @@ export default function App() {
             </label>
             {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'toggle') && (
               <label><span>Viewers:</span>
-                <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
-                  <option value={2}>2</option>
-                  <option value={3}>3</option>
-                  <option value={4}>4</option>
+                                <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
+                  {Array.from({ length: 8 }, (_, i) => i + 2).map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
                 </select>
               </label>
             )}

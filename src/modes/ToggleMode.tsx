@@ -20,7 +20,8 @@ interface ToggleModeProps {
 }
 
 export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numViewers, bitmapCache, indicator, setPrimaryFile }, ref) => {
-  const { A, B, C, D, pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
+  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+  const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { current, setCurrent, stripExt, setStripExt } = useStore();
   const [toggleSource, setToggleSource] = useState<FolderKey>('A');
   const [searchQuery, setSearchQuery] = useState("");
@@ -42,8 +43,7 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
       const ctx = tempCanvas.getContext('2d');
       if (!ctx) return null;
 
-      // Draw the image content without any UI elements
-      handle.drawToContext(ctx, false); // 'false' for withCrosshair
+      handle.drawToContext(ctx, false);
 
       if (showLabels) {
         const label = allFolders[toggleSource]?.alias || toggleSource;
@@ -58,17 +58,16 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
     }
   }));
 
-  const FOLDER_KEYS = React.useMemo(() => (['A', 'B', 'C', 'D'] as FolderKey[]).slice(0, numViewers), [numViewers]);
+  const activeKeys = useMemo(() => FOLDER_KEYS.slice(0, numViewers), [numViewers]);
 
   const activeFolders = React.useMemo(() => {
-    const folders: any = {};
-    FOLDER_KEYS.forEach(key => {
-      if (allFolders[key]) {
-        folders[key] = allFolders[key]!.data.files;
+    return activeKeys.reduce((acc, key) => {
+      if (allFolders[key]?.data.files) {
+        acc[key] = allFolders[key]!.data.files;
       }
-    });
-    return folders;
-  }, [FOLDER_KEYS, allFolders]);
+      return acc;
+    }, {} as Record<FolderKey, Map<string, File>>);
+  }, [activeKeys, allFolders]);
 
   const matched = React.useMemo(
     () => matchFilenames(activeFolders, stripExt),
@@ -103,7 +102,8 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
     setEditingAlias(null);
   };
 
-  const renderFolderControl = (key: FolderKey, state: FolderState | undefined) => {
+  const renderFolderControl = (key: FolderKey) => {
+    const state = allFolders[key];
     if (!state) {
       return (
         <button className="folder-picker-initial" onClick={() => pick(key)}>
@@ -139,12 +139,11 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
     );
   };
 
-  // This effect will toggle the source when space is pressed
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === ' ') {
         e.preventDefault();
-        const availableFolders = FOLDER_KEYS.filter(key => allFolders[key]);
+        const availableFolders = activeKeys.filter(key => allFolders[key]);
         if (availableFolders.length === 0) return;
 
         const currentIndex = availableFolders.indexOf(toggleSource);
@@ -154,14 +153,18 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleSource, allFolders, FOLDER_KEYS]);
+  }, [toggleSource, allFolders, activeKeys]);
 
   return (
     <>
       <div className="controls">
-        {FOLDER_KEYS.map(key => React.cloneElement(renderFolderControl(key, allFolders[key]), { key }))}
+        {activeKeys.map(key => (
+          <React.Fragment key={key}>
+            {renderFolderControl(key)}
+          </React.Fragment>
+        ))}
         <div style={{ display: 'none' }}>
-          {FOLDER_KEYS.map(key => (
+          {activeKeys.map(key => (
             <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
           ))}
         </div>

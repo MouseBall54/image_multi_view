@@ -31,11 +31,18 @@ export interface ImageCanvasHandle {
 export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<DrawableImage | null>(null);
-  const { viewport, setViewport, syncMode, setFitScaleFn, pinpointMouseMode, indicator, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale, showMinimap } = useStore();
+  const [isRotating, setIsRotating] = useState(false); // State to track rotation
+  const { 
+    viewport, setViewport, syncMode, setFitScaleFn, 
+    pinpointMouseMode, indicator, setPinpointScale, 
+    pinpointGlobalScale, setPinpointGlobalScale, showMinimap,
+    pinpointRotations
+  } = useStore();
 
   const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
     const { width, height } = ctx.canvas;
     ctx.clearRect(0, 0, width, height);
+    ctx.save();
 
     const individualScale = overrideScale ?? viewport.scale;
     const scale = appMode === 'pinpoint' ? individualScale * pinpointGlobalScale : individualScale;
@@ -43,19 +50,28 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const drawW = currentImage.width * scale;
     const drawH = currentImage.height * scale;
     let x = 0, y = 0;
+    let centerX = 0, centerY = 0;
 
     if (appMode === 'pinpoint') {
-      // When no specific point is pinned, default to centering the image.
-      const currentRefPoint = refPoint || { x: 0.5, y: 0.5 }; // Normalized coordinates
+      const currentRefPoint = refPoint || { x: 0.5, y: 0.5 };
       const refScreenX = viewport.refScreenX ?? (width / 2);
       const refScreenY = viewport.refScreenY ?? (height / 2);
-      
-      // Convert normalized refPoint to image pixel coordinates
       const refImgX = currentRefPoint.x * currentImage.width;
       const refImgY = currentRefPoint.y * currentImage.height;
-
       x = Math.round(refScreenX - (refImgX * scale));
       y = Math.round(refScreenY - (refImgY * scale));
+
+      const angle = pinpointRotations[folderKey] || 0;
+      
+      centerX = x + drawW / 2;
+      centerY = y + drawH / 2;
+
+      if (angle !== 0) {
+        ctx.translate(centerX, centerY);
+        ctx.rotate(angle * Math.PI / 180);
+        ctx.translate(-centerX, -centerY);
+      }
+
     } else {
       const cx = (viewport.cx || 0.5) * currentImage.width;
       const cy = (viewport.cy || 0.5) * currentImage.height;
@@ -66,6 +82,22 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(currentImage, x, y, drawW, drawH);
+    ctx.restore(); // Restore context to pre-rotation state
+
+    // Draw rotation pivot point if currently rotating
+    if (isRotating) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      ctx.moveTo(centerX - 15, centerY);
+      ctx.lineTo(centerX + 15, centerY);
+      ctx.moveTo(centerX, centerY - 15);
+      ctx.lineTo(centerX, centerY + 15);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     if (appMode === 'pinpoint' && refPoint && withCrosshair) {
       const refScreenX = viewport.refScreenX ?? (width / 2);
@@ -82,7 +114,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ctx.stroke();
       ctx.restore();
     }
-  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale]);
+  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {
@@ -147,7 +179,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
     drawImage(ctx, image, true);
-  }, [image, drawImage, viewport, pinpointGlobalScale]); // Add pinpointGlobalScale dependency
+  }, [image, drawImage, viewport, pinpointGlobalScale, pinpointRotations, isRotating]); // Add isRotating dependency
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -207,6 +239,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
     let isDown = false;
     let lastX = 0, lastY = 0;
+    let dragMode: 'pan' | 'rotate' | null = null;
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -265,25 +298,55 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     };
 
     const onDown = (e: MouseEvent) => {
-      if (appMode === 'pinpoint' && pinpointMouseMode !== 'pan') return;
-      isDown = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      canvas.style.cursor = 'grabbing';
+      if (appMode === 'pinpoint') {
+        if (e.altKey) {
+          dragMode = 'rotate';
+          setIsRotating(true);
+          canvas.style.cursor = 'ew-resize'; // Or a custom rotation cursor
+        } else if (pinpointMouseMode === 'pan') {
+          dragMode = 'pan';
+          canvas.style.cursor = 'grabbing';
+        }
+      } else {
+        dragMode = 'pan';
+        canvas.style.cursor = 'grabbing';
+      }
+      
+      if (dragMode) {
+        isDown = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+      }
     };
+
     const onUp = () => { 
       isDown = false; 
+      dragMode = null;
+      setIsRotating(false);
       canvas.style.cursor = appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab'; 
     };
+
     const onMove = (e: MouseEvent) => {
-      if (!isDown) return;
-      if (appMode === 'pinpoint' && pinpointMouseMode !== 'pan') return;
+      if (!isDown || !dragMode) return;
       e.preventDefault();
-      const dx = (e.clientX - lastX);
-      const dy = (e.clientY - lastY);
+      
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
       lastX = e.clientX;
       lastY = e.clientY;
 
+      if (dragMode === 'rotate') {
+        const { pinpointRotations, setPinpointRotation } = useStore.getState();
+        const currentAngle = pinpointRotations[folderKey] || 0;
+        // Adjust sensitivity by dividing dx by a factor
+        const newAngle = currentAngle + dx / 2; 
+        const roundedAngle = Math.round(newAngle * 10) / 10;
+        const normalizedAngle = (roundedAngle % 360 + 360) % 360;
+        setPinpointRotation(folderKey, normalizedAngle);
+        return;
+      }
+
+      // Pan logic below
       if (syncMode !== 'locked') return;
 
       const { viewport: currentViewport } = useStore.getState();
@@ -316,9 +379,19 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     };
   }, [image, syncMode, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, setPinpointScale]);
 
+  const rotationAngle = appMode === 'pinpoint' ? (pinpointRotations[folderKey] || 0) : 0;
+
   return (
     <div className={`viewer ${isActive ? 'active' : ''}`} onClick={() => onClick && onClick(folderKey)}>
       {SHOW_FOLDER_LABEL && <div className="viewer__label">{label}</div>}
+      
+      {appMode === 'pinpoint' && rotationAngle !== 0 && (
+        <div className="viewer__rotation-angle">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3L22 2"/></svg>
+          <span>{rotationAngle.toFixed(1)}°</span>
+        </div>
+      )}
+
       <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} />
       {!file && <div className="viewer__placeholder">{appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image'}</div>}
       {indicator && image && canvasRef.current && appMode !== 'pinpoint' && (

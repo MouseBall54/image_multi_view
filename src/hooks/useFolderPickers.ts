@@ -26,12 +26,10 @@ export function useFolderPickers() {
     }
   };
 
-  const inputRefs = {
-    A: useRef<HTMLInputElement>(null),
-    B: useRef<HTMLInputElement>(null),
-    C: useRef<HTMLInputElement>(null),
-    D: useRef<HTMLInputElement>(null),
-  };
+  const inputRefs = (["A", "B", "C", "D", "E", "F", "G", "H", "I"] as const).reduce((acc, key) => {
+    acc[key] = useRef<HTMLInputElement>(null);
+    return acc;
+  }, {} as Record<FolderKey, React.RefObject<HTMLInputElement>>);
 
   const onInput = (key: FolderKey, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
