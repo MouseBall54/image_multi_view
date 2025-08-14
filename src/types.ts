@@ -28,3 +28,5 @@ export interface Viewport {
 }
 
 export type SyncMode = "locked" | "unlocked";
+
+export type FilterType = "none" | "grayscale" | "invert" | "sepia" | "sobel";

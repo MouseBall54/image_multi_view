@@ -3,15 +3,15 @@ import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef, us
 import { useStore } from "../store";
 import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, PAN_SPEED, RESPECT_EXIF, WHEEL_ZOOM_STEP, SHOW_FOLDER_LABEL, UTIF_OPTIONS } from "../config";
 import { Minimap } from "./Minimap";
-import { AppMode, FolderKey } from "../types";
+import { AppMode, FolderKey, FilterType } from "../types";
 import { decodeTiffWithUTIF } from '../utils/utif';
+import { applySobelFilter } from "../utils/filters";
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
 type Props = {
   file?: File;
   label: string;
-  indicator?: { cx: number, cy: number, key: number } | null;
   isReference?: boolean;
   cache: Map<string, DrawableImage>;
   appMode: AppMode;
@@ -21,6 +21,7 @@ type Props = {
   folderKey: FolderKey;
   onClick?: (folderKey: FolderKey) => void;
   isActive?: boolean; // New prop
+  onContextMenu?: (event: React.MouseEvent) => void;
 };
 
 export interface ImageCanvasHandle {
@@ -28,7 +29,7 @@ export interface ImageCanvasHandle {
   getCanvas: () => HTMLCanvasElement | null;
 }
 
-export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
+export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive, onContextMenu }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<DrawableImage | null>(null);
   const [isRotating, setIsRotating] = useState(false); // State to track rotation
@@ -36,13 +37,26 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     viewport, setViewport, syncMode, setFitScaleFn, 
     pinpointMouseMode, indicator, setPinpointScale, 
     pinpointGlobalScale, setPinpointGlobalScale, showMinimap,
-    pinpointRotations
+    pinpointRotations, viewerFilters
   } = useStore();
 
   const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
     const { width, height } = ctx.canvas;
     ctx.clearRect(0, 0, width, height);
     ctx.save();
+
+    const filter = viewerFilters[folderKey] || 'none';
+
+    if (filter !== 'none' && filter !== 'sobel') {
+      const filterValues = {
+        'grayscale': 'grayscale(100%)',
+        'invert': 'invert(100%)',
+        'sepia': 'sepia(100%)',
+      };
+      ctx.filter = filterValues[filter as keyof typeof filterValues] || 'none';
+    } else {
+      ctx.filter = 'none';
+    }
 
     const individualScale = overrideScale ?? viewport.scale;
     const scale = appMode === 'pinpoint' ? individualScale * pinpointGlobalScale : individualScale;
@@ -82,6 +96,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(currentImage, x, y, drawW, drawH);
+    
+    // Apply filters that require pixel manipulation
+    if (filter === 'sobel') {
+      applySobelFilter(ctx);
+    }
+    
+    ctx.filter = 'none'; // Reset filter to not affect other drawings
     ctx.restore(); // Restore context to pre-rotation state
 
     // Draw rotation pivot point if currently rotating
@@ -114,7 +135,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ctx.stroke();
       ctx.restore();
     }
-  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating]);
+  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating, viewerFilters]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {
@@ -179,7 +200,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
     drawImage(ctx, image, true);
-  }, [image, drawImage, viewport, pinpointGlobalScale, pinpointRotations, isRotating]); // Add isRotating dependency
+  }, [image, drawImage, viewport, pinpointGlobalScale, pinpointRotations, isRotating, viewerFilters]); // Add viewerFilters
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -218,12 +239,14 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || appMode !== 'pinpoint') return;
+    if (!canvas || appMode === 'compare') return; // Disable for compare mode to use our new context menu
 
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
-      const { pinpointMouseMode, setPinpointMouseMode } = useStore.getState();
-      setPinpointMouseMode(pinpointMouseMode === 'pin' ? 'pan' : 'pin');
+      if (appMode === 'pinpoint') {
+        const { pinpointMouseMode, setPinpointMouseMode } = useStore.getState();
+        setPinpointMouseMode(pinpointMouseMode === 'pin' ? 'pan' : 'pin');
+      }
     };
 
     canvas.addEventListener('contextmenu', handleContextMenu);
@@ -392,7 +415,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         </div>
       )}
 
-      <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} />
+      <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} onContextMenu={onContextMenu} />
       {!file && <div className="viewer__placeholder">{appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image'}</div>}
       {indicator && image && canvasRef.current && appMode !== 'pinpoint' && (
         <div
