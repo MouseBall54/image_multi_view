@@ -278,7 +278,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
   return (
     <>
-      <div className="controls">
+      <div className="controls pinpoint-controls-header">
         <div className="folder-controls-wrapper">
           {renderFolderControl('A', A)}
           {renderFolderControl('B', B)}

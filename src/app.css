@@ -527,6 +527,11 @@ main {
   background-color: var(--bg-med);
 }
 
+.pinpoint-controls-header {
+  justify-content: space-between;
+}
+
+
 .folder-control {
   display: flex;
   align-items: center;

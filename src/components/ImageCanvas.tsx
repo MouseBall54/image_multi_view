@@ -31,6 +31,7 @@ export interface ImageCanvasHandle {
 export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<DrawableImage | null>(null);
+  const [isRotating, setIsRotating] = useState(false); // State to track rotation
   const { 
     viewport, setViewport, syncMode, setFitScaleFn, 
     pinpointMouseMode, indicator, setPinpointScale, 
@@ -49,6 +50,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const drawW = currentImage.width * scale;
     const drawH = currentImage.height * scale;
     let x = 0, y = 0;
+    let centerX = 0, centerY = 0;
 
     if (appMode === 'pinpoint') {
       const currentRefPoint = refPoint || { x: 0.5, y: 0.5 };
@@ -60,11 +62,11 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       y = Math.round(refScreenY - (refImgY * scale));
 
       const angle = pinpointRotations[folderKey] || 0;
+      
+      centerX = x + drawW / 2;
+      centerY = y + drawH / 2;
 
       if (angle !== 0) {
-        // Translate context to the center of the image
-        const centerX = x + drawW / 2;
-        const centerY = y + drawH / 2;
         ctx.translate(centerX, centerY);
         ctx.rotate(angle * Math.PI / 180);
         ctx.translate(-centerX, -centerY);
@@ -82,6 +84,21 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     ctx.drawImage(currentImage, x, y, drawW, drawH);
     ctx.restore(); // Restore context to pre-rotation state
 
+    // Draw rotation pivot point if currently rotating
+    if (isRotating) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      ctx.moveTo(centerX - 15, centerY);
+      ctx.lineTo(centerX + 15, centerY);
+      ctx.moveTo(centerX, centerY - 15);
+      ctx.lineTo(centerX, centerY + 15);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     if (appMode === 'pinpoint' && refPoint && withCrosshair) {
       const refScreenX = viewport.refScreenX ?? (width / 2);
       const refScreenY = viewport.refScreenY ?? (height / 2);
@@ -97,7 +114,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ctx.stroke();
       ctx.restore();
     }
-  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey]);
+  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {
@@ -162,7 +179,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
     drawImage(ctx, image, true);
-  }, [image, drawImage, viewport, pinpointGlobalScale, pinpointRotations]); // Add rotation dependencies
+  }, [image, drawImage, viewport, pinpointGlobalScale, pinpointRotations, isRotating]); // Add isRotating dependency
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -284,6 +301,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       if (appMode === 'pinpoint') {
         if (e.altKey) {
           dragMode = 'rotate';
+          setIsRotating(true);
           canvas.style.cursor = 'ew-resize'; // Or a custom rotation cursor
         } else if (pinpointMouseMode === 'pan') {
           dragMode = 'pan';
@@ -304,6 +322,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const onUp = () => { 
       isDown = false; 
       dragMode = null;
+      setIsRotating(false);
       canvas.style.cursor = appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab'; 
     };
 
