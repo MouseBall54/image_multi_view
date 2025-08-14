@@ -20,27 +20,25 @@ interface CompareModeProps {
 }
 
 export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, bitmapCache, indicator, setPrimaryFile }, ref) => {
-  const { A, B, C, D, pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
+  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+  const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { current, setCurrent, stripExt, setStripExt } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
 
-  const canvasRefs = {
-    A: useRef<ImageCanvasHandle>(null),
-    B: useRef<ImageCanvasHandle>(null),
-    C: useRef<ImageCanvasHandle>(null),
-    D: useRef<ImageCanvasHandle>(null),
-  };
+  const canvasRefs = FOLDER_KEYS.reduce((acc, key) => {
+    acc[key] = useRef<ImageCanvasHandle>(null);
+    return acc;
+  }, {} as Record<FolderKey, React.RefObject<ImageCanvasHandle>>);
 
   useImperativeHandle(ref, () => ({
     capture: async ({ showLabels }) => {
-      const FOLDER_KEYS = (['A', 'B', 'C', 'D'] as FolderKey[]).slice(0, numViewers);
+      const activeKeys = FOLDER_KEYS.slice(0, numViewers);
+      const firstCanvas = canvasRefs[activeKeys[0]]?.current?.getCanvas();
+      if (!firstCanvas) return null;
+      const { width, height } = firstCanvas;
 
-      const firstOnscreenCanvas = canvasRefs.A.current?.getCanvas() || canvasRefs.B.current?.getCanvas();
-      if (!firstOnscreenCanvas) return null;
-      const { width, height } = firstOnscreenCanvas;
-
-      const tempCanvases = FOLDER_KEYS.map(key => {
+      const tempCanvases = activeKeys.map(key => {
         const handle = canvasRefs[key].current;
         if (!handle) return null;
         const tempCanvas = document.createElement('canvas');
@@ -48,15 +46,16 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
         tempCanvas.height = height;
         const tempCtx = tempCanvas.getContext('2d');
         if (!tempCtx) return null;
-        handle.drawToContext(tempCtx, false); // 'false' for withCrosshair
+        handle.drawToContext(tempCtx, false);
         return tempCanvas;
       }).filter((c): c is HTMLCanvasElement => !!c);
 
       if (tempCanvases.length === 0) return null;
 
-      const isGridLayout = numViewers > 2;
-      const combinedWidth = isGridLayout ? width * 2 : width * tempCanvases.length;
-      const combinedHeight = isGridLayout ? (numViewers === 3 ? height * 2 : height * 2) : height;
+      const cols = Math.ceil(Math.sqrt(numViewers));
+      const rows = Math.ceil(numViewers / cols);
+      const combinedWidth = width * cols;
+      const combinedHeight = height * rows;
 
       const finalCanvas = document.createElement('canvas');
       finalCanvas.width = combinedWidth;
@@ -66,36 +65,21 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
       finalCtx.fillStyle = '#111';
       finalCtx.fillRect(0, 0, combinedWidth, combinedHeight);
-      const BORDER_WIDTH = 2; // px
-      finalCtx.fillStyle = '#000'; // Black border
+      const BORDER_WIDTH = 2;
+      finalCtx.fillStyle = '#000';
 
       tempCanvases.forEach((canvas, index) => {
-        const key = FOLDER_KEYS[index];
-        let dx = 0, dy = 0;
-        if (isGridLayout) {
-            dx = (index % 2) * width;
-            dy = Math.floor(index / 2) * height;
-        } else {
-            dx = index * width;
-        }
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        const dx = col * width;
+        const dy = row * height;
         finalCtx.drawImage(canvas, dx, dy);
 
-        // Draw borders around the image
-        if (index > 0) { // Draw vertical border for horizontal layout
-          if (!isGridLayout) {
-            finalCtx.fillRect(dx - BORDER_WIDTH / 2, dy, BORDER_WIDTH, height);
-          }
-        }
-        if (isGridLayout) { // Draw borders for grid layout
-          if (index % 2 > 0) { // Vertical border
-            finalCtx.fillRect(dx - BORDER_WIDTH / 2, dy, BORDER_WIDTH, height);
-          }
-          if (Math.floor(index / 2) > 0) { // Horizontal border
-            finalCtx.fillRect(dx, dy - BORDER_WIDTH / 2, width, BORDER_WIDTH);
-          }
-        }
+        if (col > 0) finalCtx.fillRect(dx - BORDER_WIDTH / 2, dy, BORDER_WIDTH, height);
+        if (row > 0) finalCtx.fillRect(dx, dy - BORDER_WIDTH / 2, width, BORDER_WIDTH);
 
         if (showLabels) {
+          const key = activeKeys[index];
           const label = allFolders[key]?.alias || key;
           finalCtx.font = '16px sans-serif';
           finalCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -111,7 +95,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
   const fileOf = (key: FolderKey, item: MatchedItem | null): File | undefined => {
     if (!item) return undefined;
-    const folderState = (key === "A" ? A : key === "B" ? B : key === "C" ? C : D);
+    const folderState = allFolders[key];
     if (!folderState?.data.files) return undefined;
     const name = stripExt
       ? Array.from(folderState.data.files.keys()).find(n => n.replace(/\.[^/.]+$/, "") === item.filename)
@@ -122,15 +106,17 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   useEffect(() => {
     const primaryFile = fileOf('A', current);
     setPrimaryFile(primaryFile || null);
-  }, [current, A, setPrimaryFile]);
+  }, [current, allFolders, setPrimaryFile]);
 
 
   const activeFolders = useMemo(() => {
-    const folders: any = { A: A?.data.files, B: B?.data.files };
-    if (numViewers >= 3) folders.C = C?.data.files;
-    if (numViewers >= 4) folders.D = D?.data.files;
-    return folders;
-  }, [A, B, C, D, numViewers]);
+    return FOLDER_KEYS.slice(0, numViewers).reduce((acc, key) => {
+      if (allFolders[key]?.data.files) {
+        acc[key] = allFolders[key]!.data.files;
+      }
+      return acc;
+    }, {} as Record<FolderKey, Map<string, File>>);
+  }, [allFolders, numViewers]);
 
   const matched = useMemo(
     () => matchFilenames(activeFolders, stripExt),
@@ -149,7 +135,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     setEditingAlias(null);
   };
 
-  const renderFolderControl = (key: FolderKey, state: FolderState | undefined) => {
+  const renderFolderControl = (key: FolderKey) => {
+    const state = allFolders[key];
     if (!state) {
       return (
         <button className="folder-picker-initial" onClick={() => pick(key)}>
@@ -185,18 +172,23 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     );
   };
 
+  const gridStyle = {
+    '--viewers': numViewers,
+    '--cols': Math.ceil(Math.sqrt(numViewers)),
+  } as React.CSSProperties;
+
   return (
     <>
       <div className="controls">
-        {renderFolderControl('A', A)}
-        {renderFolderControl('B', B)}
-        {numViewers >= 3 && renderFolderControl('C', C)}
-        {numViewers >= 4 && renderFolderControl('D', D)}
+        {FOLDER_KEYS.slice(0, numViewers).map(key => (
+          <React.Fragment key={key}>
+            {renderFolderControl(key)}
+          </React.Fragment>
+        ))}
         <div style={{ display: 'none' }}>
-          <input ref={inputRefs.A} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("A", e)} />
-          <input ref={inputRefs.B} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("B", e)} />
-          <input ref={inputRefs.C} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("C", e)} />
-          <input ref={inputRefs.D} type="file" webkitdirectory="" multiple onChange={(e)=>onInput("D", e)} />
+          {FOLDER_KEYS.map(key => (
+            <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
+          ))}
         </div>
       </div>
       <main>
@@ -226,11 +218,20 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
             ))}
           </ul>
         </aside>
-        <section className={`viewers viewers-${numViewers}`}>
-            <ImageCanvas ref={canvasRefs.A} label={A?.alias || 'A'} file={fileOf("A", current)} indicator={indicator} isReference={true} cache={bitmapCache.current} appMode="compare" folderKey="A" />
-            <ImageCanvas ref={canvasRefs.B} label={B?.alias || 'B'} file={fileOf("B", current)} indicator={indicator} cache={bitmapCache.current} appMode="compare" folderKey="B" />
-            {numViewers >= 3 && <ImageCanvas ref={canvasRefs.C} label={C?.alias || 'C'} file={fileOf("C", current)} indicator={indicator} cache={bitmapCache.current} appMode="compare" folderKey="C" />}
-            {numViewers >= 4 && <ImageCanvas ref={canvasRefs.D} label={D?.alias || 'D'} file={fileOf("D", current)} indicator={indicator} cache={bitmapCache.current} appMode="compare" folderKey="D" />}
+        <section className="viewers" style={gridStyle}>
+          {FOLDER_KEYS.slice(0, numViewers).map(key => (
+            <ImageCanvas 
+              key={key}
+              ref={canvasRefs[key]} 
+              label={allFolders[key]?.alias || key} 
+              file={fileOf(key, current)} 
+              indicator={indicator} 
+              isReference={key === 'A'} 
+              cache={bitmapCache.current} 
+              appMode="compare" 
+              folderKey={key} 
+            />
+          ))}
         </section>
       </main>
     </>

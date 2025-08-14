@@ -260,18 +260,7 @@ main {
   gap: 4px; 
   padding: 4px; 
   min-width:0; 
-}
-.viewers.viewers-2 { 
-  grid-template-columns: repeat(2, 1fr); 
-  grid-template-rows: 1fr;
-}
-.viewers.viewers-3 { 
-  grid-template-columns: repeat(2, 1fr); 
-  grid-template-rows: repeat(2, 1fr);
-}
-.viewers.viewers-4 { 
-  grid-template-columns: repeat(2, 1fr); 
-  grid-template-rows: repeat(2, 1fr);
+  grid-template-columns: repeat(var(--cols, 2), 1fr);
 }
 
 .viewer { 

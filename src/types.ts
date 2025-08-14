@@ -1,5 +1,5 @@
 // src/types.ts
-export type FolderKey = "A" | "B" | "C" | "D";
+export type FolderKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I";
 export type AppMode = "compare" | "toggle" | "pinpoint";
 export type PinpointMouseMode = "pin" | "pan";
 
