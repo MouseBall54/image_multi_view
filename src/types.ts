@@ -67,5 +67,6 @@ export type FilterType =
   | "anisotropicdiffusion"
   // Texture Analysis
   | "gabor"
-  | "lawstextureenergy";
+  | "lawstextureenergy"
+  | "lbp";
 

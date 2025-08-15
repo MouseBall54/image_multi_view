@@ -1102,6 +1102,54 @@ export const applyAnisotropicDiffusion = (ctx: CanvasRenderingContext2D, params:
   ctx.putImageData(imageData, 0, 0);
 };
 
+export const applyLbp = (ctx: CanvasRenderingContext2D) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+
+  // 1. Convert to grayscale
+  const grayscale = new Uint8ClampedArray(width * height);
+  for (let i = 0; i < data.length; i += 4) {
+    grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+  }
+
+  const lbpData = new Uint8ClampedArray(data.length);
+
+  // 2. Compute LBP for each pixel
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const centerIndex = y * width + x;
+      const centerPixel = grayscale[centerIndex];
+      
+      let binaryCode = 0;
+      
+      // Top-left
+      if (grayscale[centerIndex - width - 1] >= centerPixel) binaryCode |= 1;
+      // Top
+      if (grayscale[centerIndex - width] >= centerPixel) binaryCode |= 2;
+      // Top-right
+      if (grayscale[centerIndex - width + 1] >= centerPixel) binaryCode |= 4;
+      // Right
+      if (grayscale[centerIndex + 1] >= centerPixel) binaryCode |= 8;
+      // Bottom-right
+      if (grayscale[centerIndex + width + 1] >= centerPixel) binaryCode |= 16;
+      // Bottom
+      if (grayscale[centerIndex + width] >= centerPixel) binaryCode |= 32;
+      // Bottom-left
+      if (grayscale[centerIndex + width - 1] >= centerPixel) binaryCode |= 64;
+      // Left
+      if (grayscale[centerIndex - 1] >= centerPixel) binaryCode |= 128;
+
+      const outIndex = (y * width + x) * 4;
+      lbpData[outIndex] = binaryCode;
+      lbpData[outIndex + 1] = binaryCode;
+      lbpData[outIndex + 2] = binaryCode;
+      lbpData[outIndex + 3] = 255;
+    }
+  }
+
+  ctx.putImageData(new ImageData(lbpData, width, height), 0, 0);
+};
+
 // --- Laws' Texture Energy ---
 
 // 1D Laws' vectors

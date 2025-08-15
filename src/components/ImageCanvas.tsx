@@ -199,6 +199,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       case 'lawstextureenergy':
         if (params) Filters.applyLawsTextureEnergy(ctx, params);
         break;
+      case 'lbp':
+        Filters.applyLbp(ctx);
+        break;
     }
 
     createImageBitmap(offscreenCanvas).then(setProcessedImage);

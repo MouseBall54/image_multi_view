@@ -36,6 +36,7 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Anisotropic Diffusion', type: 'anisotropicdiffusion', group: 'Advanced Denoising' },
   { name: 'Gabor Filter', type: 'gabor', group: 'Texture Analysis' },
   { name: 'Laws Texture Energy', type: 'lawstextureenergy', group: 'Texture Analysis' },
+  { name: 'Local Binary Patterns', type: 'lbp', group: 'Texture Analysis' },
 ];
 
 const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising', 'Texture Analysis'];

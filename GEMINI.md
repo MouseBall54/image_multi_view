@@ -79,7 +79,7 @@
 
 - [x] Gabor Filter
 - [x] Laws' Texture Energy
-- [ ] Local Binary Patterns (LBP)
+- [x] Local Binary Patterns (LBP)
 
 ### 5.2 경계 보존 필터
 
