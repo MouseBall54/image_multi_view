@@ -170,3 +170,183 @@ export const applyCanny = (ctx: CanvasRenderingContext2D, params: FilterParams) 
     }
     ctx.putImageData(edgeData, 0, 0);
 };
+
+export const applyLinearStretch = (ctx: CanvasRenderingContext2D) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data } = imageData;
+  let min = 255, max = 0;
+
+  // First pass: find min and max grayscale values
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    if (gray < min) min = gray;
+    if (gray > max) max = gray;
+  }
+
+  const range = max - min;
+  if (range === 0) return; // Avoid division by zero for flat images
+
+  // Second pass: apply the linear stretch formula
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i+1];
+    const b = data[i+2];
+
+    data[i] = 255 * (r - min) / range;
+    data[i+1] = 255 * (g - min) / range;
+    data[i+2] = 255 * (b - min) / range;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};
+
+export const applyHistogramEqualization = (ctx: CanvasRenderingContext2D) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+  const grayscale = new Uint8ClampedArray(width * height);
+  const hist = new Array(256).fill(0);
+
+  // Convert to grayscale and calculate histogram
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+    grayscale[i / 4] = gray;
+    hist[gray]++;
+  }
+
+  // Calculate CDF
+  const cdf = new Array(256).fill(0);
+  cdf[0] = hist[0];
+  for (let i = 1; i < 256; i++) {
+    cdf[i] = cdf[i - 1] + hist[i];
+  }
+
+  // Find the first non-zero CDF value
+  let cdfMin = 0;
+  for (let i = 0; i < 256; i++) {
+    if (cdf[i] > 0) {
+      cdfMin = cdf[i];
+      break;
+    }
+  }
+
+  // Create lookup table (LUT)
+  const lut = new Uint8ClampedArray(256);
+  const totalPixels = width * height;
+  for (let i = 0; i < 256; i++) {
+    lut[i] = Math.round(255 * (cdf[i] - cdfMin) / (totalPixels - cdfMin));
+  }
+
+  // Apply LUT to the original image data
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = grayscale[i / 4];
+    const equalized = lut[gray];
+    data[i] = equalized;
+    data[i+1] = equalized;
+    data[i+2] = equalized;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};
+
+export const applyClahe = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+  const { clipLimit, gridSize } = params;
+
+  const tileWidth = Math.floor(width / gridSize);
+  const tileHeight = Math.floor(height / gridSize);
+
+  // 1. Convert to grayscale
+  const grayscale = new Uint8ClampedArray(width * height);
+  for (let i = 0; i < data.length; i += 4) {
+    grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+  }
+
+  // 2. Create tile LUTs
+  const luts = new Array(gridSize * gridSize).fill(0).map(() => new Uint8ClampedArray(256));
+
+  for (let ty = 0; ty < gridSize; ty++) {
+    for (let tx = 0; tx < gridSize; tx++) {
+      const startX = tx * tileWidth;
+      const startY = ty * tileHeight;
+      const endX = startX + tileWidth;
+      const endY = startY + tileHeight;
+      const tilePixels = tileWidth * tileHeight;
+
+      // a. Calculate tile histogram
+      const hist = new Array(256).fill(0);
+      for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
+          hist[grayscale[y * width + x]]++;
+        }
+      }
+
+      // b. Clip histogram
+      const actualClipLimit = Math.max(1, clipLimit * tilePixels / 256);
+      let clipped = 0;
+      for (let i = 0; i < 256; i++) {
+        if (hist[i] > actualClipLimit) {
+          clipped += hist[i] - actualClipLimit;
+          hist[i] = actualClipLimit;
+        }
+      }
+
+      // c. Redistribute clipped pixels
+      const redistAdd = clipped / 256;
+      for (let i = 0; i < 256; i++) {
+        hist[i] += redistAdd;
+      }
+
+      // d. Create LUT from clipped histogram
+      const cdf = new Array(256).fill(0);
+      cdf[0] = hist[0];
+      for (let i = 1; i < 256; i++) {
+        cdf[i] = cdf[i - 1] + hist[i];
+      }
+
+      const lut = luts[ty * gridSize + tx];
+      for (let i = 0; i < 256; i++) {
+        lut[i] = Math.round(255 * cdf[i] / tilePixels);
+      }
+    }
+  }
+
+  // 3. Apply bilinear interpolation
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const tx = x / tileWidth - 0.5;
+      const ty = y / tileHeight - 0.5;
+
+      let x1 = Math.floor(tx);
+      let y1 = Math.floor(ty);
+      let x2 = x1 + 1;
+      let y2 = y1 + 1;
+
+      x1 = Math.max(0, Math.min(gridSize - 1, x1));
+      y1 = Math.max(0, Math.min(gridSize - 1, y1));
+      x2 = Math.max(0, Math.min(gridSize - 1, x2));
+      y2 = Math.max(0, Math.min(gridSize - 1, y2));
+
+      const gray = grayscale[y * width + x];
+
+      const q11 = luts[y1 * gridSize + x1][gray];
+      const q12 = luts[y2 * gridSize + x1][gray];
+      const q21 = luts[y1 * gridSize + x2][gray];
+      const q22 = luts[y2 * gridSize + x2][gray];
+
+      const xFrac = tx - x1;
+      const yFrac = ty - y1;
+
+      const top = q11 * (1 - xFrac) + q21 * xFrac;
+      const bottom = q12 * (1 - xFrac) + q22 * xFrac;
+      const val = top * (1 - yFrac) + bottom * yFrac;
+      
+      const i = (y * width + x) * 4;
+      data[i] = val;
+      data[i+1] = val;
+      data[i+2] = val;
+    }
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};

@@ -7,6 +7,9 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Grayscale', type: 'grayscale', group: 'General' },
   { name: 'Invert', type: 'invert', group: 'General' },
   { name: 'Sepia', type: 'sepia', group: 'General' },
+  { name: 'Linear Contrast Stretching', type: 'linearstretch', group: 'Contrast' },
+  { name: 'Histogram Equalization', type: 'histogramequalization', group: 'Contrast' },
+  { name: 'CLAHE', type: 'clahe', group: 'Contrast' },
   { name: 'Box Blur', type: 'boxblur', group: 'Blurring' },
   { name: 'Gaussian Blur', type: 'gaussianblur', group: 'Blurring' },
   { name: 'Sharpen', type: 'sharpen', group: 'Sharpening' },
@@ -17,7 +20,7 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Canny', type: 'canny', group: 'Edge Detection' },
 ];
 
-const filterGroups = ['General', 'Blurring', 'Sharpening', 'Edge Detection'];
+const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection'];
 
 export const FilterControls: React.FC = () => {
   const {
@@ -110,6 +113,35 @@ export const FilterControls: React.FC = () => {
                 onChange={(e) => handleParamChange('highThreshold', e.target.value)}
               />
               <span>{tempViewerFilterParams.highThreshold}</span>
+            </div>
+          </>
+        );
+      case 'clahe':
+        return (
+          <>
+            <div className="control-row">
+              <label>Clip Limit</label>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="0.5"
+                value={tempViewerFilterParams.clipLimit}
+                onChange={(e) => handleParamChange('clipLimit', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.clipLimit.toFixed(1)}</span>
+            </div>
+            <div className="control-row">
+              <label>Grid Size</label>
+              <input
+                type="range"
+                min="2"
+                max="16"
+                step="1"
+                value={tempViewerFilterParams.gridSize}
+                onChange={(e) => handleParamChange('gridSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.gridSize}</span>
             </div>
           </>
         );

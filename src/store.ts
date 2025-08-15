@@ -14,6 +14,8 @@ export interface FilterParams {
   sharpenAmount: number;
   lowThreshold: number;
   highThreshold: number;
+  clipLimit: number;
+  gridSize: number;
 }
 
 const defaultFilterParams: FilterParams = {
@@ -22,6 +24,8 @@ const defaultFilterParams: FilterParams = {
   sharpenAmount: 1,
   lowThreshold: 50,
   highThreshold: 100,
+  clipLimit: 2,
+  gridSize: 8,
 };
 
 interface State {

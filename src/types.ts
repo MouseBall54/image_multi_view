@@ -43,5 +43,10 @@ export type FilterType =
   | "laplacian"
   // Edge Detection
   | "prewitt"
-  | "scharr";
+  | "scharr"
+  | "canny"
+  // Contrast
+  | "linearstretch"
+  | "histogramequalization"
+  | "clahe";
 

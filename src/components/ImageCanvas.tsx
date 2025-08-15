@@ -112,17 +112,42 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ctx.drawImage(sourceImage, 0, 0);
     }
 
-    if (params) {
-      switch (filter) {
-        case 'sobel': Filters.applySobel(ctx); break;
-        case 'gaussianblur': Filters.applyGaussianBlur(ctx, params); break;
-        case 'boxblur': Filters.applyBoxBlur(ctx, params); break;
-        case 'sharpen': Filters.applySharpen(ctx, params); break;
-        case 'canny': Filters.applyCanny(ctx, params); break;
-        case 'laplacian': Filters.applyLaplacian(ctx); break;
-        case 'prewitt': Filters.applyPrewitt(ctx); break;
-        case 'scharr': Filters.applyScharr(ctx); break;
-      }
+    // Apply canvas-based filters
+    switch (filter) {
+      case 'linearstretch': 
+        Filters.applyLinearStretch(ctx); 
+        break;
+      case 'histogramequalization': 
+        Filters.applyHistogramEqualization(ctx); 
+        break;
+      case 'laplacian': 
+        Filters.applyLaplacian(ctx); 
+        break;
+      case 'prewitt': 
+        Filters.applyPrewitt(ctx); 
+        break;
+      case 'scharr': 
+        Filters.applyScharr(ctx); 
+        break;
+      case 'sobel': 
+        Filters.applySobel(ctx); 
+        break;
+      // Filters that require params
+      case 'gaussianblur':
+        if (params) Filters.applyGaussianBlur(ctx, params);
+        break;
+      case 'boxblur':
+        if (params) Filters.applyBoxBlur(ctx, params);
+        break;
+      case 'sharpen':
+        if (params) Filters.applySharpen(ctx, params);
+        break;
+      case 'canny':
+        if (params) Filters.applyCanny(ctx, params);
+        break;
+      case 'clahe':
+        if (params) Filters.applyClahe(ctx, params);
+        break;
     }
 
     createImageBitmap(offscreenCanvas).then(setProcessedImage);
