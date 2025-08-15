@@ -260,7 +260,21 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     return () => canvas.removeEventListener('click', handleClick);
   }, [sourceImage, appMode, onSetRefPoint, viewport, folderKey, refPoint, pinpointMouseMode, overrideScale, pinpointGlobalScale]);
 
-  
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleCtxMenu = (e: MouseEvent) => {
+      if (appMode === 'pinpoint') {
+        e.preventDefault();
+        const { pinpointMouseMode, setPinpointMouseMode } = useStore.getState();
+        setPinpointMouseMode(pinpointMouseMode === 'pin' ? 'pan' : 'pin');
+      }
+    };
+
+    canvas.addEventListener('contextmenu', handleCtxMenu);
+    return () => canvas.removeEventListener('contextmenu', handleCtxMenu);
+  }, [appMode]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
