@@ -139,6 +139,15 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       case 'boxblur':
         if (params) Filters.applyBoxBlur(ctx, params);
         break;
+      case 'median':
+        if (params) Filters.applyMedian(ctx, params);
+        break;
+      case 'localhistogramequalization':
+        if (params) Filters.applyLocalHistogramEqualization(ctx, params);
+        break;
+      case 'adaptivehistogramequalization':
+        if (params) Filters.applyAdaptiveHistogramEqualization(ctx, params);
+        break;
       case 'sharpen':
         if (params) Filters.applySharpen(ctx, params);
         break;

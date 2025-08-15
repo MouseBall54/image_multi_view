@@ -29,15 +29,16 @@ export interface Viewport {
 
 export type SyncMode = "locked" | "unlocked";
 
-export type FilterType = 
-  | "none" 
-  | "grayscale" 
-  | "invert" 
-  | "sepia" 
+export type FilterType =
+  | "none"
+  | "grayscale"
+  | "invert"
+  | "sepia"
   | "sobel"
   // Smoothing
   | "gaussianblur"
   | "boxblur"
+  | "median"
   // Sharpening
   | "sharpen"
   | "laplacian"
@@ -49,5 +50,7 @@ export type FilterType =
   | "linearstretch"
   | "histogramequalization"
   | "clahe"
-  | "gammacorrection";
+  | "gammacorrection"
+  | "localhistogramequalization"
+  | "adaptivehistogramequalization";
 

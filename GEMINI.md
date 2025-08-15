@@ -9,11 +9,16 @@
 ---
 
 ## 1. **대비(Contrast) 향상**
+
 - [x] Histogram Equalization
 - [x] CLAHE (Contrast Limited Adaptive Histogram Equalization)
 - [x] Linear Contrast Stretching (Min-Max Normalization)
 - [x] Gamma Correction
 
+### 1.2 지역 대비 향상
+
+- [x] Local Histogram Equalization
+- [x] Adaptive Histogram Equalization
 
 ---
 
@@ -27,7 +32,7 @@
 
 ### 2.2 비선형 필터(Non-linear Filters)
 
-- [ ] Median Filter
+- [x] Median Filter 
 - [ ] Weighted Median Filter
 - [ ] Alpha-trimmed Mean Filter
 

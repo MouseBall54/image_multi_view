@@ -9,10 +9,13 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Sepia', type: 'sepia', group: 'General' },
   { name: 'Linear Contrast Stretching', type: 'linearstretch', group: 'Contrast' },
   { name: 'Histogram Equalization', type: 'histogramequalization', group: 'Contrast' },
+  { name: 'Local Histogram Equalization', type: 'localhistogramequalization', group: 'Contrast' },
+  { name: 'Adaptive Histogram Equalization', type: 'adaptivehistogramequalization', group: 'Contrast' },
   { name: 'CLAHE', type: 'clahe', group: 'Contrast' },
   { name: 'Gamma Correction', type: 'gammacorrection', group: 'Contrast' },
   { name: 'Box Blur', type: 'boxblur', group: 'Blurring' },
   { name: 'Gaussian Blur', type: 'gaussianblur', group: 'Blurring' },
+  { name: 'Median', type: 'median', group: 'Blurring' },
   { name: 'Sharpen', type: 'sharpen', group: 'Sharpening' },
   { name: 'Laplacian', type: 'laplacian', group: 'Sharpening' },
   { name: 'Sobel', type: 'sobel', group: 'Edge Detection' },
@@ -46,6 +49,22 @@ export const FilterControls: React.FC = () => {
   const renderParams = () => {
     switch (tempViewerFilter) {
       case 'boxblur':
+      case 'median':
+      case 'localhistogramequalization':
+        return (
+          <div className="control-row">
+            <label>Kernel Size</label>
+            <input
+              type="range"
+              min="3"
+              max="21"
+              step="2"
+              value={tempViewerFilterParams.kernelSize}
+              onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+            />
+            <span>{tempViewerFilterParams.kernelSize}</span>
+          </div>
+        );
       case 'gaussianblur':
         return (
           <>
@@ -116,6 +135,21 @@ export const FilterControls: React.FC = () => {
               <span>{tempViewerFilterParams.highThreshold}</span>
             </div>
           </>
+        );
+      case 'adaptivehistogramequalization':
+        return (
+          <div className="control-row">
+            <label>Grid Size</label>
+            <input
+              type="range"
+              min="2"
+              max="16"
+              step="1"
+              value={tempViewerFilterParams.gridSize}
+              onChange={(e) => handleParamChange('gridSize', e.target.value)}
+            />
+            <span>{tempViewerFilterParams.gridSize}</span>
+          </div>
         );
       case 'clahe':
         return (
