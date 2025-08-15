@@ -69,17 +69,9 @@
 ## 4. **샤프닝(Sharpening)**
 
 ### 4.1 공간 영역 기반
-
 - [x] Unsharp Masking
 - [x] High-pass Filter
 - [x] Laplacian Sharpening - (기본 `Sharpen`으로 구현)
-
-### 4.2 주파수 영역 기반
-
-- [ ] Fourier Transform High-pass Filtering
-- [ ] Butterworth High-pass Filter
-
----
 
 ## 5. **특수 효과 및 특징 강조**
 
