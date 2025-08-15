@@ -1150,6 +1150,126 @@ export const applyLbp = (ctx: CanvasRenderingContext2D) => {
   ctx.putImageData(new ImageData(lbpData, width, height), 0, 0);
 };
 
+// --- Guided Filter ---
+
+// Helper: Creates an integral image (summed-area table) for fast box blurring
+function createIntegralImage(grayscale: Float32Array, width: number, height: number): Float32Array {
+  const integral = new Float32Array(width * height);
+  // First row
+  let rowSum = 0;
+  for (let x = 0; x < width; x++) {
+    rowSum += grayscale[x];
+    integral[x] = rowSum;
+  }
+  // Other rows
+  for (let y = 1; y < height; y++) {
+    rowSum = 0;
+    for (let x = 0; x < width; x++) {
+      rowSum += grayscale[y * width + x];
+      integral[y * width + x] = rowSum + integral[(y - 1) * width + x];
+    }
+  }
+  return integral;
+}
+
+// Helper: Fast box blur using an integral image
+function fastBoxBlur(integralImage: Float32Array, width: number, height: number, radius: number): Float32Array {
+  const blurred = new Float32Array(width * height);
+  const r = Math.round(radius);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const y1 = Math.max(0, y - r - 1);
+      const y2 = Math.min(height - 1, y + r);
+      const x1 = Math.max(0, x - r - 1);
+      const x2 = Math.min(width - 1, x + r);
+
+      const count = (y2 - y1) * (x2 - x1);
+      
+      const sum = integralImage[y2 * width + x2] 
+                - integralImage[y1 * width + x2] 
+                - integralImage[y2 * width + x1] 
+                + integralImage[y1 * width + x1];
+
+      blurred[y * width + x] = sum / count;
+    }
+  }
+  return blurred;
+}
+
+
+export const applyGuidedFilter = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const { kernelSize: radius, epsilon } = params;
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+
+  // For this implementation, the guidance image (I) is the grayscale version of the input image (p).
+  const I = new Float32Array(width * height); // Guidance image
+  const p = new Float32Array(width * height); // Input image
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255.0; // Normalize to [0, 1]
+    I[i / 4] = gray;
+    p[i / 4] = gray;
+  }
+
+  // 1. Create integral images for fast blurring
+  const integral_I = createIntegralImage(I, width, height);
+  const integral_p = createIntegralImage(p, width, height);
+  
+  const I_sq = I.map(val => val * val);
+  const integral_I_sq = createIntegralImage(I_sq, width, height);
+
+  const I_p = new Float32Array(width * height);
+  for(let i=0; i<I_p.length; i++) {
+    I_p[i] = I[i] * p[i];
+  }
+  const integral_I_p = createIntegralImage(I_p, width, height);
+
+  // 2. Calculate means and variances
+  const mean_I = fastBoxBlur(integral_I, width, height, radius);
+  const mean_p = fastBoxBlur(integral_p, width, height, radius);
+  const mean_I_sq = fastBoxBlur(integral_I_sq, width, height, radius);
+  const mean_I_p = fastBoxBlur(integral_I_p, width, height, radius);
+
+  const var_I = new Float32Array(width * height);
+  const cov_I_p = new Float32Array(width * height);
+  for(let i=0; i<var_I.length; i++) {
+    var_I[i] = mean_I_sq[i] - mean_I[i] * mean_I[i];
+    cov_I_p[i] = mean_I_p[i] - mean_I[i] * mean_p[i];
+  }
+
+  // 3. Calculate 'a' and 'b' coefficients
+  const a = new Float32Array(width * height);
+  const b = new Float32Array(width * height);
+  for(let i=0; i<a.length; i++) {
+    a[i] = cov_I_p[i] / (var_I[i] + epsilon);
+    b[i] = mean_p[i] - a[i] * mean_I[i];
+  }
+
+  // 4. Blur 'a' and 'b'
+  const integral_a = createIntegralImage(a, width, height);
+  const integral_b = createIntegralImage(b, width, height);
+  const mean_a = fastBoxBlur(integral_a, width, height, radius);
+  const mean_b = fastBoxBlur(integral_b, width, height, radius);
+
+  // 5. Calculate the final output image q
+  const q = new Float32Array(width * height);
+  for(let i=0; i<q.length; i++) {
+    q[i] = mean_a[i] * I[i] + mean_b[i];
+  }
+
+  // 6. Denormalize and draw to canvas
+  for (let i = 0; i < data.length; i += 4) {
+    const val = Math.max(0, Math.min(255, q[i / 4] * 255));
+    data[i] = val;
+    data[i + 1] = val;
+    data[i + 2] = val;
+    data[i + 3] = 255;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};
+
 // --- Laws' Texture Energy ---
 
 // 1D Laws' vectors

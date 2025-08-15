@@ -68,5 +68,7 @@ export type FilterType =
   // Texture Analysis
   | "gabor"
   | "lawstextureenergy"
-  | "lbp";
+  | "lbp"
+  // Edge-preserving Filter
+  | "guided";
 

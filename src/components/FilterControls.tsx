@@ -37,9 +37,10 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Gabor Filter', type: 'gabor', group: 'Texture Analysis' },
   { name: 'Laws Texture Energy', type: 'lawstextureenergy', group: 'Texture Analysis' },
   { name: 'Local Binary Patterns', type: 'lbp', group: 'Texture Analysis' },
+  { name: 'Guided Filter', type: 'guided', group: 'Edge-preserving Filter' },
 ];
 
-const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising', 'Texture Analysis'];
+const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising', 'Texture Analysis', 'Edge-preserving Filter'];
 
 export const FilterControls: React.FC = () => {
   const {
@@ -565,6 +566,35 @@ export const FilterControls: React.FC = () => {
                 onChange={(e) => handleParamChange('kernelSize', e.target.value)}
               />
               <span>{tempViewerFilterParams.kernelSize ?? 15}</span>
+            </div>
+          </>
+        );
+      case 'guided':
+        return (
+          <>
+            <div className="control-row">
+              <label>Radius</label>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="1"
+                value={tempViewerFilterParams.kernelSize ?? 5}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 5}</span>
+            </div>
+            <div className="control-row">
+              <label>Epsilon</label>
+              <input
+                type="range"
+                min="0.01"
+                max="0.2"
+                step="0.01"
+                value={tempViewerFilterParams.epsilon ?? 0.04}
+                onChange={(e) => handleParamChange('epsilon', e.target.value)}
+              />
+              <span>{(tempViewerFilterParams.epsilon ?? 0.04).toFixed(2)}</span>
             </div>
           </>
         );

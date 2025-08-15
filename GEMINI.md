@@ -83,7 +83,7 @@
 
 ### 5.2 경계 보존 필터
 
-- [ ] Guided Filter
+- [x] Guided Filter
 - [ ] Edge-preserving Filter (OpenCV: `cv2.edgePreservingFilter`)
 
 ---

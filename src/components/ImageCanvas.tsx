@@ -202,6 +202,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       case 'lbp':
         Filters.applyLbp(ctx);
         break;
+      case 'guided':
+        if (params) Filters.applyGuidedFilter(ctx, params);
+        break;
     }
 
     createImageBitmap(offscreenCanvas).then(setProcessedImage);
