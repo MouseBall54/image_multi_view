@@ -8,6 +8,22 @@ export interface FolderState {
   alias: string;
 }
 
+export interface FilterParams {
+  kernelSize: number;
+  sigma: number;
+  sharpenAmount: number;
+  lowThreshold: number;
+  highThreshold: number;
+}
+
+const defaultFilterParams: FilterParams = {
+  kernelSize: 5,
+  sigma: 1.5,
+  sharpenAmount: 1,
+  lowThreshold: 50,
+  highThreshold: 100,
+};
+
 interface State {
   appMode: AppMode;
   syncMode: SyncMode;
@@ -25,7 +41,17 @@ interface State {
   current: MatchedItem | null;
   indicator: { cx: number, cy: number, key: number } | null;
   folders: Partial<Record<FolderKey, FolderState>>;
+  
+  // Filter states
   viewerFilters: Partial<Record<FolderKey, FilterType>>;
+  viewerFilterParams: Partial<Record<FolderKey, FilterParams>>;
+  
+  // Temp states for UI controls
+  tempViewerFilter: FilterType;
+  tempViewerFilterParams: FilterParams;
+  activeFilterEditor: FolderKey | null;
+
+
   setAppMode: (m: AppMode) => void;
   setSyncMode: (m: SyncMode) => void;
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
@@ -45,10 +71,16 @@ interface State {
   triggerIndicator: (cx: number, cy: number) => void;
   setFolder: (key: FolderKey, folderState: FolderState) => void;
   updateFolderAlias: (key: FolderKey, alias: string) => void;
-  setViewerFilter: (key: FolderKey, filter: FilterType) => void;
+
+  // Filter actions
+  openFilterEditor: (key: FolderKey) => void;
+  closeFilterEditor: () => void;
+  setTempFilterType: (type: FilterType) => void;
+  setTempFilterParams: (params: Partial<FilterParams>) => void;
+  applyTempFilterSettings: () => void;
 }
 
-export const useStore = create<State>((set) => ({
+export const useStore = create<State>((set, get) => ({
   appMode: "compare",
   syncMode: "locked",
   pinpointMouseMode: "pin",
@@ -65,7 +97,14 @@ export const useStore = create<State>((set) => ({
   current: null,
   indicator: null,
   folders: {},
+  
+  // Filter states
   viewerFilters: {},
+  viewerFilterParams: {},
+  tempViewerFilter: 'none',
+  tempViewerFilterParams: defaultFilterParams,
+  activeFilterEditor: null,
+
   setAppMode: (m) => set({ appMode: m }),
   setSyncMode: (m) => set({ syncMode: m }),
   setPinpointMouseMode: (m) => set({ pinpointMouseMode: m }),
@@ -104,9 +143,27 @@ export const useStore = create<State>((set) => ({
     }
     return {};
   }),
-  setViewerFilter: (key, filter) => set(state => ({
-    viewerFilters: { ...state.viewerFilters, [key]: filter }
+
+  // Filter actions
+  openFilterEditor: (key) => set(state => ({
+    activeFilterEditor: key,
+    tempViewerFilter: state.viewerFilters[key] || 'none',
+    tempViewerFilterParams: state.viewerFilterParams[key] || defaultFilterParams,
   })),
+  closeFilterEditor: () => set({ activeFilterEditor: null }),
+  setTempFilterType: (type) => set({ tempViewerFilter: type }),
+  setTempFilterParams: (params) => set(state => ({
+    tempViewerFilterParams: { ...state.tempViewerFilterParams, ...params }
+  })),
+  applyTempFilterSettings: () => set(state => {
+    const key = state.activeFilterEditor;
+    if (!key) return {};
+    return {
+      viewerFilters: { ...state.viewerFilters, [key]: state.tempViewerFilter },
+      viewerFilterParams: { ...state.viewerFilterParams, [key]: state.tempViewerFilterParams },
+      activeFilterEditor: null,
+    }
+  }),
 }));
 
 useStore.subscribe((state, prevState) => {

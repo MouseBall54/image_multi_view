@@ -5,6 +5,7 @@ import { CompareMode, CompareModeHandle } from './modes/CompareMode';
 import { ToggleMode, ToggleModeHandle } from './modes/ToggleMode';
 import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
+import { FilterControls } from "./components/FilterControls";
 import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP, UTIF_OPTIONS } from "./config";
 import { decodeTiffWithUTIF } from "./utils/utif";
 
@@ -312,6 +313,7 @@ export default function App() {
           </div>
         </div>
       )}
+      <FilterControls />
     </div>
   );
 }
