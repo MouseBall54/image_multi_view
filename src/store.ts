@@ -16,6 +16,7 @@ export interface FilterParams {
   highThreshold: number;
   clipLimit: number;
   gridSize: number;
+  gamma: number;
 }
 
 const defaultFilterParams: FilterParams = {
@@ -26,6 +27,7 @@ const defaultFilterParams: FilterParams = {
   highThreshold: 100,
   clipLimit: 2,
   gridSize: 8,
+  gamma: 1.0,
 };
 
 interface State {

@@ -148,6 +148,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       case 'clahe':
         if (params) Filters.applyClahe(ctx, params);
         break;
+      case 'gammacorrection':
+        if (params) Filters.applyGammaCorrection(ctx, params);
+        break;
     }
 
     createImageBitmap(offscreenCanvas).then(setProcessedImage);

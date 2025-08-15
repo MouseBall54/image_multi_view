@@ -48,5 +48,6 @@ export type FilterType =
   // Contrast
   | "linearstretch"
   | "histogramequalization"
-  | "clahe";
+  | "clahe"
+  | "gammacorrection";
 

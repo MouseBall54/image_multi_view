@@ -10,6 +10,7 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Linear Contrast Stretching', type: 'linearstretch', group: 'Contrast' },
   { name: 'Histogram Equalization', type: 'histogramequalization', group: 'Contrast' },
   { name: 'CLAHE', type: 'clahe', group: 'Contrast' },
+  { name: 'Gamma Correction', type: 'gammacorrection', group: 'Contrast' },
   { name: 'Box Blur', type: 'boxblur', group: 'Blurring' },
   { name: 'Gaussian Blur', type: 'gaussianblur', group: 'Blurring' },
   { name: 'Sharpen', type: 'sharpen', group: 'Sharpening' },
@@ -144,6 +145,21 @@ export const FilterControls: React.FC = () => {
               <span>{tempViewerFilterParams.gridSize}</span>
             </div>
           </>
+        );
+      case 'gammacorrection':
+        return (
+          <div className="control-row">
+            <label>Gamma</label>
+            <input
+              type="range"
+              min="0.2"
+              max="2.2"
+              step="0.1"
+              value={tempViewerFilterParams.gamma}
+              onChange={(e) => handleParamChange('gamma', e.target.value)}
+            />
+            <span>{tempViewerFilterParams.gamma.toFixed(1)}</span>
+          </div>
         );
       default:
         return <p>No parameters for this filter.</p>;

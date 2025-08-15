@@ -12,7 +12,7 @@
 - [x] Histogram Equalization
 - [x] CLAHE (Contrast Limited Adaptive Histogram Equalization)
 - [x] Linear Contrast Stretching (Min-Max Normalization)
-- [ ] Gamma Correction
+- [x] Gamma Correction
 
 
 ---

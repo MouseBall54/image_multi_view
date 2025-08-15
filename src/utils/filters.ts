@@ -350,3 +350,24 @@ export const applyClahe = (ctx: CanvasRenderingContext2D, params: FilterParams) 
 
   ctx.putImageData(imageData, 0, 0);
 };
+
+export const applyGammaCorrection = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data } = imageData;
+  const { gamma } = params;
+  if (gamma === 1) return; // No change
+
+  const gammaReciprocal = 1 / gamma;
+  const lut = new Uint8ClampedArray(256);
+  for (let i = 0; i < 256; i++) {
+    lut[i] = Math.pow(i / 255, gammaReciprocal) * 255;
+  }
+
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = lut[data[i]];
+    data[i+1] = lut[data[i+1]];
+    data[i+2] = lut[data[i+2]];
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};
