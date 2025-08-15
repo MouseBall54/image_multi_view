@@ -44,11 +44,15 @@ export type FilterType =
   // Sharpening
   | "sharpen"
   | "laplacian"
+  | "unsharpmask"
   // Edge Detection
   | "prewitt"
   | "scharr"
   | "canny"
   | "robertscross"
+  | "log"
+  | "dog"
+  | "marrhildreth"
   // Contrast
   | "linearstretch"
   | "histogramequalization"

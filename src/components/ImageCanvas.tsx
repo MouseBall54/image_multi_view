@@ -132,7 +132,19 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       case 'sobel': 
         Filters.applySobel(ctx); 
         break;
+      case 'robertscross':
+        Filters.applyRobertsCross(ctx);
+        break;
       // Filters that require params
+      case 'log':
+        if (params) Filters.applyLoG(ctx, params);
+        break;
+      case 'dog':
+        if (params) Filters.applyDoG(ctx, params);
+        break;
+      case 'marrhildreth':
+        if (params) Filters.applyMarrHildreth(ctx, params);
+        break;
       case 'gaussianblur':
         if (params) Filters.applyGaussianBlur(ctx, params);
         break;

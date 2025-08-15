@@ -25,6 +25,9 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Scharr', type: 'scharr', group: 'Edge Detection' },
   { name: 'Canny', type: 'canny', group: 'Edge Detection' },
   { name: 'Roberts Cross', type: 'robertscross', group: 'Edge Detection' },
+  { name: 'LoG', type: 'log', group: 'Edge Detection' },
+  { name: 'DoG', type: 'dog', group: 'Edge Detection' },
+  { name: 'Marr-Hildreth', type: 'marrhildreth', group: 'Edge Detection' },
   { name: 'Bilateral Filter', type: 'bilateral', group: 'Advanced Denoising' },
   { name: 'Non-local Means', type: 'nonlocalmeans', group: 'Advanced Denoising' },
   { name: 'Anisotropic Diffusion', type: 'anisotropicdiffusion', group: 'Advanced Denoising' },
@@ -98,6 +101,117 @@ export const FilterControls: React.FC = () => {
                 onChange={(e) => handleParamChange('sigma', e.target.value)}
               />
               <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+            </div>
+          </>
+        );
+      case 'log':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Size</label>
+              <input
+                type="range"
+                min="3"
+                max="21"
+                step="2"
+                value={tempViewerFilterParams.kernelSize ?? 3}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+            </div>
+            <div className="control-row">
+              <label>Sigma</label>
+              <input
+                type="range"
+                min="0.1"
+                max="10"
+                step="0.1"
+                value={tempViewerFilterParams.sigma ?? 1.0}
+                onChange={(e) => handleParamChange('sigma', e.target.value)}
+              />
+              <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+            </div>
+          </>
+        );
+      case 'dog':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Size</label>
+              <input
+                type="range"
+                min="3"
+                max="21"
+                step="2"
+                value={tempViewerFilterParams.kernelSize ?? 3}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+            </div>
+            <div className="control-row">
+              <label>Sigma 1</label>
+              <input
+                type="range"
+                min="0.1"
+                max="10"
+                step="0.1"
+                value={tempViewerFilterParams.sigma ?? 1.0}
+                onChange={(e) => handleParamChange('sigma', e.target.value)}
+              />
+              <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+            </div>
+            <div className="control-row">
+              <label>Sigma 2</label>
+              <input
+                type="range"
+                min="0.1"
+                max="10"
+                step="0.1"
+                value={tempViewerFilterParams.sigma2 ?? 2.0}
+                onChange={(e) => handleParamChange('sigma2', e.target.value)}
+              />
+              <span>{(tempViewerFilterParams.sigma2 ?? 2.0).toFixed(1)}</span>
+            </div>
+          </>
+        );
+      case 'marrhildreth':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Size</label>
+              <input
+                type="range"
+                min="3"
+                max="21"
+                step="2"
+                value={tempViewerFilterParams.kernelSize ?? 9}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 9}</span>
+            </div>
+            <div className="control-row">
+              <label>Sigma</label>
+              <input
+                type="range"
+                min="0.1"
+                max="10"
+                step="0.1"
+                value={tempViewerFilterParams.sigma ?? 1.4}
+                onChange={(e) => handleParamChange('sigma', e.target.value)}
+              />
+              <span>{(tempViewerFilterParams.sigma ?? 1.4).toFixed(1)}</span>
+            </div>
+            <div className="control-row">
+              <label>Threshold</label>
+              <input
+                type="range"
+                min="0"
+                max="255"
+                step="1"
+                value={tempViewerFilterParams.threshold ?? 10}
+                onChange={(e) => handleParamChange('threshold', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.threshold ?? 10}</span>
             </div>
           </>
         );

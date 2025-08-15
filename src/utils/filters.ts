@@ -30,6 +30,33 @@ function createBoxBlurKernel(size: number): number[][] {
   return Array(size).fill(0).map(() => Array(size).fill(value));
 }
 
+function createLoGKernel(sigma: number, size: number): number[][] {
+  const kernel: number[][] = Array(size).fill(0).map(() => Array(size).fill(0));
+  const half = Math.floor(size / 2);
+  const sigma2 = sigma * sigma;
+  const sigma4 = sigma2 * sigma2;
+  let sum = 0;
+
+  for (let y = -half; y <= half; y++) {
+    for (let x = -half; x <= half; x++) {
+      const x2y2 = x * x + y * y;
+      const value = -1 / (Math.PI * sigma4) * (1 - x2y2 / (2 * sigma2)) * Math.exp(-x2y2 / (2 * sigma2));
+      kernel[y + half][x + half] = value;
+      sum += value;
+    }
+  }
+  
+  // This kernel should not be normalized in the traditional sense, but we can adjust it to be zero-sum
+  const mean = sum / (size * size);
+   for (let i = 0; i < size; i++) {
+    for (let j = 0; j < size; j++) {
+      kernel[i][j] -= mean;
+    }
+  }
+
+  return kernel;
+}
+
 // Helper function to create a Sharpen kernel
 function createSharpenKernel(amount: number): number[][] {
   return [
@@ -146,6 +173,146 @@ export const applyPrewitt = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(c
 export const applyScharr = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, scharrKernelX, scharrKernelY);
 export const applySobel = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, sobelKernelX, sobelKernelY);
 export const applyRobertsCross = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, robertsKernelX, robertsKernelY);
+export const applyLoG = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const kernel = createLoGKernel(params.sigma, params.kernelSize);
+  convolve(ctx, kernel);
+};
+
+// Basic Canny implementation - for simplicity, this is a placeholder.
+// A full Canny implementation is much more complex involving non-maximum suppression and hysteresis thresholding.
+
+export const applyDoG = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const { kernelSize, sigma, sigma2 } = params;
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+
+  // 1. Create a grayscale version of the source image
+  const grayscale = new Uint8ClampedArray(width * height);
+  for (let i = 0; i < data.length; i += 4) {
+    grayscale[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+  }
+
+  // Create a temporary canvas to apply convolutions without affecting the original
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  const tempCtx = tempCanvas.getContext('2d')!;
+  
+  // Create an ImageData object from the grayscale data to use with convolve
+  const grayImageData = tempCtx.createImageData(width, height);
+  for (let i = 0; i < grayscale.length; i++) {
+    grayImageData.data[i * 4] = grayscale[i];
+    grayImageData.data[i * 4 + 1] = grayscale[i];
+    grayImageData.data[i * 4 + 2] = grayscale[i];
+    grayImageData.data[i * 4 + 3] = 255;
+  }
+
+  // 2. Apply first Gaussian blur
+  tempCtx.putImageData(grayImageData, 0, 0);
+  const kernel1 = createGaussianKernel(sigma, kernelSize);
+  convolve(tempCtx, kernel1);
+  const data1 = tempCtx.getImageData(0, 0, width, height).data;
+
+  // 3. Apply second Gaussian blur
+  tempCtx.putImageData(grayImageData, 0, 0);
+  const kernel2 = createGaussianKernel(sigma2, kernelSize);
+  convolve(tempCtx, kernel2);
+  const data2 = tempCtx.getImageData(0, 0, width, height).data;
+
+  // 4. Subtract the two blurred images and apply to the original canvas context
+  for (let i = 0; i < data.length; i += 4) {
+    // We only need to calculate for one channel since both are grayscale
+    const diff = Math.abs(data1[i] - data2[i]);
+    data[i] = diff;
+    data[i + 1] = diff;
+    data[i + 2] = diff;
+    data[i + 3] = 255; // Keep alpha solid
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};
+
+export const applyMarrHildreth = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const { kernelSize, sigma, threshold } = params;
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+
+  // 1. Apply LoG filter
+  const logCanvas = document.createElement('canvas');
+  logCanvas.width = width;
+  logCanvas.height = height;
+  const logCtx = logCanvas.getContext('2d')!;
+  logCtx.putImageData(imageData, 0, 0);
+  const logKernel = createLoGKernel(sigma, kernelSize);
+  
+  // Need a convolution function that returns data instead of drawing it
+  const convolveAndGetData = (context: CanvasRenderingContext2D, kernel: Kernel): Float32Array => {
+    const imgData = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
+    const { data: srcData, width: w, height: h } = imgData;
+    const halfKernel = Math.floor(kernel.length / 2);
+    const output = new Float32Array(w * h);
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let sum = 0;
+        for (let ky = 0; ky < kernel.length; ky++) {
+          for (let kx = 0; kx < kernel[ky].length; kx++) {
+            const sy = y + ky - halfKernel;
+            const sx = x + kx - halfKernel;
+            if (sy >= 0 && sy < h && sx >= 0 && sx < w) {
+              const i = (sy * w + sx) * 4;
+              // Using luminance for LoG
+              const gray = srcData[i] * 0.299 + srcData[i + 1] * 0.587 + srcData[i + 2] * 0.114;
+              sum += gray * kernel[ky][kx];
+            }
+          }
+        }
+        output[y * w + x] = sum;
+      }
+    }
+    return output;
+  };
+
+  const logData = convolveAndGetData(logCtx, logKernel);
+
+  // 2. Find zero-crossings
+  const edgeData = new Uint8ClampedArray(data.length);
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      const centerVal = logData[idx];
+      
+      const neighbors = [
+        logData[idx - 1], // left
+        logData[idx + 1], // right
+        logData[idx - width], // top
+        logData[idx + width], // bottom
+      ];
+
+      let isEdge = false;
+      for (const neighborVal of neighbors) {
+        if (Math.sign(centerVal) !== Math.sign(neighborVal)) {
+          if (Math.abs(centerVal - neighborVal) > threshold) {
+            isEdge = true;
+            break;
+          }
+        }
+      }
+      
+      const outIndex = (y * width + x) * 4;
+      if (isEdge) {
+        edgeData[outIndex] = 255;
+        edgeData[outIndex + 1] = 255;
+        edgeData[outIndex + 2] = 255;
+        edgeData[outIndex + 3] = 255;
+      } else {
+        edgeData[outIndex + 3] = 255; // Keep alpha
+      }
+    }
+  }
+  
+  ctx.putImageData(new ImageData(edgeData, width, height), 0, 0);
+};
 
 // Basic Canny implementation - for simplicity, this is a placeholder.
 // A full Canny implementation is much more complex involving non-maximum suppression and hysteresis thresholding.

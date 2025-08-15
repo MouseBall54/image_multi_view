@@ -51,18 +51,18 @@
 - [x] Sobel Operator
 - [x] Prewitt Operator
 - [x] Scharr Operator
-- [ ] Roberts Cross Operator
+- [x] Roberts Cross Operator
 
 ### 3.2 2차 미분 기반
 
 - [x] Laplacian Filter
-- [ ] LoG (Laplacian of Gaussian)
-- [ ] DoG (Difference of Gaussian)
+- [x] LoG (Laplacian of Gaussian)
+- [x] DoG (Difference of Gaussian)
 
 ### 3.3 고급 엣지 검출
 
 - [x] Canny Edge Detector - (기본 기능만 구현, Hysteresis Thresholding 미적용)
-- [ ] Marr–Hildreth Edge Detector
+- [x] Marr–Hildreth Edge Detector
 
 ---
 
