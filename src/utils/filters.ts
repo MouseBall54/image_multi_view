@@ -1101,3 +1101,103 @@ export const applyAnisotropicDiffusion = (ctx: CanvasRenderingContext2D, params:
 
   ctx.putImageData(imageData, 0, 0);
 };
+
+// --- Laws' Texture Energy ---
+
+// 1D Laws' vectors
+const L5 = [1, 4, 6, 4, 1];
+const E5 = [-1, -2, 0, 2, 1];
+const S5 = [-1, 0, 2, 0, -1];
+const W5 = [-1, 2, 0, -2, 1];
+const R5 = [1, -4, 6, -4, 1];
+
+const lawsVectors: { [key: string]: number[] } = { L5, E5, S5, W5, R5 };
+
+// Create 2D kernel from two 1D vectors (outer product)
+function createLawsKernel(vec1_name: string, vec2_name: string): Kernel {
+  const vec1 = lawsVectors[vec1_name];
+  const vec2 = lawsVectors[vec2_name];
+  const kernel: Kernel = Array(5).fill(0).map(() => Array(5).fill(0));
+  for (let i = 0; i < 5; i++) {
+    for (let j = 0; j < 5; j++) {
+      kernel[i][j] = vec1[i] * vec2[j];
+    }
+  }
+  return kernel;
+}
+
+export const LAWS_KERNEL_TYPES = [
+  'L5E5', 'E5L5', 'L5R5', 'R5L5', 'E5S5', 'S5E5', 'S5S5', 'R5R5', 'L5S5', 'S5L5', 'E5E5', 'E5W5', 'W5E5', 'S5W5', 'W5S5'
+];
+
+export const applyLawsTextureEnergy = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const { lawsKernelType, kernelSize: energyWindowSize } = params;
+  const [vec1_name, vec2_name] = lawsKernelType.match(/.{1,2}/g)!;
+
+  const lawsKernel = createLawsKernel(vec1_name, vec2_name);
+
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+
+  // 1. Convert to grayscale
+  const grayscale = new Float32Array(width * height);
+  for (let i = 0; i < data.length; i += 4) {
+    grayscale[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+  }
+
+  // 2. Convolve with the selected Laws' kernel
+  const convolved = new Float32Array(width * height);
+  const halfKernel = 2; // 5x5 kernel
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      for (let ky = 0; ky < 5; ky++) {
+        for (let kx = 0; kx < 5; kx++) {
+          const sy = y + ky - halfKernel;
+          const sx = x + kx - halfKernel;
+          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+            sum += grayscale[sy * width + sx] * lawsKernel[ky][kx];
+          }
+        }
+      }
+      convolved[y * width + x] = sum;
+    }
+  }
+
+  // 3. Calculate texture energy (sum of absolute values in a window)
+  const energy = new Float32Array(width * height);
+  const halfWindow = Math.floor(energyWindowSize / 2);
+  let maxEnergy = 0;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      for (let wy = -halfWindow; wy <= halfWindow; wy++) {
+        for (let wx = -halfWindow; wx <= halfWindow; wx++) {
+          const sy = y + wy;
+          const sx = x + wx;
+          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+            sum += Math.abs(convolved[sy * width + sx]);
+          }
+        }
+      }
+      const energyValue = sum / (energyWindowSize * energyWindowSize);
+      energy[y * width + x] = energyValue;
+      if (energyValue > maxEnergy) {
+        maxEnergy = energyValue;
+      }
+    }
+  }
+
+  // 4. Normalize and draw the energy map
+  if (maxEnergy === 0) maxEnergy = 1; // Avoid division by zero
+  for (let i = 0; i < data.length; i += 4) {
+    const normalizedValue = (energy[i / 4] / maxEnergy) * 255;
+    data[i] = normalizedValue;
+    data[i + 1] = normalizedValue;
+    data[i + 2] = normalizedValue;
+    data[i + 3] = 255;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};

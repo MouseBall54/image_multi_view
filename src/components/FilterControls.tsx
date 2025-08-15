@@ -1,6 +1,7 @@
 import React from 'react';
 import { useStore } from '../store';
 import type { FilterType } from '../types';
+import { LAWS_KERNEL_TYPES } from '../utils/filters';
 
 const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'None', type: 'none', group: 'General' },
@@ -34,6 +35,7 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Non-local Means', type: 'nonlocalmeans', group: 'Advanced Denoising' },
   { name: 'Anisotropic Diffusion', type: 'anisotropicdiffusion', group: 'Advanced Denoising' },
   { name: 'Gabor Filter', type: 'gabor', group: 'Texture Analysis' },
+  { name: 'Laws Texture Energy', type: 'lawstextureenergy', group: 'Texture Analysis' },
 ];
 
 const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising', 'Texture Analysis'];
@@ -56,6 +58,10 @@ export const FilterControls: React.FC = () => {
     if (!isNaN(numValue)) {
       setTempFilterParams({ [param]: numValue });
     }
+  };
+
+  const handleStringParamChange = (param: string, value: string) => {
+    setTempFilterParams({ [param]: value });
   };
 
   const renderParams = () => {
@@ -532,6 +538,32 @@ export const FilterControls: React.FC = () => {
               <label>Psi (ψ)</label>
               <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.psi ?? 0} onChange={(e) => handleParamChange('psi', e.target.value)} />
               <span>{(tempViewerFilterParams.psi ?? 0).toFixed(2)}</span>
+            </div>
+          </>
+        );
+      case 'lawstextureenergy':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Type</label>
+              <select
+                value={tempViewerFilterParams.lawsKernelType ?? 'L5E5'}
+                onChange={(e) => handleStringParamChange('lawsKernelType', e.target.value)}
+              >
+                {LAWS_KERNEL_TYPES.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </div>
+            <div className="control-row">
+              <label>Energy Window</label>
+              <input
+                type="range"
+                min="3"
+                max="25"
+                step="2"
+                value={tempViewerFilterParams.kernelSize ?? 15}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 15}</span>
             </div>
           </>
         );

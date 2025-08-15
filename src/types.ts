@@ -66,5 +66,6 @@ export type FilterType =
   | "nonlocalmeans"
   | "anisotropicdiffusion"
   // Texture Analysis
-  | "gabor";
+  | "gabor"
+  | "lawstextureenergy";
 

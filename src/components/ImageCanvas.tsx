@@ -196,6 +196,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       case 'gabor':
         if (params) Filters.applyGabor(ctx, params);
         break;
+      case 'lawstextureenergy':
+        if (params) Filters.applyLawsTextureEnergy(ctx, params);
+        break;
     }
 
     createImageBitmap(offscreenCanvas).then(setProcessedImage);
