@@ -87,6 +87,8 @@ const scharrKernelX: Kernel = [[-3, 0, 3], [-10, 0, 10], [-3, 0, 3]];
 const scharrKernelY: Kernel = [[-3, -10, -3], [0, 0, 0], [3, 10, 3]];
 const sobelKernelX: Kernel = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
 const sobelKernelY: Kernel = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
+const robertsKernelX: Kernel = [[1, 0], [0, -1]];
+const robertsKernelY: Kernel = [[0, 1], [-1, 0]];
 
 function applyEdgeFilter(ctx: CanvasRenderingContext2D, kernelX: Kernel, kernelY: Kernel) {
     const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -143,6 +145,7 @@ export const applyLaplacian = (ctx: CanvasRenderingContext2D) => convolve(ctx, l
 export const applyPrewitt = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, prewittKernelX, prewittKernelY);
 export const applyScharr = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, scharrKernelX, scharrKernelY);
 export const applySobel = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, sobelKernelX, sobelKernelY);
+export const applyRobertsCross = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, robertsKernelX, robertsKernelY);
 
 // Basic Canny implementation - for simplicity, this is a placeholder.
 // A full Canny implementation is much more complex involving non-maximum suppression and hysteresis thresholding.
@@ -555,6 +558,304 @@ export const applyAdaptiveHistogramEqualization = (ctx: CanvasRenderingContext2D
       data[i+1] = val;
       data[i+2] = val;
     }
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};
+
+export const applyWeightedMedian = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+  const src = new Uint8ClampedArray(data);
+  const { kernelSize } = params;
+  const half = Math.floor(kernelSize / 2);
+
+  // Convert to grayscale first
+  const grayscale = new Uint8ClampedArray(width * height);
+  for (let i = 0; i < src.length; i += 4) {
+    const gray = src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114;
+    grayscale[i / 4] = gray;
+  }
+
+  // Special 3x3 weight kernel
+  const weightKernel = [
+    [1, 2, 1],
+    [2, 4, 2],
+    [1, 2, 1]
+  ];
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const window: number[] = [];
+      
+      // Use weights only for 3x3 kernel
+      if (kernelSize === 3) {
+        for (let ky = -half; ky <= half; ky++) {
+          for (let kx = -half; kx <= half; kx++) {
+            const sy = y + ky;
+            const sx = x + kx;
+            if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+              const pixelValue = grayscale[sy * width + sx];
+              const weight = weightKernel[ky + half][kx + half];
+              for (let i = 0; i < weight; i++) {
+                window.push(pixelValue);
+              }
+            }
+          }
+        }
+      } else { // Fallback to standard median for other kernel sizes
+        for (let ky = -half; ky <= half; ky++) {
+          for (let kx = -half; kx <= half; kx++) {
+            const sy = y + ky;
+            const sx = x + kx;
+            if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+              window.push(grayscale[sy * width + sx]);
+            }
+          }
+        }
+      }
+
+      window.sort((a, b) => a - b);
+      const median = window[Math.floor(window.length / 2)];
+      const outIndex = (y * width + x) * 4;
+      data[outIndex] = median;
+      data[outIndex + 1] = median;
+      data[outIndex + 2] = median;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+};
+
+export const applyAlphaTrimmedMean = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+  const src = new Uint8ClampedArray(data);
+  const { kernelSize, alpha } = params;
+  const half = Math.floor(kernelSize / 2);
+
+  // Convert to grayscale first
+  const grayscale = new Uint8ClampedArray(width * height);
+  for (let i = 0; i < src.length; i += 4) {
+    const gray = src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114;
+    grayscale[i / 4] = gray;
+  }
+
+  const trimCount = Math.floor((kernelSize * kernelSize * alpha) / 2);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const window: number[] = [];
+      for (let ky = -half; ky <= half; ky++) {
+        for (let kx = -half; kx <= half; kx++) {
+          const sy = y + ky;
+          const sx = x + kx;
+          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+            window.push(grayscale[sy * width + sx]);
+          }
+        }
+      }
+
+      window.sort((a, b) => a - b);
+
+      const trimmedWindow = window.slice(trimCount, window.length - trimCount);
+      
+      if (trimmedWindow.length === 0) {
+        // This can happen if trimCount is too high. Fallback to median of original window.
+        const median = window[Math.floor(window.length / 2)];
+        const outIndex = (y * width + x) * 4;
+        data[outIndex] = median;
+        data[outIndex + 1] = median;
+        data[outIndex + 2] = median;
+        continue;
+      }
+
+      const sum = trimmedWindow.reduce((acc, val) => acc + val, 0);
+      const mean = sum / trimmedWindow.length;
+
+      const outIndex = (y * width + x) * 4;
+      data[outIndex] = mean;
+      data[outIndex + 1] = mean;
+      data[outIndex + 2] = mean;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+};
+
+export const applyBilateralFilter = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+  const src = new Uint8ClampedArray(data);
+  const { kernelSize, sigmaColor, sigmaSpace } = params;
+  const half = Math.floor(kernelSize / 2);
+
+  const gaussian = (x: number, sigma: number) => {
+    return (1.0 / (2 * Math.PI * sigma * sigma)) * Math.exp(-(x * x) / (2 * sigma * sigma));
+  };
+
+  // Convert to grayscale first
+  const grayscale = new Uint8ClampedArray(width * height);
+  const srcGray = new Uint8ClampedArray(width * height);
+  for (let i = 0; i < src.length; i += 4) {
+    const gray = src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114;
+    srcGray[i / 4] = gray;
+  }
+
+  const spaceKernel = createGaussianKernel(sigmaSpace, kernelSize);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const centerPixelValue = srcGray[y * width + x];
+      let filteredPixel = 0;
+      let weightSum = 0;
+
+      for (let ky = -half; ky <= half; ky++) {
+        for (let kx = -half; kx <= half; kx++) {
+          const sy = y + ky;
+          const sx = x + kx;
+
+          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+            const neighborPixelValue = srcGray[sy * width + sx];
+            
+            const colorDistance = neighborPixelValue - centerPixelValue;
+            const colorWeight = gaussian(colorDistance, sigmaColor);
+            
+            const spaceWeight = spaceKernel[ky + half][kx + half];
+
+            const totalWeight = colorWeight * spaceWeight;
+
+            filteredPixel += neighborPixelValue * totalWeight;
+            weightSum += totalWeight;
+          }
+        }
+      }
+
+      const outIndex = (y * width + x) * 4;
+      const finalValue = weightSum === 0 ? centerPixelValue : filteredPixel / weightSum;
+      data[outIndex] = finalValue;
+      data[outIndex + 1] = finalValue;
+      data[outIndex + 2] = finalValue;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+};
+
+// Non-local Means Denoising
+// NOTE: This is a very computationally expensive filter.
+// For performance reasons, the search window is kept small.
+export const applyNonLocalMeans = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+  const src = new Uint8ClampedArray(data);
+  const { patchSize, searchWindowSize, h } = params;
+
+  const patchRadius = Math.floor(patchSize / 2);
+  const searchRadius = Math.floor(searchWindowSize / 2);
+  const h2 = h * h;
+
+  // Convert to grayscale first
+  const grayscale = new Uint8ClampedArray(width * height);
+  for (let i = 0; i < src.length; i += 4) {
+    grayscale[i / 4] = src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114;
+  }
+  
+  const output = new Uint8ClampedArray(grayscale.length);
+
+  // Helper function to get patch distance
+  const getPatchDistance = (x1: number, y1: number, x2: number, y2: number) => {
+    let ssd = 0;
+    for (let i = -patchRadius; i <= patchRadius; i++) {
+      for (let j = -patchRadius; j <= patchRadius; j++) {
+        const p1x = x1 + j;
+        const p1y = y1 + i;
+        const p2x = x2 + j;
+        const p2y = y2 + i;
+        if (p1x >= 0 && p1x < width && p1y >= 0 && p1y < height && p2x >= 0 && p2x < width && p2y >= 0 && p2y < height) {
+          const diff = grayscale[p1y * width + p1x] - grayscale[p2y * width + p2x];
+          ssd += diff * diff;
+        }
+      }
+    }
+    return ssd / (patchSize * patchSize);
+  };
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let totalWeight = 0;
+      let filteredPixel = 0;
+
+      const yMin = Math.max(y - searchRadius, 0);
+      const yMax = Math.min(y + searchRadius, height - 1);
+      const xMin = Math.max(x - searchRadius, 0);
+      const xMax = Math.min(x + searchRadius, width - 1);
+
+      for (let sy = yMin; sy <= yMax; sy++) {
+        for (let sx = xMin; sx <= xMax; sx++) {
+          const distance = getPatchDistance(x, y, sx, sy);
+          const weight = Math.exp(-distance / h2);
+          
+          totalWeight += weight;
+          filteredPixel += weight * grayscale[sy * width + sx];
+        }
+      }
+      
+      output[y * width + x] = filteredPixel / totalWeight;
+    }
+  }
+
+  // Apply to original data
+  for (let i = 0; i < data.length; i += 4) {
+    const val = output[i / 4];
+    data[i] = val;
+    data[i+1] = val;
+    data[i+2] = val;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};
+
+export const applyAnisotropicDiffusion = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+  const { iterations, kappa } = params;
+  const lambda = 0.14; // Fixed step size
+
+  // Convert to grayscale
+  let gray = new Float32Array(width * height);
+  for (let i = 0; i < data.length; i += 4) {
+    gray[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+  }
+
+  let nextGray = new Float32Array(gray.length);
+
+  for (let t = 0; t < iterations; t++) {
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const i = y * width + x;
+        
+        const gradN = gray[i - width] - gray[i];
+        const gradS = gray[i + width] - gray[i];
+        const gradW = gray[i - 1] - gray[i];
+        const gradE = gray[i + 1] - gray[i];
+
+        // Perona-Malik diffusion coefficient function (g2)
+        const cN = 1 / (1 + (gradN / kappa) * (gradN / kappa));
+        const cS = 1 / (1 + (gradS / kappa) * (gradS / kappa));
+        const cW = 1 / (1 + (gradW / kappa) * (gradW / kappa));
+        const cE = 1 / (1 + (gradE / kappa) * (gradE / kappa));
+
+        nextGray[i] = gray[i] + lambda * (cN * gradN + cS * gradS + cW * gradW + cE * gradE);
+      }
+    }
+    // Swap buffers
+    [gray, nextGray] = [nextGray, gray];
+  }
+
+  // Apply to original data
+  for (let i = 0; i < data.length; i += 4) {
+    const val = gray[i / 4];
+    data[i] = val;
+    data[i+1] = val;
+    data[i+2] = val;
   }
 
   ctx.putImageData(imageData, 0, 0);

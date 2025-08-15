@@ -33,14 +33,14 @@
 ### 2.2 비선형 필터(Non-linear Filters)
 
 - [x] Median Filter 
-- [ ] Weighted Median Filter
-- [ ] Alpha-trimmed Mean Filter
+- [x] Weighted Median Filter
+- [x] Alpha-trimmed Mean Filter
 
 ### 2.3 고급 노이즈 제거
 
-- [ ] Bilateral Filter
-- [ ] Non-local Means Denoising
-- [ ] Anisotropic Diffusion (Perona–Malik)
+- [x] Bilateral Filter
+- [x] Non-local Means Denoising
+- [x] Anisotropic Diffusion (Perona–Malik)
 
 ---
 

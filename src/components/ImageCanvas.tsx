@@ -142,6 +142,12 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       case 'median':
         if (params) Filters.applyMedian(ctx, params);
         break;
+      case 'weightedmedian':
+        if (params) Filters.applyWeightedMedian(ctx, params);
+        break;
+      case 'alphatrimmedmean':
+        if (params) Filters.applyAlphaTrimmedMean(ctx, params);
+        break;
       case 'localhistogramequalization':
         if (params) Filters.applyLocalHistogramEqualization(ctx, params);
         break;
@@ -159,6 +165,15 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         break;
       case 'gammacorrection':
         if (params) Filters.applyGammaCorrection(ctx, params);
+        break;
+      case 'bilateral':
+        if (params) Filters.applyBilateralFilter(ctx, params);
+        break;
+      case 'nonlocalmeans':
+        if (params) Filters.applyNonLocalMeans(ctx, params);
+        break;
+      case 'anisotropicdiffusion':
+        if (params) Filters.applyAnisotropicDiffusion(ctx, params);
         break;
     }
 

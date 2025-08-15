@@ -16,15 +16,21 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Box Blur', type: 'boxblur', group: 'Blurring' },
   { name: 'Gaussian Blur', type: 'gaussianblur', group: 'Blurring' },
   { name: 'Median', type: 'median', group: 'Blurring' },
+  { name: 'Weighted Median', type: 'weightedmedian', group: 'Blurring' },
+  { name: 'Alpha-trimmed Mean', type: 'alphatrimmedmean', group: 'Blurring' },
   { name: 'Sharpen', type: 'sharpen', group: 'Sharpening' },
   { name: 'Laplacian', type: 'laplacian', group: 'Sharpening' },
   { name: 'Sobel', type: 'sobel', group: 'Edge Detection' },
   { name: 'Prewitt', type: 'prewitt', group: 'Edge Detection' },
   { name: 'Scharr', type: 'scharr', group: 'Edge Detection' },
   { name: 'Canny', type: 'canny', group: 'Edge Detection' },
+  { name: 'Roberts Cross', type: 'robertscross', group: 'Edge Detection' },
+  { name: 'Bilateral Filter', type: 'bilateral', group: 'Advanced Denoising' },
+  { name: 'Non-local Means', type: 'nonlocalmeans', group: 'Advanced Denoising' },
+  { name: 'Anisotropic Diffusion', type: 'anisotropicdiffusion', group: 'Advanced Denoising' },
 ];
 
-const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection'];
+const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising'];
 
 export const FilterControls: React.FC = () => {
   const {
@@ -50,6 +56,7 @@ export const FilterControls: React.FC = () => {
     switch (tempViewerFilter) {
       case 'boxblur':
       case 'median':
+      case 'weightedmedian':
       case 'localhistogramequalization':
         return (
           <div className="control-row">
@@ -59,10 +66,10 @@ export const FilterControls: React.FC = () => {
               min="3"
               max="21"
               step="2"
-              value={tempViewerFilterParams.kernelSize}
+              value={tempViewerFilterParams.kernelSize ?? 3}
               onChange={(e) => handleParamChange('kernelSize', e.target.value)}
             />
-            <span>{tempViewerFilterParams.kernelSize}</span>
+            <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
           </div>
         );
       case 'gaussianblur':
@@ -75,10 +82,10 @@ export const FilterControls: React.FC = () => {
                 min="3"
                 max="21"
                 step="2"
-                value={tempViewerFilterParams.kernelSize}
+                value={tempViewerFilterParams.kernelSize ?? 3}
                 onChange={(e) => handleParamChange('kernelSize', e.target.value)}
               />
-              <span>{tempViewerFilterParams.kernelSize}</span>
+              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
             </div>
             <div className="control-row">
               <label>Sigma</label>
@@ -87,10 +94,39 @@ export const FilterControls: React.FC = () => {
                 min="0.1"
                 max="10"
                 step="0.1"
-                value={tempViewerFilterParams.sigma}
+                value={tempViewerFilterParams.sigma ?? 1.0}
                 onChange={(e) => handleParamChange('sigma', e.target.value)}
               />
-              <span>{tempViewerFilterParams.sigma.toFixed(1)}</span>
+              <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+            </div>
+          </>
+        );
+      case 'alphatrimmedmean':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Size</label>
+              <input
+                type="range"
+                min="3"
+                max="21"
+                step="2"
+                value={tempViewerFilterParams.kernelSize ?? 3}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+            </div>
+            <div className="control-row">
+              <label>Alpha</label>
+              <input
+                type="range"
+                min="0"
+                max="0.5"
+                step="0.05"
+                value={tempViewerFilterParams.alpha ?? 0.0}
+                onChange={(e) => handleParamChange('alpha', e.target.value)}
+              />
+              <span>{(tempViewerFilterParams.alpha ?? 0.0).toFixed(2)}</span>
             </div>
           </>
         );
@@ -103,10 +139,10 @@ export const FilterControls: React.FC = () => {
               min="0.1"
               max="5"
               step="0.1"
-              value={tempViewerFilterParams.sharpenAmount}
+              value={tempViewerFilterParams.sharpenAmount ?? 1.0}
               onChange={(e) => handleParamChange('sharpenAmount', e.target.value)}
             />
-            <span>{tempViewerFilterParams.sharpenAmount.toFixed(1)}</span>
+            <span>{(tempViewerFilterParams.sharpenAmount ?? 1.0).toFixed(1)}</span>
           </div>
         );
       case 'canny':
@@ -118,10 +154,10 @@ export const FilterControls: React.FC = () => {
                 type="range"
                 min="1"
                 max="254"
-                value={tempViewerFilterParams.lowThreshold}
+                value={tempViewerFilterParams.lowThreshold ?? 20}
                 onChange={(e) => handleParamChange('lowThreshold', e.target.value)}
               />
-              <span>{tempViewerFilterParams.lowThreshold}</span>
+              <span>{tempViewerFilterParams.lowThreshold ?? 20}</span>
             </div>
             <div className="control-row">
               <label>High Threshold</label>
@@ -129,10 +165,10 @@ export const FilterControls: React.FC = () => {
                 type="range"
                 min="1"
                 max="254"
-                value={tempViewerFilterParams.highThreshold}
+                value={tempViewerFilterParams.highThreshold ?? 50}
                 onChange={(e) => handleParamChange('highThreshold', e.target.value)}
               />
-              <span>{tempViewerFilterParams.highThreshold}</span>
+              <span>{tempViewerFilterParams.highThreshold ?? 50}</span>
             </div>
           </>
         );
@@ -145,10 +181,10 @@ export const FilterControls: React.FC = () => {
               min="2"
               max="16"
               step="1"
-              value={tempViewerFilterParams.gridSize}
+              value={tempViewerFilterParams.gridSize ?? 8}
               onChange={(e) => handleParamChange('gridSize', e.target.value)}
             />
-            <span>{tempViewerFilterParams.gridSize}</span>
+            <span>{tempViewerFilterParams.gridSize ?? 8}</span>
           </div>
         );
       case 'clahe':
@@ -161,10 +197,10 @@ export const FilterControls: React.FC = () => {
                 min="1"
                 max="10"
                 step="0.5"
-                value={tempViewerFilterParams.clipLimit}
+                value={tempViewerFilterParams.clipLimit ?? 2.0}
                 onChange={(e) => handleParamChange('clipLimit', e.target.value)}
               />
-              <span>{tempViewerFilterParams.clipLimit.toFixed(1)}</span>
+              <span>{(tempViewerFilterParams.clipLimit ?? 2.0).toFixed(1)}</span>
             </div>
             <div className="control-row">
               <label>Grid Size</label>
@@ -173,10 +209,10 @@ export const FilterControls: React.FC = () => {
                 min="2"
                 max="16"
                 step="1"
-                value={tempViewerFilterParams.gridSize}
+                value={tempViewerFilterParams.gridSize ?? 8}
                 onChange={(e) => handleParamChange('gridSize', e.target.value)}
               />
-              <span>{tempViewerFilterParams.gridSize}</span>
+              <span>{tempViewerFilterParams.gridSize ?? 8}</span>
             </div>
           </>
         );
@@ -189,11 +225,122 @@ export const FilterControls: React.FC = () => {
               min="0.2"
               max="2.2"
               step="0.1"
-              value={tempViewerFilterParams.gamma}
+              value={tempViewerFilterParams.gamma ?? 1.0}
               onChange={(e) => handleParamChange('gamma', e.target.value)}
             />
-            <span>{tempViewerFilterParams.gamma.toFixed(1)}</span>
+            <span>{(tempViewerFilterParams.gamma ?? 1.0).toFixed(1)}</span>
           </div>
+        );
+      case 'bilateral':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Size</label>
+              <input
+                type="range"
+                min="3"
+                max="21"
+                step="2"
+                value={tempViewerFilterParams.kernelSize ?? 3}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+            </div>
+            <div className="control-row">
+              <label>Sigma Color</label>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                step="1"
+                value={tempViewerFilterParams.sigmaColor ?? 20}
+                onChange={(e) => handleParamChange('sigmaColor', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.sigmaColor ?? 20}</span>
+            </div>
+            <div className="control-row">
+              <label>Sigma Space</label>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                step="1"
+                value={tempViewerFilterParams.sigmaSpace ?? 20}
+                onChange={(e) => handleParamChange('sigmaSpace', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.sigmaSpace ?? 20}</span>
+            </div>
+          </>
+        );
+      case 'nonlocalmeans':
+        return (
+          <>
+            <div className="control-row">
+              <label>Patch Size</label>
+              <input
+                type="range"
+                min="3"
+                max="9"
+                step="2"
+                value={tempViewerFilterParams.patchSize ?? 5}
+                onChange={(e) => handleParamChange('patchSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.patchSize ?? 5}</span>
+            </div>
+            <div className="control-row">
+              <label>Search Window</label>
+              <input
+                type="range"
+                min="5"
+                max="21"
+                step="2"
+                value={tempViewerFilterParams.searchWindowSize ?? 11}
+                onChange={(e) => handleParamChange('searchWindowSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.searchWindowSize ?? 11}</span>
+            </div>
+            <div className="control-row">
+              <label>H (Smoothing)</label>
+              <input
+                type="range"
+                min="1"
+                max="50"
+                step="1"
+                value={tempViewerFilterParams.h ?? 10}
+                onChange={(e) => handleParamChange('h', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.h ?? 10}</span>
+            </div>
+          </>
+        );
+      case 'anisotropicdiffusion':
+        return (
+          <>
+            <div className="control-row">
+              <label>Iterations</label>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                step="1"
+                value={tempViewerFilterParams.iterations ?? 10}
+                onChange={(e) => handleParamChange('iterations', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.iterations ?? 10}</span>
+            </div>
+            <div className="control-row">
+              <label>Kappa</label>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                step="1"
+                value={tempViewerFilterParams.kappa ?? 20}
+                onChange={(e) => handleParamChange('kappa', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kappa ?? 20}</span>
+            </div>
+          </>
         );
       default:
         return <p>No parameters for this filter.</p>;

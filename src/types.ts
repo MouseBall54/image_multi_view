@@ -39,6 +39,8 @@ export type FilterType =
   | "gaussianblur"
   | "boxblur"
   | "median"
+  | "weightedmedian"
+  | "alphatrimmedmean"
   // Sharpening
   | "sharpen"
   | "laplacian"
@@ -46,11 +48,16 @@ export type FilterType =
   | "prewitt"
   | "scharr"
   | "canny"
+  | "robertscross"
   // Contrast
   | "linearstretch"
   | "histogramequalization"
   | "clahe"
   | "gammacorrection"
   | "localhistogramequalization"
-  | "adaptivehistogramequalization";
+  | "adaptivehistogramequalization"
+  // Advanced Denoising
+  | "bilateral"
+  | "nonlocalmeans"
+  | "anisotropicdiffusion";
 
