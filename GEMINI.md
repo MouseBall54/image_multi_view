@@ -71,7 +71,7 @@
 ### 4.1 공간 영역 기반
 
 - [x] Unsharp Masking
-- [ ] High-pass Filter
+- [x] High-pass Filter
 - [x] Laplacian Sharpening - (기본 `Sharpen`으로 구현)
 
 ### 4.2 주파수 영역 기반
@@ -112,7 +112,7 @@
 ---
 ## ✅ 지시 규칙
 
-1. 입력 이미지는 반드시 **Grayscale** 상태여야 함. 아닐 경우 Grayscale로 변형 후 진행
+1. 필터 적용시  **Grayscale** 상태여야할 경우. 초기에 Grayscale로 변형 후 진행
 2. 필터 적용 전 후 이미지를 저장하여 비교 가능하게 할 것.
 3. 커널 크기, σ 값, 임계값 등 **변수는 파라미터화**하여 조정 가능하게 할 것.
 4. Morphological Filter는 이진화 후 적용할 것.

@@ -123,6 +123,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       case 'laplacian': 
         Filters.applyLaplacian(ctx); 
         break;
+      case 'highpass':
+        Filters.applyHighpass(ctx);
+        break;
       case 'prewitt': 
         Filters.applyPrewitt(ctx); 
         break;

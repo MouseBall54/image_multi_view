@@ -20,6 +20,7 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Alpha-trimmed Mean', type: 'alphatrimmedmean', group: 'Blurring' },
   { name: 'Sharpen', type: 'sharpen', group: 'Sharpening' },
   { name: 'Unsharp Masking', type: 'unsharpmask', group: 'Sharpening' },
+  { name: 'High-pass Filter', type: 'highpass', group: 'Sharpening' },
   { name: 'Laplacian', type: 'laplacian', group: 'Sharpening' },
   { name: 'Sobel', type: 'sobel', group: 'Edge Detection' },
   { name: 'Prewitt', type: 'prewitt', group: 'Edge Detection' },

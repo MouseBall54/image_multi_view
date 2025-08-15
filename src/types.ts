@@ -45,6 +45,7 @@ export type FilterType =
   | "sharpen"
   | "laplacian"
   | "unsharpmask"
+  | "highpass"
   // Edge Detection
   | "prewitt"
   | "scharr"

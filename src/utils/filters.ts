@@ -116,6 +116,7 @@ const sobelKernelX: Kernel = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
 const sobelKernelY: Kernel = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
 const robertsKernelX: Kernel = [[1, 0], [0, -1]];
 const robertsKernelY: Kernel = [[0, 1], [-1, 0]];
+const highpassKernel: Kernel = [[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]];
 
 function applyEdgeFilter(ctx: CanvasRenderingContext2D, kernelX: Kernel, kernelY: Kernel) {
     const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -169,6 +170,7 @@ export const applySharpen = (ctx: CanvasRenderingContext2D, params: FilterParams
 };
 
 export const applyLaplacian = (ctx: CanvasRenderingContext2D) => convolve(ctx, laplacianKernel);
+export const applyHighpass = (ctx: CanvasRenderingContext2D) => convolve(ctx, highpassKernel);
 export const applyPrewitt = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, prewittKernelX, prewittKernelY);
 export const applyScharr = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, scharrKernelX, scharrKernelY);
 export const applySobel = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, sobelKernelX, sobelKernelY);
