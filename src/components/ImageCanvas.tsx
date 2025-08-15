@@ -1,19 +1,10 @@
-// src/components/ImageCanvas.tsx
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef, useCallback } from "react";
 import { useStore } from "../store";
 import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, RESPECT_EXIF, WHEEL_ZOOM_STEP, SHOW_FOLDER_LABEL, UTIF_OPTIONS } from "../config";
 import { Minimap } from "./Minimap";
 import { AppMode, FolderKey, FilterType } from "../types";
 import { decodeTiffWithUTIF } from '../utils/utif';
-import { 
-  applySobelFilter, 
-  applyGaussianBlur, 
-  applyBoxBlur, 
-  applySharpen, 
-  applyLaplacian, 
-  applyPrewitt, 
-  applyScharr 
-} from "../utils/filters";
+import * as Filters from "../utils/filters";
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -29,7 +20,6 @@ type Props = {
   folderKey: FolderKey;
   onClick?: (folderKey: FolderKey) => void;
   isActive?: boolean;
-  onContextMenu?: (event: React.MouseEvent) => void;
 };
 
 export interface ImageCanvasHandle {
@@ -37,24 +27,77 @@ export interface ImageCanvasHandle {
   getCanvas: () => HTMLCanvasElement | null;
 }
 
-export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive, onContextMenu }, ref) => {
+export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [image, setImage] = useState<DrawableImage | null>(null);
+  const [sourceImage, setSourceImage] = useState<DrawableImage | null>(null);
+  const [processedImage, setProcessedImage] = useState<DrawableImage | null>(null);
   const [isRotating, setIsRotating] = useState(false);
   const { 
     viewport, setViewport, syncMode, setFitScaleFn, 
     pinpointMouseMode, setPinpointScale, 
     pinpointGlobalScale, setPinpointGlobalScale, showMinimap,
-    pinpointRotations, viewerFilters, indicator
+    pinpointRotations, viewerFilters, viewerFilterParams, indicator
   } = useStore();
 
-  const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
-    const { width, height } = ctx.canvas;
-    ctx.clearRect(0, 0, width, height);
-    ctx.save();
+  // Effect to load the source image from file
+  useEffect(() => {
+    let revoked = false;
+    if (!file) { 
+      setSourceImage(null);
+      return; 
+    }
+    const cacheKey = `${label}-${file.name}`;
+    const cachedImage = cache.get(cacheKey);
+    if (cachedImage) { 
+      setSourceImage(cachedImage); 
+      return; 
+    }
+    (async () => {
+      try {
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        let newImage: DrawableImage;
+        if (ext === 'tif' || ext === 'tiff') {
+          const imgElement = await decodeTiffWithUTIF(file, UTIF_OPTIONS);
+          newImage = await createImageBitmap(imgElement);
+        } else {
+          const opts: ImageBitmapOptions = RESPECT_EXIF ? { imageOrientation: "from-image" as any } : {};
+          newImage = await createImageBitmap(file, opts);
+        }
+        if (!revoked) {
+          cache.set(cacheKey, newImage);
+          setSourceImage(newImage);
+        }
+      } catch (err) {
+        console.error('Error loading image:', err);
+        if (!revoked) setSourceImage(null);
+      }
+    })();
+    return () => { revoked = true; };
+  }, [file, label, cache]);
 
+  // Effect to process the image whenever the source or filters change
+  useEffect(() => {
     const filter = viewerFilters[folderKey] || 'none';
+    const params = viewerFilterParams[folderKey];
 
+    if (!sourceImage) {
+      setProcessedImage(null);
+      return;
+    }
+
+    if (filter === 'none') {
+      setProcessedImage(sourceImage);
+      return;
+    }
+
+    // For canvas-based filters, create an offscreen canvas to process the image
+    const offscreenCanvas = document.createElement('canvas');
+    offscreenCanvas.width = sourceImage.width;
+    offscreenCanvas.height = sourceImage.height;
+    const ctx = offscreenCanvas.getContext('2d');
+    if (!ctx) return;
+
+    // Handle CSS filters separately if needed, otherwise draw for processing
     const cssFilters: Partial<Record<FilterType, string>> = {
       'grayscale': 'grayscale(100%)',
       'invert': 'invert(100%)',
@@ -63,9 +106,97 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
     if (filter in cssFilters) {
       ctx.filter = cssFilters[filter as keyof typeof cssFilters]!;
+      ctx.drawImage(sourceImage, 0, 0);
+      ctx.filter = 'none'; // Reset filter for other operations
     } else {
-      ctx.filter = 'none';
+      ctx.drawImage(sourceImage, 0, 0);
     }
+
+    // Apply canvas-based filters
+    switch (filter) {
+      case 'linearstretch': 
+        Filters.applyLinearStretch(ctx); 
+        break;
+      case 'histogramequalization': 
+        Filters.applyHistogramEqualization(ctx); 
+        break;
+      case 'laplacian': 
+        Filters.applyLaplacian(ctx); 
+        break;
+      case 'prewitt': 
+        Filters.applyPrewitt(ctx); 
+        break;
+      case 'scharr': 
+        Filters.applyScharr(ctx); 
+        break;
+      case 'sobel': 
+        Filters.applySobel(ctx); 
+        break;
+      case 'robertscross':
+        Filters.applyRobertsCross(ctx);
+        break;
+      // Filters that require params
+      case 'log':
+        if (params) Filters.applyLoG(ctx, params);
+        break;
+      case 'dog':
+        if (params) Filters.applyDoG(ctx, params);
+        break;
+      case 'marrhildreth':
+        if (params) Filters.applyMarrHildreth(ctx, params);
+        break;
+      case 'gaussianblur':
+        if (params) Filters.applyGaussianBlur(ctx, params);
+        break;
+      case 'boxblur':
+        if (params) Filters.applyBoxBlur(ctx, params);
+        break;
+      case 'median':
+        if (params) Filters.applyMedian(ctx, params);
+        break;
+      case 'weightedmedian':
+        if (params) Filters.applyWeightedMedian(ctx, params);
+        break;
+      case 'alphatrimmedmean':
+        if (params) Filters.applyAlphaTrimmedMean(ctx, params);
+        break;
+      case 'localhistogramequalization':
+        if (params) Filters.applyLocalHistogramEqualization(ctx, params);
+        break;
+      case 'adaptivehistogramequalization':
+        if (params) Filters.applyAdaptiveHistogramEqualization(ctx, params);
+        break;
+      case 'sharpen':
+        if (params) Filters.applySharpen(ctx, params);
+        break;
+      case 'canny':
+        if (params) Filters.applyCanny(ctx, params);
+        break;
+      case 'clahe':
+        if (params) Filters.applyClahe(ctx, params);
+        break;
+      case 'gammacorrection':
+        if (params) Filters.applyGammaCorrection(ctx, params);
+        break;
+      case 'bilateral':
+        if (params) Filters.applyBilateralFilter(ctx, params);
+        break;
+      case 'nonlocalmeans':
+        if (params) Filters.applyNonLocalMeans(ctx, params);
+        break;
+      case 'anisotropicdiffusion':
+        if (params) Filters.applyAnisotropicDiffusion(ctx, params);
+        break;
+    }
+
+    createImageBitmap(offscreenCanvas).then(setProcessedImage);
+
+  }, [sourceImage, viewerFilters, viewerFilterParams, folderKey]);
+
+  const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
+    const { width, height } = ctx.canvas;
+    ctx.clearRect(0, 0, width, height);
+    ctx.save();
 
     const individualScale = overrideScale ?? viewport.scale;
     const scale = appMode === 'pinpoint' ? individualScale * pinpointGlobalScale : individualScale;
@@ -102,18 +233,6 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(currentImage, x, y, drawW, drawH);
     
-    ctx.filter = 'none';
-
-    switch (filter) {
-      case 'sobel': applySobelFilter(ctx); break;
-      case 'gaussianblur': applyGaussianBlur(ctx); break;
-      case 'boxblur': applyBoxBlur(ctx); break;
-      case 'sharpen': applySharpen(ctx); break;
-      case 'laplacian': applyLaplacian(ctx); break;
-      case 'prewitt': applyPrewitt(ctx); break;
-      case 'scharr': applyScharr(ctx); break;
-    }
-    
     ctx.restore();
 
     if (isRotating) {
@@ -145,12 +264,12 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ctx.stroke();
       ctx.restore();
     }
-  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating, viewerFilters]);
+  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {
-      if (image) {
-        drawImage(ctx, image, withCrosshair);
+      if (processedImage) {
+        drawImage(ctx, processedImage, withCrosshair);
       }
     },
     getCanvas: () => canvasRef.current,
@@ -159,57 +278,29 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   useEffect(() => {
     if (isReference) {
       const calculateFitScale = () => {
-        if (!canvasRef.current || !image) return 1;
+        if (!canvasRef.current || !sourceImage) return 1;
         const { width, height } = canvasRef.current.getBoundingClientRect();
-        const scale = Math.min(width / image.width, height / image.height);
+        const scale = Math.min(width / sourceImage.width, height / sourceImage.height);
         return scale;
       };
       setFitScaleFn(calculateFitScale);
     }
-  }, [image, isReference, setFitScaleFn]);
+  }, [sourceImage, isReference, setFitScaleFn]);
 
-  useEffect(() => {
-    let revoked = false;
-    if (!file) { setImage(null); return; }
-    const cacheKey = `${label}-${file.name}`;
-    const cachedImage = cache.get(cacheKey);
-    if (cachedImage) { setImage(cachedImage); return; }
-    (async () => {
-      try {
-        const ext = (file.name.split('.').pop() || '').toLowerCase();
-        let newImage: DrawableImage;
-        if (ext === 'tif' || ext === 'tiff') {
-          const imgElement = await decodeTiffWithUTIF(file, UTIF_OPTIONS);
-          newImage = await createImageBitmap(imgElement);
-        } else {
-          const opts: ImageBitmapOptions = RESPECT_EXIF ? { imageOrientation: "from-image" as any } : {};
-          newImage = await createImageBitmap(file, opts);
-        }
-        if (!revoked) {
-          cache.set(cacheKey, newImage);
-          setImage(newImage);
-        }
-      } catch (err) {
-        console.error('Error loading image:', err);
-        if (!revoked) setImage(null);
-      }
-    })();
-    return () => { revoked = true; };
-  }, [file, label, cache]);
-
+  // Effect to draw the processed image to the visible canvas
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !image) return;
+    if (!canvas || !processedImage) return;
     const ctx = canvas.getContext("2d")!;
     const { width, height } = canvas.getBoundingClientRect();
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
-    drawImage(ctx, image, true);
-  }, [image, drawImage, viewport, pinpointGlobalScale, pinpointRotations, isRotating, viewerFilters]);
+    drawImage(ctx, processedImage, true);
+  }, [processedImage, drawImage, viewport, pinpointGlobalScale, pinpointRotations, isRotating]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !image || appMode !== 'pinpoint' || !onSetRefPoint || pinpointMouseMode !== 'pin') return;
+    if (!canvas || !sourceImage || appMode !== 'pinpoint' || !onSetRefPoint || pinpointMouseMode !== 'pin') return;
     const handleClick = (e: MouseEvent) => {
       const { left, top, width, height } = canvas.getBoundingClientRect();
       const canvasX = e.clientX - left;
@@ -219,39 +310,39 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const currentRefPoint = refPoint || { x: 0.5, y: 0.5 };
       const refScreenX = viewport.refScreenX || (width / 2);
       const refScreenY = viewport.refScreenY || (height / 2);
-      const refImgX = currentRefPoint.x * image.width;
-      const refImgY = currentRefPoint.y * image.height;
+      const refImgX = currentRefPoint.x * sourceImage.width;
+      const refImgY = currentRefPoint.y * sourceImage.height;
       const drawX = refScreenX - (refImgX * scale);
       const drawY = refScreenY - (refImgY * scale);
       const imgX = (canvasX - drawX) / scale;
       const imgY = (canvasY - drawY) / scale;
-      if (imgX >= 0 && imgX <= image.width && imgY >= 0 && imgY <= image.height) {
-        onSetRefPoint(folderKey, { x: imgX / image.width, y: imgY / image.height }, { x: canvasX, y: canvasY });
+      if (imgX >= 0 && imgX <= sourceImage.width && imgY >= 0 && imgY <= sourceImage.height) {
+        onSetRefPoint(folderKey, { x: imgX / sourceImage.width, y: imgY / sourceImage.height }, { x: canvasX, y: canvasY });
       }
     };
     canvas.addEventListener('click', handleClick);
     return () => canvas.removeEventListener('click', handleClick);
-  }, [image, appMode, onSetRefPoint, viewport, folderKey, refPoint, pinpointMouseMode, overrideScale, pinpointGlobalScale]);
+  }, [sourceImage, appMode, onSetRefPoint, viewport, folderKey, refPoint, pinpointMouseMode, overrideScale, pinpointGlobalScale]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const handleCtxMenu = (e: MouseEvent) => {
-      if (onContextMenu) {
-        onContextMenu(e);
-      } else if (appMode === 'pinpoint') {
+      if (appMode === 'pinpoint') {
         e.preventDefault();
         const { pinpointMouseMode, setPinpointMouseMode } = useStore.getState();
         setPinpointMouseMode(pinpointMouseMode === 'pin' ? 'pan' : 'pin');
       }
     };
+
     canvas.addEventListener('contextmenu', handleCtxMenu);
     return () => canvas.removeEventListener('contextmenu', handleCtxMenu);
-  }, [appMode, onContextMenu]);
+  }, [appMode]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !image) return;
+    if (!canvas || !sourceImage) return;
     let isDown = false;
     let lastX = 0, lastY = 0;
     let dragMode: 'pan' | 'rotate' | null = null;
@@ -281,7 +372,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         if (nextScale === preScale) return;
         let { cx, cy } = currentViewport;
         if (CURSOR_ZOOM_CENTERED) {
-          const imgW = image.width, imgH = image.height;
+          const imgW = sourceImage.width, imgH = sourceImage.height;
           const drawW = imgW * preScale;
           const x = (width / 2) - ((cx || 0.5) * imgW * preScale);
           const y = (height / 2) - ((cy || 0.5) * imgH * preScale);
@@ -349,7 +440,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         const refScreenY = (currentViewport.refScreenY || (canvas.height / 2)) + dy;
         setViewport({ refScreenX, refScreenY });
       } else {
-        const imgW = image.width, imgH = image.height;
+        const imgW = sourceImage.width, imgH = sourceImage.height;
         const dpX = -dx / (currentViewport.scale * imgW);
         const dpY = -dy / (currentViewport.scale * imgH);
         let cx = (currentViewport.cx || 0.5) + dpX;
@@ -369,7 +460,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mousemove", onMove);
     };
-  }, [image, syncMode, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, setPinpointScale]);
+  }, [sourceImage, syncMode, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, setPinpointScale]);
 
   const rotationAngle = appMode === 'pinpoint' ? (pinpointRotations[folderKey] || 0) : 0;
 
@@ -384,10 +475,10 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         </div>
       )}
 
-      <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} onContextMenu={onContextMenu} />
-      {!file && <div className="viewer__placeholder">{appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image'}</div>}
+      <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} />
+      {!processedImage && <div className="viewer__placeholder">{file ? 'Processing...' : (appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image')}</div>}
       
-      {indicator && image && canvasRef.current && appMode !== 'pinpoint' && (
+      {indicator && processedImage && canvasRef.current && appMode !== 'pinpoint' && (
         <div
           key={indicator.key}
           className="indicator-dot"
@@ -397,7 +488,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           }}
         />
       )}
-      {showMinimap && image instanceof ImageBitmap && <Minimap bitmap={image} viewport={viewport} />}
+      {showMinimap && sourceImage instanceof ImageBitmap && <Minimap bitmap={sourceImage} viewport={viewport} />}
     </div>
   );
 });

@@ -1,10 +1,10 @@
 
 import React, { useState, useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useStore } from '../store';
-import { useFolderPickers, FolderState } from '../hooks/useFolderPickers';
+import { useFolderPickers } from '../hooks/useFolderPickers';
 import { matchFilenames } from '../utils/match';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
-import type { FolderKey, MatchedItem, FilterType } from '../types';
+import type { FolderKey, MatchedItem } from '../types';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -21,10 +21,9 @@ interface CompareModeProps {
 export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, stripExt, setStripExt, setViewerFilter } = useStore();
+  const { current, setCurrent, stripExt, setStripExt, openFilterEditor } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, key: FolderKey } | null>(null);
 
   const canvasRefs = FOLDER_KEYS.reduce((acc, key) => {
     acc[key] = useRef<ImageCanvasHandle>(null);
@@ -36,16 +35,6 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
       // ... (capture logic remains the same)
     }
   }));
-
-  const handleContextMenu = (event: React.MouseEvent, key: FolderKey) => {
-    event.preventDefault();
-    setContextMenu({ x: event.clientX, y: event.clientY, key });
-  };
-
-  const handleFilterSelect = (key: FolderKey, filter: FilterType) => {
-    setViewerFilter(key, filter);
-    setContextMenu(null);
-  };
 
   const fileOf = (key: FolderKey, item: MatchedItem | null): File | undefined => {
     if (!item) return undefined;
@@ -61,16 +50,6 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     const primaryFile = fileOf('A', current);
     setPrimaryFile(primaryFile || null);
   }, [current, allFolders, setPrimaryFile]);
-
-  useEffect(() => {
-    const handleClickOutside = () => setContextMenu(null);
-    if (contextMenu) {
-      window.addEventListener('click', handleClickOutside);
-    }
-    return () => {
-      window.removeEventListener('click', handleClickOutside);
-    };
-  }, [contextMenu]);
 
   const activeFolders = useMemo(() => {
     return FOLDER_KEYS.slice(0, numViewers).reduce((acc, key) => {
@@ -131,6 +110,11 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
         <button onClick={() => pick(key)} className="repick-button" title={`Repick Folder ${key}`}>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><path d="M12 11v6"></path><path d="m15 14-3 3-3-3"></path></svg>
         </button>
+        {key !== 'A' && (
+          <button onClick={() => openFilterEditor(key)} className="filter-button" title={`Filter Settings for ${key}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          </button>
+        )}
       </div>
     );
   };
@@ -192,30 +176,9 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
               cache={bitmapCache.current} 
               appMode="compare" 
               folderKey={key} 
-              onContextMenu={(e) => handleContextMenu(e, key)}
             />
           ))}
         </section>
-        {contextMenu && (
-          <div className="context-menu" style={{ top: contextMenu.y, left: contextMenu.x }}>
-            <ul>
-              <li onClick={() => handleFilterSelect(contextMenu.key, 'none')}>None</li>
-              <li onClick={() => handleFilterSelect(contextMenu.key, 'grayscale')}>Grayscale</li>
-              <li onClick={() => handleFilterSelect(contextMenu.key, 'invert')}>Invert</li>
-              <li onClick={() => handleFilterSelect(contextMenu.key, 'sepia')}>Sepia</li>
-              <hr />
-              <li onClick={() => handleFilterSelect(contextMenu.key, 'boxblur')}>Box Blur</li>
-              <li onClick={() => handleFilterSelect(contextMenu.key, 'gaussianblur')}>Gaussian Blur</li>
-              <hr />
-              <li onClick={() => handleFilterSelect(contextMenu.key, 'sharpen')}>Sharpen</li>
-              <li onClick={() => handleFilterSelect(contextMenu.key, 'laplacian')}>Laplacian</li>
-              <hr />
-              <li onClick={() => handleFilterSelect(contextMenu.key, 'sobel')}>Sobel</li>
-              <li onClick={() => handleFilterSelect(contextMenu.key, 'prewitt')}>Prewitt</li>
-              <li onClick={() => handleFilterSelect(contextMenu.key, 'scharr')}>Scharr</li>
-            </ul>
-          </div>
-        )}
       </main>
     </>
   );
