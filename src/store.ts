@@ -17,6 +17,12 @@ export interface FilterParams {
   clipLimit: number;
   gridSize: number;
   gamma: number;
+  cutoff: number;
+  // Gabor params
+  theta: number; // Orientation
+  sigma: number; // Bandwidth
+  lambda: number; // Wavelength
+  psi: number; // Phase offset
 }
 
 const defaultFilterParams: FilterParams = {
@@ -28,6 +34,11 @@ const defaultFilterParams: FilterParams = {
   clipLimit: 2,
   gridSize: 8,
   gamma: 1.0,
+  cutoff: 30,
+  // Gabor defaults
+  theta: 0,
+  lambda: 10.0,
+  psi: 0,
 };
 
 interface State {

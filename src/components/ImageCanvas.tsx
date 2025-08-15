@@ -193,6 +193,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       case 'unsharpmask':
         if (params) Filters.applyUnsharpMask(ctx, params);
         break;
+      case 'gabor':
+        if (params) Filters.applyGabor(ctx, params);
+        break;
     }
 
     createImageBitmap(offscreenCanvas).then(setProcessedImage);

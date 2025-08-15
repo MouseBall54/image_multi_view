@@ -77,7 +77,7 @@
 
 ### 5.1 텍스처 분석
 
-- [ ] Gabor Filter
+- [x] Gabor Filter
 - [ ] Laws' Texture Energy
 - [ ] Local Binary Patterns (LBP)
 

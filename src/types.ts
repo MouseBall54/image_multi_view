@@ -64,5 +64,7 @@ export type FilterType =
   // Advanced Denoising
   | "bilateral"
   | "nonlocalmeans"
-  | "anisotropicdiffusion";
+  | "anisotropicdiffusion"
+  // Texture Analysis
+  | "gabor";
 

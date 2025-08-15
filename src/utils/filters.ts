@@ -66,6 +66,28 @@ function createSharpenKernel(amount: number): number[][] {
   ];
 }
 
+function createGaborKernel(params: FilterParams): Kernel {
+  const { kernelSize, sigma, theta, lambda, gamma, psi } = params;
+  const kernel: Kernel = Array(kernelSize).fill(0).map(() => Array(kernelSize).fill(0));
+  const half = Math.floor(kernelSize / 2);
+  
+  const sigmaX = sigma;
+  const sigmaY = sigma / gamma;
+
+  for (let y = 0; y < kernelSize; y++) {
+    for (let x = 0; x < kernelSize; x++) {
+      const x_ = (x - half) * Math.cos(theta) + (y - half) * Math.sin(theta);
+      const y_ = -(x - half) * Math.sin(theta) + (y - half) * Math.cos(theta);
+
+      const gaussian = Math.exp(-0.5 * ( (x_ * x_) / (sigmaX * sigmaX) + (y_ * y_) / (sigmaY * sigmaY) ));
+      const sinusoidal = Math.cos(2 * Math.PI * (x_ / lambda) + psi);
+      
+      kernel[y][x] = gaussian * sinusoidal;
+    }
+  }
+  return kernel;
+}
+
 type Kernel = number[][];
 
 function convolve(ctx: CanvasRenderingContext2D, kernel: Kernel) {
@@ -166,6 +188,11 @@ export const applyGaussianBlur = (ctx: CanvasRenderingContext2D, params: FilterP
 
 export const applySharpen = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
   const kernel = createSharpenKernel(params.sharpenAmount);
+  convolve(ctx, kernel);
+};
+
+export const applyGabor = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const kernel = createGaborKernel(params);
   convolve(ctx, kernel);
 };
 

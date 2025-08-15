@@ -33,9 +33,10 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Bilateral Filter', type: 'bilateral', group: 'Advanced Denoising' },
   { name: 'Non-local Means', type: 'nonlocalmeans', group: 'Advanced Denoising' },
   { name: 'Anisotropic Diffusion', type: 'anisotropicdiffusion', group: 'Advanced Denoising' },
+  { name: 'Gabor Filter', type: 'gabor', group: 'Texture Analysis' },
 ];
 
-const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising'];
+const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising', 'Texture Analysis'];
 
 export const FilterControls: React.FC = () => {
   const {
@@ -496,6 +497,41 @@ export const FilterControls: React.FC = () => {
                 onChange={(e) => handleParamChange('sharpenAmount', e.target.value)}
               />
               <span>{(tempViewerFilterParams.sharpenAmount ?? 1.0).toFixed(1)}</span>
+            </div>
+          </>
+        );
+      case 'gabor':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Size</label>
+              <input type="range" min="3" max="31" step="2" value={tempViewerFilterParams.kernelSize ?? 15} onChange={(e) => handleParamChange('kernelSize', e.target.value)} />
+              <span>{tempViewerFilterParams.kernelSize ?? 15}</span>
+            </div>
+            <div className="control-row">
+              <label>Theta (θ)</label>
+              <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.theta ?? 0} onChange={(e) => handleParamChange('theta', e.target.value)} />
+              <span>{(tempViewerFilterParams.theta ?? 0).toFixed(2)}</span>
+            </div>
+            <div className="control-row">
+              <label>Sigma (σ)</label>
+              <input type="range" min="1" max="10" step="0.5" value={tempViewerFilterParams.sigma ?? 4.0} onChange={(e) => handleParamChange('sigma', e.target.value)} />
+              <span>{(tempViewerFilterParams.sigma ?? 4.0).toFixed(1)}</span>
+            </div>
+            <div className="control-row">
+              <label>Lambda (λ)</label>
+              <input type="range" min="3" max="20" step="1" value={tempViewerFilterParams.lambda ?? 10.0} onChange={(e) => handleParamChange('lambda', e.target.value)} />
+              <span>{(tempViewerFilterParams.lambda ?? 10.0).toFixed(1)}</span>
+            </div>
+            <div className="control-row">
+              <label>Gamma (γ)</label>
+              <input type="range" min="0.2" max="1" step="0.1" value={tempViewerFilterParams.gamma ?? 0.5} onChange={(e) => handleParamChange('gamma', e.target.value)} />
+              <span>{(tempViewerFilterParams.gamma ?? 0.5).toFixed(1)}</span>
+            </div>
+            <div className="control-row">
+              <label>Psi (ψ)</label>
+              <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.psi ?? 0} onChange={(e) => handleParamChange('psi', e.target.value)} />
+              <span>{(tempViewerFilterParams.psi ?? 0).toFixed(2)}</span>
             </div>
           </>
         );
