@@ -70,7 +70,7 @@
 
 ### 4.1 공간 영역 기반
 
-- [ ] Unsharp Masking
+- [x] Unsharp Masking
 - [ ] High-pass Filter
 - [x] Laplacian Sharpening - (기본 `Sharpen`으로 구현)
 
@@ -123,6 +123,7 @@
 ## 🚀 신규 필터 추가 작업 절차
 
 새로운 이미지 필터를 추가할 때는 아래의 4단계 절차를 따른다. 이 절차는 코드의 일관성과 유지보수성을 보장한다.
+왠만하면 openCV.js에 있는 걸 가져다 쓰고 없을 경우 직접 구현하되, 성능향으로 구현.
 
 1.  **`src/types.ts` 수정 (타입 정의)**
     - `FilterType` 유니온 타입에 새로운 필터를 식별할 수 있는 고유한 문자열 리터럴 타입을 추가한다. (예: `'histogramequalization'`).

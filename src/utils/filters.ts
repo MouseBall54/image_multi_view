@@ -980,6 +980,51 @@ export const applyNonLocalMeans = (ctx: CanvasRenderingContext2D, params: Filter
   ctx.putImageData(imageData, 0, 0);
 };
 
+export const applyUnsharpMask = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const { kernelSize, sigma, sharpenAmount: unsharpAmount } = params;
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+  const originalData = new Uint8ClampedArray(data);
+
+  // 1. Create a blurred version of the image on a temporary canvas
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  const tempCtx = tempCanvas.getContext('2d')!;
+  tempCtx.putImageData(imageData, 0, 0);
+
+  // Create and apply Gaussian kernel
+  const kernel = createGaussianKernel(sigma, kernelSize);
+  convolve(tempCtx, kernel);
+  const blurredData = tempCtx.getImageData(0, 0, width, height).data;
+
+  // 2. Calculate sharpened image: Sharpened = Original + Amount * (Original - Blurred)
+  for (let i = 0; i < data.length; i += 4) {
+    // Red channel
+    const originalR = originalData[i];
+    const blurredR = blurredData[i];
+    const sharpenedR = originalR + unsharpAmount * (originalR - blurredR);
+    data[i] = Math.max(0, Math.min(255, sharpenedR));
+
+    // Green channel
+    const originalG = originalData[i + 1];
+    const blurredG = blurredData[i + 1];
+    const sharpenedG = originalG + unsharpAmount * (originalG - blurredG);
+    data[i + 1] = Math.max(0, Math.min(255, sharpenedG));
+
+    // Blue channel
+    const originalB = originalData[i + 2];
+    const blurredB = blurredData[i + 2];
+    const sharpenedB = originalB + unsharpAmount * (originalB - blurredB);
+    data[i + 2] = Math.max(0, Math.min(255, sharpenedB));
+    
+    // Alpha channel remains the same
+    data[i + 3] = originalData[i + 3];
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};
+
 export const applyAnisotropicDiffusion = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
   const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
   const { data, width, height } = imageData;

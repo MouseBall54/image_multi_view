@@ -19,6 +19,7 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Weighted Median', type: 'weightedmedian', group: 'Blurring' },
   { name: 'Alpha-trimmed Mean', type: 'alphatrimmedmean', group: 'Blurring' },
   { name: 'Sharpen', type: 'sharpen', group: 'Sharpening' },
+  { name: 'Unsharp Masking', type: 'unsharpmask', group: 'Sharpening' },
   { name: 'Laplacian', type: 'laplacian', group: 'Sharpening' },
   { name: 'Sobel', type: 'sobel', group: 'Edge Detection' },
   { name: 'Prewitt', type: 'prewitt', group: 'Edge Detection' },
@@ -453,6 +454,47 @@ export const FilterControls: React.FC = () => {
                 onChange={(e) => handleParamChange('kappa', e.target.value)}
               />
               <span>{tempViewerFilterParams.kappa ?? 20}</span>
+            </div>
+          </>
+        );
+      case 'unsharpmask':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Size</label>
+              <input
+                type="range"
+                min="3"
+                max="21"
+                step="2"
+                value={tempViewerFilterParams.kernelSize ?? 5}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 5}</span>
+            </div>
+            <div className="control-row">
+              <label>Sigma</label>
+              <input
+                type="range"
+                min="0.1"
+                max="10"
+                step="0.1"
+                value={tempViewerFilterParams.sigma ?? 1.0}
+                onChange={(e) => handleParamChange('sigma', e.target.value)}
+              />
+              <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+            </div>
+            <div className="control-row">
+              <label>Amount</label>
+              <input
+                type="range"
+                min="0.1"
+                max="5"
+                step="0.1"
+                value={tempViewerFilterParams.sharpenAmount ?? 1.0}
+                onChange={(e) => handleParamChange('sharpenAmount', e.target.value)}
+              />
+              <span>{(tempViewerFilterParams.sharpenAmount ?? 1.0).toFixed(1)}</span>
             </div>
           </>
         );

@@ -187,6 +187,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       case 'anisotropicdiffusion':
         if (params) Filters.applyAnisotropicDiffusion(ctx, params);
         break;
+      case 'unsharpmask':
+        if (params) Filters.applyUnsharpMask(ctx, params);
+        break;
     }
 
     createImageBitmap(offscreenCanvas).then(setProcessedImage);
