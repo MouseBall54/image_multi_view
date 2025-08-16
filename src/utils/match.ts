@@ -26,9 +26,15 @@ export function matchFilenames(
     });
   }
 
+  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+
   const list: MatchedItem[] = [];
   for (const filename of uniqueFilenames) {
-    const has: any = { A: false, B: false, C: false, D: false };
+    const has = FOLDER_KEYS.reduce((acc, key) => {
+      acc[key] = false;
+      return acc;
+    }, {} as Record<FolderKey, boolean>);
+    
     keys.forEach(k => {
       const map = folders[k]!;
       // stripExt 매칭 시 실제 파일명 다시 찾아 매핑(간단화: 첫 일치)

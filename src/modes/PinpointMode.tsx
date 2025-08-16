@@ -30,7 +30,7 @@ interface PinpointModeProps {
 export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, setViewport, viewport, pinpointScales, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale, activeCanvasKey, setActiveCanvasKey } = useStore();
+  const { current, setCurrent, setViewport, viewport, pinpointScales, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale, activeCanvasKey, setActiveCanvasKey, stripExt, setStripExt } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
@@ -115,8 +115,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   }, [activeKeys, allFolders]);
 
   const matched = useMemo(
-    () => matchFilenames(activeFolders, true, "union"), // Use "union" mode for pinpoint
-    [activeFolders]
+    () => matchFilenames(activeFolders, stripExt, "union"), // Use "union" mode for pinpoint
+    [activeFolders, stripExt]
   );
 
   const filteredMatched = useMemo(() => {
@@ -280,7 +280,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                 ))}
               </select>
               <label className="strip-ext-label">
-                <input type="checkbox" checked={true} readOnly />
+                <input type="checkbox" checked={stripExt} onChange={e => setStripExt(e.target.checked)} />
                 <span>Ignore extension</span>
               </label>
             </div>

@@ -32,7 +32,66 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
   useImperativeHandle(ref, () => ({
     capture: async ({ showLabels }) => {
-      // ... (capture logic remains the same)
+      const activeKeys = FOLDER_KEYS.slice(0, numViewers);
+      const firstCanvas = canvasRefs[activeKeys[0]]?.current?.getCanvas();
+      if (!firstCanvas) return null;
+      const { width, height } = firstCanvas;
+
+      const tempCanvases = activeKeys.map(key => {
+        const handle = canvasRefs[key].current;
+        if (!handle) return null;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) return null;
+        handle.drawToContext(tempCtx, false); // No crosshair in compare mode
+        return tempCanvas;
+      }).filter((c): c is HTMLCanvasElement => !!c);
+
+      if (tempCanvases.length === 0) return null;
+
+      const cols = Math.ceil(Math.sqrt(numViewers));
+      const rows = Math.ceil(numViewers / cols);
+      const combinedWidth = width * cols;
+      const combinedHeight = height * rows;
+
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = combinedWidth;
+      finalCanvas.height = combinedHeight;
+      const finalCtx = finalCanvas.getContext('2d');
+      if (!finalCtx) return null;
+
+      finalCtx.fillStyle = '#111';
+      finalCtx.fillRect(0, 0, combinedWidth, combinedHeight);
+      const BORDER_WIDTH = 2;
+      finalCtx.fillStyle = '#000';
+
+      tempCanvases.forEach((canvas, index) => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        const dx = col * width;
+        const dy = row * height;
+        finalCtx.drawImage(canvas, dx, dy);
+
+        if (col > 0) finalCtx.fillRect(dx - BORDER_WIDTH / 2, dy, BORDER_WIDTH, height);
+        if (row > 0) finalCtx.fillRect(dx, dy - BORDER_WIDTH / 2, width, BORDER_WIDTH);
+
+        if (showLabels) {
+          const key = activeKeys[index];
+          const folderLabel = allFolders[key]?.alias || key;
+          const filterName = getFilterName(viewerFilters[key]);
+          const label = filterName ? `${folderLabel}: ${filterName}` : folderLabel;
+          
+          finalCtx.font = '16px sans-serif';
+          finalCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          finalCtx.fillRect(dx + 5, dy + 5, finalCtx.measureText(label).width + 10, 24);
+          finalCtx.fillStyle = 'white';
+          finalCtx.fillText(label, dx + 10, dy + 22);
+        }
+      });
+
+      return finalCanvas.toDataURL('image/png');
     }
   }));
 

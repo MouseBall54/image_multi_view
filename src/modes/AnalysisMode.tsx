@@ -4,7 +4,7 @@ import { useFolderPickers } from '../hooks/useFolderPickers';
 import { matchFilenames } from '../utils/match';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { ALL_FILTERS } from '../components/FilterControls';
-import type { DrawableImage, FolderKey, MatchedItem } from '../types';
+import type { DrawableImage, FolderKey, MatchedItem, FilterType } from '../types';
 
 type Props = {
   numViewers: number;
@@ -17,7 +17,7 @@ export interface AnalysisModeHandle {
 }
 
 export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
-  const { analysisFile, setAnalysisFile, analysisFilters, analysisFilterParams, openFilterEditor, stripExt, setStripExt } = useStore();
+  const { analysisFile, setAnalysisFile, analysisFilters, analysisFilterParams, openFilterEditor } = useStore();
   const { pick, inputRefs, onInput, allFolders } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
@@ -25,10 +25,65 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   const FOLDER_KEY: FolderKey = "A"; // Use a single key for folder picking
 
   useImperativeHandle(ref, () => ({
-    capture: async (options) => {
-      console.log('Capture requested for AnalysisMode', options);
-      return null;
-    },
+    capture: async ({ showLabels }) => {
+      const firstCanvasHandle = imageCanvasRefs.current.get(0);
+      if (!firstCanvasHandle) return null;
+      const firstCanvas = firstCanvasHandle.getCanvas();
+      if (!firstCanvas) return null;
+      const { width, height } = firstCanvas;
+
+      const tempCanvases = Array.from({ length: numViewers }).map((_, i) => {
+        const handle = imageCanvasRefs.current.get(i);
+        if (!handle) return null;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) return null;
+        handle.drawToContext(tempCtx, false); // No crosshair in analysis mode
+        return tempCanvas;
+      }).filter((c): c is HTMLCanvasElement => !!c);
+
+      if (tempCanvases.length === 0) return null;
+
+      const cols = Math.ceil(Math.sqrt(numViewers));
+      const rows = Math.ceil(numViewers / cols);
+      const combinedWidth = width * cols;
+      const combinedHeight = height * rows;
+
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = combinedWidth;
+      finalCanvas.height = combinedHeight;
+      const finalCtx = finalCanvas.getContext('2d');
+      if (!finalCtx) return null;
+
+      finalCtx.fillStyle = '#111';
+      finalCtx.fillRect(0, 0, combinedWidth, combinedHeight);
+      const BORDER_WIDTH = 2;
+      finalCtx.fillStyle = '#000';
+
+      tempCanvases.forEach((canvas, index) => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        const dx = col * width;
+        const dy = row * height;
+        finalCtx.drawImage(canvas, dx, dy);
+
+        if (col > 0) finalCtx.fillRect(dx - BORDER_WIDTH / 2, dy, BORDER_WIDTH, height);
+        if (row > 0) finalCtx.fillRect(dx, dy - BORDER_WIDTH / 2, width, BORDER_WIDTH);
+
+        if (showLabels) {
+          const label = getFilterName(analysisFilters[index]);
+          finalCtx.font = '16px sans-serif';
+          finalCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          finalCtx.fillRect(dx + 5, dy + 5, finalCtx.measureText(label).width + 10, 24);
+          finalCtx.fillStyle = 'white';
+          finalCtx.fillText(label, dx + 10, dy + 22);
+        }
+      });
+
+      return finalCanvas.toDataURL('image/png');
+    }
   }));
 
   const folder = allFolders[FOLDER_KEY];
