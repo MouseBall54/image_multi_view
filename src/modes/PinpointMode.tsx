@@ -1,10 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { useStore } from '../store';
-import { useFolderPickers, FolderState } from '../hooks/useFolderPickers';
+import { useFolderPickers } from '../hooks/useFolderPickers';
 import { matchFilenames } from '../utils/match';
 import type { FolderKey, MatchedItem } from '../types';
 import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP } from '../config';
+import { FolderControl } from '../components/FolderControl';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -30,10 +31,13 @@ interface PinpointModeProps {
 export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, setViewport, viewport, pinpointScales, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale, activeCanvasKey, setActiveCanvasKey, stripExt, setStripExt } = useStore();
+  const { 
+    current, setCurrent, setViewport, viewport, 
+    pinpointScales, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale, 
+    activeCanvasKey, setActiveCanvasKey, stripExt, setStripExt, clearFolder 
+  } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
   const [folderFilter, setFolderFilter] = useState<FolderKey | 'all'>('all');
 
   const canvasRefs = FOLDER_KEYS.reduce((acc, key) => {
@@ -169,76 +173,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     setViewport({ refScreenX: screenPoint.x, refScreenY: screenPoint.y });
   };
 
-  const handleAliasChange = (key: FolderKey, newAlias: string) => {
-    updateAlias(key, newAlias);
-    setEditingAlias(null);
-  };
-
-  const handleFileListItemClick = useCallback((item: MatchedItem) => {
-    setCurrent(item);
-    if (activeCanvasKey) {
-      let fileToLoad: File | undefined;
-      for (const folderKey of activeKeys) {
-        if (item.has[folderKey]) {
-          fileToLoad = fileOf(folderKey, item);
-          if (fileToLoad) break;
-        }
-      }
-
-      if (fileToLoad) {
-        setPinpointImages(prev => ({
-          ...prev,
-          [activeCanvasKey]: { file: fileToLoad, refPoint: { x: 0.5, y: 0.5 } }
-        }));
-        setPinpointScale(activeCanvasKey, 1);
-        setViewport({ refScreenX: undefined, refScreenY: undefined });
-      } else {
-        setPinpointImages(prev => ({
-          ...prev,
-          [activeCanvasKey]: { file: null, refPoint: null }
-        }));
-        setViewport({ refScreenX: undefined, refScreenY: undefined });
-      }
-    }
-  }, [activeCanvasKey, activeKeys, fileOf, setCurrent, setPinpointScale, setViewport]);
-
-  const renderFolderControl = (key: FolderKey) => {
-    const state = allFolders[key];
-    if (!state) {
-      return (
-        <button className="folder-picker-initial" onClick={() => pick(key)}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-          <span>Folder {key}</span>
-        </button>
-      );
-    }
-
-    return (
-      <div className="folder-control">
-        <span className="folder-key-label">{key}</span>
-        <div className="alias-editor">
-          {editingAlias === key ? (
-            <input
-              type="text"
-              defaultValue={state.alias}
-              onBlur={(e) => handleAliasChange(key, e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAliasChange(key, (e.target as HTMLInputElement).value);
-                if (e.key === 'Escape') setEditingAlias(null);
-              }}
-              autoFocus
-            />
-          ) : (
-            <span className="alias-text" onClick={() => setEditingAlias(key)} title={state.alias}>{state.alias}</span>
-          )}
-        </div>
-        <button onClick={() => pick(key)} className="repick-button" title={`Repick Folder ${key}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><path d="M12 11v6"></path><path d="m15 14-3 3-3-3"></path></svg>
-        </button>
-      </div>
-    );
-  };
-  
   const gridStyle = {
     '--viewers': numViewers,
     '--cols': Math.ceil(Math.sqrt(numViewers)),
@@ -249,9 +183,14 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       <div className="controls pinpoint-controls-header">
         <div className="folder-controls-wrapper">
           {activeKeys.map(key => (
-            <React.Fragment key={key}>
-              {renderFolderControl(key)}
-            </React.Fragment>
+            <FolderControl
+              key={key}
+              folderKey={key}
+              folderState={allFolders[key]}
+              onSelect={pick}
+              onClear={clearFolder}
+              onUpdateAlias={updateAlias}
+            />
           ))}
         </div>
         <div className="global-controls-wrapper">

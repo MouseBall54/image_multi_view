@@ -97,6 +97,7 @@ interface State {
   triggerIndicator: (cx: number, cy: number) => void;
   setFolder: (key: FolderKey, folderState: FolderState) => void;
   updateFolderAlias: (key: FolderKey, alias: string) => void;
+  clearFolder: (key: FolderKey) => void;
 
   // Analysis Mode Actions
   setAnalysisFile: (file: File | null) => void;
@@ -184,6 +185,16 @@ export const useStore = create<State>((set, get) => ({
       };
     }
     return {};
+  }),
+  clearFolder: (key) => set(state => {
+    const { [key]: _, ...remainingFolders } = state.folders;
+    const { [key]: __, ...remainingFilters } = state.viewerFilters;
+    const { [key]: ___, ...remainingFilterParams } = state.viewerFilterParams;
+    return { 
+      folders: remainingFolders,
+      viewerFilters: remainingFilters,
+      viewerFilterParams: remainingFilterParams
+    };
   }),
 
   // Analysis Mode Actions

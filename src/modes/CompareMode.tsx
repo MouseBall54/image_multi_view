@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { useFolderPickers } from '../hooks/useFolderPickers';
 import { matchFilenames } from '../utils/match';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
+import { FolderControl } from '../components/FolderControl';
 import { ALL_FILTERS } from '../components/FilterControls';
 import type { FolderKey, MatchedItem, FilterType } from '../types';
 
@@ -21,9 +22,8 @@ interface CompareModeProps {
 export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters } = useStore();
+  const { current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, clearFolder } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
 
   const canvasRefs = FOLDER_KEYS.reduce((acc, key) => {
     acc[key] = useRef<ImageCanvasHandle>(null);
@@ -131,51 +131,9 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     );
   }, [matched, searchQuery]);
   
-  const handleAliasChange = (key: FolderKey, newAlias: string) => {
-    updateAlias(key, newAlias);
-    setEditingAlias(null);
-  };
-
   const getFilterName = (type: FilterType | undefined) => {
     if (!type || type === 'none') return null;
     return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown';
-  };
-
-  const renderFolderControl = (key: FolderKey) => {
-    const state = allFolders[key];
-    if (!state) {
-      return (
-        <button className="folder-picker-initial" onClick={() => pick(key)}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-          <span>Folder {key}</span>
-        </button>
-      );
-    }
-
-    return (
-      <div className="folder-control">
-        <span className="folder-key-label">{key}</span>
-        <div className="alias-editor">
-          {editingAlias === key ? (
-            <input
-              type="text"
-              defaultValue={state.alias}
-              onBlur={(e) => handleAliasChange(key, e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAliasChange(key, (e.target as HTMLInputElement).value);
-                if (e.key === 'Escape') setEditingAlias(null);
-              }}
-              autoFocus
-            />
-          ) : (
-            <span className="alias-text" onClick={() => setEditingAlias(key)} title={state.alias}>{state.alias}</span>
-          )}
-        </div>
-        <button onClick={() => pick(key)} className="repick-button" title={`Repick Folder ${key}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><path d="M12 11v6"></path><path d="m15 14-3 3-3-3"></path></svg>
-        </button>
-      </div>
-    );
   };
 
   const gridStyle = {
@@ -187,9 +145,14 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     <>
       <div className="controls">
         {FOLDER_KEYS.slice(0, numViewers).map(key => (
-          <React.Fragment key={key}>
-            {renderFolderControl(key)}
-          </React.Fragment>
+          <FolderControl
+            key={key}
+            folderKey={key}
+            folderState={allFolders[key]}
+            onSelect={pick}
+            onClear={clearFolder}
+            onUpdateAlias={updateAlias}
+          />
         ))}
         <div style={{ display: 'none' }}>
           {FOLDER_KEYS.map(key => (
