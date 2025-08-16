@@ -1,10 +1,10 @@
-
 import React, { useState, useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useStore } from '../store';
 import { useFolderPickers } from '../hooks/useFolderPickers';
 import { matchFilenames } from '../utils/match';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
-import type { FolderKey, MatchedItem } from '../types';
+import { ALL_FILTERS } from '../components/FilterControls';
+import type { FolderKey, MatchedItem, FilterType } from '../types';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -21,7 +21,7 @@ interface CompareModeProps {
 export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, stripExt, setStripExt, openFilterEditor } = useStore();
+  const { current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
 
@@ -77,6 +77,11 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     setEditingAlias(null);
   };
 
+  const getFilterName = (type: FilterType | undefined) => {
+    if (!type || type === 'none') return null;
+    return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown';
+  };
+
   const renderFolderControl = (key: FolderKey) => {
     const state = allFolders[key];
     if (!state) {
@@ -110,11 +115,6 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
         <button onClick={() => pick(key)} className="repick-button" title={`Repick Folder ${key}`}>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><path d="M12 11v6"></path><path d="m15 14-3 3-3-3"></path></svg>
         </button>
-        {key !== 'A' && (
-          <button onClick={() => openFilterEditor(key)} className="filter-button" title={`Filter Settings for ${key}`}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-          </button>
-        )}
       </div>
     );
   };
@@ -166,18 +166,34 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
           </ul>
         </aside>
         <section className="viewers" style={gridStyle}>
-          {FOLDER_KEYS.slice(0, numViewers).map(key => (
-            <ImageCanvas 
-              key={key}
-              ref={canvasRefs[key]} 
-              label={allFolders[key]?.alias || key} 
-              file={fileOf(key, current)} 
-              isReference={key === 'A'} 
-              cache={bitmapCache.current} 
-              appMode="compare" 
-              folderKey={key} 
-            />
-          ))}
+          {FOLDER_KEYS.slice(0, numViewers).map(key => {
+            const folderLabel = allFolders[key]?.alias || key;
+            const filterName = getFilterName(viewerFilters[key]);
+            const finalLabel = filterName ? `${folderLabel}: ${filterName}` : folderLabel;
+
+            return (
+              <div key={key} className="viewer-container">
+                <ImageCanvas
+                  ref={canvasRefs[key]}
+                  label={finalLabel}
+                  file={fileOf(key, current)}
+                  isReference={key === 'A'}
+                  cache={bitmapCache.current}
+                  appMode="compare"
+                  folderKey={key}
+                />
+                <div className="viewer-controls">
+                  <button 
+                    className="viewer__filter-button" 
+                    title={`Filter Settings for ${allFolders[key]?.alias || key}`}
+                    onClick={() => openFilterEditor(key)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </section>
       </main>
     </>
