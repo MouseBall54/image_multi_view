@@ -12,6 +12,7 @@ type Props = {
   label: string;
   isReference?: boolean;
   cache: Map<string, DrawableImage>;
+  filteredCache?: Map<string, DrawableImage>;
   appMode: AppMode;
   overrideScale?: number;
   refPoint?: { x: number, y: number } | null;
@@ -28,7 +29,7 @@ export interface ImageCanvasHandle {
   getCanvas: () => HTMLCanvasElement | null;
 }
 
-export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive, overrideFilterType, overrideFilterParams }, ref) => {
+export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, filteredCache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive, overrideFilterType, overrideFilterParams }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [sourceImage, setSourceImage] = useState<DrawableImage | null>(null);
   const [processedImage, setProcessedImage] = useState<DrawableImage | null>(null);
@@ -78,90 +79,99 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
   // Effect to process the image whenever the source or filters change
   useEffect(() => {
-    // Determine the filter and params to use (override takes precedence)
-    const filter = overrideFilterType ?? (typeof folderKey === 'string' ? viewerFilters[folderKey] : 'none') ?? 'none';
-    const params = overrideFilterParams ?? (typeof folderKey === 'string' ? viewerFilterParams[folderKey] : undefined);
+    const processImage = async () => {
+      const filter = overrideFilterType ?? (typeof folderKey === 'string' ? viewerFilters[folderKey] : 'none') ?? 'none';
+      const params = overrideFilterParams ?? (typeof folderKey === 'string' ? viewerFilterParams[folderKey] : undefined);
 
-    if (!sourceImage) {
-      setProcessedImage(null);
-      return;
-    }
+      if (!sourceImage || !file) {
+        setProcessedImage(null);
+        return;
+      }
 
-    // If no filter, just use the source image.
-    if (filter === 'none') {
-      setProcessedImage(sourceImage);
-      return;
-    }
+      if (filter === 'none') {
+        setProcessedImage(sourceImage);
+        return;
+      }
 
-    // Defer OpenCV filters until the library is ready.
-    const isCvFilter = ['dft', 'dct', 'wavelet'].includes(filter);
-    if (isCvFilter && !isCvReady) {
-      // Optionally, you could set a "processing" or "waiting" state here.
-      return;
-    }
+      // --- Caching Logic ---
+      const filterCacheKey = filteredCache ? `${file.name}-${filter}-${JSON.stringify(params)}` : '';
+      if (filteredCache && filterCacheKey) {
+        const cachedImage = filteredCache.get(filterCacheKey);
+        if (cachedImage) {
+          setProcessedImage(cachedImage);
+          return;
+        }
+      }
 
-    const offscreenCanvas = document.createElement('canvas');
-    offscreenCanvas.width = sourceImage.width;
-    offscreenCanvas.height = sourceImage.height;
-    const ctx = offscreenCanvas.getContext('2d');
-    if (!ctx) return;
+      const isCvFilter = ['dft', 'dct', 'wavelet'].includes(filter);
+      if (isCvFilter && !isCvReady) {
+        return;
+      }
 
-    // Handle CSS filters
-    const cssFilters: Partial<Record<FilterType, string>> = {
-      'grayscale': 'grayscale(100%)',
-      'invert': 'invert(100%)',
-      'sepia': 'sepia(100%)',
+      const offscreenCanvas = document.createElement('canvas');
+      offscreenCanvas.width = sourceImage.width;
+      offscreenCanvas.height = sourceImage.height;
+      const ctx = offscreenCanvas.getContext('2d');
+      if (!ctx) return;
+
+      const cssFilters: Partial<Record<FilterType, string>> = {
+        'grayscale': 'grayscale(100%)', 'invert': 'invert(100%)', 'sepia': 'sepia(100%)',
+      };
+
+      if (filter in cssFilters) {
+        ctx.filter = cssFilters[filter as keyof typeof cssFilters]!;
+        ctx.drawImage(sourceImage, 0, 0);
+        ctx.filter = 'none';
+      } else {
+        ctx.drawImage(sourceImage, 0, 0);
+      }
+
+      switch (filter) {
+        case 'linearstretch': Filters.applyLinearStretch(ctx); break;
+        case 'histogramequalization': Filters.applyHistogramEqualization(ctx); break;
+        case 'laplacian': Filters.applyLaplacian(ctx); break;
+        case 'highpass': Filters.applyHighpass(ctx); break;
+        case 'prewitt': Filters.applyPrewitt(ctx); break;
+        case 'scharr': Filters.applyScharr(ctx); break;
+        case 'sobel': Filters.applySobel(ctx); break;
+        case 'robertscross': Filters.applyRobertsCross(ctx); break;
+        case 'log': if (params) Filters.applyLoG(ctx, params); break;
+        case 'dog': if (params) Filters.applyDoG(ctx, params); break;
+        case 'marrhildreth': if (params) Filters.applyMarrHildreth(ctx, params); break;
+        case 'gaussianblur': if (params) Filters.applyGaussianBlur(ctx, params); break;
+        case 'boxblur': if (params) Filters.applyBoxBlur(ctx, params); break;
+        case 'median': if (params) Filters.applyMedian(ctx, params); break;
+        case 'weightedmedian': if (params) Filters.applyWeightedMedian(ctx, params); break;
+        case 'alphatrimmedmean': if (params) Filters.applyAlphaTrimmedMean(ctx, params); break;
+        case 'localhistogramequalization': if (params) Filters.applyLocalHistogramEqualization(ctx, params); break;
+        case 'adaptivehistogramequalization': if (params) Filters.applyAdaptiveHistogramEqualization(ctx, params); break;
+        case 'sharpen': if (params) Filters.applySharpen(ctx, params); break;
+        case 'canny': if (params) Filters.applyCanny(ctx, params); break;
+        case 'clahe': if (params) Filters.applyClahe(ctx, params); break;
+        case 'gammacorrection': if (params) Filters.applyGammaCorrection(ctx, params); break;
+        case 'bilateral': if (params) Filters.applyBilateralFilter(ctx, params); break;
+        case 'nonlocalmeans': if (params) Filters.applyNonLocalMeans(ctx, params); break;
+        case 'anisotropicdiffusion': if (params) Filters.applyAnisotropicDiffusion(ctx, params); break;
+        case 'unsharpmask': if (params) Filters.applyUnsharpMask(ctx, params); break;
+        case 'gabor': if (params) Filters.applyGabor(ctx, params); break;
+        case 'lawstextureenergy': if (params) Filters.applyLawsTextureEnergy(ctx, params); break;
+        case 'lbp': Filters.applyLbp(ctx); break;
+        case 'guided': if (params) Filters.applyGuidedFilter(ctx, params); break;
+        case 'dft': if (isCvReady) Filters.applyDft(ctx); break;
+        case 'dct': if (isCvReady) Filters.applyDct(ctx); break;
+        case 'wavelet': if (isCvReady) Filters.applyWavelet(ctx); break;
+      }
+
+      const finalImage = await createImageBitmap(offscreenCanvas);
+      if (filteredCache && filterCacheKey) {
+        filteredCache.set(filterCacheKey, finalImage);
+      }
+      setProcessedImage(finalImage);
     };
 
-    if (filter in cssFilters) {
-      ctx.filter = cssFilters[filter as keyof typeof cssFilters]!;
-      ctx.drawImage(sourceImage, 0, 0);
-      ctx.filter = 'none';
-    } else {
-      ctx.drawImage(sourceImage, 0, 0);
-    }
+    processImage();
 
-    // Apply canvas-based filters
-    switch (filter) {
-      case 'linearstretch': Filters.applyLinearStretch(ctx); break;
-      case 'histogramequalization': Filters.applyHistogramEqualization(ctx); break;
-      case 'laplacian': Filters.applyLaplacian(ctx); break;
-      case 'highpass': Filters.applyHighpass(ctx); break;
-      case 'prewitt': Filters.applyPrewitt(ctx); break;
-      case 'scharr': Filters.applyScharr(ctx); break;
-      case 'sobel': Filters.applySobel(ctx); break;
-      case 'robertscross': Filters.applyRobertsCross(ctx); break;
-      case 'log': if (params) Filters.applyLoG(ctx, params); break;
-      case 'dog': if (params) Filters.applyDoG(ctx, params); break;
-      case 'marrhildreth': if (params) Filters.applyMarrHildreth(ctx, params); break;
-      case 'gaussianblur': if (params) Filters.applyGaussianBlur(ctx, params); break;
-      case 'boxblur': if (params) Filters.applyBoxBlur(ctx, params); break;
-      case 'median': if (params) Filters.applyMedian(ctx, params); break;
-      case 'weightedmedian': if (params) Filters.applyWeightedMedian(ctx, params); break;
-      case 'alphatrimmedmean': if (params) Filters.applyAlphaTrimmedMean(ctx, params); break;
-      case 'localhistogramequalization': if (params) Filters.applyLocalHistogramEqualization(ctx, params); break;
-      case 'adaptivehistogramequalization': if (params) Filters.applyAdaptiveHistogramEqualization(ctx, params); break;
-      case 'sharpen': if (params) Filters.applySharpen(ctx, params); break;
-      case 'canny': if (params) Filters.applyCanny(ctx, params); break;
-      case 'clahe': if (params) Filters.applyClahe(ctx, params); break;
-      case 'gammacorrection': if (params) Filters.applyGammaCorrection(ctx, params); break;
-      case 'bilateral': if (params) Filters.applyBilateralFilter(ctx, params); break;
-      case 'nonlocalmeans': if (params) Filters.applyNonLocalMeans(ctx, params); break;
-      case 'anisotropicdiffusion': if (params) Filters.applyAnisotropicDiffusion(ctx, params); break;
-      case 'unsharpmask': if (params) Filters.applyUnsharpMask(ctx, params); break;
-      case 'gabor': if (params) Filters.applyGabor(ctx, params); break;
-      case 'lawstextureenergy': if (params) Filters.applyLawsTextureEnergy(ctx, params); break;
-      case 'lbp': Filters.applyLbp(ctx); break;
-      case 'guided': if (params) Filters.applyGuidedFilter(ctx, params); break;
-      // OpenCV filters
-      case 'dft': if (isCvReady) Filters.applyDft(ctx); break;
-      case 'dct': if (isCvReady) Filters.applyDct(ctx); break;
-      case 'wavelet': if (isCvReady) Filters.applyWavelet(ctx); break;
-    }
-
-    createImageBitmap(offscreenCanvas).then(setProcessedImage);
-
-  }, [sourceImage, viewerFilters, viewerFilterParams, folderKey, isCvReady, overrideFilterType, overrideFilterParams]);
+  }, [sourceImage, file, viewerFilters, viewerFilterParams, folderKey, isCvReady, overrideFilterType, overrideFilterParams, filteredCache]);
 
   const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
     const { width, height } = ctx.canvas;

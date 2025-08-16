@@ -22,10 +22,11 @@ interface ToggleModeProps {
 export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, stripExt, setStripExt, clearFolder } = useStore();
+  const { current, setCurrent, stripExt, setStripExt, clearFolder, viewerFilters, viewerFilterParams } = useStore();
   const [toggleSource, setToggleSource] = useState<FolderKey>('A');
   const [searchQuery, setSearchQuery] = useState("");
   const canvasRef = useRef<ImageCanvasHandle>(null);
+  const filteredBitmapCache = useRef(new Map<string, DrawableImage>());
 
   useImperativeHandle(ref, () => ({
     capture: async ({ showLabels }) => {
@@ -167,6 +168,9 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
             folderKey={toggleSource}
             isReference={true} 
             cache={bitmapCache.current}
+            filteredCache={filteredBitmapCache.current}
+            overrideFilterType={viewerFilters[toggleSource]}
+            overrideFilterParams={viewerFilterParams[toggleSource]}
           />
         </section>
       </main>
