@@ -43,7 +43,6 @@ const defaultFilterParams: FilterParams = {
 
 interface State {
   appMode: AppMode;
-  syncMode: SyncMode;
   pinpointMouseMode: PinpointMouseMode;
   stripExt: boolean;
   numViewers: number;
@@ -77,7 +76,6 @@ interface State {
   isCvReady: boolean;
 
   setAppMode: (m: AppMode) => void;
-  setSyncMode: (m: SyncMode) => void;
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
   setStripExt: (strip: boolean) => void;
   setNumViewers: (n: number) => void;
@@ -112,7 +110,6 @@ interface State {
 
 export const useStore = create<State>((set, get) => ({
   appMode: "compare",
-  syncMode: "locked",
   pinpointMouseMode: "pin",
   stripExt: true,
   numViewers: 2,
@@ -144,7 +141,6 @@ export const useStore = create<State>((set, get) => ({
   isCvReady: false,
 
   setAppMode: (m) => set({ appMode: m }),
-  setSyncMode: (m) => set({ syncMode: m }),
   setPinpointMouseMode: (m) => set({ pinpointMouseMode: m }),
   setStripExt: (strip) => set({ stripExt: strip }),
   setNumViewers: (n) => set({ numViewers: n }),

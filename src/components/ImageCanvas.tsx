@@ -34,7 +34,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   const [processedImage, setProcessedImage] = useState<DrawableImage | null>(null);
   const [isRotating, setIsRotating] = useState(false);
   const { 
-    viewport, setViewport, syncMode, setFitScaleFn, 
+    viewport, setViewport, setFitScaleFn, 
     pinpointMouseMode, setPinpointScale, 
     pinpointGlobalScale, setPinpointGlobalScale, showMinimap,
     pinpointRotations, viewerFilters, viewerFilterParams, indicator, isCvReady
@@ -333,9 +333,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         const refScreenY = currentViewport.refScreenY || (height / 2);
         const nextRefScreenX = mx + (refScreenX - mx) * (nextScale / preScale);
         const nextRefScreenY = my + (refScreenY - my) * (nextScale / preScale);
-        if (syncMode === "locked") {
-          setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
-        }
+        setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
       } else {
         const preScale = currentViewport.scale;
         let nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, preScale * delta));
@@ -356,9 +354,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           cx = newCxPx / imgW;
           cy = newCyPx / imgH;
         }
-        if (syncMode === "locked") {
-          setViewport({ scale: nextScale, cx, cy });
-        }
+        setViewport({ scale: nextScale, cx, cy });
       }
     };
     const onDown = (e: MouseEvent) => {
@@ -403,7 +399,6 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         setPinpointRotation(folderKey, normalizedAngle);
         return;
       }
-      if (syncMode !== 'locked') return;
       const { viewport: currentViewport } = useStore.getState();
       if (appMode === 'pinpoint') {
         const refScreenX = (currentViewport.refScreenX || (canvas.width / 2)) + dx;
@@ -430,7 +425,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mousemove", onMove);
     };
-  }, [sourceImage, syncMode, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, setPinpointScale]);
+  }, [sourceImage, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, setPinpointScale]);
 
   const rotationAngle = (appMode === 'pinpoint' && typeof folderKey === 'string') ? (pinpointRotations[folderKey] || 0) : 0;
 

@@ -66,7 +66,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, syncMode, setSyncMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, setNumViewers, showMinimap, setShowMinimap, setCvReady } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, setNumViewers, showMinimap, setShowMinimap, setCvReady } = useStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const bitmapCache = useRef(new Map<string, DrawableImage>());
@@ -167,7 +167,7 @@ export default function App() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
       
       const state = useStore.getState();
-      const { viewport, appMode, activeCanvasKey, pinpointScales, pinpointGlobalScale, syncMode, setAppMode, setSyncMode, setViewport, setShowInfoPanel } = state;
+      const { viewport, appMode, activeCanvasKey, pinpointScales, pinpointGlobalScale, setAppMode, setViewport, setShowInfoPanel } = state;
       const KEY_PAN_AMOUNT = 50;
 
       const key = e.key.toLowerCase();
@@ -192,7 +192,6 @@ export default function App() {
         case '3': setAppMode('pinpoint'); break;
         case '4': setAppMode('analysis'); break;
         case 'r': resetView(); break;
-        case 'l': setSyncMode(syncMode === 'locked' ? 'unlocked' : 'locked'); break;
         case 'i': setShowInfoPanel(prev => !prev); break;
         case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
         case '-': setViewport({ scale: Math.max(MIN_ZOOM, (viewport.scale || 1) - 0.01) }); break;
@@ -204,7 +203,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [syncMode, setSyncMode, setViewport, resetView, imageDimensions, setAppMode]);
+  }, [setViewport, resetView, imageDimensions, setAppMode]);
 
   const renderCurrentMode = () => {
     const setPrimaryFile = (file: File | null) => {
@@ -250,12 +249,6 @@ export default function App() {
                 </select>
               </label>
             )}
-            <label><span>Sync:</span>
-              <select value={syncMode} onChange={e => setSyncMode(e.target.value as any)}>
-                <option value="locked">locked</option>
-                <option value="unlocked">unlocked</option>
-              </select>
-            </label>
             {appMode === 'pinpoint' && (
               <label><span>Mouse:</span>
                 <select value={pinpointMouseMode} onChange={e => setPinpointMouseMode(e.target.value as any)}>

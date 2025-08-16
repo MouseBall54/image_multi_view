@@ -27,7 +27,6 @@ export interface Viewport {
   refScreenY?: number; // For pinpoint mode: screen y of the common reference point
 }
 
-export type SyncMode = "locked" | "unlocked";
 
 export type FilterType =
   | "none"
