@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import type { FilterType } from '../types';
 import { LAWS_KERNEL_TYPES } from '../utils/filters';
 
-const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
+export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'None', type: 'none', group: 'General' },
   { name: 'Grayscale', type: 'grayscale', group: 'General' },
   { name: 'Invert', type: 'invert', group: 'General' },

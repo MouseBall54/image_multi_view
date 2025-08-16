@@ -1,6 +1,6 @@
 // src/types.ts
 export type FolderKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I";
-export type AppMode = "compare" | "toggle" | "pinpoint";
+export type AppMode = "compare" | "toggle" | "pinpoint" | "analysis";
 export type PinpointMouseMode = "pin" | "pan";
 
 export interface PickedFolder {
@@ -70,5 +70,11 @@ export type FilterType =
   | "lawstextureenergy"
   | "lbp"
   // Edge-preserving Filter
-  | "guided";
+  | "guided"
+  // Frequency Domain
+  | "dft"
+  | "dct"
+  | "wavelet";
+
+export type DrawableImage = ImageBitmap | HTMLImageElement;
 

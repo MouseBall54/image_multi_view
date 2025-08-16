@@ -4,6 +4,7 @@ import type { AppMode } from "./types";
 import { CompareMode, CompareModeHandle } from './modes/CompareMode';
 import { ToggleMode, ToggleModeHandle } from './modes/ToggleMode';
 import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
+import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterControls } from "./components/FilterControls";
 import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP, UTIF_OPTIONS } from "./config";
@@ -65,7 +66,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, syncMode, setSyncMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, setNumViewers, showMinimap, setShowMinimap } = useStore();
+  const { appMode, setAppMode, syncMode, setSyncMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, setNumViewers, showMinimap, setShowMinimap, setCvReady } = useStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const bitmapCache = useRef(new Map<string, DrawableImage>());
@@ -74,11 +75,13 @@ export default function App() {
   const compareModeRef = useRef<CompareModeHandle>(null);
   const toggleModeRef = useRef<ToggleModeHandle>(null);
   const pinpointModeRef = useRef<PinpointModeHandle>(null);
+  const analysisModeRef = useRef<AnalysisModeHandle>(null);
 
   const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true });
   const [clipboardStatus, setClipboardStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
 
   const runCapture = useCallback(async () => {
     if (!isCaptureModalOpen) return;
@@ -91,6 +94,8 @@ export default function App() {
       dataUrl = await toggleModeRef.current.capture(opts);
     } else if (appMode === 'pinpoint' && pinpointModeRef.current) {
       dataUrl = await pinpointModeRef.current.capture(opts);
+    } else if (appMode === 'analysis' && analysisModeRef.current) {
+      dataUrl = await analysisModeRef.current.capture(opts);
     }
     if (dataUrl) {
       setCapturedImage(dataUrl);
@@ -100,12 +105,12 @@ export default function App() {
   useEffect(() => {
     runCapture();
   }, [runCapture]);
-
+  
   const handleOpenCaptureModal = () => {
     setClipboardStatus('idle');
     setCaptureModalOpen(true);
   };
-
+  
   const handleCopyToClipboard = async () => {
     if (!capturedImage) return;
     try {
@@ -117,7 +122,7 @@ export default function App() {
       setClipboardStatus('error');
     }
   };
-
+  
   const resetView = () => {
     const newScale = fitScaleFn ? fitScaleFn() : 1;
     if (appMode === 'pinpoint') {
@@ -185,6 +190,7 @@ export default function App() {
         case '1': setAppMode('compare'); break;
         case '2': setAppMode('toggle'); break;
         case '3': setAppMode('pinpoint'); break;
+        case '4': setAppMode('analysis'); break;
         case 'r': resetView(); break;
         case 'l': setSyncMode(syncMode === 'locked' ? 'unlocked' : 'locked'); break;
         case 'i': setShowInfoPanel(prev => !prev); break;
@@ -212,6 +218,8 @@ export default function App() {
         return <ToggleMode ref={toggleModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
       case 'pinpoint':
         return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
+      case 'analysis':
+        return <AnalysisMode ref={analysisModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
       default:
         return null;
     }
@@ -230,9 +238,10 @@ export default function App() {
                 <option value="compare">Compare</option>
                 <option value="toggle">Toggle</option>
                 <option value="pinpoint">Pinpoint</option>
+                <option value="analysis">Analysis</option>
               </select>
             </label>
-            {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'toggle') && (
+            {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'toggle' || appMode === 'analysis') && (
               <label><span>Viewers:</span>
                                 <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
                   {Array.from({ length: 8 }, (_, i) => i + 2).map(n => (
@@ -294,7 +303,7 @@ export default function App() {
                 <input type="checkbox" checked={captureOptions.showLabels} onChange={(e) => setCaptureOptions(o => ({...o, showLabels: e.target.checked}))} />
                 Show Labels
               </label>
-              {appMode === 'pinpoint' && (
+              {(appMode === 'pinpoint' || appMode === 'analysis') && (
                 <label>
                   <input type="checkbox" checked={captureOptions.showCrosshair} onChange={(e) => setCaptureOptions(o => ({...o, showCrosshair: e.target.checked}))} />
                   Show Crosshair
