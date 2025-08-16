@@ -434,9 +434,31 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
   const rotationAngle = (appMode === 'pinpoint' && typeof folderKey === 'string') ? (pinpointRotations[folderKey] || 0) : 0;
 
+  const handleContainerClick = () => {
+    // In analysis mode, clicks are handled by the dedicated button.
+    // For other modes, the passed onClick (if any) is triggered.
+    if (appMode !== 'analysis' && onClick) {
+      onClick(folderKey);
+    }
+  };
+
   return (
-    <div className={`viewer ${isActive ? 'active' : ''}`} onClick={() => onClick && onClick(folderKey)}>
-      {SHOW_FOLDER_LABEL && <div className="viewer__label">{label}</div>}
+    <div className={`viewer ${isActive ? 'active' : ''}`} onClick={handleContainerClick}>
+      <div className="viewer-header">
+        {SHOW_FOLDER_LABEL && <div className="viewer__label">{label}</div>}
+        {appMode === 'analysis' && (
+          <button 
+            className="viewer__filter-button" 
+            title={`Filter Settings for ${label}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onClick) onClick(folderKey);
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          </button>
+        )}
+      </div>
       
       {appMode === 'pinpoint' && rotationAngle !== 0 && (
         <div className="viewer__rotation-angle">
