@@ -1,30 +1,69 @@
-# Image Compare Viewer
+﻿# Image Compare Viewer
 
-A client-side web application for comparing images from multiple local folders. This tool is built with React and TypeScript and allows for detailed image comparison with synchronized zoom and pan controls, all without uploading any files to a server.
+A client-side web application for comparing images from multiple local folders. Built with React and TypeScript, it works entirely in your browser with no file uploads.
 
-## Features
+## Modes
 
-- **Multi-Folder Comparison:** Open and compare images from 2 to 4 different folders simultaneously.
-- **Synchronized Viewports:** Pan and zoom on one image, and all other images will follow in sync.
-- **Flexible File Matching:** Match corresponding images by full filename or by name only (ignoring extensions).
-- **Fit-to-Screen:** Easily reset the view to make the entire image fit within the viewer.
-- **Image Info Panel:** View detailed information about the current image, such as dimensions and file size.
-- **Keyboard Shortcuts:** A comprehensive set of hotkeys for fast and efficient navigation and control.
+The app provides three modes suited for different workflows:
 
-## How to Use
+### Compare Mode
+- View images from 2–9 folders side by side in a grid.
+- All viewers pan and zoom together and file lists can be searched.
+- Rename folder aliases and optionally ignore file extensions when matching.
 
-1.  Click the **Pick Folder A**, **Pick Folder B**, etc., buttons to select the local directories you want to compare.
-2.  The application will find all the images with matching filenames across the selected folders.
-3.  Click on a filename in the list on the left to display the images.
-4.  Use your mouse or the hotkeys below to zoom, pan, and compare the images.
+### Toggle Mode
+- Display one folder at a time while keeping the same viewport.
+- Press `Space` to cycle through loaded folders.
+
+### Pinpoint Mode
+- Load any image into any viewer and align them using a reference point.
+- Each viewer has independent scale and rotation with a global scale multiplier.
+- Click to set the reference crosshair; `Alt` + drag rotates the active image.
+
+## Major Features
+
+- **Synchronized Viewports:** Pan and zoom on one image and all others follow.
+- **Flexible File Matching:** Match by full filename or ignore extensions.
+- **Per-Viewer Filters:** Apply contrast, blur, edge-detection and other filters with adjustable parameters.
+- **Capture Tool:** Export the current view to the clipboard or as an image file.
+- **Minimap:** Optional overview of the full image and current viewport.
+- **Image Info Panel:** Shows filename, dimensions and file size of the active image.
+- **Keyboard Shortcuts:** Hotkeys for rapid navigation and mode control.
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
+```
+
+Open the printed URL in your browser. Use the **Mode** dropdown or hotkeys (`1`: Compare, `2`: Toggle, `3`: Pinpoint) to switch modes.
+
+1. Pick folders (Folder A, B, etc.) to load images.
+2. Select a filename from the list on the left.
+3. Use mouse or keyboard shortcuts to pan, zoom and analyze.
+   - In **Toggle** mode press `Space` to switch folders.
+   - In **Pinpoint** mode click to set the reference point and use `Alt` + drag to rotate.
 
 ## Keyboard Shortcuts
 
-| Key(s)             | Action                               |
-| ------------------ | ------------------------------------ |
-| `A` / `D`          | Previous / Next Image                |
-| `Arrow Keys`       | Pan the image (Up, Down, Left, Right)|
-| `+` / `=` or `-`   | Zoom In / Zoom Out                   |
-| `R`                | Reset View (fits image to screen)    |
-| `L`                | Toggle Sync Lock                     |
-| `I`                | Show / Hide Image Information Panel  |
+| Key(s)                | Action                                       |
+| --------------------- | -------------------------------------------- |
+| `1` / `2` / `3`       | Switch to Compare / Toggle / Pinpoint mode   |
+| `A` / `D`             | Previous / Next Image                        |
+| `Space` (Toggle mode) | Cycle source folder                          |
+| `Arrow Keys`          | Pan the image (Up, Down, Left, Right)        |
+| `+` / `=` or `-`      | Zoom In / Zoom Out                           |
+| `R`                   | Reset View                                   |
+| `L`                   | Toggle Sync Lock                             |
+| `I`                   | Show / Hide Image Information Panel          |
+
+## Build
+
+To create a production build run:
+
+```bash
+npm run build
+```
+
+The app can be deployed to GitHub Pages with `npm run deploy`.
