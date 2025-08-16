@@ -1,8 +1,9 @@
 import React from 'react';
 import { useStore } from '../store';
 import type { FilterType } from '../types';
+import { LAWS_KERNEL_TYPES } from '../utils/filters';
 
-const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
+export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'None', type: 'none', group: 'General' },
   { name: 'Grayscale', type: 'grayscale', group: 'General' },
   { name: 'Invert', type: 'invert', group: 'General' },
@@ -19,6 +20,8 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Weighted Median', type: 'weightedmedian', group: 'Blurring' },
   { name: 'Alpha-trimmed Mean', type: 'alphatrimmedmean', group: 'Blurring' },
   { name: 'Sharpen', type: 'sharpen', group: 'Sharpening' },
+  { name: 'Unsharp Masking', type: 'unsharpmask', group: 'Sharpening' },
+  { name: 'High-pass Filter', type: 'highpass', group: 'Sharpening' },
   { name: 'Laplacian', type: 'laplacian', group: 'Sharpening' },
   { name: 'Sobel', type: 'sobel', group: 'Edge Detection' },
   { name: 'Prewitt', type: 'prewitt', group: 'Edge Detection' },
@@ -31,9 +34,13 @@ const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'Bilateral Filter', type: 'bilateral', group: 'Advanced Denoising' },
   { name: 'Non-local Means', type: 'nonlocalmeans', group: 'Advanced Denoising' },
   { name: 'Anisotropic Diffusion', type: 'anisotropicdiffusion', group: 'Advanced Denoising' },
+  { name: 'Gabor Filter', type: 'gabor', group: 'Texture Analysis' },
+  { name: 'Laws Texture Energy', type: 'lawstextureenergy', group: 'Texture Analysis' },
+  { name: 'Local Binary Patterns', type: 'lbp', group: 'Texture Analysis' },
+  { name: 'Guided Filter', type: 'guided', group: 'Edge-preserving Filter' },
 ];
 
-const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising'];
+const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising', 'Texture Analysis', 'Edge-preserving Filter'];
 
 export const FilterControls: React.FC = () => {
   const {
@@ -53,6 +60,10 @@ export const FilterControls: React.FC = () => {
     if (!isNaN(numValue)) {
       setTempFilterParams({ [param]: numValue });
     }
+  };
+
+  const handleStringParamChange = (param: string, value: string) => {
+    setTempFilterParams({ [param]: value });
   };
 
   const renderParams = () => {
@@ -453,6 +464,137 @@ export const FilterControls: React.FC = () => {
                 onChange={(e) => handleParamChange('kappa', e.target.value)}
               />
               <span>{tempViewerFilterParams.kappa ?? 20}</span>
+            </div>
+          </>
+        );
+      case 'unsharpmask':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Size</label>
+              <input
+                type="range"
+                min="3"
+                max="21"
+                step="2"
+                value={tempViewerFilterParams.kernelSize ?? 5}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 5}</span>
+            </div>
+            <div className="control-row">
+              <label>Sigma</label>
+              <input
+                type="range"
+                min="0.1"
+                max="10"
+                step="0.1"
+                value={tempViewerFilterParams.sigma ?? 1.0}
+                onChange={(e) => handleParamChange('sigma', e.target.value)}
+              />
+              <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+            </div>
+            <div className="control-row">
+              <label>Amount</label>
+              <input
+                type="range"
+                min="0.1"
+                max="5"
+                step="0.1"
+                value={tempViewerFilterParams.sharpenAmount ?? 1.0}
+                onChange={(e) => handleParamChange('sharpenAmount', e.target.value)}
+              />
+              <span>{(tempViewerFilterParams.sharpenAmount ?? 1.0).toFixed(1)}</span>
+            </div>
+          </>
+        );
+      case 'gabor':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Size</label>
+              <input type="range" min="3" max="31" step="2" value={tempViewerFilterParams.kernelSize ?? 15} onChange={(e) => handleParamChange('kernelSize', e.target.value)} />
+              <span>{tempViewerFilterParams.kernelSize ?? 15}</span>
+            </div>
+            <div className="control-row">
+              <label>Theta (θ)</label>
+              <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.theta ?? 0} onChange={(e) => handleParamChange('theta', e.target.value)} />
+              <span>{(tempViewerFilterParams.theta ?? 0).toFixed(2)}</span>
+            </div>
+            <div className="control-row">
+              <label>Sigma (σ)</label>
+              <input type="range" min="1" max="10" step="0.5" value={tempViewerFilterParams.sigma ?? 4.0} onChange={(e) => handleParamChange('sigma', e.target.value)} />
+              <span>{(tempViewerFilterParams.sigma ?? 4.0).toFixed(1)}</span>
+            </div>
+            <div className="control-row">
+              <label>Lambda (λ)</label>
+              <input type="range" min="3" max="20" step="1" value={tempViewerFilterParams.lambda ?? 10.0} onChange={(e) => handleParamChange('lambda', e.target.value)} />
+              <span>{(tempViewerFilterParams.lambda ?? 10.0).toFixed(1)}</span>
+            </div>
+            <div className="control-row">
+              <label>Gamma (γ)</label>
+              <input type="range" min="0.2" max="1" step="0.1" value={tempViewerFilterParams.gamma ?? 0.5} onChange={(e) => handleParamChange('gamma', e.target.value)} />
+              <span>{(tempViewerFilterParams.gamma ?? 0.5).toFixed(1)}</span>
+            </div>
+            <div className="control-row">
+              <label>Psi (ψ)</label>
+              <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.psi ?? 0} onChange={(e) => handleParamChange('psi', e.target.value)} />
+              <span>{(tempViewerFilterParams.psi ?? 0).toFixed(2)}</span>
+            </div>
+          </>
+        );
+      case 'lawstextureenergy':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Type</label>
+              <select
+                value={tempViewerFilterParams.lawsKernelType ?? 'L5E5'}
+                onChange={(e) => handleStringParamChange('lawsKernelType', e.target.value)}
+              >
+                {LAWS_KERNEL_TYPES.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </div>
+            <div className="control-row">
+              <label>Energy Window</label>
+              <input
+                type="range"
+                min="3"
+                max="25"
+                step="2"
+                value={tempViewerFilterParams.kernelSize ?? 15}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 15}</span>
+            </div>
+          </>
+        );
+      case 'guided':
+        return (
+          <>
+            <div className="control-row">
+              <label>Radius</label>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="1"
+                value={tempViewerFilterParams.kernelSize ?? 5}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 5}</span>
+            </div>
+            <div className="control-row">
+              <label>Epsilon</label>
+              <input
+                type="range"
+                min="0.01"
+                max="0.2"
+                step="0.01"
+                value={tempViewerFilterParams.epsilon ?? 0.04}
+                onChange={(e) => handleParamChange('epsilon', e.target.value)}
+              />
+              <span>{(tempViewerFilterParams.epsilon ?? 0.04).toFixed(2)}</span>
             </div>
           </>
         );

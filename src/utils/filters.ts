@@ -66,6 +66,28 @@ function createSharpenKernel(amount: number): number[][] {
   ];
 }
 
+function createGaborKernel(params: FilterParams): Kernel {
+  const { kernelSize, sigma, theta, lambda, gamma, psi } = params;
+  const kernel: Kernel = Array(kernelSize).fill(0).map(() => Array(kernelSize).fill(0));
+  const half = Math.floor(kernelSize / 2);
+  
+  const sigmaX = sigma;
+  const sigmaY = sigma / gamma;
+
+  for (let y = 0; y < kernelSize; y++) {
+    for (let x = 0; x < kernelSize; x++) {
+      const x_ = (x - half) * Math.cos(theta) + (y - half) * Math.sin(theta);
+      const y_ = -(x - half) * Math.sin(theta) + (y - half) * Math.cos(theta);
+
+      const gaussian = Math.exp(-0.5 * ( (x_ * x_) / (sigmaX * sigmaX) + (y_ * y_) / (sigmaY * sigmaY) ));
+      const sinusoidal = Math.cos(2 * Math.PI * (x_ / lambda) + psi);
+      
+      kernel[y][x] = gaussian * sinusoidal;
+    }
+  }
+  return kernel;
+}
+
 type Kernel = number[][];
 
 function convolve(ctx: CanvasRenderingContext2D, kernel: Kernel) {
@@ -116,6 +138,7 @@ const sobelKernelX: Kernel = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
 const sobelKernelY: Kernel = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
 const robertsKernelX: Kernel = [[1, 0], [0, -1]];
 const robertsKernelY: Kernel = [[0, 1], [-1, 0]];
+const highpassKernel: Kernel = [[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]];
 
 function applyEdgeFilter(ctx: CanvasRenderingContext2D, kernelX: Kernel, kernelY: Kernel) {
     const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -168,7 +191,13 @@ export const applySharpen = (ctx: CanvasRenderingContext2D, params: FilterParams
   convolve(ctx, kernel);
 };
 
+export const applyGabor = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const kernel = createGaborKernel(params);
+  convolve(ctx, kernel);
+};
+
 export const applyLaplacian = (ctx: CanvasRenderingContext2D) => convolve(ctx, laplacianKernel);
+export const applyHighpass = (ctx: CanvasRenderingContext2D) => convolve(ctx, highpassKernel);
 export const applyPrewitt = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, prewittKernelX, prewittKernelY);
 export const applyScharr = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, scharrKernelX, scharrKernelY);
 export const applySobel = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, sobelKernelX, sobelKernelY);
@@ -980,6 +1009,51 @@ export const applyNonLocalMeans = (ctx: CanvasRenderingContext2D, params: Filter
   ctx.putImageData(imageData, 0, 0);
 };
 
+export const applyUnsharpMask = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const { kernelSize, sigma, sharpenAmount: unsharpAmount } = params;
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+  const originalData = new Uint8ClampedArray(data);
+
+  // 1. Create a blurred version of the image on a temporary canvas
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  const tempCtx = tempCanvas.getContext('2d')!;
+  tempCtx.putImageData(imageData, 0, 0);
+
+  // Create and apply Gaussian kernel
+  const kernel = createGaussianKernel(sigma, kernelSize);
+  convolve(tempCtx, kernel);
+  const blurredData = tempCtx.getImageData(0, 0, width, height).data;
+
+  // 2. Calculate sharpened image: Sharpened = Original + Amount * (Original - Blurred)
+  for (let i = 0; i < data.length; i += 4) {
+    // Red channel
+    const originalR = originalData[i];
+    const blurredR = blurredData[i];
+    const sharpenedR = originalR + unsharpAmount * (originalR - blurredR);
+    data[i] = Math.max(0, Math.min(255, sharpenedR));
+
+    // Green channel
+    const originalG = originalData[i + 1];
+    const blurredG = blurredData[i + 1];
+    const sharpenedG = originalG + unsharpAmount * (originalG - blurredG);
+    data[i + 1] = Math.max(0, Math.min(255, sharpenedG));
+
+    // Blue channel
+    const originalB = originalData[i + 2];
+    const blurredB = blurredData[i + 2];
+    const sharpenedB = originalB + unsharpAmount * (originalB - blurredB);
+    data[i + 2] = Math.max(0, Math.min(255, sharpenedB));
+    
+    // Alpha channel remains the same
+    data[i + 3] = originalData[i + 3];
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};
+
 export const applyAnisotropicDiffusion = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
   const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
   const { data, width, height } = imageData;
@@ -1023,6 +1097,274 @@ export const applyAnisotropicDiffusion = (ctx: CanvasRenderingContext2D, params:
     data[i] = val;
     data[i+1] = val;
     data[i+2] = val;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};
+
+export const applyLbp = (ctx: CanvasRenderingContext2D) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+
+  // 1. Convert to grayscale
+  const grayscale = new Uint8ClampedArray(width * height);
+  for (let i = 0; i < data.length; i += 4) {
+    grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+  }
+
+  const lbpData = new Uint8ClampedArray(data.length);
+
+  // 2. Compute LBP for each pixel
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const centerIndex = y * width + x;
+      const centerPixel = grayscale[centerIndex];
+      
+      let binaryCode = 0;
+      
+      // Top-left
+      if (grayscale[centerIndex - width - 1] >= centerPixel) binaryCode |= 1;
+      // Top
+      if (grayscale[centerIndex - width] >= centerPixel) binaryCode |= 2;
+      // Top-right
+      if (grayscale[centerIndex - width + 1] >= centerPixel) binaryCode |= 4;
+      // Right
+      if (grayscale[centerIndex + 1] >= centerPixel) binaryCode |= 8;
+      // Bottom-right
+      if (grayscale[centerIndex + width + 1] >= centerPixel) binaryCode |= 16;
+      // Bottom
+      if (grayscale[centerIndex + width] >= centerPixel) binaryCode |= 32;
+      // Bottom-left
+      if (grayscale[centerIndex + width - 1] >= centerPixel) binaryCode |= 64;
+      // Left
+      if (grayscale[centerIndex - 1] >= centerPixel) binaryCode |= 128;
+
+      const outIndex = (y * width + x) * 4;
+      lbpData[outIndex] = binaryCode;
+      lbpData[outIndex + 1] = binaryCode;
+      lbpData[outIndex + 2] = binaryCode;
+      lbpData[outIndex + 3] = 255;
+    }
+  }
+
+  ctx.putImageData(new ImageData(lbpData, width, height), 0, 0);
+};
+
+// --- Guided Filter ---
+
+// Helper: Creates an integral image (summed-area table) for fast box blurring
+function createIntegralImage(grayscale: Float32Array, width: number, height: number): Float32Array {
+  const integral = new Float32Array(width * height);
+  // First row
+  let rowSum = 0;
+  for (let x = 0; x < width; x++) {
+    rowSum += grayscale[x];
+    integral[x] = rowSum;
+  }
+  // Other rows
+  for (let y = 1; y < height; y++) {
+    rowSum = 0;
+    for (let x = 0; x < width; x++) {
+      rowSum += grayscale[y * width + x];
+      integral[y * width + x] = rowSum + integral[(y - 1) * width + x];
+    }
+  }
+  return integral;
+}
+
+// Helper: Fast box blur using an integral image
+function fastBoxBlur(integralImage: Float32Array, width: number, height: number, radius: number): Float32Array {
+  const blurred = new Float32Array(width * height);
+  const r = Math.round(radius);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const y1 = Math.max(0, y - r - 1);
+      const y2 = Math.min(height - 1, y + r);
+      const x1 = Math.max(0, x - r - 1);
+      const x2 = Math.min(width - 1, x + r);
+
+      const count = (y2 - y1) * (x2 - x1);
+      
+      const sum = integralImage[y2 * width + x2] 
+                - integralImage[y1 * width + x2] 
+                - integralImage[y2 * width + x1] 
+                + integralImage[y1 * width + x1];
+
+      blurred[y * width + x] = sum / count;
+    }
+  }
+  return blurred;
+}
+
+
+export const applyGuidedFilter = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const { kernelSize: radius, epsilon } = params;
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+
+  // For this implementation, the guidance image (I) is the grayscale version of the input image (p).
+  const I = new Float32Array(width * height); // Guidance image
+  const p = new Float32Array(width * height); // Input image
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255.0; // Normalize to [0, 1]
+    I[i / 4] = gray;
+    p[i / 4] = gray;
+  }
+
+  // 1. Create integral images for fast blurring
+  const integral_I = createIntegralImage(I, width, height);
+  const integral_p = createIntegralImage(p, width, height);
+  
+  const I_sq = I.map(val => val * val);
+  const integral_I_sq = createIntegralImage(I_sq, width, height);
+
+  const I_p = new Float32Array(width * height);
+  for(let i=0; i<I_p.length; i++) {
+    I_p[i] = I[i] * p[i];
+  }
+  const integral_I_p = createIntegralImage(I_p, width, height);
+
+  // 2. Calculate means and variances
+  const mean_I = fastBoxBlur(integral_I, width, height, radius);
+  const mean_p = fastBoxBlur(integral_p, width, height, radius);
+  const mean_I_sq = fastBoxBlur(integral_I_sq, width, height, radius);
+  const mean_I_p = fastBoxBlur(integral_I_p, width, height, radius);
+
+  const var_I = new Float32Array(width * height);
+  const cov_I_p = new Float32Array(width * height);
+  for(let i=0; i<var_I.length; i++) {
+    var_I[i] = mean_I_sq[i] - mean_I[i] * mean_I[i];
+    cov_I_p[i] = mean_I_p[i] - mean_I[i] * mean_p[i];
+  }
+
+  // 3. Calculate 'a' and 'b' coefficients
+  const a = new Float32Array(width * height);
+  const b = new Float32Array(width * height);
+  for(let i=0; i<a.length; i++) {
+    a[i] = cov_I_p[i] / (var_I[i] + epsilon);
+    b[i] = mean_p[i] - a[i] * mean_I[i];
+  }
+
+  // 4. Blur 'a' and 'b'
+  const integral_a = createIntegralImage(a, width, height);
+  const integral_b = createIntegralImage(b, width, height);
+  const mean_a = fastBoxBlur(integral_a, width, height, radius);
+  const mean_b = fastBoxBlur(integral_b, width, height, radius);
+
+  // 5. Calculate the final output image q
+  const q = new Float32Array(width * height);
+  for(let i=0; i<q.length; i++) {
+    q[i] = mean_a[i] * I[i] + mean_b[i];
+  }
+
+  // 6. Denormalize and draw to canvas
+  for (let i = 0; i < data.length; i += 4) {
+    const val = Math.max(0, Math.min(255, q[i / 4] * 255));
+    data[i] = val;
+    data[i + 1] = val;
+    data[i + 2] = val;
+    data[i + 3] = 255;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};
+
+// --- Laws' Texture Energy ---
+
+// 1D Laws' vectors
+const L5 = [1, 4, 6, 4, 1];
+const E5 = [-1, -2, 0, 2, 1];
+const S5 = [-1, 0, 2, 0, -1];
+const W5 = [-1, 2, 0, -2, 1];
+const R5 = [1, -4, 6, -4, 1];
+
+const lawsVectors: { [key: string]: number[] } = { L5, E5, S5, W5, R5 };
+
+// Create 2D kernel from two 1D vectors (outer product)
+function createLawsKernel(vec1_name: string, vec2_name: string): Kernel {
+  const vec1 = lawsVectors[vec1_name];
+  const vec2 = lawsVectors[vec2_name];
+  const kernel: Kernel = Array(5).fill(0).map(() => Array(5).fill(0));
+  for (let i = 0; i < 5; i++) {
+    for (let j = 0; j < 5; j++) {
+      kernel[i][j] = vec1[i] * vec2[j];
+    }
+  }
+  return kernel;
+}
+
+export const LAWS_KERNEL_TYPES = [
+  'L5E5', 'E5L5', 'L5R5', 'R5L5', 'E5S5', 'S5E5', 'S5S5', 'R5R5', 'L5S5', 'S5L5', 'E5E5', 'E5W5', 'W5E5', 'S5W5', 'W5S5'
+];
+
+export const applyLawsTextureEnergy = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const { lawsKernelType, kernelSize: energyWindowSize } = params;
+  const [vec1_name, vec2_name] = lawsKernelType.match(/.{1,2}/g)!;
+
+  const lawsKernel = createLawsKernel(vec1_name, vec2_name);
+
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data, width, height } = imageData;
+
+  // 1. Convert to grayscale
+  const grayscale = new Float32Array(width * height);
+  for (let i = 0; i < data.length; i += 4) {
+    grayscale[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+  }
+
+  // 2. Convolve with the selected Laws' kernel
+  const convolved = new Float32Array(width * height);
+  const halfKernel = 2; // 5x5 kernel
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      for (let ky = 0; ky < 5; ky++) {
+        for (let kx = 0; kx < 5; kx++) {
+          const sy = y + ky - halfKernel;
+          const sx = x + kx - halfKernel;
+          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+            sum += grayscale[sy * width + sx] * lawsKernel[ky][kx];
+          }
+        }
+      }
+      convolved[y * width + x] = sum;
+    }
+  }
+
+  // 3. Calculate texture energy (sum of absolute values in a window)
+  const energy = new Float32Array(width * height);
+  const halfWindow = Math.floor(energyWindowSize / 2);
+  let maxEnergy = 0;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      for (let wy = -halfWindow; wy <= halfWindow; wy++) {
+        for (let wx = -halfWindow; wx <= halfWindow; wx++) {
+          const sy = y + wy;
+          const sx = x + wx;
+          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+            sum += Math.abs(convolved[sy * width + sx]);
+          }
+        }
+      }
+      const energyValue = sum / (energyWindowSize * energyWindowSize);
+      energy[y * width + x] = energyValue;
+      if (energyValue > maxEnergy) {
+        maxEnergy = energyValue;
+      }
+    }
+  }
+
+  // 4. Normalize and draw the energy map
+  if (maxEnergy === 0) maxEnergy = 1; // Avoid division by zero
+  for (let i = 0; i < data.length; i += 4) {
+    const normalizedValue = (energy[i / 4] / maxEnergy) * 255;
+    data[i] = normalizedValue;
+    data[i + 1] = normalizedValue;
+    data[i + 2] = normalizedValue;
+    data[i + 3] = 255;
   }
 
   ctx.putImageData(imageData, 0, 0);

@@ -4,6 +4,7 @@ import type { AppMode } from "./types";
 import { CompareMode, CompareModeHandle } from './modes/CompareMode';
 import { ToggleMode, ToggleModeHandle } from './modes/ToggleMode';
 import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
+import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterControls } from "./components/FilterControls";
 import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP, UTIF_OPTIONS } from "./config";
@@ -65,7 +66,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, syncMode, setSyncMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, setNumViewers, showMinimap, setShowMinimap } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, setNumViewers, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, setCvReady } = useStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const bitmapCache = useRef(new Map<string, DrawableImage>());
@@ -74,11 +75,13 @@ export default function App() {
   const compareModeRef = useRef<CompareModeHandle>(null);
   const toggleModeRef = useRef<ToggleModeHandle>(null);
   const pinpointModeRef = useRef<PinpointModeHandle>(null);
+  const analysisModeRef = useRef<AnalysisModeHandle>(null);
 
   const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true });
   const [clipboardStatus, setClipboardStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
 
   const runCapture = useCallback(async () => {
     if (!isCaptureModalOpen) return;
@@ -91,6 +94,8 @@ export default function App() {
       dataUrl = await toggleModeRef.current.capture(opts);
     } else if (appMode === 'pinpoint' && pinpointModeRef.current) {
       dataUrl = await pinpointModeRef.current.capture(opts);
+    } else if (appMode === 'analysis' && analysisModeRef.current) {
+      dataUrl = await analysisModeRef.current.capture(opts);
     }
     if (dataUrl) {
       setCapturedImage(dataUrl);
@@ -100,12 +105,12 @@ export default function App() {
   useEffect(() => {
     runCapture();
   }, [runCapture]);
-
+  
   const handleOpenCaptureModal = () => {
     setClipboardStatus('idle');
     setCaptureModalOpen(true);
   };
-
+  
   const handleCopyToClipboard = async () => {
     if (!capturedImage) return;
     try {
@@ -117,7 +122,7 @@ export default function App() {
       setClipboardStatus('error');
     }
   };
-
+  
   const resetView = () => {
     const newScale = fitScaleFn ? fitScaleFn() : 1;
     if (appMode === 'pinpoint') {
@@ -162,7 +167,7 @@ export default function App() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
       
       const state = useStore.getState();
-      const { viewport, appMode, activeCanvasKey, pinpointScales, pinpointGlobalScale, syncMode, setAppMode, setSyncMode, setViewport, setShowInfoPanel } = state;
+      const { viewport, appMode, activeCanvasKey, pinpointScales, pinpointGlobalScale, setAppMode, setViewport, setShowInfoPanel } = state;
       const KEY_PAN_AMOUNT = 50;
 
       const key = e.key.toLowerCase();
@@ -185,8 +190,8 @@ export default function App() {
         case '1': setAppMode('compare'); break;
         case '2': setAppMode('toggle'); break;
         case '3': setAppMode('pinpoint'); break;
+        case '4': setAppMode('analysis'); break;
         case 'r': resetView(); break;
-        case 'l': setSyncMode(syncMode === 'locked' ? 'unlocked' : 'locked'); break;
         case 'i': setShowInfoPanel(prev => !prev); break;
         case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
         case '-': setViewport({ scale: Math.max(MIN_ZOOM, (viewport.scale || 1) - 0.01) }); break;
@@ -198,7 +203,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [syncMode, setSyncMode, setViewport, resetView, imageDimensions, setAppMode]);
+  }, [setViewport, resetView, imageDimensions, setAppMode]);
 
   const renderCurrentMode = () => {
     const setPrimaryFile = (file: File | null) => {
@@ -212,6 +217,8 @@ export default function App() {
         return <ToggleMode ref={toggleModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
       case 'pinpoint':
         return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
+      case 'analysis':
+        return <AnalysisMode ref={analysisModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
       default:
         return null;
     }
@@ -230,9 +237,10 @@ export default function App() {
                 <option value="compare">Compare</option>
                 <option value="toggle">Toggle</option>
                 <option value="pinpoint">Pinpoint</option>
+                <option value="analysis">Analysis</option>
               </select>
             </label>
-            {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'toggle') && (
+            {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'toggle' || appMode === 'analysis') && (
               <label><span>Viewers:</span>
                                 <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
                   {Array.from({ length: 8 }, (_, i) => i + 2).map(n => (
@@ -241,12 +249,6 @@ export default function App() {
                 </select>
               </label>
             )}
-            <label><span>Sync:</span>
-              <select value={syncMode} onChange={e => setSyncMode(e.target.value as any)}>
-                <option value="locked">locked</option>
-                <option value="unlocked">unlocked</option>
-              </select>
-            </label>
             {appMode === 'pinpoint' && (
               <label><span>Mouse:</span>
                 <select value={pinpointMouseMode} onChange={e => setPinpointMouseMode(e.target.value as any)}>
@@ -267,6 +269,33 @@ export default function App() {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
               Minimap
             </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button onClick={() => setShowGrid(!showGrid)} className={showGrid ? 'active' : ''} style={{ borderRight: 'none', borderTopRightRadius: 0, borderBottomRightRadius: 0 }}>
+                <svg xmlns="http://www.w.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+                Grid
+              </button>
+              <select
+                value={gridColor}
+                onChange={e => setGridColor(e.target.value as any)}
+                disabled={!showGrid}
+                style={{
+                  height: '35px',
+                  backgroundColor: 'var(--bg-light)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  padding: '0 4px',
+                  borderTopLeftRadius: 0,
+                  borderBottomLeftRadius: 0,
+                  borderLeft: '1px solid #555',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="white">White</option>
+                <option value="red">Red</option>
+                <option value="yellow">Yellow</option>
+                <option value="blue">Blue</option>
+              </select>
+            </div>
           </div>
           {appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
         </div>
@@ -294,7 +323,7 @@ export default function App() {
                 <input type="checkbox" checked={captureOptions.showLabels} onChange={(e) => setCaptureOptions(o => ({...o, showLabels: e.target.checked}))} />
                 Show Labels
               </label>
-              {appMode === 'pinpoint' && (
+              {(appMode === 'pinpoint' || appMode === 'analysis') && (
                 <label>
                   <input type="checkbox" checked={captureOptions.showCrosshair} onChange={(e) => setCaptureOptions(o => ({...o, showCrosshair: e.target.checked}))} />
                   Show Crosshair

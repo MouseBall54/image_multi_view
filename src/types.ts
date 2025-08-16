@@ -1,7 +1,8 @@
 // src/types.ts
 export type FolderKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I";
-export type AppMode = "compare" | "toggle" | "pinpoint";
+export type AppMode = "compare" | "toggle" | "pinpoint" | "analysis";
 export type PinpointMouseMode = "pin" | "pan";
+export type GridColor = 'white' | 'red' | 'yellow' | 'blue';
 
 export interface PickedFolder {
   key: FolderKey;
@@ -27,7 +28,6 @@ export interface Viewport {
   refScreenY?: number; // For pinpoint mode: screen y of the common reference point
 }
 
-export type SyncMode = "locked" | "unlocked";
 
 export type FilterType =
   | "none"
@@ -45,6 +45,7 @@ export type FilterType =
   | "sharpen"
   | "laplacian"
   | "unsharpmask"
+  | "highpass"
   // Edge Detection
   | "prewitt"
   | "scharr"
@@ -63,5 +64,17 @@ export type FilterType =
   // Advanced Denoising
   | "bilateral"
   | "nonlocalmeans"
-  | "anisotropicdiffusion";
+  | "anisotropicdiffusion"
+  // Texture Analysis
+  | "gabor"
+  | "lawstextureenergy"
+  | "lbp"
+  // Edge-preserving Filter
+  | "guided"
+  // Frequency Domain
+  | "dft"
+  | "dct"
+  | "wavelet";
+
+export type DrawableImage = ImageBitmap | HTMLImageElement;
 

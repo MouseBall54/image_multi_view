@@ -1,8 +1,9 @@
 
 import React, { useState, useRef, useMemo, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useStore } from '../store';
-import { useFolderPickers, FolderState } from '../hooks/useFolderPickers';
+import { useFolderPickers } from '../hooks/useFolderPickers';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
+import { FolderControl } from '../components/FolderControl';
 import type { FolderKey, MatchedItem } from '../types';
 import { matchFilenames } from '../utils/match';
 
@@ -21,11 +22,11 @@ interface ToggleModeProps {
 export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, stripExt, setStripExt } = useStore();
+  const { current, setCurrent, stripExt, setStripExt, clearFolder, viewerFilters, viewerFilterParams } = useStore();
   const [toggleSource, setToggleSource] = useState<FolderKey>('A');
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingAlias, setEditingAlias] = useState<FolderKey | null>(null);
   const canvasRef = useRef<ImageCanvasHandle>(null);
+  const filteredBitmapCache = useRef(new Map<string, DrawableImage>());
 
   useImperativeHandle(ref, () => ({
     capture: async ({ showLabels }) => {
@@ -96,48 +97,6 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
   }, [current, toggleSource, allFolders, setPrimaryFile]);
 
   
-  const handleAliasChange = (key: FolderKey, newAlias: string) => {
-    updateAlias(key, newAlias);
-    setEditingAlias(null);
-  };
-
-  const renderFolderControl = (key: FolderKey) => {
-    const state = allFolders[key];
-    if (!state) {
-      return (
-        <button className="folder-picker-initial" onClick={() => pick(key)}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-          <span>Folder {key}</span>
-        </button>
-      );
-    }
-
-    return (
-      <div className="folder-control">
-        <span className="folder-key-label">{key}</span>
-        <div className="alias-editor">
-          {editingAlias === key ? (
-            <input
-              type="text"
-              defaultValue={state.alias}
-              onBlur={(e) => handleAliasChange(key, e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAliasChange(key, (e.target as HTMLInputElement).value);
-                if (e.key === 'Escape') setEditingAlias(null);
-              }}
-              autoFocus
-            />
-          ) : (
-            <span className="alias-text" onClick={() => setEditingAlias(key)} title={state.alias}>{state.alias}</span>
-          )}
-        </div>
-        <button onClick={() => pick(key)} className="repick-button" title={`Repick Folder ${key}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><path d="M12 11v6"></path><path d="m15 14-3 3-3-3"></path></svg>
-        </button>
-      </div>
-    );
-  };
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === ' ') {
@@ -158,9 +117,14 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
     <>
       <div className="controls">
         {activeKeys.map(key => (
-          <React.Fragment key={key}>
-            {renderFolderControl(key)}
-          </React.Fragment>
+          <FolderControl
+            key={key}
+            folderKey={key}
+            folderState={allFolders[key]}
+            onSelect={pick}
+            onClear={clearFolder}
+            onUpdateAlias={updateAlias}
+          />
         ))}
         <div style={{ display: 'none' }}>
           {activeKeys.map(key => (
@@ -204,6 +168,9 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
             folderKey={toggleSource}
             isReference={true} 
             cache={bitmapCache.current}
+            filteredCache={filteredBitmapCache.current}
+            overrideFilterType={viewerFilters[toggleSource]}
+            overrideFilterParams={viewerFilterParams[toggleSource]}
           />
         </section>
       </main>
