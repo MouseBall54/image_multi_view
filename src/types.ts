@@ -2,6 +2,7 @@
 export type FolderKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I";
 export type AppMode = "compare" | "toggle" | "pinpoint" | "analysis";
 export type PinpointMouseMode = "pin" | "pan";
+export type GridColor = 'white' | 'red' | 'yellow' | 'blue';
 
 export interface PickedFolder {
   key: FolderKey;

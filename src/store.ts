@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Viewport, SyncMode, AppMode, FolderKey, Pinpoint, PinpointMouseMode, MatchedItem, FilterType } from "./types";
+import type { Viewport, AppMode, FolderKey, Pinpoint, PinpointMouseMode, MatchedItem, FilterType, GridColor } from "./types";
 import { DEFAULT_VIEWPORT } from "./config";
 import { FolderData } from "./utils/folder";
 
@@ -47,6 +47,8 @@ interface State {
   stripExt: boolean;
   numViewers: number;
   showMinimap: boolean;
+  showGrid: boolean;
+  gridColor: GridColor;
   viewport: Viewport;
   pinpoints: Partial<Record<FolderKey, Pinpoint>>;
   pinpointScales: Partial<Record<FolderKey, number>>;
@@ -80,6 +82,8 @@ interface State {
   setStripExt: (strip: boolean) => void;
   setNumViewers: (n: number) => void;
   setShowMinimap: (show: boolean) => void;
+  setShowGrid: (show: boolean) => void;
+  setGridColor: (color: GridColor) => void;
   setViewport: (vp: Partial<Viewport>) => void;
   setPinpoint: (key: FolderKey, pinpoint: Pinpoint) => void;
   clearPinpoints: () => void;
@@ -114,6 +118,8 @@ export const useStore = create<State>((set, get) => ({
   stripExt: true,
   numViewers: 2,
   showMinimap: false,
+  showGrid: false,
+  gridColor: 'white',
   viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5, refScreenX: undefined, refScreenY: undefined },
   pinpoints: {},
   pinpointScales: {},
@@ -145,6 +151,8 @@ export const useStore = create<State>((set, get) => ({
   setStripExt: (strip) => set({ stripExt: strip }),
   setNumViewers: (n) => set({ numViewers: n }),
   setShowMinimap: (show) => set({ showMinimap: show }),
+  setShowGrid: (show) => set({ showGrid: show }),
+  setGridColor: (color) => set({ gridColor: color }),
   setViewport: (vp) => set(s => ({ viewport: { ...s.viewport, ...vp } })),
   setPinpoint: (key, pinpoint) => set(state => ({
     pinpoints: { ...state.pinpoints, [key]: pinpoint }

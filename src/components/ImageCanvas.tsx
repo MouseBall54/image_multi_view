@@ -36,7 +36,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   const { 
     viewport, setViewport, setFitScaleFn, 
     pinpointMouseMode, setPinpointScale, 
-    pinpointGlobalScale, setPinpointGlobalScale, showMinimap,
+    pinpointGlobalScale, setPinpointGlobalScale, showMinimap, showGrid, gridColor,
     pinpointRotations, viewerFilters, viewerFilterParams, indicator, isCvReady
   } = useStore();
 
@@ -205,6 +205,36 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     
     ctx.restore();
 
+    if (showGrid) {
+      ctx.save();
+      ctx.strokeStyle = gridColor;
+      ctx.globalAlpha = 0.8;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+
+      // Vertical lines (rule of thirds)
+      const v1 = width / 3;
+      const v2 = 2 * width / 3;
+      ctx.beginPath();
+      ctx.moveTo(v1, 0);
+      ctx.lineTo(v1, height);
+      ctx.moveTo(v2, 0);
+      ctx.lineTo(v2, height);
+      ctx.stroke();
+
+      // Horizontal lines (rule of thirds)
+      const h1 = height / 3;
+      const h2 = 2 * height / 3;
+      ctx.beginPath();
+      ctx.moveTo(0, h1);
+      ctx.lineTo(width, h1);
+      ctx.moveTo(0, h2);
+      ctx.lineTo(width, h2);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
     if (isRotating) {
       ctx.save();
       ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
@@ -234,7 +264,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ctx.stroke();
       ctx.restore();
     }
-  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating]);
+  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating, showGrid, gridColor]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {
@@ -266,7 +296,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
     drawImage(ctx, processedImage, true);
-  }, [processedImage, drawImage, viewport, pinpointGlobalScale, pinpointRotations, isRotating]);
+  }, [processedImage, drawImage, viewport, pinpointGlobalScale, pinpointRotations, isRotating, showGrid, gridColor]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
