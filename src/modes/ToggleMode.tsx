@@ -18,9 +18,10 @@ interface ToggleModeProps {
   numViewers: number;
   bitmapCache: React.MutableRefObject<Map<string, DrawableImage>>;
   setPrimaryFile: (file: File | null) => void;
+  showControls: boolean;
 }
 
-export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
+export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { current, setCurrent, stripExt, setStripExt, clearFolder, viewerFilters, viewerFilterParams } = useStore();
@@ -140,7 +141,7 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
 
   return (
     <>
-      <div className="controls">
+      {showControls && <div className="controls">
         {activeKeys.map(key => (
           <FolderControl
             key={key}
@@ -156,7 +157,7 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
             <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
           ))}
         </div>
-      </div>
+      </div>}
       <main className="toggle-mode-main">
         <aside className="filelist">
           <div className="filelist-header">

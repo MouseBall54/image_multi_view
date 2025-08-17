@@ -1324,5 +1324,28 @@ main {
   color: var(--accent-primary);
 }
 
+.toggle-controls-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+  margin-left: auto; /* Pushes the button to the right */
+}
 
+.toggle-controls-btn:hover {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
 
+.toggle-controls-btn svg {
+  stroke: currentColor;
+}

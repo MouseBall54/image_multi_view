@@ -17,9 +17,10 @@ interface CompareModeProps {
   numViewers: number;
   bitmapCache: React.MutableRefObject<Map<string, DrawableImage>>;
   setPrimaryFile: (file: File | null) => void;
+  showControls: boolean;
 }
 
-export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
+export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, clearFolder } = useStore();
@@ -159,7 +160,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
   return (
     <>
-      <div className="controls">
+      {showControls && <div className="controls">
         {FOLDER_KEYS.slice(0, numViewers).map(key => (
           <FolderControl
             key={key}
@@ -175,7 +176,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
             <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
           ))}
         </div>
-      </div>
+      </div>}
       <main className="compare-mode-main">
         <aside className="filelist">
           <div className="filelist-header">

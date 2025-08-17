@@ -12,13 +12,14 @@ type Props = {
   numViewers: number;
   bitmapCache: React.MutableRefObject<Map<string, DrawableImage>>;
   setPrimaryFile: (file: File | null) => void;
+  showControls: boolean;
 };
 
 export interface AnalysisModeHandle {
   capture: (options: { showLabels: boolean }) => Promise<string | null>;
 }
 
-export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
+export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { 
     analysisFile, setAnalysisFile, 
@@ -163,7 +164,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
 
   return (
     <>
-      <div className="controls">
+      {showControls && <div className="controls">
         {FOLDER_KEYS.slice(0, numViewers).map(key => (
           <FolderControl
             key={key}
@@ -179,7 +180,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
             <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
           ))}
         </div>
-      </div>
+      </div>}
       <main className="compare-mode-main">
         <aside className="filelist">
           <div className="filelist-header">
