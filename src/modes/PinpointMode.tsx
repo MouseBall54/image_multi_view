@@ -252,13 +252,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             />
           ))}
         </div>
-        <div className="global-controls-wrapper">
-          <div className="global-scale-control">
-            <label>Global Scale:</label>
-            <span>{(pinpointGlobalScale * 100).toFixed(0)}%</span>
-            <button onClick={() => setPinpointGlobalScale(1)}>Reset</button>
-          </div>
-        </div>
       </div>
       <main className="pinpoint-mode-main">
         <aside className="filelist">

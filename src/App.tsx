@@ -67,7 +67,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, setNumViewers, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, setCvReady } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, setNumViewers, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, setCvReady } = useStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const bitmapCache = useRef(new Map<string, DrawableImage>());
@@ -258,10 +258,6 @@ export default function App() {
                 </select>
               </label>
             )}
-            <button onClick={resetView}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
-              Reset View
-            </button>
             <button onClick={handleOpenCaptureModal}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
               Capture
@@ -272,7 +268,7 @@ export default function App() {
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <button onClick={() => setShowGrid(!showGrid)} className={showGrid ? 'active' : ''} style={{ borderRight: 'none', borderTopRightRadius: 0, borderBottomRightRadius: 0 }}>
-                <svg xmlns="http://www.w.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
                 Grid
               </button>
               <select
@@ -300,7 +296,19 @@ export default function App() {
           </div>
           <div className="controls-right">
             {appMode === 'analysis' && <AnalysisRotationControl />}
+            {appMode === 'pinpoint' && (
+              <div className="global-controls-wrapper">
+                <div className="global-scale-control">
+                  <label>Global Scale:</label>
+                  <span>{(pinpointGlobalScale * 100).toFixed(0)}%</span>
+                  <button onClick={() => setPinpointGlobalScale(1)}>Reset</button>
+                </div>
+              </div>
+            )}
             {appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
+            <button onClick={resetView} title="Reset View">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            </button>
           </div>
         </div>
       </header>
