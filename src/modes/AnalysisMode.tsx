@@ -4,6 +4,7 @@ import { useFolderPickers } from '../hooks/useFolderPickers';
 import { matchFilenames } from '../utils/match';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { ALL_FILTERS } from '../components/FilterControls';
+import { AnalysisRotationControl } from '../components/AnalysisRotationControl';
 import type { DrawableImage, FolderKey, MatchedItem, FilterType } from '../types';
 
 type Props = {
@@ -17,7 +18,14 @@ export interface AnalysisModeHandle {
 }
 
 export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
-  const { analysisFile, setAnalysisFile, analysisFilters, analysisFilterParams, openFilterEditor } = useStore();
+  const { 
+    analysisFile, 
+    setAnalysisFile, 
+    analysisFilters, 
+    analysisFilterParams, 
+    analysisRotation,
+    openFilterEditor 
+  } = useStore();
   const { pick, inputRefs, onInput, allFolders } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
@@ -128,6 +136,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
         <div style={{ display: 'none' }}>
           <input ref={inputRefs[FOLDER_KEY]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(FOLDER_KEY, e)} />
         </div>
+        {analysisFile && <AnalysisRotationControl />}
       </div>
       <main className="compare-mode-main">
         <aside className="filelist">
@@ -172,6 +181,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                 isActive={false}
                 overrideFilterType={analysisFilters[i]}
                 overrideFilterParams={analysisFilterParams[i]}
+                rotation={analysisRotation}
               />
             ))
           )}

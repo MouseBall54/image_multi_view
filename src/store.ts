@@ -73,6 +73,7 @@ interface State {
   analysisFile: File | null;
   analysisFilters: Partial<Record<number, FilterType>>;
   analysisFilterParams: Partial<Record<number, FilterParams>>;
+  analysisRotation: number;
 
   // OpenCV state
   isCvReady: boolean;
@@ -101,6 +102,7 @@ interface State {
 
   // Analysis Mode Actions
   setAnalysisFile: (file: File | null) => void;
+  setAnalysisRotation: (angle: number) => void;
 
   // OpenCV actions
   setCvReady: (isReady: boolean) => void;
@@ -143,6 +145,7 @@ export const useStore = create<State>((set, get) => ({
   analysisFile: null,
   analysisFilters: {},
   analysisFilterParams: {},
+  analysisRotation: 0,
 
   // OpenCV state
   isCvReady: false,
@@ -199,6 +202,7 @@ export const useStore = create<State>((set, get) => ({
 
   // Analysis Mode Actions
   setAnalysisFile: (file) => set({ analysisFile: file, analysisFilters: {}, analysisFilterParams: {} }),
+  setAnalysisRotation: (angle) => set({ analysisRotation: angle }),
 
   // OpenCV actions
   setCvReady: (isReady) => set({ isCvReady: isReady }),
@@ -257,6 +261,7 @@ useStore.subscribe((state, prevState) => {
       pinpointScales: {},
       pinpointGlobalScale: 1,
       pinpointRotations: {},
+      analysisRotation: 0,
     });
 
     // Clear analysis file if leaving analysis mode
