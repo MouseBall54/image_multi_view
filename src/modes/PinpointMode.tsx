@@ -103,18 +103,16 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         if (showLabels) {
           const key = activeKeys[index];
           const pinpointImage = pinpointImages[key];
-          const sourceFolderAlias = pinpointImage?.sourceKey ? (allFolders[pinpointImage.sourceKey]?.alias || pinpointImage.sourceKey) : null;
+          const sourceFolderAlias = pinpointImage?.sourceKey ? (allFolders[pinpointImage.sourceKey]?.alias || pinpointImage.sourceKey) : (allFolders[key]?.alias || key);
           const filterName = getFilterName(viewerFilters[key]);
 
           const lines: string[] = [];
+          lines.push(sourceFolderAlias);
+
           if (pinpointImage?.file) {
             lines.push(pinpointImage.file.name);
-            if (sourceFolderAlias) {
-              lines.push(`(${sourceFolderAlias})`);
-            }
-          } else {
-            lines.push(allFolders[key]?.alias || key);
           }
+          
           if (filterName) {
             lines.push(`[${filterName}]`);
           }
@@ -312,18 +310,16 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         >
           {activeKeys.map(key => {
             const pinpointImage = pinpointImages[key];
-            const sourceFolderAlias = pinpointImage?.sourceKey ? (allFolders[pinpointImage.sourceKey]?.alias || pinpointImage.sourceKey) : null;
+            const sourceFolderAlias = pinpointImage?.sourceKey ? (allFolders[pinpointImage.sourceKey]?.alias || pinpointImage.sourceKey) : (allFolders[key]?.alias || key);
             const filterName = getFilterName(viewerFilters[key]);
 
             const lines: string[] = [];
+            lines.push(sourceFolderAlias);
+            
             if (pinpointImage?.file) {
               lines.push(pinpointImage.file.name);
-              if (sourceFolderAlias) {
-                lines.push(`(${sourceFolderAlias})`);
-              }
-            } else {
-              lines.push(allFolders[key]?.alias || key);
             }
+
             if (filterName) {
               lines.push(`[${filterName}]`);
             }

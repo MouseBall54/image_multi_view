@@ -22,6 +22,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { 
     analysisFile, setAnalysisFile, 
+    analysisFileSource,
     analysisFilters, analysisFilterParams, 
     analysisRotation, openFilterEditor 
   } = useStore();
@@ -82,11 +83,16 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
 
         if (showLabels) {
           const lines: string[] = [];
+          if (analysisFileSource) {
+            lines.push(analysisFileSource);
+          }
           if (analysisFile) {
             lines.push(analysisFile.name);
           }
           const filterName = getFilterName(analysisFilters[index]);
-          lines.push(filterName || 'Original');
+          if (filterName) {
+            lines.push(`[${filterName}]`);
+          }
 
           finalCtx.font = '16px sans-serif';
           const lineHeight = 20;
@@ -142,12 +148,12 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     setPrimaryFile(analysisFile);
   }, [analysisFile, setPrimaryFile]);
 
-  const handleFileSelect = (file: File) => {
-    setAnalysisFile(file);
+  const handleFileSelect = (file: File, source: string) => {
+    setAnalysisFile(file, source);
   };
   
   const getFilterName = (type: FilterType | undefined) => {
-    if (!type || type === 'none') return 'Original';
+    if (!type || type === 'none') return null;
     return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown Filter';
   };
 
@@ -198,7 +204,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
             {filteredFileList.map(({ file, source }) => (
               <li key={`${source}-${file.name}`}
                   className={analysisFile?.name === file.name ? "active": ""}
-                  onClick={()=> handleFileSelect(file)}>
+                  onClick={()=> handleFileSelect(file, source)}>
                 <div className="file-info">
                   <span className="file-name">{file.name}</span>
                   <span className="file-source">from {source}</span>
@@ -215,8 +221,16 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
           ) : (
             Array.from({ length: numViewers }).map((_, i) => {
               const filterName = getFilterName(analysisFilters[i]);
-              const lines: string[] = [analysisFile.name];
-              lines.push(filterName);
+              const lines: string[] = [];
+              if (analysisFileSource) {
+                lines.push(analysisFileSource);
+              }
+              if (analysisFile) {
+                lines.push(analysisFile.name);
+              }
+              if (filterName) {
+                lines.push(`[${filterName}]`);
+              }
               const label = lines.join('\n');
 
               return (

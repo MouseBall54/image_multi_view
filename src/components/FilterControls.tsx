@@ -53,7 +53,7 @@ export const FilterControls: React.FC = () => {
     applyTempFilterSettings,
   } = useStore();
 
-  if (!activeFilterEditor) return null;
+  if (activeFilterEditor === null) return null;
 
   const handleParamChange = (param: string, value: string) => {
     const numValue = parseFloat(value);

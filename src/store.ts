@@ -71,6 +71,7 @@ interface State {
 
   // Analysis Mode State
   analysisFile: File | null;
+  analysisFileSource: string | null;
   analysisFilters: Partial<Record<number, FilterType>>;
   analysisFilterParams: Partial<Record<number, FilterParams>>;
   analysisRotation: number;
@@ -101,7 +102,7 @@ interface State {
   clearFolder: (key: FolderKey) => void;
 
   // Analysis Mode Actions
-  setAnalysisFile: (file: File | null) => void;
+  setAnalysisFile: (file: File | null, source?: string) => void;
   setAnalysisRotation: (angle: number) => void;
 
   // OpenCV actions
@@ -143,6 +144,7 @@ export const useStore = create<State>((set, get) => ({
 
   // Analysis Mode State
   analysisFile: null,
+  analysisFileSource: null,
   analysisFilters: {},
   analysisFilterParams: {},
   analysisRotation: 0,
@@ -201,7 +203,12 @@ export const useStore = create<State>((set, get) => ({
   }),
 
   // Analysis Mode Actions
-  setAnalysisFile: (file) => set({ analysisFile: file, analysisFilters: {}, analysisFilterParams: {} }),
+  setAnalysisFile: (file, source = null) => set({ 
+    analysisFile: file, 
+    analysisFileSource: source,
+    analysisFilters: {}, 
+    analysisFilterParams: {} 
+  }),
   setAnalysisRotation: (angle) => set({ analysisRotation: angle }),
 
   // OpenCV actions
