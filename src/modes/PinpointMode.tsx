@@ -148,14 +148,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     }
   };
   
-  const fileOf = useCallback((key: FolderKey, item: MatchedItem | null): File | undefined => {
-    if (!item) return undefined;
-    const folderState = allFolders[key];
-    if (!folderState?.data.files) return undefined;
-    const name = Array.from(folderState.data.files.keys()).find(n => n.replace(/\.[^/.]+$/, "") === item.filename); // Always strip extension for matching
-    return name ? folderState.data.files.get(name) : undefined;
-  }, [allFolders]);
-
   useEffect(() => {
     const primaryFile = pinpointImages['A']?.file;
     setPrimaryFile(primaryFile || null);
@@ -171,6 +163,75 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       };
     });
     setViewport({ refScreenX: screenPoint.x, refScreenY: screenPoint.y });
+  };
+
+  const handleFileListItemClick = (item: MatchedItem) => {
+    setCurrent(item);
+
+    const getFileFromItem = (item: MatchedItem, specificFolderKey?: FolderKey): File | null => {
+      // If a specific folder is requested, search only that one.
+      if (specificFolderKey) {
+        const folderState = allFolders[specificFolderKey];
+        if (folderState?.data.files && item.has[specificFolderKey]) {
+          for (const [name, file] of folderState.data.files.entries()) {
+            const baseName = stripExt ? name.replace(/\.[^/.]+$/, "") : name;
+            if (baseName === item.filename) {
+              return file;
+            }
+          }
+        }
+        return null;
+      }
+
+      // Otherwise, find the first available file from any folder.
+      for (const key of FOLDER_KEYS) {
+        if (item.has[key as FolderKey]) {
+          const folderState = allFolders[key as FolderKey];
+          if (folderState?.data.files) {
+            for (const [name, file] of folderState.data.files.entries()) {
+              const baseName = stripExt ? name.replace(/\.[^/.]+$/, "") : name;
+              if (baseName === item.filename) {
+                return file;
+              }
+            }
+          }
+        }
+      }
+      return null;
+    };
+
+    // If a specific canvas is active, only change that one.
+    if (activeCanvasKey) {
+      const file = getFileFromItem(item); // Find file from any folder
+      if (file) {
+        const oldPinpointImage = pinpointImages[activeCanvasKey];
+        const refPoint = (oldPinpointImage && oldPinpointImage.file?.name === file.name)
+          ? oldPinpointImage.refPoint
+          : { x: 0.5, y: 0.5 };
+        
+        setPinpointImages(prev => ({
+          ...prev,
+          [activeCanvasKey]: { file, refPoint }
+        }));
+      }
+      return;
+    }
+
+    // Original behavior: update all viewers if none is active
+    const newPinpointImages: Partial<Record<FolderKey, PinpointImage>> = {};
+    for (const key of activeKeys) {
+      const file = getFileFromItem(item, key); // Find file for this specific folder key
+      if (file) {
+        const oldPinpointImage = pinpointImages[key];
+        const refPoint = (oldPinpointImage && oldPinpointImage.file?.name === file.name)
+          ? oldPinpointImage.refPoint
+          : { x: 0.5, y: 0.5 };
+        newPinpointImages[key] = { file, refPoint };
+      } else {
+        newPinpointImages[key] = { file: null, refPoint: null };
+      }
+    }
+    setPinpointImages(newPinpointImages);
   };
 
   const gridStyle = {
@@ -237,7 +298,16 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             ))}
           </ul>
         </aside>
-        <section className="viewers" style={gridStyle}>
+        <section 
+          className="viewers" 
+          style={gridStyle}
+          onClick={(e) => {
+            // If the click is on the background grid itself, deactivate the canvas
+            if (e.target === e.currentTarget) {
+              setActiveCanvasKey(null);
+            }
+          }}
+        >
           {activeKeys.map(key => (
             <div key={key} className="viewer-container">
               <ImageCanvas 

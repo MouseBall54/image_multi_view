@@ -68,6 +68,12 @@ header {
   align-items:center; 
 }
 
+.controls-right {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 .controls-main label {
   display: flex;
   align-items: center;

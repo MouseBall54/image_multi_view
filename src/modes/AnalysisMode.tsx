@@ -136,7 +136,6 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
         <div style={{ display: 'none' }}>
           <input ref={inputRefs[FOLDER_KEY]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(FOLDER_KEY, e)} />
         </div>
-        {analysisFile && <AnalysisRotationControl />}
       </div>
       <main className="compare-mode-main">
         <aside className="filelist">
