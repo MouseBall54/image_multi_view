@@ -1,34 +1,57 @@
-﻿# Image Compare Viewer
+# Image Compare Viewer
 
-A client-side web application for comparing images from multiple local folders. Built with React and TypeScript, it works entirely in your browser with no file uploads.
+A client-side web application for analyzing and comparing images from multiple local folders. Built with React and TypeScript, it works entirely in your browser with no file uploads. The app is ideal for quality inspection, training data review, or any workflow where you need to align and inspect many images quickly.
+
+## Highlights
+- **Privacy-friendly:** All processing happens locally; files never leave your machine.
+- **Flexible Viewers:** Load up to nine folders and view any combination side by side.
+- **Advanced Analysis Tools:** Apply a wide range of filters and capture composite views.
+- **Keyboard Driven:** Numerous hotkeys for rapid navigation and mode switching.
 
 ## Modes
 
-The app provides three modes suited for different workflows:
+The app provides four modes suited for different workflows:
 
 ### Compare Mode
-- View images from 2–9 folders side by side in a grid.
-- All viewers pan and zoom together and file lists can be searched.
-- Rename folder aliases and optionally ignore file extensions when matching.
+- View images from 2–9 folders side by side in a synchronized grid.
+- Pan and zoom once and all viewers follow.
+- Rename folder aliases and optionally ignore file extensions when matching files.
 
 ### Toggle Mode
-- Display one folder at a time while keeping the same viewport.
+- Display one folder at a time while maintaining the current viewport.
 - Press `Space` to cycle through loaded folders.
 
 ### Pinpoint Mode
-- Load any image into any viewer and align them using a reference point.
+- Load any image into any viewer and align them using a shared reference point.
 - Each viewer has independent scale and rotation with a global scale multiplier.
 - Click to set the reference crosshair; `Alt` + drag rotates the active image.
+
+### Analysis Mode
+- Apply different filters to the same image for side-by-side comparison.
+- Choose a single source image and experiment with filters, rotations, and capture outputs.
 
 ## Major Features
 
 - **Synchronized Viewports:** Pan and zoom on one image and all others follow.
 - **Flexible File Matching:** Match by full filename or ignore extensions.
-- **Per-Viewer Filters:** Apply contrast, blur, edge-detection and other filters with adjustable parameters.
+- **Per-Viewer Filters:** Apply contrast, blur, edge detection, texture, and noise-reduction filters with adjustable parameters.
 - **Capture Tool:** Export the current view to the clipboard or as an image file.
-- **Minimap:** Optional overview of the full image and current viewport.
+- **Minimap & Grid:** Optional minimap overview and adjustable grid overlay.
 - **Image Info Panel:** Shows filename, dimensions and file size of the active image.
-- **Keyboard Shortcuts:** Hotkeys for rapid navigation and mode control.
+
+## Available Filters
+
+A selection of built-in filters can be applied to each viewer:
+
+- Box blur, Gaussian blur
+- Sharpen, Unsharp mask, Highpass, Gabor
+- Prewitt, Scharr, Sobel, Roberts Cross
+- Laplacian, Laplacian of Gaussian (LoG), Difference of Gaussians (DoG), Marr–Hildreth, Canny
+- Linear contrast stretch, Histogram equalization, CLAHE, Gamma correction
+- Local histogram equalization, Adaptive histogram equalization
+- Median, Weighted median, Alpha-trimmed mean
+- Bilateral filter, Non-local means, Anisotropic diffusion, Guided filter
+- Local binary patterns (LBP), Laws' texture energy
 
 ## Getting Started
 
@@ -37,7 +60,7 @@ npm install
 npm run dev
 ```
 
-Open the printed URL in your browser. Use the **Mode** dropdown or hotkeys (`1`: Compare, `2`: Toggle, `3`: Pinpoint) to switch modes.
+Open the printed URL in your browser. Use the **Mode** dropdown or hotkeys (`1`: Compare, `2`: Toggle, `3`: Pinpoint, `4`: Analysis) to switch modes.
 
 1. Pick folders (Folder A, B, etc.) to load images.
 2. Select a filename from the list on the left.
@@ -47,16 +70,15 @@ Open the printed URL in your browser. Use the **Mode** dropdown or hotkeys (`1`:
 
 ## Keyboard Shortcuts
 
-| Key(s)                | Action                                       |
-| --------------------- | -------------------------------------------- |
-| `1` / `2` / `3`       | Switch to Compare / Toggle / Pinpoint mode   |
-| `A` / `D`             | Previous / Next Image                        |
-| `Space` (Toggle mode) | Cycle source folder                          |
-| `Arrow Keys`          | Pan the image (Up, Down, Left, Right)        |
-| `+` / `=` or `-`      | Zoom In / Zoom Out                           |
-| `R`                   | Reset View                                   |
-| `L`                   | Toggle Sync Lock                             |
-| `I`                   | Show / Hide Image Information Panel          |
+| Key(s)                         | Action                                        |
+| ------------------------------ | --------------------------------------------- |
+| `1` / `2` / `3` / `4`          | Switch to Compare / Toggle / Pinpoint / Analysis mode |
+| `Space` (Toggle mode)          | Cycle source folder                           |
+| `=` or `+` / `-`               | Zoom In / Zoom Out                            |
+| `Arrow Keys`                   | Pan the image (Up, Down, Left, Right)         |
+| `R`                            | Reset View                                    |
+| `I`                            | Show / Hide Image Information Panel           |
+| `Alt` + drag (Pinpoint mode)   | Rotate active image                           |
 
 ## Build
 
