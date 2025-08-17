@@ -71,6 +71,7 @@ export default function App() {
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [showColorPalette, setShowColorPalette] = useState(false);
   const bitmapCache = useRef(new Map<string, DrawableImage>());
   
   const primaryFileRef = useRef<File | null>(null);
@@ -271,32 +272,20 @@ export default function App() {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="4" height="4" rx="1" ry="1"></rect></svg>
               Minimap
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <button onClick={() => setShowGrid(!showGrid)} className={showGrid ? 'active' : ''} style={{ borderRight: 'none', borderTopRightRadius: 0, borderBottomRightRadius: 0 }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
-                Grid
-              </button>
-              <select
-                value={gridColor}
-                onChange={e => setGridColor(e.target.value as any)}
-                disabled={!showGrid}
-                style={{
-                  height: '35px',
-                  backgroundColor: 'var(--bg-light)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-primary)',
-                  padding: '0 4px',
-                  borderTopLeftRadius: 0,
-                  borderBottomLeftRadius: 0,
-                  borderLeft: '1px solid #555',
-                  cursor: 'pointer'
-                }}
+            <div className="grid-button-unified">
+              <button
+                className={`grid-button-toggle ${showGrid ? 'active' : ''}`}
+                onClick={() => setShowGrid(!showGrid)}
+                title={showGrid ? 'Hide Grid' : 'Show Grid'}
               >
-                <option value="white">White</option>
-                <option value="red">Red</option>
-                <option value="yellow">Yellow</option>
-                <option value="blue">Blue</option>
-              </select>
+                <svg xmlns="http://www.w.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+              </button>
+              <div
+                className="grid-button-color-indicator"
+                style={{ backgroundColor: showGrid ? gridColor : 'transparent' }}
+                onClick={() => showGrid && setShowColorPalette(true)}
+                title="Change Grid Color"
+              />
             </div>
           </div>
           <div className="controls-right">
@@ -359,6 +348,29 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {showColorPalette && showGrid && (
+        <div className="grid-color-modal-overlay" onClick={() => setShowColorPalette(false)}>
+          <div className="grid-color-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Select Grid Color</h3>
+            <div className="grid-color-palette-modal">
+              {['white', 'red', 'yellow', 'blue'].map(color => (
+                <button
+                  key={color}
+                  title={color.charAt(0).toUpperCase() + color.slice(1)}
+                  style={{ backgroundColor: color }}
+                  className={`grid-color-swatch ${gridColor === color ? 'active' : ''}`}
+                  onClick={() => {
+                    setGridColor(color as any);
+                    setShowColorPalette(false);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <FilterControls />
     </div>
   );
