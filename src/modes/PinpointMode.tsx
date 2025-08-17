@@ -6,6 +6,7 @@ import { matchFilenames } from '../utils/match';
 import type { FolderKey, MatchedItem } from '../types';
 import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP } from '../config';
 import { FolderControl } from '../components/FolderControl';
+import { ALL_FILTERS } from '../components/FilterControls';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -35,11 +36,17 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   const { 
     current, setCurrent, setViewport, viewport, 
     pinpointScales, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale, 
-    activeCanvasKey, setActiveCanvasKey, stripExt, setStripExt, clearFolder 
+    activeCanvasKey, setActiveCanvasKey, stripExt, setStripExt, clearFolder,
+    openFilterEditor, viewerFilters, viewerFilterParams
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [folderFilter, setFolderFilter] = useState<FolderKey | 'all'>('all');
+
+  const getFilterName = (type: FilterType | undefined) => {
+    if (!type || type === 'none') return null;
+    return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown';
+  };
 
   const canvasRefs = FOLDER_KEYS.reduce((acc, key) => {
     acc[key] = useRef<ImageCanvasHandle>(null);
@@ -95,12 +102,35 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
         if (showLabels) {
           const key = activeKeys[index];
-          const label = allFolders[key]?.alias || pinpointImages[key]?.file?.name || key;
+          const pinpointImage = pinpointImages[key];
+          const sourceFolderAlias = pinpointImage?.sourceKey ? (allFolders[pinpointImage.sourceKey]?.alias || pinpointImage.sourceKey) : null;
+          const filterName = getFilterName(viewerFilters[key]);
+
+          const lines: string[] = [];
+          if (pinpointImage?.file) {
+            lines.push(pinpointImage.file.name);
+            if (sourceFolderAlias) {
+              lines.push(`(${sourceFolderAlias})`);
+            }
+          } else {
+            lines.push(allFolders[key]?.alias || key);
+          }
+          if (filterName) {
+            lines.push(`[${filterName}]`);
+          }
+
           finalCtx.font = '16px sans-serif';
+          const lineHeight = 20;
+          const textMetrics = lines.map(line => finalCtx.measureText(line));
+          const maxWidth = Math.max(...textMetrics.map(m => m.width));
+
           finalCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-          finalCtx.fillRect(dx + 5, dy + 5, finalCtx.measureText(label).width + 10, 24);
+          finalCtx.fillRect(dx + 5, dy + 5, maxWidth + 10, lines.length * lineHeight);
+          
           finalCtx.fillStyle = 'white';
-          finalCtx.fillText(label, dx + 10, dy + 22);
+          lines.forEach((line, i) => {
+            finalCtx.fillText(line, dx + 10, dy + 22 + (i * (lineHeight - 4)));
+          });
         }
       });
 
@@ -283,9 +313,21 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
           {activeKeys.map(key => {
             const pinpointImage = pinpointImages[key];
             const sourceFolderAlias = pinpointImage?.sourceKey ? (allFolders[pinpointImage.sourceKey]?.alias || pinpointImage.sourceKey) : null;
-            const label = pinpointImage?.file 
-              ? `${pinpointImage.file.name} ${sourceFolderAlias ? `(${sourceFolderAlias})` : ''}`
-              : (allFolders[key]?.alias || key);
+            const filterName = getFilterName(viewerFilters[key]);
+
+            const lines: string[] = [];
+            if (pinpointImage?.file) {
+              lines.push(pinpointImage.file.name);
+              if (sourceFolderAlias) {
+                lines.push(`(${sourceFolderAlias})`);
+              }
+            } else {
+              lines.push(allFolders[key]?.alias || key);
+            }
+            if (filterName) {
+              lines.push(`[${filterName}]`);
+            }
+            const label = lines.join('\n');
 
             return (
               <div key={key} className="viewer-container">
@@ -302,8 +344,17 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                   folderKey={key}
                   onClick={setActiveCanvasKey}
                   isActive={activeCanvasKey === key}
+                  overrideFilterType={viewerFilters[key]}
+                  overrideFilterParams={viewerFilterParams[key]}
                 />
                 <div className="viewer-controls">
+                  <button 
+                    className="viewer__filter-button" 
+                    title={`Filter Settings for ${allFolders[key]?.alias || key}`}
+                    onClick={() => openFilterEditor(key)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                  </button>
                   <PinpointRotationControl folderKey={key} />
                 </div>
                 <PinpointScaleControl folderKey={key} />
