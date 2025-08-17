@@ -109,7 +109,8 @@ header {
 }
 
 /* Buttons with Icons */
-.controls-main button {
+.controls-main button,
+.controls-main-button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -124,13 +125,15 @@ header {
   transition: background-color 0.2s, border-color 0.2s, color 0.2s;
 }
 
-.controls-main button:hover {
+.controls-main button:hover,
+.controls-main-button:hover {
   background-color: var(--accent-primary);
   border-color: var(--accent-hover);
   color: #fff;
 }
 
-.controls-main button svg {
+.controls-main button svg,
+.controls-main-button svg {
   stroke: currentColor;
   transition: stroke 0.2s;
 }
@@ -146,7 +149,7 @@ header {
   background-color: var(--bg-light);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 8px 12px;
+  padding: 8px 6px;
   border-radius: 6px;
   font-size: 0.9rem;
   transition: background-color 0.2s, border-color 0.2s;
@@ -160,7 +163,7 @@ header {
 .controls label, .viewport-controls label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   border: none;
   background: none;
   padding: 0;
@@ -171,7 +174,7 @@ header {
 }
 
 .viewport-controls input { 
-  width: 80px; 
+  width: 35px; 
   text-align: right; 
 }
 
@@ -1324,5 +1327,133 @@ main {
   color: var(--accent-primary);
 }
 
+.toggle-controls-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+  margin-left: auto; /* Pushes the button to the right */
+}
 
+.toggle-controls-btn:hover {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
 
+.toggle-controls-btn svg {
+  stroke: currentColor;
+}
+
+/* --- New Grid Button Styles --- */
+.grid-button-unified {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  height: 35px;
+}
+
+.grid-button-toggle {
+  background-color: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 0 12px;
+  cursor: pointer;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.grid-button-toggle:hover {
+  background-color: #454545;
+}
+
+.grid-button-toggle.active {
+  background-color: var(--accent-primary);
+  color: white;
+}
+
+.grid-button-toggle svg {
+  stroke: currentColor;
+}
+
+.grid-button-color-indicator {
+  position: relative;
+  width: 24px;
+  height: 100%;
+  cursor: pointer;
+  border-left: 1px solid var(--border-color);
+  transition: background-color 0.2s;
+}
+
+.grid-button-color-indicator:hover {
+  filter: brightness(1.2);
+}
+
+/* --- Grid Color Modal Styles --- */
+.grid-color-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.grid-color-modal-content {
+  background-color: var(--bg-med);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.grid-color-modal-content h3 {
+  margin: 0;
+  text-align: center;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.grid-color-palette-modal {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.grid-color-modal-content .grid-color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.2s, border-color 0.2s;
+  outline: none;
+}
+
+.grid-color-modal-content .grid-color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.grid-color-modal-content .grid-color-swatch.active {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary);
+}

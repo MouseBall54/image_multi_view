@@ -60,16 +60,18 @@ function ViewportControls({ imageDimensions }: {
   return (
     <div className="viewport-controls">
       <label><span>Scale:</span><input type="text" value={scaleInput} onChange={(e) => setScaleInput(e.target.value)} onBlur={applyChanges} onKeyDown={handleKeyDown}/><span>%</span></label>
-      <label><span>X:</span><input type="text" value={xInput} disabled={!imageDimensions} onChange={(e) => setXInput(e.target.value)} onBlur={applyChanges} onKeyDown={handleKeyDown}/><span>px</span></label>
-      <label><span>Y:</span><input type="text" value={yInput} disabled={!imageDimensions} onChange={(e) => setYInput(e.target.value)} onBlur={applyChanges} onKeyDown={handleKeyDown}/><span>px</span></label>
+      <label><span>X:</span><input type="text" value={xInput} disabled={!imageDimensions} onChange={(e) => setXInput(e.target.value)} onBlur={applyChanges} onKeyDown={handleKeyDown}/></label>
+      <label><span>Y:</span><input type="text" value={yInput} disabled={!imageDimensions} onChange={(e) => setYInput(e.target.value)} onBlur={applyChanges} onKeyDown={handleKeyDown}/></label>
     </div>
   );
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, setNumViewers, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, setCvReady } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, setNumViewers, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, setCvReady } = useStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [showColorPalette, setShowColorPalette] = useState(false);
   const bitmapCache = useRef(new Map<string, DrawableImage>());
   
   const primaryFileRef = useRef<File | null>(null);
@@ -213,13 +215,13 @@ export default function App() {
 
     switch (appMode) {
       case 'compare':
-        return <CompareMode ref={compareModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
+        return <CompareMode ref={compareModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       case 'toggle':
-        return <ToggleMode ref={toggleModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
+        return <ToggleMode ref={toggleModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       case 'pinpoint':
-        return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
+        return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       case 'analysis':
-        return <AnalysisMode ref={analysisModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} />;
+        return <AnalysisMode ref={analysisModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       default:
         return null;
     }
@@ -230,6 +232,10 @@ export default function App() {
       <header>
         <div className="title-container">
           <h1 className="app-title">CompareX</h1>
+          <button onClick={() => setShowControls(!showControls)} className="toggle-controls-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.37 3.63a2.12 2.12 0 1 1 3 3L12 16l-4 1 1-4Z"/></svg>
+            <span>{showControls ? 'Hide' : 'Show'} Folderlist</span>
+          </button>
         </div>
         <div className="top-controls-wrapper">
           <div className="controls-main">
@@ -258,49 +264,45 @@ export default function App() {
                 </select>
               </label>
             )}
-            <button onClick={resetView}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
-              Reset View
-            </button>
             <button onClick={handleOpenCaptureModal}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
               Capture
             </button>
             <button onClick={() => setShowMinimap(!showMinimap)} className={showMinimap ? 'active' : ''}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="4" height="4" rx="1" ry="1"></rect></svg>
               Minimap
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <button onClick={() => setShowGrid(!showGrid)} className={showGrid ? 'active' : ''} style={{ borderRight: 'none', borderTopRightRadius: 0, borderBottomRightRadius: 0 }}>
-                <svg xmlns="http://www.w.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
-                Grid
-              </button>
-              <select
-                value={gridColor}
-                onChange={e => setGridColor(e.target.value as any)}
-                disabled={!showGrid}
-                style={{
-                  height: '35px',
-                  backgroundColor: 'var(--bg-light)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-primary)',
-                  padding: '0 4px',
-                  borderTopLeftRadius: 0,
-                  borderBottomLeftRadius: 0,
-                  borderLeft: '1px solid #555',
-                  cursor: 'pointer'
-                }}
+            <div className="grid-button-unified">
+              <button
+                className={`grid-button-toggle ${showGrid ? 'active' : ''}`}
+                onClick={() => setShowGrid(!showGrid)}
+                title={showGrid ? 'Hide Grid' : 'Show Grid'}
               >
-                <option value="white">White</option>
-                <option value="red">Red</option>
-                <option value="yellow">Yellow</option>
-                <option value="blue">Blue</option>
-              </select>
+                <svg xmlns="http://www.w.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+              </button>
+              <div
+                className="grid-button-color-indicator"
+                style={{ backgroundColor: showGrid ? gridColor : 'transparent' }}
+                onClick={() => showGrid && setShowColorPalette(true)}
+                title="Change Grid Color"
+              />
             </div>
           </div>
           <div className="controls-right">
             {appMode === 'analysis' && <AnalysisRotationControl />}
+            {appMode === 'pinpoint' && (
+              <div className="global-controls-wrapper">
+                <div className="global-scale-control">
+                  <label>Global Scale:</label>
+                  <span>{(pinpointGlobalScale * 100).toFixed(0)}%</span>
+                  <button onClick={() => setPinpointGlobalScale(1)}>Reset</button>
+                </div>
+              </div>
+            )}
             {appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
+            <button onClick={resetView} title="Reset View" className="controls-main-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4M12 12l-8 8M12 12l8 8M12 12l-8-8M12 12l8-8"/></svg>
+            </button>
           </div>
         </div>
       </header>
@@ -346,6 +348,29 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {showColorPalette && showGrid && (
+        <div className="grid-color-modal-overlay" onClick={() => setShowColorPalette(false)}>
+          <div className="grid-color-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Select Grid Color</h3>
+            <div className="grid-color-palette-modal">
+              {['white', 'red', 'yellow', 'blue'].map(color => (
+                <button
+                  key={color}
+                  title={color.charAt(0).toUpperCase() + color.slice(1)}
+                  style={{ backgroundColor: color }}
+                  className={`grid-color-swatch ${gridColor === color ? 'active' : ''}`}
+                  onClick={() => {
+                    setGridColor(color as any);
+                    setShowColorPalette(false);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <FilterControls />
     </div>
   );

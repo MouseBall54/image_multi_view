@@ -28,9 +28,10 @@ interface PinpointModeProps {
   numViewers: number;
   bitmapCache: React.MutableRefObject<Map<string, DrawableImage>>;
   setPrimaryFile: (file: File | null) => void;
+  showControls: boolean;
 }
 
-export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
+export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { 
@@ -239,27 +240,18 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
   return (
     <>
-      <div className="controls pinpoint-controls-header">
-        <div className="folder-controls-wrapper">
-          {activeKeys.map(key => (
-            <FolderControl
-              key={key}
-              folderKey={key}
-              folderState={allFolders[key]}
-              onSelect={pick}
-              onClear={clearFolder}
-              onUpdateAlias={updateAlias}
-            />
-          ))}
-        </div>
-        <div className="global-controls-wrapper">
-          <div className="global-scale-control">
-            <label>Global Scale:</label>
-            <span>{(pinpointGlobalScale * 100).toFixed(0)}%</span>
-            <button onClick={() => setPinpointGlobalScale(1)}>Reset</button>
-          </div>
-        </div>
-      </div>
+      {showControls && <div className="controls">
+        {activeKeys.map(key => (
+          <FolderControl
+            key={key}
+            folderKey={key}
+            folderState={allFolders[key]}
+            onSelect={pick}
+            onClear={clearFolder}
+            onUpdateAlias={updateAlias}
+          />
+        ))}
+      </div>}
       <main className="pinpoint-mode-main">
         <aside className="filelist">
           <div className="filelist-header">
