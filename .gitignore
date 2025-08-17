@@ -1,2 +1,39 @@
-gh-pages/
+# Node dependencies
 node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Env files
+.env
+.env.*.local
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Optional: lock files (팀 정책에 따라 유지/제외)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
