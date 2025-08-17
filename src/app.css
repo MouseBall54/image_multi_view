@@ -251,6 +251,27 @@ main {
   background-color: var(--bg-light);
 }
 
+.file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.file-source {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.filelist li.active .file-name,
+.filelist li.active .file-source {
+  color: white;
+}
+
 .filelist li.active { 
   background: var(--accent-primary); 
   color: white;
