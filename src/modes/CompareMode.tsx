@@ -79,15 +79,31 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
         if (showLabels) {
           const key = activeKeys[index];
+          const lines: string[] = [];
           const folderLabel = allFolders[key]?.alias || key;
+          lines.push(folderLabel);
+
+          if (current?.filename) {
+            lines.push(current.filename);
+          }
+
           const filterName = getFilterName(viewerFilters[key]);
-          const label = filterName ? `${folderLabel}: ${filterName}` : folderLabel;
+          if (filterName) {
+            lines.push(`[${filterName}]`);
+          }
           
           finalCtx.font = '16px sans-serif';
+          const lineHeight = 20;
+          const textMetrics = lines.map(line => finalCtx.measureText(line));
+          const maxWidth = Math.max(...textMetrics.map(m => m.width));
+
           finalCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-          finalCtx.fillRect(dx + 5, dy + 5, finalCtx.measureText(label).width + 10, 24);
+          finalCtx.fillRect(dx + 5, dy + 5, maxWidth + 10, lines.length * lineHeight);
+          
           finalCtx.fillStyle = 'white';
-          finalCtx.fillText(label, dx + 10, dy + 22);
+          lines.forEach((line, i) => {
+            finalCtx.fillText(line, dx + 10, dy + 22 + (i * (lineHeight - 4)));
+          });
         }
       });
 
@@ -189,9 +205,19 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
         </aside>
         <section className="viewers" style={gridStyle}>
           {FOLDER_KEYS.slice(0, numViewers).map(key => {
+            const lines: string[] = [];
             const folderLabel = allFolders[key]?.alias || key;
+            lines.push(folderLabel);
+
+            if (current?.filename) {
+              lines.push(current.filename);
+            }
+
             const filterName = getFilterName(viewerFilters[key]);
-            const finalLabel = filterName ? `${folderLabel}: ${filterName}` : folderLabel;
+            if (filterName) {
+              lines.push(`[${filterName}]`);
+            }
+            const finalLabel = lines.join('\n');
 
             return (
               <div key={key} className="viewer-container">

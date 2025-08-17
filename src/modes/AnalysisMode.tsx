@@ -4,6 +4,8 @@ import { useFolderPickers } from '../hooks/useFolderPickers';
 import { matchFilenames } from '../utils/match';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { ALL_FILTERS } from '../components/FilterControls';
+import { AnalysisRotationControl } from '../components/AnalysisRotationControl';
+import { FolderControl } from '../components/FolderControl';
 import type { DrawableImage, FolderKey, MatchedItem, FilterType } from '../types';
 
 type Props = {
@@ -17,12 +19,19 @@ export interface AnalysisModeHandle {
 }
 
 export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
-  const { analysisFile, setAnalysisFile, analysisFilters, analysisFilterParams, openFilterEditor } = useStore();
-  const { pick, inputRefs, onInput, allFolders } = useFolderPickers();
+  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+  const { 
+    analysisFile, setAnalysisFile, 
+    analysisFileSource,
+    analysisFilters, analysisFilterParams, 
+    analysisRotation, openFilterEditor 
+  } = useStore();
+  const { pick, inputRefs, onInput, allFolders, updateAlias, clearFolder } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
+  const [folderFilter, setFolderFilter] = useState<FolderKey | 'all'>('all');
 
-  const FOLDER_KEY: FolderKey = "A"; // Use a single key for folder picking
+  const activeKeys = useMemo(() => FOLDER_KEYS.slice(0, numViewers), [numViewers]);
 
   useImperativeHandle(ref, () => ({
     capture: async ({ showLabels }) => {
@@ -73,12 +82,30 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
         if (row > 0) finalCtx.fillRect(dx, dy - BORDER_WIDTH / 2, width, BORDER_WIDTH);
 
         if (showLabels) {
-          const label = getFilterName(analysisFilters[index]);
+          const lines: string[] = [];
+          if (analysisFileSource) {
+            lines.push(analysisFileSource);
+          }
+          if (analysisFile) {
+            lines.push(analysisFile.name);
+          }
+          const filterName = getFilterName(analysisFilters[index]);
+          if (filterName) {
+            lines.push(`[${filterName}]`);
+          }
+
           finalCtx.font = '16px sans-serif';
+          const lineHeight = 20;
+          const textMetrics = lines.map(line => finalCtx.measureText(line));
+          const maxWidth = Math.max(...textMetrics.map(m => m.width));
+
           finalCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-          finalCtx.fillRect(dx + 5, dy + 5, finalCtx.measureText(label).width + 10, 24);
+          finalCtx.fillRect(dx + 5, dy + 5, maxWidth + 10, lines.length * lineHeight);
+          
           finalCtx.fillStyle = 'white';
-          finalCtx.fillText(label, dx + 10, dy + 22);
+          lines.forEach((line, i) => {
+            finalCtx.fillText(line, dx + 10, dy + 22 + (i * (lineHeight - 4)));
+          });
         }
       });
 
@@ -86,17 +113,33 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     }
   }));
 
-  const folder = allFolders[FOLDER_KEY];
-
   const fileList = useMemo(() => {
-    if (!folder) return [];
-    // In analysis mode, we just want a flat list of all files.
-    return Array.from(folder.data.files.values());
-  }, [folder]);
+    const filesWithSource: { file: File, source: string }[] = [];
+    
+    const addFilesFromKey = (key: FolderKey) => {
+      const folderState = allFolders[key];
+      if (folderState?.data.files) {
+        const sourceAlias = folderState.alias || key;
+        folderState.data.files.forEach(file => {
+          filesWithSource.push({ file, source: sourceAlias });
+        });
+      }
+    };
+
+    if (folderFilter === 'all') {
+      FOLDER_KEYS.forEach(key => {
+        if (allFolders[key]) addFilesFromKey(key);
+      });
+    } else {
+      addFilesFromKey(folderFilter);
+    }
+
+    return filesWithSource.sort((a, b) => a.file.name.localeCompare(b.file.name));
+  }, [folderFilter, allFolders]);
 
   const filteredFileList = useMemo(() => {
     if (!searchQuery) return fileList;
-    return fileList.filter(file =>
+    return fileList.filter(({ file }) =>
       file.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [fileList, searchQuery]);
@@ -105,12 +148,12 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     setPrimaryFile(analysisFile);
   }, [analysisFile, setPrimaryFile]);
 
-  const handleFileSelect = (file: File) => {
-    setAnalysisFile(file);
+  const handleFileSelect = (file: File, source: string) => {
+    setAnalysisFile(file, source);
   };
   
   const getFilterName = (type: FilterType | undefined) => {
-    if (!type || type === 'none') return 'Original';
+    if (!type || type === 'none') return null;
     return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown Filter';
   };
 
@@ -121,12 +164,20 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   return (
     <>
       <div className="controls">
-        <button className="folder-picker-initial" onClick={() => pick(FOLDER_KEY)}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-          <span>{folder ? `Source: ${folder.alias}` : 'Select Image Folder'}</span>
-        </button>
+        {FOLDER_KEYS.slice(0, numViewers).map(key => (
+          <FolderControl
+            key={key}
+            folderKey={key}
+            folderState={allFolders[key]}
+            onSelect={pick}
+            onClear={clearFolder}
+            onUpdateAlias={updateAlias}
+          />
+        ))}
         <div style={{ display: 'none' }}>
-          <input ref={inputRefs[FOLDER_KEY]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(FOLDER_KEY, e)} />
+          {FOLDER_KEYS.map(key => (
+            <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
+          ))}
         </div>
       </div>
       <main className="compare-mode-main">
@@ -137,18 +188,27 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               placeholder="Search files..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              disabled={!folder}
+              disabled={Object.keys(allFolders).length === 0}
             />
             <div className="filelist-options">
               <div className="count">Files: {filteredFileList.length}</div>
+              <select value={folderFilter} onChange={e => setFolderFilter(e.target.value as FolderKey | 'all')}>
+                <option value="all">All Folders</option>
+                {FOLDER_KEYS.map(key => (
+                  allFolders[key] && <option key={key} value={key}>Folder {allFolders[key]?.alias || key}</option>
+                ))}
+              </select>
             </div>
           </div>
           <ul>
-            {filteredFileList.map(file => (
-              <li key={file.name}
+            {filteredFileList.map(({ file, source }) => (
+              <li key={`${source}-${file.name}`}
                   className={analysisFile?.name === file.name ? "active": ""}
-                  onClick={()=> handleFileSelect(file)}>
-                {file.name}
+                  onClick={()=> handleFileSelect(file, source)}>
+                <div className="file-info">
+                  <span className="file-name">{file.name}</span>
+                  <span className="file-source">from {source}</span>
+                </div>
               </li>
             ))}
           </ul>
@@ -159,21 +219,37 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                 <p>Select a folder and then choose an image from the list to begin.</p>
              </div>
           ) : (
-            Array.from({ length: numViewers }).map((_, i) => (
-              <ImageCanvas
-                key={i}
-                ref={el => el ? imageCanvasRefs.current.set(i, el) : imageCanvasRefs.current.delete(i)}
-                file={analysisFile}
-                label={getFilterName(analysisFilters[i])}
-                cache={bitmapCache.current}
-                appMode="analysis"
-                folderKey={i}
-                onClick={() => openFilterEditor(i)}
-                isActive={false}
-                overrideFilterType={analysisFilters[i]}
-                overrideFilterParams={analysisFilterParams[i]}
-              />
-            ))
+            Array.from({ length: numViewers }).map((_, i) => {
+              const filterName = getFilterName(analysisFilters[i]);
+              const lines: string[] = [];
+              if (analysisFileSource) {
+                lines.push(analysisFileSource);
+              }
+              if (analysisFile) {
+                lines.push(analysisFile.name);
+              }
+              if (filterName) {
+                lines.push(`[${filterName}]`);
+              }
+              const label = lines.join('\n');
+
+              return (
+                <ImageCanvas
+                  key={i}
+                  ref={el => el ? imageCanvasRefs.current.set(i, el) : imageCanvasRefs.current.delete(i)}
+                  file={analysisFile}
+                  label={label}
+                  cache={bitmapCache.current}
+                  appMode="analysis"
+                  folderKey={i}
+                  onClick={() => openFilterEditor(i)}
+                  isActive={false}
+                  overrideFilterType={analysisFilters[i]}
+                  overrideFilterParams={analysisFilterParams[i]}
+                  rotation={analysisRotation}
+                />
+              );
+            })
           )}
         </section>
       </main>

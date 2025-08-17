@@ -22,6 +22,7 @@ type Props = {
   isActive?: boolean;
   overrideFilterType?: FilterType;
   overrideFilterParams?: FilterParams;
+  rotation?: number;
 };
 
 export interface ImageCanvasHandle {
@@ -29,7 +30,7 @@ export interface ImageCanvasHandle {
   getCanvas: () => HTMLCanvasElement | null;
 }
 
-export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, filteredCache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive, overrideFilterType, overrideFilterParams }, ref) => {
+export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, filteredCache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive, overrideFilterType, overrideFilterParams, rotation }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [sourceImage, setSourceImage] = useState<DrawableImage | null>(null);
   const [processedImage, setProcessedImage] = useState<DrawableImage | null>(null);
@@ -38,7 +39,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     viewport, setViewport, setFitScaleFn, 
     pinpointMouseMode, setPinpointScale, 
     pinpointGlobalScale, setPinpointGlobalScale, showMinimap, showGrid, gridColor,
-    pinpointRotations, viewerFilters, viewerFilterParams, indicator, isCvReady
+    pinpointRotations, viewerFilters, viewerFilterParams, indicator, isCvReady,
+    analysisRotation
   } = useStore();
 
   // Effect to load the source image from file
@@ -207,6 +209,17 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const cy = (viewport.cy || 0.5) * currentImage.height;
       x = Math.round((width / 2) - (cx * scale));
       y = Math.round((height / 2) - (cy * scale));
+      
+      if (appMode === 'analysis') {
+        const angle = rotation || 0;
+        if (angle !== 0) {
+          centerX = x + drawW / 2;
+          centerY = y + drawH / 2;
+          ctx.translate(centerX, centerY);
+          ctx.rotate(angle * Math.PI / 180);
+          ctx.translate(-centerX, -centerY);
+        }
+      }
     }
 
     ctx.imageSmoothingEnabled = true;
@@ -274,7 +287,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ctx.stroke();
       ctx.restore();
     }
-  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating, showGrid, gridColor]);
+  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating, showGrid, gridColor, rotation]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {

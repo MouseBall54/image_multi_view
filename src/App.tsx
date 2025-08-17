@@ -7,6 +7,7 @@ import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterControls } from "./components/FilterControls";
+import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
 import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP, UTIF_OPTIONS } from "./config";
 import { decodeTiffWithUTIF } from "./utils/utif";
 
@@ -297,7 +298,10 @@ export default function App() {
               </select>
             </div>
           </div>
-          {appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
+          <div className="controls-right">
+            {appMode === 'analysis' && <AnalysisRotationControl />}
+            {appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
+          </div>
         </div>
       </header>
       

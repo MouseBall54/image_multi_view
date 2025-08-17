@@ -4,7 +4,8 @@ import { useStore } from '../store';
 import { useFolderPickers } from '../hooks/useFolderPickers';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { FolderControl } from '../components/FolderControl';
-import type { FolderKey, MatchedItem } from '../types';
+import { ALL_FILTERS } from '../components/FilterControls';
+import type { FolderKey, MatchedItem, FilterType } from '../types';
 import { matchFilenames } from '../utils/match';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
@@ -28,6 +29,11 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
   const canvasRef = useRef<ImageCanvasHandle>(null);
   const filteredBitmapCache = useRef(new Map<string, DrawableImage>());
 
+  const getFilterName = (type: FilterType | undefined) => {
+    if (!type || type === 'none') return null;
+    return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown';
+  };
+
   useImperativeHandle(ref, () => ({
     capture: async ({ showLabels }) => {
       const handle = canvasRef.current;
@@ -46,12 +52,31 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
       handle.drawToContext(ctx, false);
 
       if (showLabels) {
-        const label = allFolders[toggleSource]?.alias || toggleSource;
+        const lines: string[] = [];
+        const folderLabel = allFolders[toggleSource]?.alias || toggleSource;
+        lines.push(folderLabel);
+
+        if (current?.filename) {
+          lines.push(current.filename);
+        }
+
+        const filterName = getFilterName(viewerFilters[toggleSource]);
+        if (filterName) {
+          lines.push(`[${filterName}]`);
+        }
+
         ctx.font = '16px sans-serif';
+        const lineHeight = 20;
+        const textMetrics = lines.map(line => ctx.measureText(line));
+        const maxWidth = Math.max(...textMetrics.map(m => m.width));
+
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(5, 5, ctx.measureText(label).width + 10, 24);
+        ctx.fillRect(5, 5, maxWidth + 10, lines.length * lineHeight);
+        
         ctx.fillStyle = 'white';
-        ctx.fillText(label, 10, 22);
+        lines.forEach((line, i) => {
+          ctx.fillText(line, 10, 22 + (i * (lineHeight - 4)));
+        });
       }
 
       return tempCanvas.toDataURL('image/png');
@@ -160,18 +185,36 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
           </ul>
         </aside>
         <section className="viewers">
-          <ImageCanvas 
-            ref={canvasRef}
-            label={(allFolders[toggleSource]?.alias) || toggleSource} 
-            file={fileOf(toggleSource, current)}
-            appMode="toggle"
-            folderKey={toggleSource}
-            isReference={true} 
-            cache={bitmapCache.current}
-            filteredCache={filteredBitmapCache.current}
-            overrideFilterType={viewerFilters[toggleSource]}
-            overrideFilterParams={viewerFilterParams[toggleSource]}
-          />
+          {(() => {
+            const lines: string[] = [];
+            const folderLabel = allFolders[toggleSource]?.alias || toggleSource;
+            lines.push(folderLabel);
+
+            if (current?.filename) {
+              lines.push(current.filename);
+            }
+
+            const filterName = getFilterName(viewerFilters[toggleSource]);
+            if (filterName) {
+              lines.push(`[${filterName}]`);
+            }
+            const finalLabel = lines.join('\n');
+
+            return (
+              <ImageCanvas 
+                ref={canvasRef}
+                label={finalLabel} 
+                file={fileOf(toggleSource, current)}
+                appMode="toggle"
+                folderKey={toggleSource}
+                isReference={true} 
+                cache={bitmapCache.current}
+                filteredCache={filteredBitmapCache.current}
+                overrideFilterType={viewerFilters[toggleSource]}
+                overrideFilterParams={viewerFilterParams[toggleSource]}
+              />
+            );
+          })()}
         </section>
       </main>
     </>

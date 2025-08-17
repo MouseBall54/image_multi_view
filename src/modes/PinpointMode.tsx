@@ -6,12 +6,14 @@ import { matchFilenames } from '../utils/match';
 import type { FolderKey, MatchedItem } from '../types';
 import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP } from '../config';
 import { FolderControl } from '../components/FolderControl';
+import { ALL_FILTERS } from '../components/FilterControls';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
 interface PinpointImage {
   file: File | null;
   refPoint: { x: number, y: number } | null;
+  sourceKey?: FolderKey;
 }
 
 // A new component for individual scale control
@@ -34,11 +36,17 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   const { 
     current, setCurrent, setViewport, viewport, 
     pinpointScales, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale, 
-    activeCanvasKey, setActiveCanvasKey, stripExt, setStripExt, clearFolder 
+    activeCanvasKey, setActiveCanvasKey, stripExt, setStripExt, clearFolder,
+    openFilterEditor, viewerFilters, viewerFilterParams
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [folderFilter, setFolderFilter] = useState<FolderKey | 'all'>('all');
+
+  const getFilterName = (type: FilterType | undefined) => {
+    if (!type || type === 'none') return null;
+    return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown';
+  };
 
   const canvasRefs = FOLDER_KEYS.reduce((acc, key) => {
     acc[key] = useRef<ImageCanvasHandle>(null);
@@ -94,12 +102,33 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
         if (showLabels) {
           const key = activeKeys[index];
-          const label = allFolders[key]?.alias || pinpointImages[key]?.file?.name || key;
+          const pinpointImage = pinpointImages[key];
+          const sourceFolderAlias = pinpointImage?.sourceKey ? (allFolders[pinpointImage.sourceKey]?.alias || pinpointImage.sourceKey) : (allFolders[key]?.alias || key);
+          const filterName = getFilterName(viewerFilters[key]);
+
+          const lines: string[] = [];
+          lines.push(sourceFolderAlias);
+
+          if (pinpointImage?.file) {
+            lines.push(pinpointImage.file.name);
+          }
+          
+          if (filterName) {
+            lines.push(`[${filterName}]`);
+          }
+
           finalCtx.font = '16px sans-serif';
+          const lineHeight = 20;
+          const textMetrics = lines.map(line => finalCtx.measureText(line));
+          const maxWidth = Math.max(...textMetrics.map(m => m.width));
+
           finalCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-          finalCtx.fillRect(dx + 5, dy + 5, finalCtx.measureText(label).width + 10, 24);
+          finalCtx.fillRect(dx + 5, dy + 5, maxWidth + 10, lines.length * lineHeight);
+          
           finalCtx.fillStyle = 'white';
-          finalCtx.fillText(label, dx + 10, dy + 22);
+          lines.forEach((line, i) => {
+            finalCtx.fillText(line, dx + 10, dy + 22 + (i * (lineHeight - 4)));
+          });
         }
       });
 
@@ -118,23 +147,42 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     }, {} as Record<FolderKey, Map<string, File>>);
   }, [activeKeys, allFolders]);
 
-  const matched = useMemo(
-    () => matchFilenames(activeFolders, stripExt, "union"), // Use "union" mode for pinpoint
-    [activeFolders, stripExt]
-  );
+  const fileList = useMemo(() => {
+    const filesWithSource: { file: File, source: string, folderKey: FolderKey }[] = [];
+    
+    const addFilesFromKey = (key: FolderKey) => {
+      const folderState = allFolders[key];
+      if (folderState?.data.files) {
+        const sourceAlias = folderState.alias || key;
+        folderState.data.files.forEach(file => {
+          filesWithSource.push({ file, source: sourceAlias, folderKey: key });
+        });
+      }
+    };
 
-  const filteredMatched = useMemo(() => {
-    let result = matched;
-    if (searchQuery) {
-      result = result.filter(item =>
-        item.filename.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+    if (folderFilter === 'all') {
+      activeKeys.forEach(key => {
+        addFilesFromKey(key);
+      });
+    } else {
+      addFilesFromKey(folderFilter);
     }
-    if (folderFilter !== 'all') {
-      result = result.filter(item => item.has[folderFilter]);
-    }
-    return result;
-  }, [matched, searchQuery, folderFilter]);
+
+    return filesWithSource.sort((a, b) => {
+      if (a.file.name < b.file.name) return -1;
+      if (a.file.name > b.file.name) return 1;
+      if (a.source < b.source) return -1;
+      if (a.source > b.source) return 1;
+      return 0;
+    });
+  }, [folderFilter, allFolders, activeKeys]);
+
+  const filteredFileList = useMemo(() => {
+    if (!searchQuery) return fileList;
+    return fileList.filter(({ file }) =>
+      file.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [fileList, searchQuery]);
 
   const handlePinpointFileSelect = (key: FolderKey, e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -148,14 +196,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     }
   };
   
-  const fileOf = useCallback((key: FolderKey, item: MatchedItem | null): File | undefined => {
-    if (!item) return undefined;
-    const folderState = allFolders[key];
-    if (!folderState?.data.files) return undefined;
-    const name = Array.from(folderState.data.files.keys()).find(n => n.replace(/\.[^/.]+$/, "") === item.filename); // Always strip extension for matching
-    return name ? folderState.data.files.get(name) : undefined;
-  }, [allFolders]);
-
   useEffect(() => {
     const primaryFile = pinpointImages['A']?.file;
     setPrimaryFile(primaryFile || null);
@@ -171,6 +211,25 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       };
     });
     setViewport({ refScreenX: screenPoint.x, refScreenY: screenPoint.y });
+  };
+
+  const handleFileListItemClick = (file: File, sourceKey: FolderKey) => {
+    if (!activeCanvasKey) {
+      console.warn("No active viewer. Click a viewer to select it first.");
+      return;
+    }
+
+    setCurrent(null); 
+
+    const oldPinpointImage = pinpointImages[activeCanvasKey];
+    const refPoint = (oldPinpointImage && oldPinpointImage.file?.name === file.name)
+      ? oldPinpointImage.refPoint
+      : { x: 0.5, y: 0.5 };
+    
+    setPinpointImages(prev => ({
+      ...prev,
+      [activeCanvasKey]: { file, refPoint, sourceKey }
+    }));
   };
 
   const gridStyle = {
@@ -211,55 +270,93 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
               onChange={e => setSearchQuery(e.target.value)}
             />
             <div className="filelist-options">
-              <div className="count">Matched: {filteredMatched.length}</div>
+              <div className="count">Files: {filteredFileList.length}</div>
               <select value={folderFilter} onChange={e => setFolderFilter(e.target.value as FolderKey | 'all')}>
                 <option value="all">All Folders</option>
                 {activeKeys.map(key => (
-                  <option key={key} value={key}>Folder {allFolders[key]?.alias || key}</option>
+                  allFolders[key] && <option key={key} value={key}>Folder {allFolders[key]?.alias || key}</option>
                 ))}
               </select>
-              <label className="strip-ext-label">
-                <input type="checkbox" checked={stripExt} onChange={e => setStripExt(e.target.checked)} />
-                <span>Ignore extension</span>
-              </label>
             </div>
           </div>
           <ul>
-            {filteredMatched.map(m => (
-              <li key={m.filename}
-                  className={current?.filename === m.filename ? "active": ""}
-                  onClick={() => handleFileListItemClick(m)}>
-                {m.filename}
-                <span className="has">
-                  {activeKeys.map(key => m.has[key] ? key : "").join("")}
-                </span>
-              </li>
-            ))}
+            {filteredFileList.map(({ file, source, folderKey }) => {
+              const isFileActive = Object.values(pinpointImages).some(img => 
+                img?.file === file && img.sourceKey === folderKey
+              );
+              
+              return (
+                <li key={`${folderKey}-${file.webkitRelativePath || file.name}-${file.lastModified}`}
+                    className={isFileActive ? "active" : ""}
+                    onClick={() => handleFileListItemClick(file, folderKey)}>
+                  <div className="file-info">
+                    <span className="file-name">{file.name}</span>
+                    <span className="file-source">from {source}</span>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </aside>
-        <section className="viewers" style={gridStyle}>
-          {activeKeys.map(key => (
-            <div key={key} className="viewer-container">
-              <ImageCanvas 
-                ref={canvasRefs[key]}
-                label={pinpointImages[key]?.file?.name || allFolders[key]?.alias || key}
-                file={pinpointImages[key]?.file}
-                isReference={key === 'A'} 
-                cache={bitmapCache.current}
-                appMode="pinpoint"
-                overrideScale={pinpointScales[key]}
-                refPoint={pinpointImages[key]?.refPoint}
-                onSetRefPoint={handleSetRefPoint}
-                folderKey={key}
-                onClick={setActiveCanvasKey}
-                isActive={activeCanvasKey === key}
-              />
-              <div className="viewer-controls">
-                <PinpointRotationControl folderKey={key} />
+        <section 
+          className="viewers" 
+          style={gridStyle}
+          onClick={(e) => {
+            // If the click is on the background grid itself, deactivate the canvas
+            if (e.target === e.currentTarget) {
+              setActiveCanvasKey(null);
+            }
+          }}
+        >
+          {activeKeys.map(key => {
+            const pinpointImage = pinpointImages[key];
+            const sourceFolderAlias = pinpointImage?.sourceKey ? (allFolders[pinpointImage.sourceKey]?.alias || pinpointImage.sourceKey) : (allFolders[key]?.alias || key);
+            const filterName = getFilterName(viewerFilters[key]);
+
+            const lines: string[] = [];
+            lines.push(sourceFolderAlias);
+            
+            if (pinpointImage?.file) {
+              lines.push(pinpointImage.file.name);
+            }
+
+            if (filterName) {
+              lines.push(`[${filterName}]`);
+            }
+            const label = lines.join('\n');
+
+            return (
+              <div key={key} className="viewer-container">
+                <ImageCanvas 
+                  ref={canvasRefs[key]}
+                  label={label}
+                  file={pinpointImage?.file}
+                  isReference={key === 'A'} 
+                  cache={bitmapCache.current}
+                  appMode="pinpoint"
+                  overrideScale={pinpointScales[key]}
+                  refPoint={pinpointImage?.refPoint}
+                  onSetRefPoint={handleSetRefPoint}
+                  folderKey={key}
+                  onClick={setActiveCanvasKey}
+                  isActive={activeCanvasKey === key}
+                  overrideFilterType={viewerFilters[key]}
+                  overrideFilterParams={viewerFilterParams[key]}
+                />
+                <div className="viewer-controls">
+                  <button 
+                    className="viewer__filter-button" 
+                    title={`Filter Settings for ${allFolders[key]?.alias || key}`}
+                    onClick={() => openFilterEditor(key)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                  </button>
+                  <PinpointRotationControl folderKey={key} />
+                </div>
+                <PinpointScaleControl folderKey={key} />
               </div>
-              <PinpointScaleControl folderKey={key} />
-            </div>
-          ))}
+            );
+          })}
         </section>
       </main>
       <div style={{ display: 'none' }}>
