@@ -239,19 +239,17 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
   return (
     <>
-      <div className="controls pinpoint-controls-header">
-        <div className="folder-controls-wrapper">
-          {activeKeys.map(key => (
-            <FolderControl
-              key={key}
-              folderKey={key}
-              folderState={allFolders[key]}
-              onSelect={pick}
-              onClear={clearFolder}
-              onUpdateAlias={updateAlias}
-            />
-          ))}
-        </div>
+      <div className="controls">
+        {activeKeys.map(key => (
+          <FolderControl
+            key={key}
+            folderKey={key}
+            folderState={allFolders[key]}
+            onSelect={pick}
+            onClear={clearFolder}
+            onUpdateAlias={updateAlias}
+          />
+        ))}
       </div>
       <main className="pinpoint-mode-main">
         <aside className="filelist">
