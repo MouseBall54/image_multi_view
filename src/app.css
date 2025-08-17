@@ -109,7 +109,8 @@ header {
 }
 
 /* Buttons with Icons */
-.controls-main button {
+.controls-main button,
+.controls-main-button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -124,13 +125,15 @@ header {
   transition: background-color 0.2s, border-color 0.2s, color 0.2s;
 }
 
-.controls-main button:hover {
+.controls-main button:hover,
+.controls-main-button:hover {
   background-color: var(--accent-primary);
   border-color: var(--accent-hover);
   color: #fff;
 }
 
-.controls-main button svg {
+.controls-main button svg,
+.controls-main-button svg {
   stroke: currentColor;
   transition: stroke 0.2s;
 }
