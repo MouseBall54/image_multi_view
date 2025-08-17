@@ -19,7 +19,7 @@ export interface AnalysisModeHandle {
 }
 
 export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers, bitmapCache, setPrimaryFile }, ref) => {
-  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D"]; // Analysis mode can manage up to 4 folders
+  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { 
     analysisFile, setAnalysisFile, 
     analysisFilters, analysisFilterParams, 
@@ -29,6 +29,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
   const [folderFilter, setFolderFilter] = useState<FolderKey | 'all'>('all');
+
+  const activeKeys = useMemo(() => FOLDER_KEYS.slice(0, numViewers), [numViewers]);
 
   useImperativeHandle(ref, () => ({
     capture: async ({ showLabels }) => {
@@ -156,7 +158,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   return (
     <>
       <div className="controls">
-        {FOLDER_KEYS.map(key => (
+        {FOLDER_KEYS.slice(0, numViewers).map(key => (
           <FolderControl
             key={key}
             folderKey={key}
