@@ -310,36 +310,82 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
             // 미니맵 이미지 그리기
             minimapCtx.drawImage(sourceImage, 0, 0, MINIMAP_WIDTH, minimapHeight);
             
-            // 뷰포트 사각형 그리기
-            const { scale, cx = 0.5, cy = 0.5 } = viewport;
-            if (scale) {
+            // 뷰포트 사각형 그리기 (Pinpoint 모드와 일반 모드 구분)
+            if (appMode === 'pinpoint' && typeof folderKey === 'string') {
+              // Pinpoint 모드: 복잡한 계산
+              const individualScale = overrideScale ?? viewport.scale;
+              const totalScale = individualScale * pinpointGlobalScale;
+              const currentRefPoint = refPoint || { x: 0.5, y: 0.5 };
+              const refScreenX = viewport.refScreenX || (canvasSize.width / 2);
+              const refScreenY = viewport.refScreenY || (canvasSize.height / 2);
+              
+              // 실제 뷰어에서 보이는 영역 계산
               const imageWidth = sourceImage.width;
               const imageHeight = sourceImage.height;
-              const scaledImageWidth = imageWidth * scale;
-              const scaledImageHeight = imageHeight * scale;
-              const visibleWidthRatio = Math.min(1, canvasSize.width / scaledImageWidth);
-              const visibleHeightRatio = Math.min(1, canvasSize.height / scaledImageHeight);
-              const rectWidth = MINIMAP_WIDTH * visibleWidthRatio;
-              const rectHeight = minimapHeight * visibleHeightRatio;
-              const rectX = (cx * MINIMAP_WIDTH) - (rectWidth / 2);
-              const rectY = (cy * minimapHeight) - (rectHeight / 2);
-
-              minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
-              minimapCtx.lineWidth = 2;
-              minimapCtx.strokeRect(
-                Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
-                Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
-                Math.min(rectWidth, MINIMAP_WIDTH),
-                Math.min(rectHeight, minimapHeight)
-              );
+              const scaledImageWidth = imageWidth * totalScale;
+              const scaledImageHeight = imageHeight * totalScale;
               
-              minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-              minimapCtx.fillRect(
-                Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
-                Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
-                Math.min(rectWidth, MINIMAP_WIDTH),
-                Math.min(rectHeight, minimapHeight)
-              );
+              // 참조점의 이미지 좌표
+              const refImgX = currentRefPoint.x * imageWidth;
+              const refImgY = currentRefPoint.y * imageHeight;
+              
+              // 캔버스에서 이미지가 그려지는 위치
+              const drawX = refScreenX - (refImgX * totalScale);
+              const drawY = refScreenY - (refImgY * totalScale);
+              
+              // 뷰어에서 실제로 보이는 이미지 영역의 비율
+              const visibleLeft = Math.max(0, -drawX) / scaledImageWidth;
+              const visibleTop = Math.max(0, -drawY) / scaledImageHeight;
+              const visibleRight = Math.min(1, (canvasSize.width - drawX) / scaledImageWidth);
+              const visibleBottom = Math.min(1, (canvasSize.height - drawY) / scaledImageHeight);
+              
+              // 미니맵에서의 사각형 크기와 위치
+              const rectX = visibleLeft * MINIMAP_WIDTH;
+              const rectY = visibleTop * minimapHeight;
+              const rectWidth = (visibleRight - visibleLeft) * MINIMAP_WIDTH;
+              const rectHeight = (visibleBottom - visibleTop) * minimapHeight;
+              
+              // 사각형 그리기 (유효한 영역만)
+              if (rectWidth > 0 && rectHeight > 0) {
+                minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+                minimapCtx.lineWidth = 2;
+                minimapCtx.strokeRect(rectX, rectY, rectWidth, rectHeight);
+                
+                minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                minimapCtx.fillRect(rectX, rectY, rectWidth, rectHeight);
+              }
+            } else {
+              // 일반 모드: 기존 로직
+              const { scale, cx = 0.5, cy = 0.5 } = viewport;
+              if (scale) {
+                const imageWidth = sourceImage.width;
+                const imageHeight = sourceImage.height;
+                const scaledImageWidth = imageWidth * scale;
+                const scaledImageHeight = imageHeight * scale;
+                const visibleWidthRatio = Math.min(1, canvasSize.width / scaledImageWidth);
+                const visibleHeightRatio = Math.min(1, canvasSize.height / scaledImageHeight);
+                const rectWidth = MINIMAP_WIDTH * visibleWidthRatio;
+                const rectHeight = minimapHeight * visibleHeightRatio;
+                const rectX = (cx * MINIMAP_WIDTH) - (rectWidth / 2);
+                const rectY = (cy * minimapHeight) - (rectHeight / 2);
+
+                minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+                minimapCtx.lineWidth = 2;
+                minimapCtx.strokeRect(
+                  Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
+                  Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
+                  Math.min(rectWidth, MINIMAP_WIDTH),
+                  Math.min(rectHeight, minimapHeight)
+                );
+                
+                minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                minimapCtx.fillRect(
+                  Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
+                  Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
+                  Math.min(rectWidth, MINIMAP_WIDTH),
+                  Math.min(rectHeight, minimapHeight)
+                );
+              }
             }
             
             // 미니맵을 메인 캔버스의 우하단에 그리기
@@ -642,6 +688,11 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           bitmap={sourceImage} 
           viewport={viewport} 
           canvasSize={canvasSize}
+          appMode={appMode}
+          folderKey={folderKey}
+          overrideScale={overrideScale}
+          pinpointGlobalScale={pinpointGlobalScale}
+          refPoint={refPoint}
         />
       )}
     </div>
