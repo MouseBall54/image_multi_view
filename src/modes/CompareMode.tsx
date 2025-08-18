@@ -10,7 +10,7 @@ import type { FolderKey, MatchedItem, FilterType } from '../types';
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
 export interface CompareModeHandle {
-  capture: (options: { showLabels: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean; showMinimap: boolean }) => Promise<string | null>;
 }
 
 interface CompareModeProps {
@@ -21,9 +21,9 @@ interface CompareModeProps {
 }
 
 export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
-  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, clearFolder } = useStore();
+  const { current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, clearFolder, viewerRows, viewerCols } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
 
   const canvasRefs = FOLDER_KEYS.reduce((acc, key) => {
@@ -32,7 +32,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   }, {} as Record<FolderKey, React.RefObject<ImageCanvasHandle>>);
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels }) => {
+    capture: async ({ showLabels, showMinimap }) => {
       const activeKeys = FOLDER_KEYS.slice(0, numViewers);
       const firstCanvas = canvasRefs[activeKeys[0]]?.current?.getCanvas();
       if (!firstCanvas) return null;
@@ -46,14 +46,14 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
         tempCanvas.height = height;
         const tempCtx = tempCanvas.getContext('2d');
         if (!tempCtx) return null;
-        handle.drawToContext(tempCtx, false); // No crosshair in compare mode
+        handle.drawToContext(tempCtx, false, showMinimap); // No crosshair in compare mode
         return tempCanvas;
       }).filter((c): c is HTMLCanvasElement => !!c);
 
       if (tempCanvases.length === 0) return null;
 
-      const cols = Math.ceil(Math.sqrt(numViewers));
-      const rows = Math.ceil(numViewers / cols);
+      const cols = viewerCols;
+      const rows = viewerRows;
       const combinedWidth = width * cols;
       const combinedHeight = height * rows;
 
@@ -155,7 +155,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
   const gridStyle = {
     '--viewers': numViewers,
-    '--cols': Math.ceil(Math.sqrt(numViewers)),
+    '--cols': viewerCols,
+    '--rows': viewerRows,
   } as React.CSSProperties;
 
   return (
@@ -237,7 +238,20 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
                     title={`Filter Settings for ${allFolders[key]?.alias || key}`}
                     onClick={() => openFilterEditor(key)}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" 
+                      viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="4" y1="21" x2="4" y2="14"></line>
+                      <line x1="4" y1="10" x2="4" y2="3"></line>
+                      <line x1="12" y1="21" x2="12" y2="12"></line>
+                      <line x1="12" y1="8" x2="12" y2="3"></line>
+                      <line x1="20" y1="21" x2="20" y2="16"></line>
+                      <line x1="20" y1="12" x2="20" y2="3"></line>
+                      <line x1="1" y1="14" x2="7" y2="14"></line>
+                      <line x1="9" y1="8" x2="15" y2="8"></line>
+                      <line x1="17" y1="16" x2="23" y2="16"></line>
+                    </svg>
+
                   </button>
                 </div>
               </div>

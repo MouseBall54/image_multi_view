@@ -50,8 +50,8 @@ export const FolderControl: React.FC<FolderControlProps> = ({ folderKey, folderS
             autoFocus
           />
         ) : (
-          <span className="folder-name" title={folderState.data.name} onDoubleClick={() => setIsEditingAlias(true)}>
-            {folderState.alias}
+          <span className="folder-name" title={folderState.alias} onDoubleClick={() => setIsEditingAlias(true)}>
+            {folderState.alias.length > 4 ? `${folderState.alias.slice(0, 4)}...` : folderState.alias}
           </span>
         )}
       </div>

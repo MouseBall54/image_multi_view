@@ -8,7 +8,7 @@ import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterControls } from "./components/FilterControls";
 import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
-import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP, UTIF_OPTIONS } from "./config";
+import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
 import { decodeTiffWithUTIF } from "./utils/utif";
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
@@ -67,7 +67,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, setNumViewers, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, setCvReady } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor } = useStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -82,7 +82,7 @@ export default function App() {
 
   const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true });
+  const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true, showMinimap: false });
   const [clipboardStatus, setClipboardStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
 
@@ -170,7 +170,7 @@ export default function App() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
       
       const state = useStore.getState();
-      const { viewport, appMode, activeCanvasKey, pinpointScales, pinpointGlobalScale, setAppMode, setViewport, setShowInfoPanel } = state;
+      const { viewport, appMode, activeCanvasKey, pinpointScales, pinpointGlobalScale, setAppMode, setViewport } = state;
       const KEY_PAN_AMOUNT = 50;
 
       const key = e.key.toLowerCase();
@@ -195,7 +195,7 @@ export default function App() {
         case '3': setAppMode('pinpoint'); break;
         case '4': setAppMode('analysis'); break;
         case 'r': resetView(); break;
-        case 'i': setShowInfoPanel(prev => !prev); break;
+        case 'i': setShowInfoPanel((prev: boolean) => !prev); break;
         case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
         case '-': setViewport({ scale: Math.max(MIN_ZOOM, (viewport.scale || 1) - 0.01) }); break;
         case 'arrowup': e.preventDefault(); if (imageDimensions && viewport.cy) setViewport({ cy: viewport.cy - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); break;
@@ -248,11 +248,48 @@ export default function App() {
               </select>
             </label>
             {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'toggle' || appMode === 'analysis') && (
-              <label><span>Viewers:</span>
-                                <select value={numViewers} onChange={e => setNumViewers(Number(e.target.value))}>
-                  {Array.from({ length: 8 }, (_, i) => i + 2).map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
+              <label><span>Layout:</span>
+                <select value={`${viewerRows}x${viewerCols}`} onChange={e => {
+                  const [rows, cols] = e.target.value.split('x').map(Number);
+                  setViewerLayout(rows, cols);
+                }}>
+                  <option value="1x2">1×2 (2)</option>
+                  <option value="1x3">1×3 (3)</option>
+                  <option value="1x4">1×4 (4)</option>
+                  <option value="1x5">1×5 (5)</option>
+                  <option value="1x6">1×6 (6)</option>
+                  <option value="1x7">1×7 (7)</option>
+                  <option value="1x8">1×8 (8)</option>
+                  <option value="1x9">1×9 (9)</option>
+                  <option value="1x10">1×10 (10)</option>
+                  <option value="1x12">1×12 (12)</option>
+                  <option value="1x15">1×15 (15)</option>
+                  <option value="1x18">1×18 (18)</option>
+                  <option value="1x20">1×20 (20)</option>
+                  <option value="2x2">2×2 (4)</option>
+                  <option value="2x3">2×3 (6)</option>
+                  <option value="2x4">2×4 (8)</option>
+                  <option value="2x5">2×5 (10)</option>
+                  <option value="2x6">2×6 (12)</option>
+                  <option value="2x8">2×8 (16)</option>
+                  <option value="2x9">2×9 (18)</option>
+                  <option value="2x10">2×10 (20)</option>
+                  <option value="3x2">3×2 (6)</option>
+                  <option value="3x3">3×3 (9)</option>
+                  <option value="3x4">3×4 (12)</option>
+                  <option value="3x5">3×5 (15)</option>
+                  <option value="3x6">3×6 (18)</option>
+                  <option value="4x2">4×2 (8)</option>
+                  <option value="4x3">4×3 (12)</option>
+                  <option value="4x4">4×4 (16)</option>
+                  <option value="4x5">4×5 (20)</option>
+                  <option value="5x2">5×2 (10)</option>
+                  <option value="5x3">5×3 (15)</option>
+                  <option value="5x4">5×4 (20)</option>
+                  <option value="6x3">6×3 (18)</option>
+                  <option value="6x4">6×4 (24)</option>
+                  <option value="8x3">8×3 (24)</option>
+                  <option value="10x2">10×2 (20)</option>
                 </select>
               </label>
             )}
@@ -333,6 +370,12 @@ export default function App() {
                 <label>
                   <input type="checkbox" checked={captureOptions.showCrosshair} onChange={(e) => setCaptureOptions(o => ({...o, showCrosshair: e.target.checked}))} />
                   Show Crosshair
+                </label>
+              )}
+              {showMinimap && (
+                <label>
+                  <input type="checkbox" checked={captureOptions.showMinimap} onChange={(e) => setCaptureOptions(o => ({...o, showMinimap: e.target.checked}))} />
+                  Show Minimap
                 </label>
               )}
             </div>

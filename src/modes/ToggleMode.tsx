@@ -11,7 +11,7 @@ import { matchFilenames } from '../utils/match';
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
 export interface ToggleModeHandle {
-  capture: (options: { showLabels: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean; showMinimap: boolean }) => Promise<string | null>;
 }
 
 interface ToggleModeProps {
@@ -22,7 +22,7 @@ interface ToggleModeProps {
 }
 
 export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
-  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { current, setCurrent, stripExt, setStripExt, clearFolder, viewerFilters, viewerFilterParams } = useStore();
   const [toggleSource, setToggleSource] = useState<FolderKey>('A');
@@ -36,7 +36,7 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
   };
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels }) => {
+    capture: async ({ showLabels, showMinimap }) => {
       const handle = canvasRef.current;
       if (!handle) return null;
       
@@ -50,7 +50,7 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
       const ctx = tempCanvas.getContext('2d');
       if (!ctx) return null;
 
-      handle.drawToContext(ctx, false);
+      handle.drawToContext(ctx, false, showMinimap);
 
       if (showLabels) {
         const lines: string[] = [];
@@ -154,7 +154,7 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
         ))}
         <div style={{ display: 'none' }}>
           {activeKeys.map(key => (
-            <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
+            <input key={key} ref={inputRefs[key]} type="file" {...{ webkitdirectory: "" } as any} multiple onChange={(e) => onInput(key, e)} />
           ))}
         </div>
       </div>}

@@ -26,7 +26,7 @@ type Props = {
 };
 
 export interface ImageCanvasHandle {
-  drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => void;
+  drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean, withMinimap?: boolean) => void;
   getCanvas: () => HTMLCanvasElement | null;
 }
 
@@ -35,12 +35,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   const [sourceImage, setSourceImage] = useState<DrawableImage | null>(null);
   const [processedImage, setProcessedImage] = useState<DrawableImage | null>(null);
   const [isRotating, setIsRotating] = useState(false);
+  const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
   const { 
     viewport, setViewport, setFitScaleFn, 
     pinpointMouseMode, setPinpointScale, 
     pinpointGlobalScale, setPinpointGlobalScale, showMinimap, showGrid, gridColor,
     pinpointRotations, viewerFilters, viewerFilterParams, indicator, isCvReady,
-    analysisRotation
+    analysisRotation, activeCanvasKey
   } = useStore();
 
   // Effect to load the source image from file
@@ -290,25 +291,134 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating, showGrid, gridColor, rotation]);
 
   useImperativeHandle(ref, () => ({
-    drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {
+    drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean, withMinimap: boolean = false) => {
       if (processedImage) {
         drawImage(ctx, processedImage, withCrosshair);
+        
+        // 미니맵도 캡처에 포함
+        if (withMinimap && showMinimap && sourceImage instanceof ImageBitmap && canvasSize) {
+          const minimapCanvas = document.createElement('canvas');
+          const MINIMAP_WIDTH = 150;
+          const aspectRatio = sourceImage.height / sourceImage.width;
+          const minimapHeight = MINIMAP_WIDTH * aspectRatio;
+          
+          minimapCanvas.width = MINIMAP_WIDTH;
+          minimapCanvas.height = minimapHeight;
+          const minimapCtx = minimapCanvas.getContext('2d');
+          
+          if (minimapCtx) {
+            // 미니맵 이미지 그리기
+            minimapCtx.drawImage(sourceImage, 0, 0, MINIMAP_WIDTH, minimapHeight);
+            
+            // 뷰포트 사각형 그리기 (Pinpoint 모드와 일반 모드 구분)
+            if (appMode === 'pinpoint' && typeof folderKey === 'string') {
+              // Pinpoint 모드: 복잡한 계산
+              const individualScale = overrideScale ?? viewport.scale;
+              const totalScale = individualScale * pinpointGlobalScale;
+              const currentRefPoint = refPoint || { x: 0.5, y: 0.5 };
+              const refScreenX = viewport.refScreenX || (canvasSize.width / 2);
+              const refScreenY = viewport.refScreenY || (canvasSize.height / 2);
+              
+              // 실제 뷰어에서 보이는 영역 계산
+              const imageWidth = sourceImage.width;
+              const imageHeight = sourceImage.height;
+              const scaledImageWidth = imageWidth * totalScale;
+              const scaledImageHeight = imageHeight * totalScale;
+              
+              // 참조점의 이미지 좌표
+              const refImgX = currentRefPoint.x * imageWidth;
+              const refImgY = currentRefPoint.y * imageHeight;
+              
+              // 캔버스에서 이미지가 그려지는 위치
+              const drawX = refScreenX - (refImgX * totalScale);
+              const drawY = refScreenY - (refImgY * totalScale);
+              
+              // 뷰어에서 실제로 보이는 이미지 영역의 비율
+              const visibleLeft = Math.max(0, -drawX) / scaledImageWidth;
+              const visibleTop = Math.max(0, -drawY) / scaledImageHeight;
+              const visibleRight = Math.min(1, (canvasSize.width - drawX) / scaledImageWidth);
+              const visibleBottom = Math.min(1, (canvasSize.height - drawY) / scaledImageHeight);
+              
+              // 미니맵에서의 사각형 크기와 위치
+              const rectX = visibleLeft * MINIMAP_WIDTH;
+              const rectY = visibleTop * minimapHeight;
+              const rectWidth = (visibleRight - visibleLeft) * MINIMAP_WIDTH;
+              const rectHeight = (visibleBottom - visibleTop) * minimapHeight;
+              
+              // 사각형 그리기 (유효한 영역만)
+              if (rectWidth > 0 && rectHeight > 0) {
+                minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+                minimapCtx.lineWidth = 2;
+                minimapCtx.strokeRect(rectX, rectY, rectWidth, rectHeight);
+                
+                minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                minimapCtx.fillRect(rectX, rectY, rectWidth, rectHeight);
+              }
+            } else {
+              // 일반 모드: 기존 로직
+              const { scale, cx = 0.5, cy = 0.5 } = viewport;
+              if (scale) {
+                const imageWidth = sourceImage.width;
+                const imageHeight = sourceImage.height;
+                const scaledImageWidth = imageWidth * scale;
+                const scaledImageHeight = imageHeight * scale;
+                const visibleWidthRatio = Math.min(1, canvasSize.width / scaledImageWidth);
+                const visibleHeightRatio = Math.min(1, canvasSize.height / scaledImageHeight);
+                const rectWidth = MINIMAP_WIDTH * visibleWidthRatio;
+                const rectHeight = minimapHeight * visibleHeightRatio;
+                const rectX = (cx * MINIMAP_WIDTH) - (rectWidth / 2);
+                const rectY = (cy * minimapHeight) - (rectHeight / 2);
+
+                minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+                minimapCtx.lineWidth = 2;
+                minimapCtx.strokeRect(
+                  Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
+                  Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
+                  Math.min(rectWidth, MINIMAP_WIDTH),
+                  Math.min(rectHeight, minimapHeight)
+                );
+                
+                minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                minimapCtx.fillRect(
+                  Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
+                  Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
+                  Math.min(rectWidth, MINIMAP_WIDTH),
+                  Math.min(rectHeight, minimapHeight)
+                );
+              }
+            }
+            
+            // 미니맵을 메인 캔버스의 우하단에 그리기
+            const padding = 10;
+            const minimapX = ctx.canvas.width - MINIMAP_WIDTH - padding;
+            const minimapY = ctx.canvas.height - minimapHeight - padding;
+            
+            // 미니맵 배경 (반투명 검은색)
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(minimapX - 5, minimapY - 5, MINIMAP_WIDTH + 10, minimapHeight + 10);
+            
+            // 미니맵 그리기
+            ctx.drawImage(minimapCanvas, minimapX, minimapY);
+          }
+        }
       }
     },
     getCanvas: () => canvasRef.current,
   }));
 
+  // Calculate fit scale function for reference canvas
+  const calculateFitScale = useCallback(() => {
+    if (!canvasRef.current || !sourceImage) return 1;
+    const { width, height } = canvasRef.current.getBoundingClientRect();
+    const scale = Math.min(width / sourceImage.width, height / sourceImage.height);
+    return scale;
+  }, [sourceImage]);
+
   useEffect(() => {
     if (isReference) {
-      const calculateFitScale = () => {
-        if (!canvasRef.current || !sourceImage) return 1;
-        const { width, height } = canvasRef.current.getBoundingClientRect();
-        const scale = Math.min(width / sourceImage.width, height / sourceImage.height);
-        return scale;
-      };
       setFitScaleFn(calculateFitScale);
     }
-  }, [sourceImage, isReference, setFitScaleFn]);
+  }, [calculateFitScale, isReference, setFitScaleFn]);
 
   // Effect to draw the processed image to the visible canvas
   useEffect(() => {
@@ -318,8 +428,40 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const { width, height } = canvas.getBoundingClientRect();
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
+    
+    // 캔버스 크기 상태 업데이트 (미니맵용)
+    setCanvasSize({ width: Math.round(width), height: Math.round(height) });
+    
     drawImage(ctx, processedImage, true);
   }, [processedImage, drawImage, viewport, pinpointGlobalScale, pinpointRotations, isRotating, showGrid, gridColor]);
+
+  // Effect to handle canvas resize (레이아웃 변경이나 창 크기 변경 시 자동 리프레시)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (processedImage) {
+        const ctx = canvas.getContext("2d")!;
+        const { width, height } = canvas.getBoundingClientRect();
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
+        
+        // 캔버스 크기 상태 업데이트 (미니맵용)
+        setCanvasSize({ width: Math.round(width), height: Math.round(height) });
+        
+        drawImage(ctx, processedImage, true);
+      }
+      
+      // Update fit scale function if this is a reference canvas
+      if (isReference && sourceImage) {
+        setFitScaleFn(calculateFitScale);
+      }
+    });
+
+    resizeObserver.observe(canvas);
+    return () => resizeObserver.disconnect();
+  }, [processedImage, drawImage, isReference, sourceImage, calculateFitScale, setFitScaleFn]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -371,22 +513,27 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     let dragMode: 'pan' | 'rotate' | null = null;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       const { left, top, width, height } = canvas.getBoundingClientRect();
       const mx = e.clientX - left;
       const my = e.clientY - top;
       const { viewport: currentViewport, pinpointGlobalScale: currentGlobalScale, setPinpointGlobalScale } = useStore.getState();
       const delta = e.deltaY < 0 ? WHEEL_ZOOM_STEP : (1 / WHEEL_ZOOM_STEP);
       if (appMode === 'pinpoint') {
-        const preScale = (overrideScale ?? currentViewport.scale) * currentGlobalScale;
-        const nextGlobalScale = currentGlobalScale * delta;
-        const nextScale = (overrideScale ?? currentViewport.scale) * nextGlobalScale;
-        if (nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
-        setPinpointGlobalScale(nextGlobalScale);
-        const refScreenX = currentViewport.refScreenX || (width / 2);
-        const refScreenY = currentViewport.refScreenY || (height / 2);
-        const nextRefScreenX = mx + (refScreenX - mx) * (nextScale / preScale);
-        const nextRefScreenY = my + (refScreenY - my) * (nextScale / preScale);
-        setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
+        // Only handle global scale in pinpoint mode if this canvas is active, or if this is the reference canvas (A)
+        const { activeCanvasKey: currentActiveKey } = useStore.getState();
+        if (currentActiveKey === folderKey || (currentActiveKey === null && typeof folderKey === 'string' && folderKey === 'A')) {
+          const preScale = (overrideScale ?? currentViewport.scale) * currentGlobalScale;
+          const nextGlobalScale = currentGlobalScale * delta;
+          const nextScale = (overrideScale ?? currentViewport.scale) * nextGlobalScale;
+          if (nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
+          setPinpointGlobalScale(nextGlobalScale);
+          const refScreenX = currentViewport.refScreenX || (width / 2);
+          const refScreenY = currentViewport.refScreenY || (height / 2);
+          const nextRefScreenX = mx + (refScreenX - mx) * (nextScale / preScale);
+          const nextRefScreenY = my + (refScreenY - my) * (nextScale / preScale);
+          setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
+        }
       } else {
         const preScale = currentViewport.scale;
         let nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, preScale * delta));
@@ -468,7 +615,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         setViewport({ cx, cy });
       }
     };
-    canvas.addEventListener("wheel", onWheel, { passive: false });
+    canvas.addEventListener("wheel", onWheel, { passive: false, capture: true });
     canvas.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
     window.addEventListener("mousemove", onMove);
@@ -503,8 +650,21 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
               if (onClick) onClick(folderKey);
             }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-          </button>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" 
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="21" x2="4" y2="14"></line>
+            <line x1="4" y1="10" x2="4" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12" y2="3"></line>
+            <line x1="20" y1="21" x2="20" y2="16"></line>
+            <line x1="20" y1="12" x2="20" y2="3"></line>
+            <line x1="1" y1="14" x2="7" y2="14"></line>
+            <line x1="9" y1="8" x2="15" y2="8"></line>
+            <line x1="17" y1="16" x2="23" y2="16"></line>
+          </svg>
+
+</button>
         )}
       </div>
       
@@ -528,7 +688,18 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           }}
         />
       )}
-      {showMinimap && sourceImage instanceof ImageBitmap && <Minimap bitmap={sourceImage} viewport={viewport} />}
+      {showMinimap && sourceImage instanceof ImageBitmap && canvasSize && (
+        <Minimap 
+          bitmap={sourceImage} 
+          viewport={viewport} 
+          canvasSize={canvasSize}
+          appMode={appMode}
+          folderKey={folderKey}
+          overrideScale={overrideScale}
+          pinpointGlobalScale={pinpointGlobalScale}
+          refPoint={refPoint}
+        />
+      )}
     </div>
   );
 });
