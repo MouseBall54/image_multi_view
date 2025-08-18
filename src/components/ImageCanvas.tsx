@@ -26,7 +26,7 @@ type Props = {
 };
 
 export interface ImageCanvasHandle {
-  drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => void;
+  drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean, withMinimap?: boolean) => void;
   getCanvas: () => HTMLCanvasElement | null;
 }
 
@@ -291,9 +291,70 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating, showGrid, gridColor, rotation]);
 
   useImperativeHandle(ref, () => ({
-    drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean) => {
+    drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean, withMinimap: boolean = false) => {
       if (processedImage) {
         drawImage(ctx, processedImage, withCrosshair);
+        
+        // 미니맵도 캡처에 포함
+        if (withMinimap && showMinimap && sourceImage instanceof ImageBitmap && canvasSize) {
+          const minimapCanvas = document.createElement('canvas');
+          const MINIMAP_WIDTH = 150;
+          const aspectRatio = sourceImage.height / sourceImage.width;
+          const minimapHeight = MINIMAP_WIDTH * aspectRatio;
+          
+          minimapCanvas.width = MINIMAP_WIDTH;
+          minimapCanvas.height = minimapHeight;
+          const minimapCtx = minimapCanvas.getContext('2d');
+          
+          if (minimapCtx) {
+            // 미니맵 이미지 그리기
+            minimapCtx.drawImage(sourceImage, 0, 0, MINIMAP_WIDTH, minimapHeight);
+            
+            // 뷰포트 사각형 그리기
+            const { scale, cx = 0.5, cy = 0.5 } = viewport;
+            if (scale) {
+              const imageWidth = sourceImage.width;
+              const imageHeight = sourceImage.height;
+              const scaledImageWidth = imageWidth * scale;
+              const scaledImageHeight = imageHeight * scale;
+              const visibleWidthRatio = Math.min(1, canvasSize.width / scaledImageWidth);
+              const visibleHeightRatio = Math.min(1, canvasSize.height / scaledImageHeight);
+              const rectWidth = MINIMAP_WIDTH * visibleWidthRatio;
+              const rectHeight = minimapHeight * visibleHeightRatio;
+              const rectX = (cx * MINIMAP_WIDTH) - (rectWidth / 2);
+              const rectY = (cy * minimapHeight) - (rectHeight / 2);
+
+              minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+              minimapCtx.lineWidth = 2;
+              minimapCtx.strokeRect(
+                Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
+                Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
+                Math.min(rectWidth, MINIMAP_WIDTH),
+                Math.min(rectHeight, minimapHeight)
+              );
+              
+              minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+              minimapCtx.fillRect(
+                Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
+                Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
+                Math.min(rectWidth, MINIMAP_WIDTH),
+                Math.min(rectHeight, minimapHeight)
+              );
+            }
+            
+            // 미니맵을 메인 캔버스의 우하단에 그리기
+            const padding = 10;
+            const minimapX = ctx.canvas.width - MINIMAP_WIDTH - padding;
+            const minimapY = ctx.canvas.height - minimapHeight - padding;
+            
+            // 미니맵 배경 (반투명 검은색)
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(minimapX - 5, minimapY - 5, MINIMAP_WIDTH + 10, minimapHeight + 10);
+            
+            // 미니맵 그리기
+            ctx.drawImage(minimapCanvas, minimapX, minimapY);
+          }
+        }
       }
     },
     getCanvas: () => canvasRef.current,

@@ -20,7 +20,7 @@ import { PinpointRotationControl } from '../components/PinpointRotationControl';
 import { PinpointScaleControl } from '../components/PinpointScaleControl';
 
 export interface PinpointModeHandle {
-  capture: (options: { showLabels: boolean, showCrosshair: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean, showCrosshair: boolean, showMinimap: boolean }) => Promise<string | null>;
 }
 
 interface PinpointModeProps {
@@ -54,7 +54,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   }, {} as Record<FolderKey, React.RefObject<ImageCanvasHandle>>);
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels, showCrosshair }) => {
+    capture: async ({ showLabels, showCrosshair, showMinimap }) => {
       const activeKeys = FOLDER_KEYS.slice(0, numViewers);
       const firstCanvas = canvasRefs[activeKeys[0]]?.current?.getCanvas();
       if (!firstCanvas) return null;
@@ -68,7 +68,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         tempCanvas.height = height;
         const tempCtx = tempCanvas.getContext('2d');
         if (!tempCtx) return null;
-        handle.drawToContext(tempCtx, showCrosshair);
+        handle.drawToContext(tempCtx, showCrosshair, showMinimap);
         return tempCanvas;
       }).filter((c): c is HTMLCanvasElement => !!c);
 

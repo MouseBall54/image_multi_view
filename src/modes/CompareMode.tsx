@@ -10,7 +10,7 @@ import type { FolderKey, MatchedItem, FilterType } from '../types';
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
 export interface CompareModeHandle {
-  capture: (options: { showLabels: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean; showMinimap: boolean }) => Promise<string | null>;
 }
 
 interface CompareModeProps {
@@ -32,7 +32,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   }, {} as Record<FolderKey, React.RefObject<ImageCanvasHandle>>);
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels }) => {
+    capture: async ({ showLabels, showMinimap }) => {
       const activeKeys = FOLDER_KEYS.slice(0, numViewers);
       const firstCanvas = canvasRefs[activeKeys[0]]?.current?.getCanvas();
       if (!firstCanvas) return null;
@@ -46,7 +46,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
         tempCanvas.height = height;
         const tempCtx = tempCanvas.getContext('2d');
         if (!tempCtx) return null;
-        handle.drawToContext(tempCtx, false); // No crosshair in compare mode
+        handle.drawToContext(tempCtx, false, showMinimap); // No crosshair in compare mode
         return tempCanvas;
       }).filter((c): c is HTMLCanvasElement => !!c);
 

@@ -16,7 +16,7 @@ type Props = {
 };
 
 export interface AnalysisModeHandle {
-  capture: (options: { showLabels: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean; showMinimap: boolean }) => Promise<string | null>;
 }
 
 export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
@@ -36,7 +36,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   const activeKeys = useMemo(() => FOLDER_KEYS.slice(0, numViewers), [numViewers]);
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels }) => {
+    capture: async ({ showLabels, showMinimap }) => {
       const firstCanvasHandle = imageCanvasRefs.current.get(0);
       if (!firstCanvasHandle) return null;
       const firstCanvas = firstCanvasHandle.getCanvas();
@@ -51,7 +51,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
         tempCanvas.height = height;
         const tempCtx = tempCanvas.getContext('2d');
         if (!tempCtx) return null;
-        handle.drawToContext(tempCtx, false); // No crosshair in analysis mode
+        handle.drawToContext(tempCtx, false, showMinimap); // No crosshair in analysis mode
         return tempCanvas;
       }).filter((c): c is HTMLCanvasElement => !!c);
 

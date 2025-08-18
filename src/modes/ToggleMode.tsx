@@ -11,7 +11,7 @@ import { matchFilenames } from '../utils/match';
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
 export interface ToggleModeHandle {
-  capture: (options: { showLabels: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean; showMinimap: boolean }) => Promise<string | null>;
 }
 
 interface ToggleModeProps {
@@ -36,7 +36,7 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
   };
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels }) => {
+    capture: async ({ showLabels, showMinimap }) => {
       const handle = canvasRef.current;
       if (!handle) return null;
       
@@ -50,7 +50,7 @@ export const ToggleMode = forwardRef<ToggleModeHandle, ToggleModeProps>(({ numVi
       const ctx = tempCanvas.getContext('2d');
       if (!ctx) return null;
 
-      handle.drawToContext(ctx, false);
+      handle.drawToContext(ctx, false, showMinimap);
 
       if (showLabels) {
         const lines: string[] = [];
