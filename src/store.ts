@@ -283,5 +283,20 @@ useStore.subscribe((state, prevState) => {
       useStore.setState({ analysisFile: null, analysisFilters: {}, analysisFilterParams: {} });
     }
   }
+
+  // Reset viewport when layout changes (레이아웃 변경 시 뷰포트 리셋)
+  if (state.viewerRows !== prevState.viewerRows || state.viewerCols !== prevState.viewerCols) {
+    console.log(`Layout changed from ${prevState.viewerRows}x${prevState.viewerCols} to ${state.viewerRows}x${state.viewerCols}`);
+    
+    // fitScaleFn은 ResizeObserver에 의해 업데이트될 예정이므로 약간의 지연 후 적용
+    setTimeout(() => {
+      const { fitScaleFn } = useStore.getState();
+      const newScale = fitScaleFn ? fitScaleFn() : 1;
+      useStore.setState({
+        viewport: { scale: newScale, cx: 0.5, cy: 0.5, refScreenX: undefined, refScreenY: undefined },
+        pinpointGlobalScale: 1,
+      });
+    }, 100);
+  }
 });
 

@@ -298,17 +298,19 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     getCanvas: () => canvasRef.current,
   }));
 
+  // Calculate fit scale function for reference canvas
+  const calculateFitScale = useCallback(() => {
+    if (!canvasRef.current || !sourceImage) return 1;
+    const { width, height } = canvasRef.current.getBoundingClientRect();
+    const scale = Math.min(width / sourceImage.width, height / sourceImage.height);
+    return scale;
+  }, [sourceImage]);
+
   useEffect(() => {
     if (isReference) {
-      const calculateFitScale = () => {
-        if (!canvasRef.current || !sourceImage) return 1;
-        const { width, height } = canvasRef.current.getBoundingClientRect();
-        const scale = Math.min(width / sourceImage.width, height / sourceImage.height);
-        return scale;
-      };
       setFitScaleFn(calculateFitScale);
     }
-  }, [sourceImage, isReference, setFitScaleFn]);
+  }, [calculateFitScale, isReference, setFitScaleFn]);
 
   // Effect to draw the processed image to the visible canvas
   useEffect(() => {
@@ -320,6 +322,30 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     canvas.height = Math.round(height);
     drawImage(ctx, processedImage, true);
   }, [processedImage, drawImage, viewport, pinpointGlobalScale, pinpointRotations, isRotating, showGrid, gridColor]);
+
+  // Effect to handle canvas resize (레이아웃 변경이나 창 크기 변경 시 자동 리프레시)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (processedImage) {
+        const ctx = canvas.getContext("2d")!;
+        const { width, height } = canvas.getBoundingClientRect();
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
+        drawImage(ctx, processedImage, true);
+      }
+      
+      // Update fit scale function if this is a reference canvas
+      if (isReference && sourceImage) {
+        setFitScaleFn(calculateFitScale);
+      }
+    });
+
+    resizeObserver.observe(canvas);
+    return () => resizeObserver.disconnect();
+  }, [processedImage, drawImage, isReference, sourceImage, calculateFitScale, setFitScaleFn]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

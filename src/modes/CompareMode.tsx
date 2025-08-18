@@ -21,7 +21,7 @@ interface CompareModeProps {
 }
 
 export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
-  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, clearFolder, viewerRows, viewerCols } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
