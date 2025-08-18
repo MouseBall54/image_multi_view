@@ -35,6 +35,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   const [sourceImage, setSourceImage] = useState<DrawableImage | null>(null);
   const [processedImage, setProcessedImage] = useState<DrawableImage | null>(null);
   const [isRotating, setIsRotating] = useState(false);
+  const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
   const { 
     viewport, setViewport, setFitScaleFn, 
     pinpointMouseMode, setPinpointScale, 
@@ -320,6 +321,10 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const { width, height } = canvas.getBoundingClientRect();
     canvas.width = Math.round(width);
     canvas.height = Math.round(height);
+    
+    // 캔버스 크기 상태 업데이트 (미니맵용)
+    setCanvasSize({ width: Math.round(width), height: Math.round(height) });
+    
     drawImage(ctx, processedImage, true);
   }, [processedImage, drawImage, viewport, pinpointGlobalScale, pinpointRotations, isRotating, showGrid, gridColor]);
 
@@ -334,6 +339,10 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         const { width, height } = canvas.getBoundingClientRect();
         canvas.width = Math.round(width);
         canvas.height = Math.round(height);
+        
+        // 캔버스 크기 상태 업데이트 (미니맵용)
+        setCanvasSize({ width: Math.round(width), height: Math.round(height) });
+        
         drawImage(ctx, processedImage, true);
       }
       
@@ -567,7 +576,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           }}
         />
       )}
-      {showMinimap && sourceImage instanceof ImageBitmap && <Minimap bitmap={sourceImage} viewport={viewport} />}
+      {showMinimap && sourceImage instanceof ImageBitmap && canvasSize && (
+        <Minimap 
+          bitmap={sourceImage} 
+          viewport={viewport} 
+          canvasSize={canvasSize}
+        />
+      )}
     </div>
   );
 });
