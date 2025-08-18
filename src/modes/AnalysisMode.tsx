@@ -25,7 +25,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     analysisFile, setAnalysisFile, 
     analysisFileSource,
     analysisFilters, analysisFilterParams, 
-    analysisRotation, openFilterEditor 
+    analysisRotation, openFilterEditor,
+    viewerRows, viewerCols
   } = useStore();
   const { pick, inputRefs, onInput, allFolders, updateAlias, clearFolder } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
@@ -56,8 +57,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
 
       if (tempCanvases.length === 0) return null;
 
-      const cols = Math.ceil(Math.sqrt(numViewers));
-      const rows = Math.ceil(numViewers / cols);
+      const cols = viewerCols;
+      const rows = viewerRows;
       const combinedWidth = width * cols;
       const combinedHeight = height * rows;
 
@@ -159,7 +160,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   };
 
   const gridStyle = {
-    '--cols': Math.ceil(Math.sqrt(numViewers)),
+    '--cols': viewerCols,
+    '--rows': viewerRows,
   } as React.CSSProperties;
 
   return (

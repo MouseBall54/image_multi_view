@@ -23,7 +23,7 @@ interface CompareModeProps {
 export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, clearFolder } = useStore();
+  const { current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, clearFolder, viewerRows, viewerCols } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
 
   const canvasRefs = FOLDER_KEYS.reduce((acc, key) => {
@@ -52,8 +52,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
       if (tempCanvases.length === 0) return null;
 
-      const cols = Math.ceil(Math.sqrt(numViewers));
-      const rows = Math.ceil(numViewers / cols);
+      const cols = viewerCols;
+      const rows = viewerRows;
       const combinedWidth = width * cols;
       const combinedHeight = height * rows;
 
@@ -155,7 +155,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
   const gridStyle = {
     '--viewers': numViewers,
-    '--cols': Math.ceil(Math.sqrt(numViewers)),
+    '--cols': viewerCols,
+    '--rows': viewerRows,
   } as React.CSSProperties;
 
   return (

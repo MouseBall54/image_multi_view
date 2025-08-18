@@ -1,10 +1,9 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { useStore } from '../store';
 import { useFolderPickers } from '../hooks/useFolderPickers';
-import { matchFilenames } from '../utils/match';
-import type { FolderKey, MatchedItem } from '../types';
-import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP } from '../config';
+import type { FolderKey, FilterType } from '../types';
+import { MAX_ZOOM, MIN_ZOOM } from '../config';
 import { FolderControl } from '../components/FolderControl';
 import { ALL_FILTERS } from '../components/FilterControls';
 
@@ -35,10 +34,10 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { 
-    current, setCurrent, setViewport, viewport, 
-    pinpointScales, setPinpointScale, pinpointGlobalScale, setPinpointGlobalScale, 
-    activeCanvasKey, setActiveCanvasKey, stripExt, setStripExt, clearFolder,
-    openFilterEditor, viewerFilters, viewerFilterParams
+    setCurrent, setViewport,
+    pinpointScales, setPinpointScale,
+    activeCanvasKey, setActiveCanvasKey, clearFolder,
+    openFilterEditor, viewerFilters, viewerFilterParams, viewerRows, viewerCols
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -75,8 +74,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
       if (tempCanvases.length === 0) return null;
 
-      const cols = Math.ceil(Math.sqrt(numViewers));
-      const rows = Math.ceil(numViewers / cols);
+      const cols = viewerCols;
+      const rows = viewerRows;
       const combinedWidth = width * cols;
       const combinedHeight = height * rows;
 
@@ -139,14 +138,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
   const activeKeys = useMemo(() => FOLDER_KEYS.slice(0, numViewers), [numViewers]);
 
-  const activeFolders = useMemo(() => {
-    return activeKeys.reduce((acc, key) => {
-      if (allFolders[key]?.data.files) {
-        acc[key] = allFolders[key]!.data.files;
-      }
-      return acc;
-    }, {} as Record<FolderKey, Map<string, File>>);
-  }, [activeKeys, allFolders]);
 
   const fileList = useMemo(() => {
     const filesWithSource: { file: File, source: string, folderKey: FolderKey }[] = [];
@@ -185,17 +176,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     );
   }, [fileList, searchQuery]);
 
-  const handlePinpointFileSelect = (key: FolderKey, e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setPinpointImages(prev => ({
-        ...prev,
-        [key]: { file, refPoint: { x: 0.5, y: 0.5 } }
-      }));
-      setPinpointScale(key, 1);
-      setViewport({ refScreenX: undefined, refScreenY: undefined });
-    }
-  };
   
   useEffect(() => {
     const primaryFile = pinpointImages['A']?.file;
@@ -235,7 +215,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
   const gridStyle = {
     '--viewers': numViewers,
-    '--cols': Math.ceil(Math.sqrt(numViewers)),
+    '--cols': viewerCols,
+    '--rows': viewerRows,
   } as React.CSSProperties;
 
   return (
@@ -322,7 +303,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                 <ImageCanvas 
                   ref={canvasRefs[key]}
                   label={label}
-                  file={pinpointImage?.file}
+                  file={pinpointImage?.file || undefined}
                   isReference={key === 'A'} 
                   cache={bitmapCache.current}
                   appMode="pinpoint"
@@ -330,7 +311,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                   refPoint={pinpointImage?.refPoint}
                   onSetRefPoint={handleSetRefPoint}
                   folderKey={key}
-                  onClick={setActiveCanvasKey}
+                  onClick={(key) => setActiveCanvasKey(key)}
                   isActive={activeCanvasKey === key}
                   overrideFilterType={viewerFilters[key]}
                   overrideFilterParams={viewerFilterParams[key]}
@@ -366,7 +347,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       </main>
       <div style={{ display: 'none' }}>
         {FOLDER_KEYS.map(key => (
-          <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
+          <input key={key} ref={inputRefs[key]} type="file" {...{ webkitdirectory: "" } as any} multiple onChange={(e) => onInput(key, e)} />
         ))}
       </div>
     </>

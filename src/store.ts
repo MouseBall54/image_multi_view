@@ -20,7 +20,7 @@ export interface FilterParams {
   cutoff: number;
   // Gabor params
   theta: number; // Orientation
-  sigma: number; // Bandwidth
+  gaborSigma: number; // Bandwidth
   lambda: number; // Wavelength
   psi: number; // Phase offset
 }
@@ -37,6 +37,7 @@ const defaultFilterParams: FilterParams = {
   cutoff: 30,
   // Gabor defaults
   theta: 0,
+  gaborSigma: 1.5,
   lambda: 10.0,
   psi: 0,
 };
@@ -46,6 +47,8 @@ interface State {
   pinpointMouseMode: PinpointMouseMode;
   stripExt: boolean;
   numViewers: number;
+  viewerRows: number;
+  viewerCols: number;
   showMinimap: boolean;
   showGrid: boolean;
   gridColor: GridColor;
@@ -83,6 +86,7 @@ interface State {
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
   setStripExt: (strip: boolean) => void;
   setNumViewers: (n: number) => void;
+  setViewerLayout: (rows: number, cols: number) => void;
   setShowMinimap: (show: boolean) => void;
   setShowGrid: (show: boolean) => void;
   setGridColor: (color: GridColor) => void;
@@ -116,11 +120,13 @@ interface State {
   applyTempFilterSettings: () => void;
 }
 
-export const useStore = create<State>((set, get) => ({
+export const useStore = create<State>((set) => ({
   appMode: "compare",
   pinpointMouseMode: "pin",
   stripExt: true,
   numViewers: 2,
+  viewerRows: 1,
+  viewerCols: 2,
   showMinimap: false,
   showGrid: false,
   gridColor: 'white',
@@ -156,6 +162,7 @@ export const useStore = create<State>((set, get) => ({
   setPinpointMouseMode: (m) => set({ pinpointMouseMode: m }),
   setStripExt: (strip) => set({ stripExt: strip }),
   setNumViewers: (n) => set({ numViewers: n }),
+  setViewerLayout: (rows, cols) => set({ viewerRows: rows, viewerCols: cols, numViewers: rows * cols }),
   setShowMinimap: (show) => set({ showMinimap: show }),
   setShowGrid: (show) => set({ showGrid: show }),
   setGridColor: (color) => set({ gridColor: color }),
@@ -203,7 +210,7 @@ export const useStore = create<State>((set, get) => ({
   }),
 
   // Analysis Mode Actions
-  setAnalysisFile: (file, source = null) => set({ 
+  setAnalysisFile: (file, source) => set({ 
     analysisFile: file, 
     analysisFileSource: source,
     analysisFilters: {}, 
