@@ -1,43 +1,46 @@
 # Image Compare Viewer
 
-A client-side web application for analyzing and comparing images from multiple local folders. Built with React and TypeScript, it works entirely in your browser with no file uploads. The app is ideal for quality inspection, training data review, or any workflow where you need to align and inspect many images quickly.
+Our app is a client-side web tool for analyzing and comparing images from multiple local folders. Built with React and TypeScript, it works entirely in your browser with no file uploads. The tool is ideal for quality inspection, training data review or any workflow where you need to align and inspect many images quickly.
 
-## Highlights
+## Purpose
+Image Compare Viewer helps researchers, artists and QA teams inspect large batches of images rapidly. It was created for scenarios where you must check whether different versions of an image line up, evaluate algorithmic outputs or validate training datasets without exposing the files to a server.
+
+## Features
 - **Privacy-friendly:** All processing happens locally; files never leave your machine.
 - **Flexible Viewers:** Load up to nine folders and view any combination side by side.
 - **Advanced Analysis Tools:** Apply a wide range of filters and capture composite views.
 - **Keyboard Driven:** Numerous hotkeys for rapid navigation and mode switching.
-
-## Modes
-
-The app provides four modes suited for different workflows:
-
-### Compare Mode
-- View images from 2–9 folders side by side in a synchronized grid.
-- Pan and zoom once and all viewers follow.
-- Rename folder aliases and optionally ignore file extensions when matching files.
-
-### Toggle Mode
-- Display one folder at a time while maintaining the current viewport.
-- Press `Space` to cycle through loaded folders.
-
-### Pinpoint Mode
-- Load any image into any viewer and align them using a shared reference point.
-- Each viewer has independent scale and rotation with a global scale multiplier.
-- Click to set the reference crosshair; `Alt` + drag rotates the active image.
-
-### Analysis Mode
-- Apply different filters to the same image for side-by-side comparison.
-- Choose a single source image and experiment with filters, rotations, and capture outputs.
-
-## Major Features
-
 - **Synchronized Viewports:** Pan and zoom on one image and all others follow.
 - **Flexible File Matching:** Match by full filename or ignore extensions.
 - **Per-Viewer Filters:** Apply contrast, blur, edge detection, texture, and noise-reduction filters with adjustable parameters.
 - **Capture Tool:** Export the current view to the clipboard or as an image file.
 - **Minimap & Grid:** Optional minimap overview and adjustable grid overlay.
 - **Image Info Panel:** Shows filename, dimensions and file size of the active image.
+
+## Modes and Usage
+
+The app provides four modes suited for different workflows.
+
+### Compare Mode
+- View images from 2–9 folders side by side in a synchronized grid.
+- Ideal for verifying alignment across datasets or model outputs.
+- Pan and zoom once and all viewers follow.
+- Rename folder aliases and optionally ignore file extensions when matching files.
+
+### Toggle Mode
+- Display one folder at a time while maintaining the current viewport.
+- Useful for spot-the-difference reviews.
+- Press `Space` to cycle through loaded folders.
+
+### Pinpoint Mode
+- Load any image into any viewer and align them using a shared reference point.
+- Great for studying geometric differences or overlaying parts.
+- Each viewer has independent scale and rotation with a global scale multiplier.
+- Click to set the reference crosshair; `Alt` + drag rotates the active image.
+
+### Analysis Mode
+- Apply different filters to the same image for side-by-side comparison.
+- Experiment with filters, rotations and capture outputs on a single source image.
 
 ## Available Filters
 
@@ -79,6 +82,13 @@ Open the printed URL in your browser. Use the **Mode** dropdown or hotkeys (`1`:
 | `R`                            | Reset View                                    |
 | `I`                            | Show / Hide Image Information Panel           |
 | `Alt` + drag (Pinpoint mode)   | Rotate active image                           |
+
+## Expected Benefits
+
+- Speeds up quality checks by allowing many images to be reviewed in parallel.
+- Simplifies dataset curation and algorithm comparison workflows.
+- Enhances privacy because images never leave your computer.
+- Offers flexible analysis tools for research and education.
 
 ## Build
 
