@@ -41,7 +41,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     pinpointMouseMode, setPinpointScale, 
     pinpointGlobalScale, setPinpointGlobalScale, showMinimap, showGrid, gridColor,
     pinpointRotations, viewerFilters, viewerFilterParams, indicator, isCvReady,
-    analysisRotation
+    analysisRotation, activeCanvasKey
   } = useStore();
 
   // Effect to load the source image from file
@@ -513,22 +513,27 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     let dragMode: 'pan' | 'rotate' | null = null;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       const { left, top, width, height } = canvas.getBoundingClientRect();
       const mx = e.clientX - left;
       const my = e.clientY - top;
       const { viewport: currentViewport, pinpointGlobalScale: currentGlobalScale, setPinpointGlobalScale } = useStore.getState();
       const delta = e.deltaY < 0 ? WHEEL_ZOOM_STEP : (1 / WHEEL_ZOOM_STEP);
       if (appMode === 'pinpoint') {
-        const preScale = (overrideScale ?? currentViewport.scale) * currentGlobalScale;
-        const nextGlobalScale = currentGlobalScale * delta;
-        const nextScale = (overrideScale ?? currentViewport.scale) * nextGlobalScale;
-        if (nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
-        setPinpointGlobalScale(nextGlobalScale);
-        const refScreenX = currentViewport.refScreenX || (width / 2);
-        const refScreenY = currentViewport.refScreenY || (height / 2);
-        const nextRefScreenX = mx + (refScreenX - mx) * (nextScale / preScale);
-        const nextRefScreenY = my + (refScreenY - my) * (nextScale / preScale);
-        setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
+        // Only handle global scale in pinpoint mode if this canvas is active, or if this is the reference canvas (A)
+        const { activeCanvasKey: currentActiveKey } = useStore.getState();
+        if (currentActiveKey === folderKey || (currentActiveKey === null && typeof folderKey === 'string' && folderKey === 'A')) {
+          const preScale = (overrideScale ?? currentViewport.scale) * currentGlobalScale;
+          const nextGlobalScale = currentGlobalScale * delta;
+          const nextScale = (overrideScale ?? currentViewport.scale) * nextGlobalScale;
+          if (nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
+          setPinpointGlobalScale(nextGlobalScale);
+          const refScreenX = currentViewport.refScreenX || (width / 2);
+          const refScreenY = currentViewport.refScreenY || (height / 2);
+          const nextRefScreenX = mx + (refScreenX - mx) * (nextScale / preScale);
+          const nextRefScreenY = my + (refScreenY - my) * (nextScale / preScale);
+          setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
+        }
       } else {
         const preScale = currentViewport.scale;
         let nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, preScale * delta));
@@ -610,7 +615,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         setViewport({ cx, cy });
       }
     };
-    canvas.addEventListener("wheel", onWheel, { passive: false });
+    canvas.addEventListener("wheel", onWheel, { passive: false, capture: true });
     canvas.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
     window.addEventListener("mousemove", onMove);

@@ -36,7 +36,7 @@ export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode
 
     // Draw the viewport rectangle with mode-specific calculations
     if (canvasSize) {
-      if (appMode === 'pinpoint' && typeof folderKey === 'string' && pinpointGlobalScale !== undefined && overrideScale !== undefined) {
+      if (appMode === 'pinpoint' && typeof folderKey === 'string' && pinpointGlobalScale !== undefined) {
         // Pinpoint mode: complex calculations
         const individualScale = overrideScale ?? viewport.scale;
         const totalScale = individualScale * pinpointGlobalScale;
