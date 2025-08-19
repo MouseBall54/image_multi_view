@@ -67,6 +67,18 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
     }
   }, [toggleModalOpen, calculateModalSize]);
 
+  // Add a body class to blur underlying viewers when modal is open
+  useEffect(() => {
+    if (toggleModalOpen) {
+      document.body.classList.add('toggle-modal-open');
+    } else {
+      document.body.classList.remove('toggle-modal-open');
+    }
+    return () => {
+      document.body.classList.remove('toggle-modal-open');
+    };
+  }, [toggleModalOpen]);
+
   const currentViewerKey = selectedViewers[toggleCurrentIndex];
   
   // Get current file and label based on app mode

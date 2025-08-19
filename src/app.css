@@ -19,6 +19,8 @@ body {
   margin: 0;
 }
 
+/* When Toggle Modal is open, background is fully covered by overlay (no blur needed) */
+
 .app { 
   display:flex; 
   flex-direction: column; 
@@ -405,7 +407,7 @@ main {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: #000; /* fully black backdrop */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1708,7 +1710,7 @@ main {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: #000; /* fully black backdrop */
   display: flex;
   align-items: center;
   justify-content: center;
