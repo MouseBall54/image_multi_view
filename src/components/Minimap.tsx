@@ -10,11 +10,12 @@ type Props = {
   overrideScale?: number;
   pinpointGlobalScale?: number;
   refPoint?: { x: number, y: number } | null;
+  rotationDeg?: number;
 };
 
 const MINIMAP_WIDTH = 150;
 
-export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode, folderKey, overrideScale, pinpointGlobalScale, refPoint }) => {
+export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode, folderKey, overrideScale, pinpointGlobalScale, refPoint, rotationDeg = 0 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -64,21 +65,45 @@ export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode
         const visibleRight = Math.min(1, (canvasSize.width - drawX) / scaledImageWidth);
         const visibleBottom = Math.min(1, (canvasSize.height - drawY) / scaledImageHeight);
         
-        // Minimap rectangle
-        const rectX = visibleLeft * MINIMAP_WIDTH;
-        const rectY = visibleTop * minimapHeight;
-        const rectWidth = (visibleRight - visibleLeft) * MINIMAP_WIDTH;
-        const rectHeight = (visibleBottom - visibleTop) * minimapHeight;
-        
-        // Draw rectangle if valid
-        if (rectWidth > 0 && rectHeight > 0) {
-          ctx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(rectX, rectY, rectWidth, rectHeight);
-          
-          ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-          ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
-        }
+        // Compute rotated viewport polygon corners in minimap coordinates
+        const angle = (rotationDeg || 0) * Math.PI / 180;
+        const canvasW = canvasSize.width;
+        const canvasH = canvasSize.height;
+        const centerX = drawX + (scaledImageWidth / 2);
+        const centerY = drawY + (scaledImageHeight / 2);
+        const cos = Math.cos(-angle); // inverse rotation for mapping canvas->image
+        const sin = Math.sin(-angle);
+
+        const cornersCanvas = [
+          { x: 0, y: 0 },
+          { x: canvasW, y: 0 },
+          { x: canvasW, y: canvasH },
+          { x: 0, y: canvasH },
+        ];
+
+        const cornersMini = cornersCanvas.map(({ x: cx, y: cy }) => {
+          const dx = cx - centerX;
+          const dy = cy - centerY;
+          const rx = centerX + dx * cos - dy * sin;
+          const ry = centerY + dx * sin + dy * cos;
+          const imgX = (rx - drawX) / totalScale; // in image px
+          const imgY = (ry - drawY) / totalScale;
+          return {
+            x: (imgX / imageWidth) * MINIMAP_WIDTH,
+            y: (imgY / imageHeight) * minimapHeight,
+          };
+        });
+
+        // Draw rotated polygon
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+        ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+        ctx.beginPath();
+        ctx.moveTo(cornersMini[0].x, cornersMini[0].y);
+        for (let i = 1; i < cornersMini.length; i++) ctx.lineTo(cornersMini[i].x, cornersMini[i].y);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.fill();
       } else {
         // Standard mode: existing logic
         const { scale, cx = 0.5, cy = 0.5 } = viewport;

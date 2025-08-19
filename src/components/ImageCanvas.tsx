@@ -314,48 +314,58 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
             
             // 뷰포트 사각형 그리기 (Pinpoint 모드와 일반 모드 구분)
             if (appMode === 'pinpoint' && typeof folderKey === 'string') {
-              // Pinpoint 모드: 복잡한 계산
+              // Pinpoint 모드: 회전까지 고려한 뷰포트 폴리곤
               const individualScale = overrideScale ?? viewport.scale;
               const totalScale = individualScale * pinpointGlobalScale;
               const currentRefPoint = refPoint || { x: 0.5, y: 0.5 };
               const refScreenX = viewport.refScreenX || (canvasSize.width / 2);
               const refScreenY = viewport.refScreenY || (canvasSize.height / 2);
-              
-              // 실제 뷰어에서 보이는 영역 계산
               const imageWidth = sourceImage.width;
               const imageHeight = sourceImage.height;
               const scaledImageWidth = imageWidth * totalScale;
               const scaledImageHeight = imageHeight * totalScale;
-              
-              // 참조점의 이미지 좌표
               const refImgX = currentRefPoint.x * imageWidth;
               const refImgY = currentRefPoint.y * imageHeight;
-              
-              // 캔버스에서 이미지가 그려지는 위치
               const drawX = refScreenX - (refImgX * totalScale);
               const drawY = refScreenY - (refImgY * totalScale);
-              
-              // 뷰어에서 실제로 보이는 이미지 영역의 비율
-              const visibleLeft = Math.max(0, -drawX) / scaledImageWidth;
-              const visibleTop = Math.max(0, -drawY) / scaledImageHeight;
-              const visibleRight = Math.min(1, (canvasSize.width - drawX) / scaledImageWidth);
-              const visibleBottom = Math.min(1, (canvasSize.height - drawY) / scaledImageHeight);
-              
-              // 미니맵에서의 사각형 크기와 위치
-              const rectX = visibleLeft * MINIMAP_WIDTH;
-              const rectY = visibleTop * minimapHeight;
-              const rectWidth = (visibleRight - visibleLeft) * MINIMAP_WIDTH;
-              const rectHeight = (visibleBottom - visibleTop) * minimapHeight;
-              
-              // 사각형 그리기 (유효한 영역만)
-              if (rectWidth > 0 && rectHeight > 0) {
-                minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
-                minimapCtx.lineWidth = 2;
-                minimapCtx.strokeRect(rectX, rectY, rectWidth, rectHeight);
-                
-                minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-                minimapCtx.fillRect(rectX, rectY, rectWidth, rectHeight);
-              }
+
+              const { pinpointRotations, pinpointGlobalRotation } = useStore.getState();
+              const localAngle = pinpointRotations[folderKey] || 0;
+              const globalAngle = pinpointGlobalRotation || 0;
+              const angle = (localAngle + globalAngle) * Math.PI / 180;
+              const centerX = drawX + (scaledImageWidth / 2);
+              const centerY = drawY + (scaledImageHeight / 2);
+              const cos = Math.cos(-angle);
+              const sin = Math.sin(-angle);
+
+              const cornersCanvas = [
+                { x: 0, y: 0 },
+                { x: canvasSize.width, y: 0 },
+                { x: canvasSize.width, y: canvasSize.height },
+                { x: 0, y: canvasSize.height },
+              ];
+              const cornersMini = cornersCanvas.map(({ x: cx, y: cy }) => {
+                const dx = cx - centerX;
+                const dy = cy - centerY;
+                const rx = centerX + dx * cos - dy * sin;
+                const ry = centerY + dx * sin + dy * cos;
+                const imgX = (rx - drawX) / totalScale;
+                const imgY = (ry - drawY) / totalScale;
+                return {
+                  x: (imgX / imageWidth) * MINIMAP_WIDTH,
+                  y: (imgY / imageHeight) * minimapHeight,
+                };
+              });
+
+              minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+              minimapCtx.lineWidth = 2;
+              minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+              minimapCtx.beginPath();
+              minimapCtx.moveTo(cornersMini[0].x, cornersMini[0].y);
+              for (let i = 1; i < cornersMini.length; i++) minimapCtx.lineTo(cornersMini[i].x, cornersMini[i].y);
+              minimapCtx.closePath();
+              minimapCtx.stroke();
+              minimapCtx.fill();
             } else {
               // 일반 모드: 기존 로직
               const { scale, cx = 0.5, cy = 0.5 } = viewport;
@@ -481,8 +491,25 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const refImgY = currentRefPoint.y * sourceImage.height;
       const drawX = refScreenX - (refImgX * scale);
       const drawY = refScreenY - (refImgY * scale);
-      const imgX = (canvasX - drawX) / scale;
-      const imgY = (canvasY - drawY) / scale;
+      // Account for rotation: map the click back by inverse rotation around the image center
+      const localAngle = useStore.getState().pinpointRotations[folderKey] || 0;
+      const globalAngle = useStore.getState().pinpointGlobalRotation || 0;
+      const totalAngle = (localAngle + globalAngle) * Math.PI / 180;
+      let mappedX = canvasX;
+      let mappedY = canvasY;
+      if (totalAngle !== 0) {
+        const centerX = drawX + (sourceImage.width * scale) / 2;
+        const centerY = drawY + (sourceImage.height * scale) / 2;
+        const dx = canvasX - centerX;
+        const dy = canvasY - centerY;
+        const cos = Math.cos(totalAngle);
+        const sin = Math.sin(totalAngle);
+        // inverse rotation by -totalAngle
+        mappedX = centerX + dx * cos + dy * sin;
+        mappedY = centerY - dx * sin + dy * cos;
+      }
+      const imgX = (mappedX - drawX) / scale;
+      const imgY = (mappedY - drawY) / scale;
       if (imgX >= 0 && imgX <= sourceImage.width && imgY >= 0 && imgY <= sourceImage.height) {
         onSetRefPoint(folderKey, { x: imgX / sourceImage.width, y: imgY / sourceImage.height }, { x: canvasX, y: canvasY });
       }
@@ -721,6 +748,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           overrideScale={overrideScale}
           pinpointGlobalScale={pinpointGlobalScale}
           refPoint={refPoint}
+          rotationDeg={rotationAngle}
         />
       )}
     </div>
