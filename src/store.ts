@@ -83,6 +83,12 @@ interface State {
   // OpenCV state
   isCvReady: boolean;
 
+  // Toggle Modal state - viewer-based image selection
+  selectedViewers: FolderKey[];  // Selected viewer keys for toggle
+  toggleModalOpen: boolean;
+  toggleCurrentIndex: number;
+
+
   setAppMode: (m: AppMode) => void;
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
   setStripExt: (strip: boolean) => void;
@@ -114,12 +120,19 @@ interface State {
   // OpenCV actions
   setCvReady: (isReady: boolean) => void;
 
+  // Toggle actions
+  setSelectedViewers: (viewers: FolderKey[]) => void;
+  openToggleModal: () => void;
+  closeToggleModal: () => void;
+  setToggleCurrentIndex: (index: number) => void;
+
   // Filter actions
   openFilterEditor: (key: FolderKey | number) => void;
   closeFilterEditor: () => void;
   setTempFilterType: (type: FilterType) => void;
   setTempFilterParams: (params: Partial<FilterParams>) => void;
   applyTempFilterSettings: () => void;
+
 }
 
 export const useStore = create<State>((set) => ({
@@ -160,6 +173,12 @@ export const useStore = create<State>((set) => ({
 
   // OpenCV state
   isCvReady: false,
+
+  // Toggle state
+  selectedViewers: [],
+  toggleModalOpen: false,
+  toggleCurrentIndex: 0,
+
 
   setAppMode: (m) => set({ appMode: m }),
   setPinpointMouseMode: (m) => set({ pinpointMouseMode: m }),
@@ -225,6 +244,12 @@ export const useStore = create<State>((set) => ({
   // OpenCV actions
   setCvReady: (isReady) => set({ isCvReady: isReady }),
 
+  // Toggle actions
+  setSelectedViewers: (viewers) => set({ selectedViewers: viewers }),
+  openToggleModal: () => set({ toggleModalOpen: true, toggleCurrentIndex: 0 }),
+  closeToggleModal: () => set({ toggleModalOpen: false }),
+  setToggleCurrentIndex: (index) => set({ toggleCurrentIndex: index }),
+
   // Filter actions
   openFilterEditor: (key) => set(state => {
     if (typeof key === 'number') { // Analysis Mode
@@ -264,6 +289,7 @@ export const useStore = create<State>((set) => ({
       }
     }
   }),
+
 }));
 
 useStore.subscribe((state, prevState) => {
@@ -280,6 +306,10 @@ useStore.subscribe((state, prevState) => {
       pinpointGlobalScale: 1,
       pinpointRotations: {},
       analysisRotation: 0,
+      // Reset toggle selection when mode changes
+      selectedViewers: [],
+      toggleModalOpen: false,
+      toggleCurrentIndex: 0,
     });
 
     // Clear analysis file if leaving analysis mode

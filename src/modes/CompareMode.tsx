@@ -4,6 +4,7 @@ import { useFolderPickers } from '../hooks/useFolderPickers';
 import { matchFilenames } from '../utils/match';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { FolderControl } from '../components/FolderControl';
+import { ToggleModal } from '../components/ToggleModal';
 import { ALL_FILTERS } from '../components/FilterControls';
 import type { FolderKey, MatchedItem, FilterType } from '../types';
 
@@ -23,7 +24,10 @@ interface CompareModeProps {
 export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, clearFolder, viewerRows, viewerCols } = useStore();
+  const { 
+    current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, clearFolder, viewerRows, viewerCols,
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, closeToggleModal
+  } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
 
   const canvasRefs = FOLDER_KEYS.reduce((acc, key) => {
@@ -153,6 +157,32 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown';
   };
 
+  // Viewer selection for toggle functionality
+  const handleViewerSelect = (key: FolderKey) => {
+    const newSelected = selectedViewers.includes(key)
+      ? selectedViewers.filter(k => k !== key)
+      : [...selectedViewers, key];
+    setSelectedViewers(newSelected);
+  };
+
+  const handleToggleMode = () => {
+    if (selectedViewers.length === 0 || !current) return;
+    openToggleModal();
+  };
+
+  // Space key handler for opening toggle modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === ' ' && !toggleModalOpen && selectedViewers.length > 0 && current) {
+        e.preventDefault();
+        handleToggleMode();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleModalOpen, selectedViewers.length, current]);
+
   const gridStyle = {
     '--viewers': numViewers,
     '--cols': viewerCols,
@@ -189,6 +219,14 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
             />
             <div className="filelist-options">
               <div className="count">Matched: {filteredMatched.length}</div>
+              <button 
+                className="toggle-btn" 
+                onClick={handleToggleMode}
+                disabled={selectedViewers.length === 0 || !current}
+                title="Toggle Mode (Space)"
+              >
+                Toggle ({selectedViewers.length} selected)
+              </button>
               <label className="strip-ext-label">
                 <input type="checkbox" checked={stripExt} onChange={(e)=>setStripExt(e.target.checked)} />
                 <span>Ignore extension</span>
@@ -234,6 +272,13 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
                 />
                 <div className="viewer-controls">
                   <button 
+                    className={`viewer-select-btn ${selectedViewers.includes(key) ? 'selected' : ''}`}
+                    onClick={() => handleViewerSelect(key)}
+                    title={`Select viewer ${key} for toggle`}
+                  >
+                    {selectedViewers.includes(key) ? '✓' : '○'}
+                  </button>
+                  <button 
                     className="viewer__filter-button" 
                     title={`Filter Settings for ${allFolders[key]?.alias || key}`}
                     onClick={() => openFilterEditor(key)}
@@ -251,7 +296,6 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
                       <line x1="9" y1="8" x2="15" y2="8"></line>
                       <line x1="17" y1="16" x2="23" y2="16"></line>
                     </svg>
-
                   </button>
                 </div>
               </div>
@@ -259,6 +303,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
           })}
         </section>
       </main>
+      
+      <ToggleModal bitmapCache={bitmapCache} />
     </>
   );
 });

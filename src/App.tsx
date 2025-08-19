@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useStore } from "./store";
 import type { AppMode } from "./types";
 import { CompareMode, CompareModeHandle } from './modes/CompareMode';
-import { ToggleMode, ToggleModeHandle } from './modes/ToggleMode';
 import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
@@ -77,7 +76,6 @@ export default function App() {
   
   const primaryFileRef = useRef<File | null>(null);
   const compareModeRef = useRef<CompareModeHandle>(null);
-  const toggleModeRef = useRef<ToggleModeHandle>(null);
   const pinpointModeRef = useRef<PinpointModeHandle>(null);
   const analysisModeRef = useRef<AnalysisModeHandle>(null);
 
@@ -94,8 +92,6 @@ export default function App() {
 
     if (appMode === 'compare' && compareModeRef.current) {
       dataUrl = await compareModeRef.current.capture(opts);
-    } else if (appMode === 'toggle' && toggleModeRef.current) {
-      dataUrl = await toggleModeRef.current.capture(opts);
     } else if (appMode === 'pinpoint' && pinpointModeRef.current) {
       dataUrl = await pinpointModeRef.current.capture(opts);
     } else if (appMode === 'analysis' && analysisModeRef.current) {
@@ -192,9 +188,8 @@ export default function App() {
 
       switch (key) {
         case '1': setAppMode('compare'); break;
-        case '2': setAppMode('toggle'); break;
-        case '3': setAppMode('pinpoint'); break;
-        case '4': setAppMode('analysis'); break;
+        case '2': setAppMode('pinpoint'); break;
+        case '3': setAppMode('analysis'); break;
         case 'r': resetView(); break;
         case 'i': setShowInfoPanel((prev: boolean) => !prev); break;
         case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
@@ -217,8 +212,6 @@ export default function App() {
     switch (appMode) {
       case 'compare':
         return <CompareMode ref={compareModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
-      case 'toggle':
-        return <ToggleMode ref={toggleModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       case 'pinpoint':
         return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       case 'analysis':
@@ -243,12 +236,11 @@ export default function App() {
             <label><span>Mode:</span>
               <select value={appMode} onChange={e => setAppMode(e.target.value as AppMode)}>
                 <option value="compare">Compare</option>
-                <option value="toggle">Toggle</option>
                 <option value="pinpoint">Pinpoint</option>
                 <option value="analysis">Analysis</option>
               </select>
             </label>
-            {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'toggle' || appMode === 'analysis') && (
+            {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'analysis') && (
               <label><span>Layout:</span>
                 <select value={`${viewerRows}x${viewerCols}`} onChange={e => {
                   const [rows, cols] = e.target.value.split('x').map(Number);

@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { useFolderPickers } from '../hooks/useFolderPickers';
 import { matchFilenames } from '../utils/match';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
+import { ToggleModal } from '../components/ToggleModal';
 import { ALL_FILTERS } from '../components/FilterControls';
 import { AnalysisRotationControl } from '../components/AnalysisRotationControl';
 import { FolderControl } from '../components/FolderControl';
@@ -26,7 +27,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     analysisFileSource,
     analysisFilters, analysisFilterParams, 
     analysisRotation, openFilterEditor,
-    viewerRows, viewerCols
+    viewerRows, viewerCols,
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, closeToggleModal
   } = useStore();
   const { pick, inputRefs, onInput, allFolders, updateAlias, clearFolder } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
@@ -159,6 +161,34 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown Filter';
   };
 
+  // Viewer selection for toggle functionality
+  const handleViewerSelect = (viewerIndex: number) => {
+    // For analysis mode, use viewer index as string key
+    const key = viewerIndex.toString() as FolderKey;
+    const newSelected = selectedViewers.includes(key)
+      ? selectedViewers.filter(k => k !== key)
+      : [...selectedViewers, key];
+    setSelectedViewers(newSelected);
+  };
+
+  const handleToggleMode = () => {
+    if (selectedViewers.length === 0 || !analysisFile) return;
+    openToggleModal();
+  };
+
+  // Space key handler for opening toggle modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === ' ' && !toggleModalOpen && selectedViewers.length > 0 && analysisFile) {
+        e.preventDefault();
+        handleToggleMode();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleModalOpen, selectedViewers.length, analysisFile]);
+
   const gridStyle = {
     '--cols': viewerCols,
     '--rows': viewerRows,
@@ -195,11 +225,19 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
             />
             <div className="filelist-options">
               <div className="count">Files: {filteredFileList.length}</div>
+              <button 
+                className="toggle-btn" 
+                onClick={handleToggleMode}
+                disabled={selectedViewers.length === 0 || !analysisFile}
+                title="Toggle Mode (Space)"
+              >
+                Toggle ({selectedViewers.length} selected)
+              </button>
               <select value={folderFilter} onChange={e => setFolderFilter(e.target.value as FolderKey | 'all')}>
                 <option value="all">All Folders</option>
-                {FOLDER_KEYS.map(key => (
+                {FOLDER_KEYS.map(key => 
                   allFolders[key] && <option key={key} value={key}>Folder {allFolders[key]?.alias || key}</option>
-                ))}
+                )}
               </select>
             </div>
           </div>
@@ -237,25 +275,55 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               const label = lines.join('\n');
 
               return (
-                <ImageCanvas
-                  key={i}
-                  ref={el => el ? imageCanvasRefs.current.set(i, el) : imageCanvasRefs.current.delete(i)}
-                  file={analysisFile}
-                  label={label}
-                  cache={bitmapCache.current}
-                  appMode="analysis"
-                  folderKey={i}
-                  onClick={() => openFilterEditor(i)}
-                  isActive={false}
-                  overrideFilterType={analysisFilters[i]}
-                  overrideFilterParams={analysisFilterParams[i]}
-                  rotation={analysisRotation}
-                />
+                <div key={i} className="viewer-container">
+                  <ImageCanvas
+                    ref={el => el ? imageCanvasRefs.current.set(i, el) : imageCanvasRefs.current.delete(i)}
+                    file={analysisFile}
+                    label={label}
+                    cache={bitmapCache.current}
+                    appMode="analysis"
+                    folderKey={i}
+                    isActive={false}
+                    overrideFilterType={analysisFilters[i]}
+                    overrideFilterParams={analysisFilterParams[i]}
+                    rotation={analysisRotation}
+                  />
+                  <div className="viewer-controls">
+                    <button 
+                      className={`viewer-select-btn ${selectedViewers.includes(i.toString() as FolderKey) ? 'selected' : ''}`}
+                      onClick={() => handleViewerSelect(i)}
+                      title={`Select viewer ${i + 1} for toggle`}
+                    >
+                      {selectedViewers.includes(i.toString() as FolderKey) ? '✓' : '○'}
+                    </button>
+                    <button 
+                      className="viewer__filter-button" 
+                      title={`Filter Settings for Viewer ${i + 1}`}
+                      onClick={() => openFilterEditor(i)}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" 
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="4" y1="21" x2="4" y2="14"></line>
+                        <line x1="4" y1="10" x2="4" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12" y2="3"></line>
+                        <line x1="20" y1="21" x2="20" y2="16"></line>
+                        <line x1="20" y1="12" x2="20" y2="3"></line>
+                        <line x1="1" y1="14" x2="7" y2="14"></line>
+                        <line x1="9" y1="8" x2="15" y2="8"></line>
+                        <line x1="17" y1="16" x2="23" y2="16"></line>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               );
             })
           )}
         </section>
       </main>
+      
+      <ToggleModal bitmapCache={bitmapCache} />
     </>
   );
 });

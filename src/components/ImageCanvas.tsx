@@ -520,7 +520,15 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const mx = e.clientX - left;
       const my = e.clientY - top;
       const { viewport: currentViewport, pinpointGlobalScale: currentGlobalScale, setPinpointGlobalScale } = useStore.getState();
-      const delta = e.deltaY < 0 ? WHEEL_ZOOM_STEP : (1 / WHEEL_ZOOM_STEP);
+      // Calculate dynamic zoom step - cap at 50% increase per wheel step
+      const currentScale = appMode === 'pinpoint' ? 
+        ((overrideScale ?? currentViewport.scale) * currentGlobalScale) : 
+        currentViewport.scale;
+      
+      // Never exceed 50% increase (1.5x) per wheel step
+      const actualZoomStep = Math.min(WHEEL_ZOOM_STEP, 1.5);
+      
+      const delta = e.deltaY < 0 ? actualZoomStep : (1 / actualZoomStep);
       if (appMode === 'pinpoint') {
         // Only handle global scale in pinpoint mode if this canvas is active, or if this is the reference canvas (A)
         const { activeCanvasKey: currentActiveKey } = useStore.getState();
@@ -644,31 +652,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     <div className={`viewer ${isActive ? 'active' : ''}`} onClick={handleContainerClick}>
       <div className="viewer-header">
         {SHOW_FOLDER_LABEL && <div className="viewer__label">{label}</div>}
-        {appMode === 'analysis' && (
-          <button 
-            className="viewer__filter-button" 
-            title={`Filter Settings for ${label}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onClick) onClick(folderKey);
-            }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" 
-            viewBox="0 0 24 24" fill="none" stroke="currentColor" 
-            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="4" y1="21" x2="4" y2="14"></line>
-            <line x1="4" y1="10" x2="4" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="12"></line>
-            <line x1="12" y1="8" x2="12" y2="3"></line>
-            <line x1="20" y1="21" x2="20" y2="16"></line>
-            <line x1="20" y1="12" x2="20" y2="3"></line>
-            <line x1="1" y1="14" x2="7" y2="14"></line>
-            <line x1="9" y1="8" x2="15" y2="8"></line>
-            <line x1="17" y1="16" x2="23" y2="16"></line>
-          </svg>
-
-</button>
-        )}
+        
       </div>
       
       {appMode === 'pinpoint' && rotationAngle !== 0 && (
