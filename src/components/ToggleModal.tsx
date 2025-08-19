@@ -13,8 +13,9 @@ interface ToggleModalProps {
 export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
   const { 
     toggleModalOpen, closeToggleModal, selectedViewers, toggleCurrentIndex, setToggleCurrentIndex,
-    current, folders, viewerFilters, appMode, viewerRows, viewerCols, numViewers,
-    analysisFile, analysisFilters
+    current, folders, viewerFilters, viewerFilterParams, appMode,
+    analysisFile, analysisFilters, analysisFilterParams, analysisRotation,
+    pinpointScales
   } = useStore();
 
   const canvasRef = useRef<ImageCanvasHandle>(null);
@@ -191,6 +192,12 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
               appMode={appMode}
               folderKey={folderKey}
               overrideFilterType={appMode === 'analysis' ? analysisFilters[parseInt(currentViewerKey)] : viewerFilters[currentViewerKey]}
+              overrideFilterParams={appMode === 'analysis' 
+                ? analysisFilterParams[parseInt(currentViewerKey)] 
+                : viewerFilterParams[currentViewerKey as FolderKey]}
+              rotation={appMode === 'analysis' ? analysisRotation : undefined}
+              overrideScale={appMode === 'pinpoint' ? pinpointScales[currentViewerKey as FolderKey] : undefined}
+              refPoint={appMode === 'pinpoint' && pinpointImages ? (pinpointImages[currentViewerKey]?.refPoint || null) : null}
             />
           </div>
           
