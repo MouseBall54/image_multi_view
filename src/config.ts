@@ -1,5 +1,5 @@
 // src/config.ts
-export const MIN_ZOOM = 0.25;
+export const MIN_ZOOM = 0.05; // 5%
 export const MAX_ZOOM = 20; // 2000%
 export const WHEEL_ZOOM_STEP = 1.1;   // 휠 한 칸당 10% 증가/감소
 export const PAN_SPEED = 2.0;         // drag 거리 보정
@@ -17,4 +17,3 @@ export const UTIF_OPTIONS = {
   clipPercent: 0.5,                   // 상/하위 0.5% 클리핑
   manualWindow: null as null | { min: number; max: number }, // 예) {min: 20, max: 230}
 };
-

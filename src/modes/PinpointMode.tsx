@@ -250,6 +250,13 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     '--rows': viewerRows,
   } as React.CSSProperties;
 
+  // Ensure active canvas key remains valid when layout changes
+  useEffect(() => {
+    if (activeCanvasKey && !activeKeys.includes(activeCanvasKey)) {
+      setActiveCanvasKey(null);
+    }
+  }, [activeKeys, activeCanvasKey, setActiveCanvasKey]);
+
   return (
     <>
       {showControls && <div className="controls">

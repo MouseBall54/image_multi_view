@@ -557,25 +557,24 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const step = Math.min(WHEEL_ZOOM_STEP, MAX_WHEEL_FACTOR);
       const delta = e.deltaY < 0 ? step : (1 / step);
       if (appMode === 'pinpoint') {
-        // Only handle global scale in pinpoint mode if this canvas is active, or if this is the reference canvas (A)
-        const { activeCanvasKey: currentActiveKey } = useStore.getState();
-        if (currentActiveKey === folderKey || (currentActiveKey === null && typeof folderKey === 'string' && folderKey === 'A')) {
-          const preScale = (overrideScale ?? currentViewport.scale) * currentGlobalScale;
-          // Desired next scale from step
-          const desiredNextScale = preScale * delta;
-          // Clamp to at most 20% per event
-          const maxIn = preScale * MAX_WHEEL_FACTOR;
-          const minOut = preScale / MAX_WHEEL_FACTOR;
-          const nextScale = e.deltaY < 0 ? Math.min(desiredNextScale, maxIn) : Math.max(desiredNextScale, minOut);
-          const nextGlobalScale = nextScale / (overrideScale ?? currentViewport.scale);
-          if (nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
-          setPinpointGlobalScale(nextGlobalScale);
-          const refScreenX = currentViewport.refScreenX || (width / 2);
-          const refScreenY = currentViewport.refScreenY || (height / 2);
-          const nextRefScreenX = mx + (refScreenX - mx) * (nextScale / preScale);
-          const nextRefScreenY = my + (refScreenY - my) * (nextScale / preScale);
-          setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
+        // Zoom the canvas under the cursor; also mark it active for consistency
+        if (typeof folderKey === 'string') {
+          const { setActiveCanvasKey } = useStore.getState();
+          setActiveCanvasKey(folderKey);
         }
+        const preScale = (overrideScale ?? currentViewport.scale) * currentGlobalScale;
+        const desiredNextScale = preScale * delta;
+        const maxIn = preScale * MAX_WHEEL_FACTOR;
+        const minOut = preScale / MAX_WHEEL_FACTOR;
+        const nextScale = e.deltaY < 0 ? Math.min(desiredNextScale, maxIn) : Math.max(desiredNextScale, minOut);
+        const nextGlobalScale = nextScale / (overrideScale ?? currentViewport.scale);
+        if (nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
+        setPinpointGlobalScale(nextGlobalScale);
+        const refScreenX = currentViewport.refScreenX || (width / 2);
+        const refScreenY = currentViewport.refScreenY || (height / 2);
+        const nextRefScreenX = mx + (refScreenX - mx) * (nextScale / preScale);
+        const nextRefScreenY = my + (refScreenY - my) * (nextScale / preScale);
+        setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
       } else {
         const preScale = currentViewport.scale;
         // Desired next scale from step
