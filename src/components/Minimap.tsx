@@ -11,11 +11,13 @@ type Props = {
   pinpointGlobalScale?: number;
   refPoint?: { x: number, y: number } | null;
   rotationDeg?: number;
+  width?: number;
+  position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 };
 
-const MINIMAP_WIDTH = 150;
+const DEFAULT_MINIMAP_WIDTH = 150;
 
-export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode, folderKey, overrideScale, pinpointGlobalScale, refPoint, rotationDeg = 0 }) => {
+export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode, folderKey, overrideScale, pinpointGlobalScale, refPoint, rotationDeg = 0, width = DEFAULT_MINIMAP_WIDTH, position = 'bottom-right' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -27,6 +29,7 @@ export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const MINIMAP_WIDTH = Math.max(60, Math.min(400, width));
     const aspectRatio = bitmap.height / bitmap.width;
     const minimapHeight = MINIMAP_WIDTH * aspectRatio;
     canvas.width = MINIMAP_WIDTH;
@@ -150,14 +153,18 @@ export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode
     }
     // Restore rotation transform if applied
     ctx.restore();
-  }, [bitmap, viewport, canvasSize, appMode, folderKey, overrideScale, pinpointGlobalScale, refPoint, rotationDeg]);
+  }, [bitmap, viewport, canvasSize, appMode, folderKey, overrideScale, pinpointGlobalScale, refPoint, rotationDeg, width]);
 
   if (!bitmap) {
     return null;
   }
 
   return (
-    <div className="minimap">
+    <div className="minimap" style={{
+      position: 'absolute',
+      ...(position.includes('top') ? { top: 10 } : { bottom: 10 }),
+      ...(position.includes('left') ? { left: 10 } : { right: 10 }),
+    }}>
       <canvas ref={canvasRef} />
     </div>
   );

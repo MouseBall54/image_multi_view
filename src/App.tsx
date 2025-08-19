@@ -68,11 +68,12 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, selectedViewers, openToggleModal, analysisFile } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth } = useStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [showColorPalette, setShowColorPalette] = useState(false);
+  const [showMinimapOptionsModal, setShowMinimapOptionsModal] = useState(false);
   const bitmapCache = useRef(new Map<string, DrawableImage>());
   
   const primaryFileRef = useRef<File | null>(null);
@@ -308,10 +309,19 @@ export default function App() {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
               Capture
             </button>
-            <button onClick={() => setShowMinimap(!showMinimap)} className={showMinimap ? 'active' : ''}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="4" height="4" rx="1" ry="1"></rect></svg>
-              Minimap
-            </button>
+            <div className="minimap-button-unified">
+              <button onClick={() => setShowMinimap(!showMinimap)} className={showMinimap ? 'active' : ''}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="4" height="4" rx="1" ry="1"></rect></svg>
+                Minimap
+              </button>
+              <button
+                className={`minimap-options-indicator ${showMinimap ? '' : 'disabled'}`}
+                onClick={() => showMinimap && setShowMinimapOptionsModal(true)}
+                title="Minimap options"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0A1.65 1.65 0 0 0 20.91 12H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51-1Z"/></svg>
+              </button>
+            </div>
             <div className="grid-button-unified">
               <button
                 className={`grid-button-toggle ${showGrid ? 'active' : ''}`}
@@ -414,6 +424,34 @@ export default function App() {
                   }}
                 />
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMinimapOptionsModal && (
+        <div className="minimap-options-modal-overlay" onClick={() => setShowMinimapOptionsModal(false)}>
+          <div className="minimap-options-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="minimap-options-header">
+              <h3>Minimap Options</h3>
+              <button className="close-btn" onClick={() => setShowMinimapOptionsModal(false)}>×</button>
+            </div>
+            <div className="minimap-options-grid">
+              <div className="minimap-position-preview">
+                <div className={`preview-corner tl ${minimapPosition==='top-left' ? 'active':''}`} onClick={() => setMinimapPosition('top-left')} />
+                <div className={`preview-corner tr ${minimapPosition==='top-right' ? 'active':''}`} onClick={() => setMinimapPosition('top-right')} />
+                <div className={`preview-corner bl ${minimapPosition==='bottom-left' ? 'active':''}`} onClick={() => setMinimapPosition('bottom-left')} />
+                <div className={`preview-corner br ${minimapPosition==='bottom-right' ? 'active':''}`} onClick={() => setMinimapPosition('bottom-right')} />
+              </div>
+              <div className="minimap-size-buttons">
+                <button className={minimapWidth===120? 'active':''} onClick={() => setMinimapWidth(120)}>Small</button>
+                <button className={minimapWidth===150? 'active':''} onClick={() => setMinimapWidth(150)}>Medium</button>
+                <button className={minimapWidth===200? 'active':''} onClick={() => setMinimapWidth(200)}>Large</button>
+                <button className={minimapWidth===240? 'active':''} onClick={() => setMinimapWidth(240)}>XL</button>
+              </div>
+            </div>
+            <div className="minimap-options-actions">
+              <button onClick={() => setShowMinimapOptionsModal(false)} className="apply-btn">OK</button>
             </div>
           </div>
         </div>

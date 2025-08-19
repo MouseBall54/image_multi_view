@@ -41,7 +41,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     pinpointMouseMode, setPinpointScale, 
     pinpointGlobalScale, showMinimap, showGrid, gridColor,
     pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator, isCvReady,
-    activeCanvasKey, compareRotation
+    activeCanvasKey, compareRotation, minimapWidth, minimapPosition
   } = useStore();
 
   // Effect to load the source image from file
@@ -305,7 +305,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           minimapCanvas.height = minimapHeight;
           const minimapCtx = minimapCanvas.getContext('2d');
           
-          if (minimapCtx) {
+      if (minimapCtx) {
             // 미니맵 이미지 그리기 (회전 반영)
             const { pinpointRotations, pinpointGlobalRotation, compareRotation: compareRot } = useStore.getState();
             let angleDeg = 0;
@@ -419,17 +419,41 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
             // 미니맵 회전 복원
             minimapCtx.restore();
 
-            // 미니맵을 메인 캔버스의 우하단에 그리기
+            // 미니맵을 메인 캔버스에 그리기 (사용자 위치 설정)
             const padding = 10;
-            const minimapX = ctx.canvas.width - MINIMAP_WIDTH - padding;
-            const minimapY = ctx.canvas.height - minimapHeight - padding;
-            
+            const { minimapPosition, minimapWidth } = useStore.getState();
+            const MM_W = Math.max(60, Math.min(400, minimapWidth || MINIMAP_WIDTH));
+            const MM_H = MM_W * (sourceImage.height / sourceImage.width);
+            let minimapX = padding;
+            let minimapY = padding;
+            switch (minimapPosition) {
+              case 'top-left':
+                minimapX = padding; minimapY = padding; break;
+              case 'top-right':
+                minimapX = ctx.canvas.width - MM_W - padding; minimapY = padding; break;
+              case 'bottom-left':
+                minimapX = padding; minimapY = ctx.canvas.height - MM_H - padding; break;
+              case 'bottom-right':
+              default:
+                minimapX = ctx.canvas.width - MM_W - padding; minimapY = ctx.canvas.height - MM_H - padding; break;
+            }
+
             // 미니맵 배경 (반투명 검은색)
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            ctx.fillRect(minimapX - 5, minimapY - 5, MINIMAP_WIDTH + 10, minimapHeight + 10);
-            
+            ctx.fillRect(minimapX - 5, minimapY - 5, MM_W + 10, MM_H + 10);
+
             // 미니맵 그리기
-            ctx.drawImage(minimapCanvas, minimapX, minimapY);
+            // If widths differ from generated canvas, scale drawImage to MM_W/MM_H
+            if (MINIMAP_WIDTH !== MM_W) {
+              const scaledCanvas = document.createElement('canvas');
+              scaledCanvas.width = MM_W;
+              scaledCanvas.height = MM_H;
+              const sc = scaledCanvas.getContext('2d');
+              if (sc) sc.drawImage(minimapCanvas, 0, 0, MM_W, MM_H);
+              ctx.drawImage(scaledCanvas, minimapX, minimapY);
+            } else {
+              ctx.drawImage(minimapCanvas, minimapX, minimapY);
+            }
           }
         }
       }
@@ -799,6 +823,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           pinpointGlobalScale={pinpointGlobalScale}
           refPoint={refPoint}
           rotationDeg={rotationAngle}
+          width={minimapWidth}
+          position={minimapPosition}
         />
       )}
     </div>
