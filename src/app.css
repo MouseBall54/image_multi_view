@@ -53,6 +53,11 @@ header {
   font-weight: 700;
   color: var(--text-primary);
   text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+  cursor: pointer;
+}
+
+.app-title:hover {
+  color: var(--accent-primary);
 }
 
 .top-controls-wrapper {
