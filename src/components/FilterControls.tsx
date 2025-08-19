@@ -38,9 +38,19 @@ export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = 
   { name: 'Laws Texture Energy', type: 'lawstextureenergy', group: 'Texture Analysis' },
   { name: 'Local Binary Patterns', type: 'lbp', group: 'Texture Analysis' },
   { name: 'Guided Filter', type: 'guided', group: 'Edge-preserving Filter' },
+  { name: 'Edge-preserving (Approx.)', type: 'edgepreserving', group: 'Edge-preserving Filter' },
+  { name: 'Discrete Fourier Transform (DFT)', type: 'dft', group: 'Frequency Domain' },
+  { name: 'Discrete Cosine Transform (DCT)', type: 'dct', group: 'Frequency Domain' },
+  { name: 'Wavelet Transform', type: 'wavelet', group: 'Frequency Domain' },
+  { name: 'Morphology - Opening', type: 'morph_open', group: 'Morphology' },
+  { name: 'Morphology - Closing', type: 'morph_close', group: 'Morphology' },
+  { name: 'Morphology - Top-hat', type: 'morph_tophat', group: 'Morphology' },
+  { name: 'Morphology - Black-hat', type: 'morph_blackhat', group: 'Morphology' },
+  { name: 'Morphology - Gradient', type: 'morph_gradient', group: 'Morphology' },
+  { name: 'Distance Transform', type: 'distancetransform', group: 'Morphology' },
 ];
 
-const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising', 'Texture Analysis', 'Edge-preserving Filter'];
+const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising', 'Texture Analysis', 'Edge-preserving Filter', 'Frequency Domain', 'Morphology'];
 
 export const FilterControls: React.FC = () => {
   const {
@@ -68,6 +78,46 @@ export const FilterControls: React.FC = () => {
 
   const renderParams = () => {
     switch (tempViewerFilter) {
+      case 'edgepreserving':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Size</label>
+              <input type="range" min="3" max="21" step="2" value={tempViewerFilterParams.kernelSize ?? 5} onChange={(e)=>handleParamChange('kernelSize', e.target.value)} />
+              <span>{tempViewerFilterParams.kernelSize ?? 5}</span>
+            </div>
+            <div className="control-row">
+              <label>Sigma Color</label>
+              <input type="range" min="1" max="100" step="1" value={tempViewerFilterParams.sigmaColor ?? 25} onChange={(e)=>handleParamChange('sigmaColor', e.target.value)} />
+              <span>{tempViewerFilterParams.sigmaColor ?? 25}</span>
+            </div>
+            <div className="control-row">
+              <label>Sigma Space</label>
+              <input type="range" min="1" max="100" step="1" value={tempViewerFilterParams.sigmaSpace ?? 25} onChange={(e)=>handleParamChange('sigmaSpace', e.target.value)} />
+              <span>{tempViewerFilterParams.sigmaSpace ?? 25}</span>
+            </div>
+          </>
+        );
+      case 'morph_open':
+      case 'morph_close':
+      case 'morph_tophat':
+      case 'morph_blackhat':
+      case 'morph_gradient':
+        return (
+          <div className="control-row">
+            <label>Kernel Size</label>
+            <input type="range" min="3" max="25" step="2" value={tempViewerFilterParams.kernelSize ?? 3} onChange={(e)=>handleParamChange('kernelSize', e.target.value)} />
+            <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+          </div>
+        );
+      case 'distancetransform':
+        return (
+          <div className="control-row">
+            <label>Threshold</label>
+            <input type="range" min="0" max="255" step="1" value={tempViewerFilterParams.lowThreshold ?? 128} onChange={(e)=>handleParamChange('lowThreshold', e.target.value)} />
+            <span>{tempViewerFilterParams.lowThreshold ?? 128}</span>
+          </div>
+        );
       case 'boxblur':
       case 'median':
       case 'weightedmedian':

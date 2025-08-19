@@ -71,10 +71,18 @@ export type FilterType =
   | "lbp"
   // Edge-preserving Filter
   | "guided"
+  | "edgepreserving"
   // Frequency Domain
   | "dft"
   | "dct"
-  | "wavelet";
+  | "wavelet"
+  // Morphology & Distance
+  | "morph_open"
+  | "morph_close"
+  | "morph_tophat"
+  | "morph_blackhat"
+  | "morph_gradient"
+  | "distancetransform";
 
 export type DrawableImage = ImageBitmap | HTMLImageElement;
 

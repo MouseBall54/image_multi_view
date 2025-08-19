@@ -40,7 +40,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     viewport, setViewport, setFitScaleFn, 
     pinpointMouseMode, setPinpointScale, 
     pinpointGlobalScale, showMinimap, showGrid, gridColor,
-    pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator, isCvReady,
+    pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator,
     activeCanvasKey, compareRotation, minimapWidth, minimapPosition
   } = useStore();
 
@@ -106,10 +106,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         }
       }
 
-      const isCvFilter = ['dft', 'dct', 'wavelet'].includes(filter);
-      if (isCvFilter && !isCvReady) {
-        return;
-      }
+      // All filters proceed; frequency-domain ones are implemented without external readiness
 
       const offscreenCanvas = document.createElement('canvas');
       offscreenCanvas.width = sourceImage.width;
@@ -160,9 +157,16 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         case 'lawstextureenergy': if (params) Filters.applyLawsTextureEnergy(ctx, params); break;
         case 'lbp': Filters.applyLbp(ctx); break;
         case 'guided': if (params) Filters.applyGuidedFilter(ctx, params); break;
-        case 'dft': if (isCvReady) Filters.applyDft(ctx); break;
-        case 'dct': if (isCvReady) Filters.applyDct(ctx); break;
-        case 'wavelet': if (isCvReady) Filters.applyWavelet(ctx); break;
+        case 'edgepreserving': if (params) Filters.applyEdgePreserving(ctx, params); break;
+        case 'dft': Filters.applyDft(ctx); break;
+        case 'dct': Filters.applyDct(ctx); break;
+        case 'wavelet': Filters.applyWavelet(ctx); break;
+        case 'morph_open': if (params) Filters.applyMorphOpen(ctx, params); break;
+        case 'morph_close': if (params) Filters.applyMorphClose(ctx, params); break;
+        case 'morph_tophat': if (params) Filters.applyMorphTopHat(ctx, params); break;
+        case 'morph_blackhat': if (params) Filters.applyMorphBlackHat(ctx, params); break;
+        case 'morph_gradient': if (params) Filters.applyMorphGradient(ctx, params); break;
+        case 'distancetransform': if (params) Filters.applyDistanceTransform(ctx, params); break;
       }
 
       const finalImage = await createImageBitmap(offscreenCanvas);
@@ -174,7 +178,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
     processImage();
 
-  }, [sourceImage, file, viewerFilters, viewerFilterParams, folderKey, isCvReady, overrideFilterType, overrideFilterParams, filteredCache]);
+  }, [sourceImage, file, viewerFilters, viewerFilterParams, folderKey, overrideFilterType, overrideFilterParams, filteredCache]);
 
   const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
     const { width, height } = ctx.canvas;

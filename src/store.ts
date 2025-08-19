@@ -85,8 +85,6 @@ interface State {
   // Compare Mode State
   compareRotation: number;
 
-  // OpenCV state
-  isCvReady: boolean;
 
   // Toggle Modal state - viewer-based image selection
   selectedViewers: FolderKey[];  // Selected viewer keys for toggle
@@ -126,8 +124,6 @@ interface State {
   // Compare Mode Actions
   setCompareRotation: (angle: number) => void;
 
-  // OpenCV actions
-  setCvReady: (isReady: boolean) => void;
 
   // Toggle actions
   setSelectedViewers: (viewers: FolderKey[]) => void;
@@ -183,8 +179,6 @@ export const useStore = create<State>((set) => ({
   analysisRotation: 0,
   compareRotation: 0,
 
-  // OpenCV state
-  isCvReady: false,
 
   // Toggle state
   selectedViewers: [],
@@ -256,8 +250,6 @@ export const useStore = create<State>((set) => ({
   setAnalysisRotation: (angle) => set({ analysisRotation: angle }),
   setCompareRotation: (angle) => set({ compareRotation: angle }),
 
-  // OpenCV actions
-  setCvReady: (isReady) => set({ isCvReady: isReady }),
 
   // Toggle actions
   setSelectedViewers: (viewers) => set({ selectedViewers: viewers }),
