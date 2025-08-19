@@ -2,6 +2,8 @@ import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { ImageCanvas, ImageCanvasHandle } from './ImageCanvas';
 import type { FolderKey } from '../types';
+import { decodeTiffWithUTIF } from '../utils/utif';
+import { UTIF_OPTIONS, MIN_ZOOM, MAX_ZOOM } from '../config';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -15,11 +17,15 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
     toggleModalOpen, closeToggleModal, selectedViewers, toggleCurrentIndex, setToggleCurrentIndex,
     current, folders, viewerFilters, viewerFilterParams, appMode,
     analysisFile, analysisFilters, analysisFilterParams, analysisRotation,
-    pinpointScales, viewport, pinpointGlobalScale
+    pinpointScales, viewport, pinpointGlobalScale, setPinpointScale
   } = useStore();
 
   const canvasRef = useRef<ImageCanvasHandle>(null);
   const filteredCacheRef = useRef<Map<string, DrawableImage>>(new Map());
+  const [imageDims, setImageDims] = useState<{ width: number; height: number } | null>(null);
+  const [xInput, setXInput] = useState<string>("");
+  const [yInput, setYInput] = useState<string>("");
+  const [zoomInput, setZoomInput] = useState<string>("");
   const [modalSize, setModalSize] = useState({ width: 800, height: 600 });
 
   // Calculate modal size based on viewers layout
@@ -121,6 +127,85 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
   };
   const scaleText = computeScalePercent();
 
+  // Keep zoom input in sync with computed scale
+  useEffect(() => {
+    const numeric = parseInt(scaleText.replace('%', ''));
+    if (!isNaN(numeric)) setZoomInput(String(numeric));
+  }, [scaleText]);
+
+  const applyZoomChange = useCallback(() => {
+    const pct = parseFloat(zoomInput);
+    if (isNaN(pct)) return;
+    const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pct / 100));
+    if (appMode === 'pinpoint') {
+      const key = currentViewerKey as FolderKey;
+      const global = pinpointGlobalScale || 1;
+      const newIndividual = clamped / global;
+      setPinpointScale(key, newIndividual);
+    } else {
+      useStore.getState().setViewport({ scale: clamped });
+    }
+  }, [zoomInput, appMode, currentViewerKey, pinpointGlobalScale, setPinpointScale]);
+
+  const handleZoomKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      applyZoomChange();
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  // Load current image dimensions (for X/Y input in compare/analysis)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!currentFile) { setImageDims(null); return; }
+        const ext = (currentFile.name.split('.').pop() || '').toLowerCase();
+        if (ext === 'tif' || ext === 'tiff') {
+          const img = await decodeTiffWithUTIF(currentFile, UTIF_OPTIONS);
+          if (!cancelled) setImageDims({ width: img.width, height: img.height });
+        } else {
+          const bmp = await createImageBitmap(currentFile);
+          if (!cancelled) setImageDims({ width: bmp.width, height: bmp.height });
+        }
+      } catch (e) {
+        console.error('Failed to read image size in ToggleModal:', e);
+        if (!cancelled) setImageDims(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentFile]);
+
+  // Sync inputs with viewport and image dimensions
+  useEffect(() => {
+    if (!imageDims) { setXInput(""); setYInput(""); return; }
+    const { cx, cy } = viewport;
+    if (typeof cx === 'number' && typeof cy === 'number') {
+      setXInput(Math.round(cx * imageDims.width).toString());
+      setYInput(Math.round(cy * imageDims.height).toString());
+    }
+  }, [viewport.cx, viewport.cy, imageDims]);
+
+  const applyXYChanges = useCallback(() => {
+    if (!imageDims) return;
+    const x = parseFloat(xInput);
+    const y = parseFloat(yInput);
+    if (isNaN(x) || isNaN(y)) return;
+    const cx = x / imageDims.width;
+    const cy = y / imageDims.height;
+    const { setViewport, triggerIndicator } = useStore.getState();
+    setViewport({ cx, cy });
+    // Also flash an indicator at the target location so it's visible in the modal
+    triggerIndicator(cx, cy);
+  }, [xInput, yInput, imageDims]);
+
+  const handleXYKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      applyXYChanges();
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
   const handleNext = useCallback(() => {
     if (selectedViewers.length === 0) return;
     const nextIndex = (toggleCurrentIndex + 1) % selectedViewers.length;
@@ -195,7 +280,42 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
         <div className="toggle-modal-header">
           <h3>{getHeaderText()}</h3>
           <div className="toggle-modal-actions">
-            <div className="toggle-scale" title="Zoom">{scaleText}</div>
+            <div className="toggle-zoom" title="Zoom">
+              <input
+                type="text"
+                value={zoomInput}
+                onChange={e => setZoomInput(e.target.value)}
+                onBlur={applyZoomChange}
+                onKeyDown={handleZoomKeyDown}
+              />
+              <span>%</span>
+            </div>
+            {appMode !== 'pinpoint' && (
+              <div className="toggle-xy">
+                <label>
+                  <span>X:</span>
+                  <input
+                    type="text"
+                    value={xInput}
+                    onChange={e => setXInput(e.target.value)}
+                    onBlur={applyXYChanges}
+                    onKeyDown={handleXYKeyDown}
+                    disabled={!imageDims}
+                  />
+                </label>
+                <label>
+                  <span>Y:</span>
+                  <input
+                    type="text"
+                    value={yInput}
+                    onChange={e => setYInput(e.target.value)}
+                    onBlur={applyXYChanges}
+                    onKeyDown={handleXYKeyDown}
+                    disabled={!imageDims}
+                  />
+                </label>
+              </div>
+            )}
             <button className="close-btn" onClick={closeToggleModal}>×</button>
           </div>
         </div>

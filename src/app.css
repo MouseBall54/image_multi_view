@@ -1780,6 +1780,57 @@ main {
   line-height: 1;
 }
 
+/* Zoom input (percent) in toggle header */
+.toggle-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-light);
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: var(--text-primary);
+}
+
+.toggle-zoom input {
+  width: 56px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  text-align: right;
+}
+
+.toggle-zoom span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.toggle-xy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-xy label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.toggle-xy input {
+  width: 72px;
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 6px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
 .toggle-modal-content {
   padding: 20px;
 }
