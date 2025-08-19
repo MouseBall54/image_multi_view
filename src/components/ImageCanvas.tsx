@@ -634,8 +634,15 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           canvas.style.cursor = 'grabbing';
         }
       } else if (appMode !== 'pinpoint') {
-        dragMode = 'pan';
-        canvas.style.cursor = 'grabbing';
+        if (e.altKey) {
+          // Global rotation for compare/analysis
+          dragMode = 'rotate';
+          setIsRotating(true);
+          canvas.style.cursor = 'ew-resize';
+        } else {
+          dragMode = 'pan';
+          canvas.style.cursor = 'grabbing';
+        }
       }
       if (dragMode) {
         isDown = true;
@@ -656,14 +663,32 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const dy = e.clientY - lastY;
       lastX = e.clientX;
       lastY = e.clientY;
-      if (dragMode === 'rotate' && typeof folderKey === 'string') {
-        const { pinpointRotations, setPinpointRotation } = useStore.getState();
-        const currentAngle = pinpointRotations[folderKey] || 0;
-        const newAngle = currentAngle + dx / 2; 
-        const roundedAngle = Math.round(newAngle * 10) / 10;
-        const normalizedAngle = (roundedAngle % 360 + 360) % 360;
-        setPinpointRotation(folderKey, normalizedAngle);
-        return;
+      if (dragMode === 'rotate') {
+        if (appMode === 'pinpoint' && typeof folderKey === 'string') {
+          const { pinpointRotations, setPinpointRotation } = useStore.getState();
+          const currentAngle = pinpointRotations[folderKey] || 0;
+          const newAngle = currentAngle + dx / 2;
+          const roundedAngle = Math.round(newAngle * 10) / 10;
+          const normalizedAngle = (roundedAngle % 360 + 360) % 360;
+          setPinpointRotation(folderKey, normalizedAngle);
+          return;
+        }
+        if (appMode === 'compare') {
+          const { compareRotation, setCompareRotation } = useStore.getState();
+          const newAngle = (compareRotation || 0) + dx / 2;
+          const roundedAngle = Math.round(newAngle * 10) / 10;
+          const normalizedAngle = (roundedAngle % 360 + 360) % 360;
+          setCompareRotation(normalizedAngle);
+          return;
+        }
+        if (appMode === 'analysis') {
+          const { analysisRotation, setAnalysisRotation } = useStore.getState();
+          const newAngle = (analysisRotation || 0) + dx / 2;
+          const roundedAngle = Math.round(newAngle * 10) / 10;
+          const normalizedAngle = (roundedAngle % 360 + 360) % 360;
+          setAnalysisRotation(normalizedAngle);
+          return;
+        }
       }
       const { viewport: currentViewport } = useStore.getState();
       if (appMode === 'pinpoint') {
