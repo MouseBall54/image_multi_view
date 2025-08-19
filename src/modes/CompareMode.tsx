@@ -219,14 +219,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
             />
             <div className="filelist-options">
               <div className="count">Matched: {filteredMatched.length}</div>
-              <button 
-                className="toggle-btn" 
-                onClick={handleToggleMode}
-                disabled={selectedViewers.length === 0 || !current}
-                title="Toggle Mode (Space)"
-              >
-                Toggle ({selectedViewers.length} selected)
-              </button>
+              {/* Toggle moved to header controls-main */}
               <label className="strip-ext-label">
                 <input type="checkbox" checked={stripExt} onChange={(e)=>setStripExt(e.target.checked)} />
                 <span>Ignore extension</span>

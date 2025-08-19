@@ -275,14 +275,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             />
             <div className="filelist-options">
               <div className="count">Files: {filteredFileList.length}</div>
-              <button 
-                className="toggle-btn" 
-                onClick={handleToggleMode}
-                disabled={selectedViewers.length === 0 || !selectedViewers.some(key => pinpointImages[key]?.file)}
-                title="Toggle Mode (Space)"
-              >
-                Toggle ({selectedViewers.length} selected)
-              </button>
+              {/* Toggle moved to header controls-main */}
               <select value={folderFilter} onChange={e => setFolderFilter(e.target.value as FolderKey | 'all')}>
                 <option value="all">All Folders</option>
                 {activeKeys.map(key => (

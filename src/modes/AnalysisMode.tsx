@@ -225,14 +225,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
             />
             <div className="filelist-options">
               <div className="count">Files: {filteredFileList.length}</div>
-              <button 
-                className="toggle-btn" 
-                onClick={handleToggleMode}
-                disabled={selectedViewers.length === 0 || !analysisFile}
-                title="Toggle Mode (Space)"
-              >
-                Toggle ({selectedViewers.length} selected)
-              </button>
+              {/* Toggle moved to header controls-main */}
               <select value={folderFilter} onChange={e => setFolderFilter(e.target.value as FolderKey | 'all')}>
                 <option value="all">All Folders</option>
                 {FOLDER_KEYS.map(key => 
