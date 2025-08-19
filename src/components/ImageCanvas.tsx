@@ -681,16 +681,41 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} />
       {!processedImage && <div className="viewer__placeholder">{file ? 'Processing...' : (appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image')}</div>}
       
-      {indicator && processedImage && canvasRef.current && appMode !== 'pinpoint' && (
-        <div
-          key={indicator.key}
-          className="indicator-dot"
-          style={{
-            left: `${(viewport.cx || 0.5) * 100}%`,
-            top: `${(viewport.cy || 0.5) * 100}%`,
-          }}
-        />
-      )}
+      {indicator && processedImage && canvasRef.current && appMode !== 'pinpoint' && (() => {
+        const canvas = canvasRef.current;
+        const { width: canvasWidth, height: canvasHeight } = canvas.getBoundingClientRect();
+        
+        // 이미지 좌표를 화면 좌표로 변환
+        const imageWidth = processedImage.width;
+        const imageHeight = processedImage.height;
+        const scale = viewport.scale;
+        
+        // 이미지가 화면에 그려지는 위치 계산
+        const scaledImageWidth = imageWidth * scale;
+        const scaledImageHeight = imageHeight * scale;
+        const imageX = (canvasWidth / 2) - ((viewport.cx || 0.5) * imageWidth * scale);
+        const imageY = (canvasHeight / 2) - ((viewport.cy || 0.5) * imageHeight * scale);
+        
+        // 사용자가 지정한 이미지 좌표 (indicator.cx, indicator.cy는 상대 좌표)
+        const targetImageX = indicator.cx * imageWidth;
+        const targetImageY = indicator.cy * imageHeight;
+        
+        // 화면 좌표로 변환
+        const screenX = imageX + (targetImageX * scale);
+        const screenY = imageY + (targetImageY * scale);
+        
+        return (
+          <div
+            key={indicator.key}
+            className="indicator-dot"
+            style={{
+              left: `${screenX}px`,
+              top: `${screenY}px`,
+              position: 'absolute',
+            }}
+          />
+        );
+      })()}
       {showMinimap && sourceImage instanceof ImageBitmap && canvasSize && (
         <Minimap 
           bitmap={sourceImage} 
