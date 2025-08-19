@@ -387,7 +387,7 @@ export default function App() {
                 <input type="checkbox" checked={captureOptions.showLabels} onChange={(e) => setCaptureOptions(o => ({...o, showLabels: e.target.checked}))} />
                 Show Labels
               </label>
-              {(appMode === 'pinpoint' || appMode === 'analysis') && (
+              {appMode === 'pinpoint' && (
                 <label>
                   <input type="checkbox" checked={captureOptions.showCrosshair} onChange={(e) => setCaptureOptions(o => ({...o, showCrosshair: e.target.checked}))} />
                   Show Crosshair

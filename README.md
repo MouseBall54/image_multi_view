@@ -1,91 +1,127 @@
-# Image Compare Viewer
+# CompareX
 
-A client-side web application for analyzing and comparing images from multiple local folders. Built with React and TypeScript, it works entirely in your browser with no file uploads. The app is ideal for quality inspection, training data review, or any workflow where you need to align and inspect many images quickly.
+Compare, Pinpoint and Analyze images from multiple local folders in your browser. Built with React + TypeScript + Vite, everything runs client‑side — no file uploads.
 
-## Highlights
-- **Privacy-friendly:** All processing happens locally; files never leave your machine.
-- **Flexible Viewers:** Load up to nine folders and view any combination side by side.
-- **Advanced Analysis Tools:** Apply a wide range of filters and capture composite views.
-- **Keyboard Driven:** Numerous hotkeys for rapid navigation and mode switching.
-
-## Modes
-
-The app provides four modes suited for different workflows:
-
-### Compare Mode
-- View images from 2–9 folders side by side in a synchronized grid.
-- Pan and zoom once and all viewers follow.
-- Rename folder aliases and optionally ignore file extensions when matching files.
-
-### Toggle Mode
-- Display one folder at a time while maintaining the current viewport.
-- Press `Space` to cycle through loaded folders.
-
-### Pinpoint Mode
-- Load any image into any viewer and align them using a shared reference point.
-- Each viewer has independent scale and rotation with a global scale multiplier.
-- Click to set the reference crosshair; `Alt` + drag rotates the active image.
-
-### Analysis Mode
-- Apply different filters to the same image for side-by-side comparison.
-- Choose a single source image and experiment with filters, rotations, and capture outputs.
-
-## Major Features
-
-- **Synchronized Viewports:** Pan and zoom on one image and all others follow.
-- **Flexible File Matching:** Match by full filename or ignore extensions.
-- **Per-Viewer Filters:** Apply contrast, blur, edge detection, texture, and noise-reduction filters with adjustable parameters.
-- **Capture Tool:** Export the current view to the clipboard or as an image file.
-- **Minimap & Grid:** Optional minimap overview and adjustable grid overlay.
-- **Image Info Panel:** Shows filename, dimensions and file size of the active image.
-
-## Available Filters
-
-A selection of built-in filters can be applied to each viewer:
-
-- Box blur, Gaussian blur
-- Sharpen, Unsharp mask, Highpass, Gabor
-- Prewitt, Scharr, Sobel, Roberts Cross
-- Laplacian, Laplacian of Gaussian (LoG), Difference of Gaussians (DoG), Marr–Hildreth, Canny
-- Linear contrast stretch, Histogram equalization, CLAHE, Gamma correction
-- Local histogram equalization, Adaptive histogram equalization
-- Median, Weighted median, Alpha-trimmed mean
-- Bilateral filter, Non-local means, Anisotropic diffusion, Guided filter
-- Local binary patterns (LBP), Laws' texture energy
-
-## Getting Started
+## Install & Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the printed URL in your browser. Use the **Mode** dropdown or hotkeys (`1`: Compare, `2`: Toggle, `3`: Pinpoint, `4`: Analysis) to switch modes.
+## Top Controls (controls‑main)
 
-1. Pick folders (Folder A, B, etc.) to load images.
-2. Select a filename from the list on the left.
-3. Use mouse or keyboard shortcuts to pan, zoom and analyze.
-   - In **Toggle** mode press `Space` to switch folders.
-   - In **Pinpoint** mode click to set the reference point and use `Alt` + drag to rotate.
+- Mode: Compare / Pinpoint / Analysis
+- Layout: choose rows×cols (viewer count updates automatically)
+- Toggle: open selected viewers in the Toggle modal
+- Capture: capture composite (labels/crosshair/minimap options)
+- Minimap: toggle + gear button opens an options modal (position/size)
+- Grid: toggle + color indicator opens a color modal
+- Viewport (non‑Pinpoint): enter Scale/X/Y to set zoom/center precisely
+- Title (CompareX): click to hard‑reset (page refresh)
+
+## Modes
+
+### Compare
+- Load folders into slots A…Z and match by filename (ignore extension optional)
+- Select viewers (○/✓) and open the Toggle modal to cycle them
+- Global rotation: control UI or Alt+drag (left/right) — minimap rotates too
+
+### Pinpoint
+- Load different images into viewers and align via a shared reference point (pin)
+- Per‑viewer scale + global scale, per‑viewer rotation + global rotation
+- Mouse mode: Pin (set reference) / Pan (drag) — right click toggles
+- = / -: adjust per‑viewer scale by 1% on the active viewer
+- Alt+drag (left/right): per‑viewer rotation
+- Crosshair/rotation badge/minimap (rotation‑aware)
+
+### Analysis
+- Apply different filters to the same image across viewers
+- Global rotation: control UI or Alt+drag — minimap rotates accordingly
+
+## Toggle Modal
+
+- Cycles only the selected viewers (Next/Prev)
+- Compare/Analysis: enter zoom % and X/Y (px) — confirm with Enter; adds a highlight indicator
+- Hotkeys: Space / Shift+Space / ← / → / Esc
+- Filter state/labels/minimap preserved; caching for fast switching
+
+## Capture
+
+- Composite current layout into a single image
+- Options: show labels, crosshair (Pinpoint/Analysis), minimap
+- Output: copy to clipboard and/or save as file
+
+## Minimap
+
+- Options modal (gear button):
+  - Position: Top‑Left / Top‑Right / Bottom‑Left / Bottom‑Right
+  - Size: Small(120) / Medium(150) / Large(200) / XL(240)
+- Minimap rotates with the image in Pinpoint/Analysis/Compare
+- Included in capture with the same settings
+
+## Grid
+
+- 3×3 rule‑of‑thirds guide toggle
+- Colors: white / red / yellow / blue (via the color indicator)
+
+## Folder Control Cards
+
+- Unloaded: clean “Select Folder” card with icon
+- Loaded: folder key label, alias (edit via pencil or double‑click), file count chip, change/clear buttons
 
 ## Keyboard Shortcuts
 
-| Key(s)                         | Action                                        |
-| ------------------------------ | --------------------------------------------- |
-| `1` / `2` / `3` / `4`          | Switch to Compare / Toggle / Pinpoint / Analysis mode |
-| `Space` (Toggle mode)          | Cycle source folder                           |
-| `=` or `+` / `-`               | Zoom In / Zoom Out                            |
-| `Arrow Keys`                   | Pan the image (Up, Down, Left, Right)         |
-| `R`                            | Reset View                                    |
-| `I`                            | Show / Hide Image Information Panel           |
-| `Alt` + drag (Pinpoint mode)   | Rotate active image                           |
+- 1 / 2 / 3: switch to Compare / Pinpoint / Analysis
+- R: reset view (fit to screen)
+- I: toggle info panel
+- + / -: zoom in/out
+- Arrow keys: pan (non‑Pinpoint)
+- Space: open Toggle or next (if viewers selected)
+- Shift+Space: previous in Toggle
+- Esc: close Toggle
+- Pinpoint only
+  - = / -: per‑viewer scale ±1% on the active viewer
+  - Right click: toggle Pin ↔ Pan
+  - Alt+drag (left/right): per‑viewer rotation
+- Compare/Analysis
+  - Alt+drag (left/right): global rotation
 
-## Build
+## Filters (Summary)
 
-To create a production build run:
+- General: None, Grayscale, Invert, Sepia
+- Contrast: Linear Stretch, Histogram Eq, Local/Adaptive HE, CLAHE, Gamma
+- Blurring: Box, Gaussian(σ), Median, Weighted Median, Alpha‑trimmed Mean(α)
+- Sharpening: Sharpen, Unsharp Mask, High‑pass, Laplacian
+- Edge: Sobel, Prewitt, Scharr, Canny(low/high), Roberts, LoG(ksize, σ), DoG(σ1, σ2), Marr‑Hildreth(ksize, σ, threshold)
+- Advanced Denoising: Bilateral(ksize, sigmaColor/Space), Non‑local Means(patchSize, searchWindow, h), Anisotropic Diffusion(iterations, kappa)
+- Texture: Gabor(theta, sigma, lambda, psi), Laws Texture Energy, LBP
+- Edge‑preserving: Guided Filter
+
+Per‑viewer filter settings are available via the “filter” button on each viewer.
+
+## Build & Deploy
 
 ```bash
 npm run build
+npm run preview
+npm run deploy
 ```
 
-The app can be deployed to GitHub Pages with `npm run deploy`.
+## Stack & Structure
+
+- React 18 + TypeScript + Vite
+- State: Zustand (`src/store.ts`)
+- Modes: `src/modes/` (Compare/Pinpoint/Analysis)
+- Components: `src/components/`
+- Utils/Filters: `src/utils/`
+- Hooks: `src/hooks/`
+
+## Recent Changes (Highlights)
+
+- Toggle modal: global button, fast cache, zoom/X/Y input (Compare/Analysis)
+- Rotation: global rotation (Compare/Analysis) + Alt+drag; per‑viewer/global rotation (Pinpoint) + Alt+drag
+- Minimap: options modal (position/size), rotated minimap, reflected in capture
+- Grid: color picker modal
+- Folder cards: cleaner loaded/unloaded UI, inline alias edit button
+- Title click: full reset (refresh)
