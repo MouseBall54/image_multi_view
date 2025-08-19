@@ -97,7 +97,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       }
 
       // --- Caching Logic ---
-      const filterCacheKey = filteredCache ? `${file.name}-${filter}-${JSON.stringify(params)}` : '';
+      const filterCacheKey = filteredCache ? `${String(folderKey)}|${file.name}|${filter}|${JSON.stringify(params)}` : '';
       if (filteredCache && filterCacheKey) {
         const cachedImage = filteredCache.get(filterCacheKey);
         if (cachedImage) {

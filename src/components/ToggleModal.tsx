@@ -19,6 +19,7 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
   } = useStore();
 
   const canvasRef = useRef<ImageCanvasHandle>(null);
+  const filteredCacheRef = useRef<Map<string, DrawableImage>>(new Map());
   const [modalSize, setModalSize] = useState({ width: 800, height: 600 });
 
   // Calculate modal size based on viewers layout
@@ -189,6 +190,7 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
               file={currentFile}
               isReference={currentViewerKey === 'A' || folderKey === 0}
               cache={bitmapCache.current}
+              filteredCache={filteredCacheRef.current}
               appMode={appMode}
               folderKey={folderKey}
               overrideFilterType={appMode === 'analysis' ? analysisFilters[parseInt(currentViewerKey)] : viewerFilters[currentViewerKey]}
