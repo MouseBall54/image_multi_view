@@ -41,7 +41,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     pinpointMouseMode, setPinpointScale, 
     pinpointGlobalScale, showMinimap, showGrid, gridColor,
     pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator, isCvReady,
-    activeCanvasKey
+    activeCanvasKey, compareRotation
   } = useStore();
 
   // Effect to load the source image from file
@@ -212,16 +212,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const cy = (viewport.cy || 0.5) * currentImage.height;
       x = Math.round((width / 2) - (cx * scale));
       y = Math.round((height / 2) - (cy * scale));
-      
-      if (appMode === 'analysis') {
-        const angle = rotation || 0;
-        if (angle !== 0) {
-          centerX = x + drawW / 2;
-          centerY = y + drawH / 2;
-          ctx.translate(centerX, centerY);
-          ctx.rotate(angle * Math.PI / 180);
-          ctx.translate(-centerX, -centerY);
-        }
+      const angle = appMode === 'analysis' ? (rotation || 0) : (appMode === 'compare' ? (compareRotation || 0) : 0);
+      if (angle !== 0) {
+        centerX = x + drawW / 2;
+        centerY = y + drawH / 2;
+        ctx.translate(centerX, centerY);
+        ctx.rotate(angle * Math.PI / 180);
+        ctx.translate(-centerX, -centerY);
       }
     }
 
@@ -290,7 +287,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ctx.stroke();
       ctx.restore();
     }
-  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, pinpointGlobalRotation, folderKey, isRotating, showGrid, gridColor, rotation]);
+  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, pinpointGlobalRotation, folderKey, isRotating, showGrid, gridColor, rotation, compareRotation]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean, withMinimap: boolean = false) => {
@@ -310,7 +307,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           
           if (minimapCtx) {
             // 미니맵 이미지 그리기 (회전 반영)
-            const { pinpointRotations, pinpointGlobalRotation } = useStore.getState();
+            const { pinpointRotations, pinpointGlobalRotation, compareRotation: compareRot } = useStore.getState();
             let angleDeg = 0;
             if (appMode === 'pinpoint') {
               const localAngle = (typeof folderKey === 'string') ? (pinpointRotations[folderKey] || 0) : 0;
@@ -318,6 +315,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
               angleDeg = localAngle + globalAngle;
             } else if (appMode === 'analysis') {
               angleDeg = rotation || 0;
+            } else if (appMode === 'compare') {
+              angleDeg = compareRot || 0;
             }
             const angleRad = angleDeg * Math.PI / 180;
             minimapCtx.save();
@@ -465,7 +464,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     setCanvasSize({ width: Math.round(width), height: Math.round(height) });
     
     drawImage(ctx, processedImage, true);
-  }, [processedImage, drawImage, viewport, pinpointGlobalScale, pinpointRotations, pinpointGlobalRotation, isRotating, showGrid, gridColor]);
+  }, [processedImage, drawImage, viewport, pinpointGlobalScale, pinpointRotations, pinpointGlobalRotation, isRotating, showGrid, gridColor, compareRotation]);
 
   // Effect to handle canvas resize (레이아웃 변경이나 창 크기 변경 시 자동 리프레시)
   useEffect(() => {
@@ -699,6 +698,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ? (pinpointRotations[folderKey] || 0) + (pinpointGlobalRotation || 0)
       : appMode === 'analysis'
         ? (rotation || 0)
+        : appMode === 'compare'
+          ? (compareRotation || 0)
         : 0
   );
 

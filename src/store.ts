@@ -79,6 +79,8 @@ interface State {
   analysisFilters: Partial<Record<number, FilterType>>;
   analysisFilterParams: Partial<Record<number, FilterParams>>;
   analysisRotation: number;
+  // Compare Mode State
+  compareRotation: number;
 
   // OpenCV state
   isCvReady: boolean;
@@ -116,6 +118,8 @@ interface State {
   // Analysis Mode Actions
   setAnalysisFile: (file: File | null, source?: string) => void;
   setAnalysisRotation: (angle: number) => void;
+  // Compare Mode Actions
+  setCompareRotation: (angle: number) => void;
 
   // OpenCV actions
   setCvReady: (isReady: boolean) => void;
@@ -170,6 +174,7 @@ export const useStore = create<State>((set) => ({
   analysisFilters: {},
   analysisFilterParams: {},
   analysisRotation: 0,
+  compareRotation: 0,
 
   // OpenCV state
   isCvReady: false,
@@ -240,6 +245,7 @@ export const useStore = create<State>((set) => ({
     analysisFilterParams: {} 
   }),
   setAnalysisRotation: (angle) => set({ analysisRotation: angle }),
+  setCompareRotation: (angle) => set({ compareRotation: angle }),
 
   // OpenCV actions
   setCvReady: (isReady) => set({ isCvReady: isReady }),
@@ -306,6 +312,7 @@ useStore.subscribe((state, prevState) => {
       pinpointGlobalScale: 1,
       pinpointRotations: {},
       analysisRotation: 0,
+      compareRotation: 0,
       // Reset toggle selection when mode changes
       selectedViewers: [],
       toggleModalOpen: false,

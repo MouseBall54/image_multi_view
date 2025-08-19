@@ -35,7 +35,7 @@ export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode
     // Optional rotation for pinpoint mode: rotate the minimap instead of the box
     const angleRad = (rotationDeg || 0) * Math.PI / 180;
     ctx.save();
-    if (angleRad !== 0 && (appMode === 'pinpoint' || appMode === 'analysis')) {
+    if (angleRad !== 0 && (appMode === 'pinpoint' || appMode === 'analysis' || appMode === 'compare')) {
       ctx.translate(MINIMAP_WIDTH / 2, minimapHeight / 2);
       ctx.rotate(angleRad);
       ctx.translate(-MINIMAP_WIDTH / 2, -minimapHeight / 2);
