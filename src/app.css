@@ -19,6 +19,8 @@ body {
   margin: 0;
 }
 
+/* When Toggle Modal is open, background is fully covered by overlay (no blur needed) */
+
 .app { 
   display:flex; 
   flex-direction: column; 
@@ -51,6 +53,11 @@ header {
   font-weight: 700;
   color: var(--text-primary);
   text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+  cursor: pointer;
+}
+
+.app-title:hover {
+  color: var(--accent-primary);
 }
 
 .top-controls-wrapper {
@@ -136,6 +143,25 @@ header {
 .controls-main-button svg {
   stroke: currentColor;
   transition: stroke 0.2s;
+}
+
+/* Prominent Toggle button in header */
+.controls-main .toggle-main-btn {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
+
+.controls-main .toggle-main-btn:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.controls-main .toggle-main-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--bg-light);
+  color: var(--text-secondary);
+  border-color: var(--border-color);
 }
 
 .viewport-controls {
@@ -286,6 +312,181 @@ main {
 
 .filelist li.active .has {
   color: #e0e0e0;
+}
+
+/* Toggle functionality styles */
+.toggle-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.toggle-select-btn, .clear-selection-btn {
+  background: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-select-btn:hover, .clear-selection-btn:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-dark);
+}
+
+.toggle-select-btn:disabled, .clear-selection-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle-select-btn.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.file-item input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.file-item .filename {
+  flex: 1;
+  cursor: pointer;
+}
+
+.file-item .file-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.filelist li.selected {
+  background-color: rgba(0, 123, 255, 0.1);
+  border-left: 3px solid var(--accent-primary);
+}
+
+.filelist li.selected:hover {
+  background-color: rgba(0, 123, 255, 0.2);
+}
+
+/* Viewer selection button */
+.viewer-select-btn {
+  background: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-right: 6px;
+}
+
+.viewer-select-btn:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-dark);
+}
+
+.viewer-select-btn.selected {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+}
+
+/* Toggle modal styles */
+.toggle-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000; /* fully black backdrop */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.toggle-modal {
+  background: var(--bg-med);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  /* Size is set dynamically via inline styles */
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.toggle-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.toggle-modal-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+}
+
+.toggle-modal-content {
+  flex: 1;
+  display: grid;
+  grid-template-rows: 1fr auto; /* image area + info */
+  min-height: 0; /* allow proper shrinking */
+  overflow: hidden;
+}
+
+.toggle-image-container {
+  flex: 1;
+  position: relative;
+  background: #111;
+  min-height: 0; /* prevent overflow pushing info off-screen */
+}
+
+/* Ensure the image viewer fills the container area in the modal */
+.toggle-image-container > .viewer {
+  height: 100%;
+}
+
+.toggle-modal-info {
+  padding: 12px 20px;
+  background: var(--bg-dark);
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.current-viewer-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.viewer-name {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.viewer-position {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .viewers { 
@@ -442,9 +643,6 @@ main {
 }
 
 .minimap {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
   border: 1px solid var(--border-color);
   background-color: rgba(0, 0, 0, 0.5);
   border-radius: 4px;
@@ -455,6 +653,30 @@ main {
 
 .minimap canvas {
   display: block;
+}
+
+/* Minimap options inline in controls */
+.minimap-options {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.minimap-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.minimap-options select {
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
 }
 
 .info-panel {
@@ -873,6 +1095,24 @@ main {
   display: flex;
   flex-direction: column;
   min-height: 0; /* Crucial fix for grid layout with dynamic content */
+}
+
+/* Emphasize viewers selected for Toggle with an overlay outline above the image */
+.viewer-container.selected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent-primary);
+  border-radius: 6px; /* match .viewer rounding */
+  pointer-events: none;
+  z-index: 30; /* above image and controls */
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+}
+
+/* Keep selection controls visible when selected */
+.viewer-container.selected .viewer-controls {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .viewer-container .viewer {
@@ -1451,6 +1691,139 @@ main {
   filter: brightness(1.2);
 }
 
+/* Minimap unified button */
+.minimap-button-unified {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  height: 35px;
+}
+
+.minimap-button-unified > button {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 0 12px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.minimap-button-unified > button:hover { background: #454545; }
+.minimap-button-unified > button.active { background: var(--accent-primary); color: #fff; }
+
+.minimap-options-indicator {
+  width: 36px;
+  border-left: 1px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.minimap-options-indicator.disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Minimap Options Modal */
+.minimap-options-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6); /* dim the rest, not fully black */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.minimap-options-modal-content {
+  background: var(--bg-med); /* solid panel so it's fully opaque */
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  width: 420px;
+  max-width: 90vw;
+}
+
+.minimap-options-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+}
+
+.minimap-options-header h3 {
+  margin: 0;
+}
+
+.minimap-options-modal-content h3 { margin: 0 0 12px; }
+
+.minimap-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.minimap-position-preview {
+  position: relative;
+  width: 180px;
+  height: 120px;
+  background: #111;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.minimap-position-preview .preview-corner {
+  position: absolute;
+  width: 40px;
+  height: 28px;
+  background: rgba(0,123,255,0.15);
+  border: 2px solid rgba(0,123,255,0.5);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.minimap-position-preview .preview-corner.tl { top: 8px; left: 8px; }
+.minimap-position-preview .preview-corner.tr { top: 8px; right: 8px; }
+.minimap-position-preview .preview-corner.bl { bottom: 8px; left: 8px; }
+.minimap-position-preview .preview-corner.br { bottom: 8px; right: 8px; }
+
+.minimap-position-preview .preview-corner.active {
+  background: rgba(0,123,255,0.35);
+  border-color: var(--accent-primary);
+}
+
+.minimap-size-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.minimap-size-buttons button {
+  background: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.minimap-size-buttons button.active,
+.minimap-size-buttons button:hover {
+  background: var(--accent-primary);
+  color: #fff;
+  border-color: var(--accent-hover);
+}
+
+.minimap-options-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* --- Grid Color Modal Styles --- */
 .grid-color-modal-overlay {
   position: fixed;
@@ -1505,4 +1878,258 @@ main {
 .grid-color-modal-content .grid-color-swatch.active {
   border-color: var(--accent-primary);
   box-shadow: 0 0 8px var(--accent-primary);
+}
+
+/* Toggle Modal */
+.toggle-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000; /* fully black backdrop */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.toggle-modal {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0;
+  min-width: 400px;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.toggle-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.toggle-modal-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 18px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.close-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Toggle modal header actions (scale + close) */
+.toggle-modal-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-scale {
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-light);
+  color: var(--text-primary);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* Zoom input (percent) in toggle header */
+.toggle-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-light);
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: var(--text-primary);
+}
+
+.toggle-zoom input {
+  width: 56px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  text-align: right;
+}
+
+.toggle-zoom span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.toggle-xy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-xy label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.toggle-xy input {
+  width: 72px;
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 6px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.toggle-modal-content {
+  padding: 20px;
+}
+
+.toggle-info {
+  margin-bottom: 20px;
+}
+
+.current-position {
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+  color: var(--accent-primary);
+  margin-bottom: 16px;
+}
+
+.current-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.current-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.folder-label {
+  font-weight: 600;
+  color: var(--accent-primary);
+  min-width: 40px;
+}
+
+.file-name {
+  color: var(--text-primary);
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.toggle-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.toggle-btn {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.toggle-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-secondary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  transition: width 0.3s ease;
+}
+
+.keyboard-hints {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+}
+
+.keyboard-hints div {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Toggle Button */
+.toggle-btn {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.toggle-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--bg-secondary);
 }

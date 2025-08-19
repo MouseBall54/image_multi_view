@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
+import { ToggleModal } from '../components/ToggleModal';
 import { useStore } from '../store';
 import { useFolderPickers } from '../hooks/useFolderPickers';
 import type { FolderKey, FilterType } from '../types';
@@ -37,7 +38,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     setCurrent, setViewport,
     pinpointScales, setPinpointScale,
     activeCanvasKey, setActiveCanvasKey, clearFolder,
-    openFilterEditor, viewerFilters, viewerFilterParams, viewerRows, viewerCols
+    openFilterEditor, viewerFilters, viewerFilterParams, viewerRows, viewerCols,
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, closeToggleModal
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -47,6 +49,35 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     if (!type || type === 'none') return null;
     return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown';
   };
+
+  // Viewer selection for toggle functionality
+  const handleViewerSelect = (key: FolderKey) => {
+    const newSelected = selectedViewers.includes(key)
+      ? selectedViewers.filter(k => k !== key)
+      : [...selectedViewers, key];
+    setSelectedViewers(newSelected);
+  };
+
+  const handleToggleMode = () => {
+    if (selectedViewers.length === 0) return;
+    // Check if any selected viewer has an image
+    const hasImages = selectedViewers.some(key => pinpointImages[key]?.file);
+    if (!hasImages) return;
+    openToggleModal();
+  };
+
+  // Space key handler for opening toggle modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === ' ' && !toggleModalOpen && selectedViewers.length > 0) {
+        e.preventDefault();
+        handleToggleMode();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleModalOpen, selectedViewers.length, pinpointImages]);
 
   const canvasRefs = FOLDER_KEYS.reduce((acc, key) => {
     acc[key] = useRef<ImageCanvasHandle>(null);
@@ -219,6 +250,13 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     '--rows': viewerRows,
   } as React.CSSProperties;
 
+  // Ensure active canvas key remains valid when layout changes
+  useEffect(() => {
+    if (activeCanvasKey && !activeKeys.includes(activeCanvasKey)) {
+      setActiveCanvasKey(null);
+    }
+  }, [activeKeys, activeCanvasKey, setActiveCanvasKey]);
+
   return (
     <>
       {showControls && <div className="controls">
@@ -244,6 +282,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             />
             <div className="filelist-options">
               <div className="count">Files: {filteredFileList.length}</div>
+              {/* Toggle moved to header controls-main */}
               <select value={folderFilter} onChange={e => setFolderFilter(e.target.value as FolderKey | 'all')}>
                 <option value="all">All Folders</option>
                 {activeKeys.map(key => (
@@ -299,7 +338,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             const label = lines.join('\n');
 
             return (
-              <div key={key} className="viewer-container">
+              <div key={key} className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''}`}>
                 <ImageCanvas 
                   ref={canvasRefs[key]}
                   label={label}
@@ -318,6 +357,13 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                 />
                 <div className="viewer-controls">
                   <button 
+                    className={`viewer-select-btn ${selectedViewers.includes(key) ? 'selected' : ''}`}
+                    onClick={() => handleViewerSelect(key)}
+                    title={`Select viewer ${key} for toggle`}
+                  >
+                    {selectedViewers.includes(key) ? '✓' : '○'}
+                  </button>
+                  <button 
                     className="viewer__filter-button" 
                     title={`Filter Settings for ${allFolders[key]?.alias || key}`}
                     onClick={() => openFilterEditor(key)}
@@ -335,7 +381,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                       <line x1="9" y1="8" x2="15" y2="8"></line>
                       <line x1="17" y1="16" x2="23" y2="16"></line>
                     </svg>
-                  
                   </button>
                   <PinpointRotationControl folderKey={key} />
                 </div>
@@ -350,6 +395,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
           <input key={key} ref={inputRefs[key]} type="file" {...{ webkitdirectory: "" } as any} multiple onChange={(e) => onInput(key, e)} />
         ))}
       </div>
+      
+      <ToggleModal bitmapCache={bitmapCache} pinpointImages={pinpointImages} />
     </>
   );
 });

@@ -52,6 +52,9 @@ interface State {
   showMinimap: boolean;
   showGrid: boolean;
   gridColor: GridColor;
+  // Minimap options
+  minimapPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  minimapWidth: number; // in px
   viewport: Viewport;
   pinpoints: Partial<Record<FolderKey, Pinpoint>>;
   pinpointScales: Partial<Record<FolderKey, number>>;
@@ -79,9 +82,15 @@ interface State {
   analysisFilters: Partial<Record<number, FilterType>>;
   analysisFilterParams: Partial<Record<number, FilterParams>>;
   analysisRotation: number;
+  // Compare Mode State
+  compareRotation: number;
 
-  // OpenCV state
-  isCvReady: boolean;
+
+  // Toggle Modal state - viewer-based image selection
+  selectedViewers: FolderKey[];  // Selected viewer keys for toggle
+  toggleModalOpen: boolean;
+  toggleCurrentIndex: number;
+
 
   setAppMode: (m: AppMode) => void;
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
@@ -91,6 +100,8 @@ interface State {
   setShowMinimap: (show: boolean) => void;
   setShowGrid: (show: boolean) => void;
   setGridColor: (color: GridColor) => void;
+  setMinimapPosition: (pos: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => void;
+  setMinimapWidth: (w: number) => void;
   setViewport: (vp: Partial<Viewport>) => void;
   setPinpoint: (key: FolderKey, pinpoint: Pinpoint) => void;
   clearPinpoints: () => void;
@@ -110,9 +121,15 @@ interface State {
   // Analysis Mode Actions
   setAnalysisFile: (file: File | null, source?: string) => void;
   setAnalysisRotation: (angle: number) => void;
+  // Compare Mode Actions
+  setCompareRotation: (angle: number) => void;
 
-  // OpenCV actions
-  setCvReady: (isReady: boolean) => void;
+
+  // Toggle actions
+  setSelectedViewers: (viewers: FolderKey[]) => void;
+  openToggleModal: () => void;
+  closeToggleModal: () => void;
+  setToggleCurrentIndex: (index: number) => void;
 
   // Filter actions
   openFilterEditor: (key: FolderKey | number) => void;
@@ -120,6 +137,7 @@ interface State {
   setTempFilterType: (type: FilterType) => void;
   setTempFilterParams: (params: Partial<FilterParams>) => void;
   applyTempFilterSettings: () => void;
+
 }
 
 export const useStore = create<State>((set) => ({
@@ -132,6 +150,8 @@ export const useStore = create<State>((set) => ({
   showMinimap: false,
   showGrid: false,
   gridColor: 'white',
+  minimapPosition: 'bottom-right',
+  minimapWidth: 150,
   viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5, refScreenX: undefined, refScreenY: undefined },
   pinpoints: {},
   pinpointScales: {},
@@ -157,9 +177,14 @@ export const useStore = create<State>((set) => ({
   analysisFilters: {},
   analysisFilterParams: {},
   analysisRotation: 0,
+  compareRotation: 0,
 
-  // OpenCV state
-  isCvReady: false,
+
+  // Toggle state
+  selectedViewers: [],
+  toggleModalOpen: false,
+  toggleCurrentIndex: 0,
+
 
   setAppMode: (m) => set({ appMode: m }),
   setPinpointMouseMode: (m) => set({ pinpointMouseMode: m }),
@@ -169,6 +194,8 @@ export const useStore = create<State>((set) => ({
   setShowMinimap: (show) => set({ showMinimap: show }),
   setShowGrid: (show) => set({ showGrid: show }),
   setGridColor: (color) => set({ gridColor: color }),
+  setMinimapPosition: (pos) => set({ minimapPosition: pos }),
+  setMinimapWidth: (w) => set({ minimapWidth: w }),
   setViewport: (vp) => set(s => ({ viewport: { ...s.viewport, ...vp } })),
   setPinpoint: (key, pinpoint) => set(state => ({
     pinpoints: { ...state.pinpoints, [key]: pinpoint }
@@ -221,9 +248,14 @@ export const useStore = create<State>((set) => ({
     analysisFilterParams: {} 
   }),
   setAnalysisRotation: (angle) => set({ analysisRotation: angle }),
+  setCompareRotation: (angle) => set({ compareRotation: angle }),
 
-  // OpenCV actions
-  setCvReady: (isReady) => set({ isCvReady: isReady }),
+
+  // Toggle actions
+  setSelectedViewers: (viewers) => set({ selectedViewers: viewers }),
+  openToggleModal: () => set({ toggleModalOpen: true, toggleCurrentIndex: 0 }),
+  closeToggleModal: () => set({ toggleModalOpen: false }),
+  setToggleCurrentIndex: (index) => set({ toggleCurrentIndex: index }),
 
   // Filter actions
   openFilterEditor: (key) => set(state => {
@@ -264,6 +296,7 @@ export const useStore = create<State>((set) => ({
       }
     }
   }),
+
 }));
 
 useStore.subscribe((state, prevState) => {
@@ -280,6 +313,11 @@ useStore.subscribe((state, prevState) => {
       pinpointGlobalScale: 1,
       pinpointRotations: {},
       analysisRotation: 0,
+      compareRotation: 0,
+      // Reset toggle selection when mode changes
+      selectedViewers: [],
+      toggleModalOpen: false,
+      toggleCurrentIndex: 0,
     });
 
     // Clear analysis file if leaving analysis mode

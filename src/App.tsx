@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useStore } from "./store";
 import type { AppMode } from "./types";
 import { CompareMode, CompareModeHandle } from './modes/CompareMode';
-import { ToggleMode, ToggleModeHandle } from './modes/ToggleMode';
 import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterControls } from "./components/FilterControls";
 import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
+import { CompareRotationControl } from "./components/CompareRotationControl";
 import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
 import { decodeTiffWithUTIF } from "./utils/utif";
@@ -68,16 +68,16 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth } = useStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [showColorPalette, setShowColorPalette] = useState(false);
+  const [showMinimapOptionsModal, setShowMinimapOptionsModal] = useState(false);
   const bitmapCache = useRef(new Map<string, DrawableImage>());
   
   const primaryFileRef = useRef<File | null>(null);
   const compareModeRef = useRef<CompareModeHandle>(null);
-  const toggleModeRef = useRef<ToggleModeHandle>(null);
   const pinpointModeRef = useRef<PinpointModeHandle>(null);
   const analysisModeRef = useRef<AnalysisModeHandle>(null);
 
@@ -94,8 +94,6 @@ export default function App() {
 
     if (appMode === 'compare' && compareModeRef.current) {
       dataUrl = await compareModeRef.current.capture(opts);
-    } else if (appMode === 'toggle' && toggleModeRef.current) {
-      dataUrl = await toggleModeRef.current.capture(opts);
     } else if (appMode === 'pinpoint' && pinpointModeRef.current) {
       dataUrl = await pinpointModeRef.current.capture(opts);
     } else if (appMode === 'analysis' && analysisModeRef.current) {
@@ -192,9 +190,8 @@ export default function App() {
 
       switch (key) {
         case '1': setAppMode('compare'); break;
-        case '2': setAppMode('toggle'); break;
-        case '3': setAppMode('pinpoint'); break;
-        case '4': setAppMode('analysis'); break;
+        case '2': setAppMode('pinpoint'); break;
+        case '3': setAppMode('analysis'); break;
         case 'r': resetView(); break;
         case 'i': setShowInfoPanel((prev: boolean) => !prev); break;
         case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
@@ -217,8 +214,6 @@ export default function App() {
     switch (appMode) {
       case 'compare':
         return <CompareMode ref={compareModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
-      case 'toggle':
-        return <ToggleMode ref={toggleModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       case 'pinpoint':
         return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       case 'analysis':
@@ -232,7 +227,13 @@ export default function App() {
     <div className="app">
       <header>
         <div className="title-container">
-          <h1 className="app-title">CompareX</h1>
+          <h1
+            className="app-title"
+            onClick={() => window.location.reload()}
+            title="Reset (refresh)"
+          >
+            CompareX
+          </h1>
           <button onClick={() => setShowControls(!showControls)} className="toggle-controls-btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.37 3.63a2.12 2.12 0 1 1 3 3L12 16l-4 1 1-4Z"/></svg>
             <span>{showControls ? 'Hide' : 'Show'} Folderlist</span>
@@ -243,12 +244,11 @@ export default function App() {
             <label><span>Mode:</span>
               <select value={appMode} onChange={e => setAppMode(e.target.value as AppMode)}>
                 <option value="compare">Compare</option>
-                <option value="toggle">Toggle</option>
                 <option value="pinpoint">Pinpoint</option>
                 <option value="analysis">Analysis</option>
               </select>
             </label>
-            {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'toggle' || appMode === 'analysis') && (
+            {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'analysis') && (
               <label><span>Layout:</span>
                 <select value={`${viewerRows}x${viewerCols}`} onChange={e => {
                   const [rows, cols] = e.target.value.split('x').map(Number);
@@ -294,6 +294,15 @@ export default function App() {
                 </select>
               </label>
             )}
+            <button
+              className={"toggle-main-btn"}
+              onClick={() => openToggleModal()}
+              title={"Toggle Mode (Space)"}
+              disabled={selectedViewers.length === 0 || (appMode === 'compare' && !current) || (appMode === 'analysis' && !analysisFile)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+              Toggle ({selectedViewers.length})
+            </button>
             {appMode === 'pinpoint' && (
               <label><span>Mouse:</span>
                 <select value={pinpointMouseMode} onChange={e => setPinpointMouseMode(e.target.value as any)}>
@@ -306,10 +315,19 @@ export default function App() {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
               Capture
             </button>
-            <button onClick={() => setShowMinimap(!showMinimap)} className={showMinimap ? 'active' : ''}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="4" height="4" rx="1" ry="1"></rect></svg>
-              Minimap
-            </button>
+            <div className="minimap-button-unified">
+              <button onClick={() => setShowMinimap(!showMinimap)} className={showMinimap ? 'active' : ''}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="4" height="4" rx="1" ry="1"></rect></svg>
+                Minimap
+              </button>
+              <button
+                className={`minimap-options-indicator ${showMinimap ? '' : 'disabled'}`}
+                onClick={() => showMinimap && setShowMinimapOptionsModal(true)}
+                title="Minimap options"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0A1.65 1.65 0 0 0 20.91 12H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51-1Z"/></svg>
+              </button>
+            </div>
             <div className="grid-button-unified">
               <button
                 className={`grid-button-toggle ${showGrid ? 'active' : ''}`}
@@ -327,6 +345,7 @@ export default function App() {
             </div>
           </div>
           <div className="controls-right">
+            {appMode === 'compare' && <CompareRotationControl />}
             {appMode === 'analysis' && <AnalysisRotationControl />}
             {appMode === 'pinpoint' && <PinpointGlobalRotationControl />}
             {appMode === 'pinpoint' && (
@@ -368,7 +387,7 @@ export default function App() {
                 <input type="checkbox" checked={captureOptions.showLabels} onChange={(e) => setCaptureOptions(o => ({...o, showLabels: e.target.checked}))} />
                 Show Labels
               </label>
-              {(appMode === 'pinpoint' || appMode === 'analysis') && (
+              {appMode === 'pinpoint' && (
                 <label>
                   <input type="checkbox" checked={captureOptions.showCrosshair} onChange={(e) => setCaptureOptions(o => ({...o, showCrosshair: e.target.checked}))} />
                   Show Crosshair
@@ -411,6 +430,34 @@ export default function App() {
                   }}
                 />
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMinimapOptionsModal && (
+        <div className="minimap-options-modal-overlay" onClick={() => setShowMinimapOptionsModal(false)}>
+          <div className="minimap-options-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="minimap-options-header">
+              <h3>Minimap Options</h3>
+              <button className="close-btn" onClick={() => setShowMinimapOptionsModal(false)}>×</button>
+            </div>
+            <div className="minimap-options-grid">
+              <div className="minimap-position-preview">
+                <div className={`preview-corner tl ${minimapPosition==='top-left' ? 'active':''}`} onClick={() => setMinimapPosition('top-left')} />
+                <div className={`preview-corner tr ${minimapPosition==='top-right' ? 'active':''}`} onClick={() => setMinimapPosition('top-right')} />
+                <div className={`preview-corner bl ${minimapPosition==='bottom-left' ? 'active':''}`} onClick={() => setMinimapPosition('bottom-left')} />
+                <div className={`preview-corner br ${minimapPosition==='bottom-right' ? 'active':''}`} onClick={() => setMinimapPosition('bottom-right')} />
+              </div>
+              <div className="minimap-size-buttons">
+                <button className={minimapWidth===120? 'active':''} onClick={() => setMinimapWidth(120)}>Small</button>
+                <button className={minimapWidth===150? 'active':''} onClick={() => setMinimapWidth(150)}>Medium</button>
+                <button className={minimapWidth===200? 'active':''} onClick={() => setMinimapWidth(200)}>Large</button>
+                <button className={minimapWidth===240? 'active':''} onClick={() => setMinimapWidth(240)}>XL</button>
+              </div>
+            </div>
+            <div className="minimap-options-actions">
+              <button onClick={() => setShowMinimapOptionsModal(false)} className="apply-btn">OK</button>
             </div>
           </div>
         </div>

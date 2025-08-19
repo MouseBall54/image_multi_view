@@ -1,109 +1,127 @@
-# Image Compare Viewer
+# CompareX
 
-로컬 Folder Image를 비교·분석하기 위한 Client-side Web Application입니다. React와 TypeScript로 작성되어 Browser 안에서만 동작하며 File이 Server로 전송되지 않습니다. 품질 검수, 학습 Data 확인 등 많은 Image를 빠르게 정렬하고 살펴봐야 하는 작업에 적합합니다.
+로컬 폴더의 이미지를 비교·핀포인트·분석(필터)하기 위한 클라이언트 사이드 웹 애플리케이션입니다. React + TypeScript + Vite로 작성되어 브라우저에서만 동작하며, 파일이 서버로 업로드되지 않습니다.
 
-## 목적
-Image Compare Viewer는 연구자, Artist, QA Team이 대량의 Image를 빠르게 점검하도록 돕습니다. 서로 다른 Version의 Image가 정확히 정렬되는지 확인하거나 Algorithm 결과를 비교하고 학습용 Dataset을 검증해야 할 때 유용하며, 모든 File을 Server에 Upload하지 않고 Browser 안에서 처리합니다.
+## 설치 & 실행
 
-## 주요 기능
-- **Privacy-friendly:** 모든 처리가 Local에서 이루어져 File이 외부로 Upload되지 않습니다.
-- **Flexible Viewer:** 최대 아홉 개의 Folder를 Load하여 원하는 조합으로 나란히 비교합니다.
-- **Flexible Layout System:** Auto Layout은 Viewer 수에 따라 Grid를 자동 구성하고 Free Layout에서는 Viewer를 자유롭게 이동하고 크기를 조절할 수 있습니다. Layout은 다음 접속 때도 유지됩니다.
-- **Advanced Analysis Tools:** 다양한 Filter를 적용하고 현재 화면을 Capture할 수 있습니다.
-- **Keyboard 중심 조작:** 여러 Shortcut으로 빠르게 탐색하고 Mode를 Switch합니다.
-- **Synchronized Viewports:** 한 Viewer에서 Pan/Zoom하면 다른 Viewer도 동일하게 움직입니다.
-- **Auto Fit on Resize:** Window 크기가 변하면 Image가 자동으로 Viewer에 맞춰집니다.
-- **Flexible File Matching:** 전체 Filename 또는 확장자 무시 방식으로 Matching합니다.
-- **Per-Viewer Filters:** 대비, Blur, Edge Detection, Texture, Noise Reduction Filter를 개별적으로 적용합니다.
-- **Collapsible Folder List:** Folder Picker를 숨겨 작업 공간을 넓힐 수 있습니다.
-- **Capture Tool:** 현재 Viewer 화면을 Image File이나 Clipboard로 내보내며, Minimap을 포함할 수 있습니다.
-- **Minimap & Grid:** 선택적인 Minimap과 조절 가능한 Grid Overlay를 제공합니다.
-- **Image Info Panel:** 활성 Image의 Filename, Dimensions, File Size를 표시합니다.
-
-## Layout Modes
-
-Viewer 영역은 두 가지 Layout 방식을 지원합니다.
-
-- **Auto Layout**은 Viewer 수에 따라 균형 잡힌 Grid를 자동 구성합니다.
-- **Free Layout**에서는 Panel 헤더를 Drag하여 아무 곳이나 배치하고 Edge Handle로 Grid 제약 없이 크기를 조절할 수 있습니다.
-
-우측 상단의 Layout Controls로 Mode를 전환하거나 Reset할 수 있으며, 변경된 Layout은 Local Storage에 저장되어 다음 접속 시에도 유지됩니다.
-
-## Mode 및 사용법
-Application은 네 가지 작업 Mode를 제공합니다.
-
-### Compare Mode
-- 2–9개의 Folder Image를 Grid 형태로 동시에 표시합니다.
-- Dataset 간 정렬이나 Model Output 비교에 적합합니다.
-- 한 Image를 Pan/Zoom하면 다른 Viewer도 함께 이동합니다.
-- Folder Alias를 변경하고 File Extension을 무시한 Matching이 가능합니다.
-
-### Toggle Mode
-- 한 번에 한 Folder만 표시하되 Viewport는 유지합니다.
-- 차이점을 한눈에 확인하고 싶을 때 사용합니다.
-- `Space` 키로 Load된 Folder를 순환합니다.
-
-### Pinpoint Mode
-- 원하는 Image를 원하는 Viewer에 Load해 기준점을 맞춥니다.
-- 기하학적 차이나 특정 영역을 정밀 비교할 때 유용합니다.
-- 각 Viewer는 독립적인 Scale과 Rotation을 가지며 전역 Scale을 공유합니다.
-- Click으로 십자선을 설정하고 `Alt` + Drag로 활성 Image를 회전합니다.
-
-### Analysis Mode
-- 동일한 Image에 서로 다른 Filter를 적용하여 나란히 비교합니다.
-- Filter, Rotation, Capture를 실험하며 한 장의 원본을 다양한 방식으로 살펴볼 수 있습니다.
-
-## 적용 가능한 Filter
-각 Viewer에 다음과 같은 Filter를 적용할 수 있습니다.
-
-- Box Blur, Gaussian Blur
-- Sharpen, Unsharp Mask, Highpass, Gabor
-- Prewitt, Scharr, Sobel, Roberts Cross
-- Laplacian, LoG, DoG, Marr–Hildreth, Canny
-- Linear Contrast Stretch, Histogram Equalization, CLAHE, Gamma Correction
-- Local/Adaptive Histogram Equalization
-- Median, Weighted Median, Alpha-trimmed Mean
-- Bilateral Filter, Non-local Means, Anisotropic Diffusion, Guided Filter
-- LBP, Laws Texture Energy
-
-## 시작하기
 ```bash
 npm install
 npm run dev
 ```
 
-터미널에 출력되는 주소를 Browser에서 열고 **Mode** 드롭다운 또는 Shortcut(`1`: Compare, `2`: Toggle, `3`: Pinpoint,
-`4`: Analysis)으로 Mode를 Switch합니다.
+## 상단 컨트롤(controls-main)
 
-1. A, B 등 Folder를 선택해 Image를 Load합니다.
-2. 왼쪽 목록에서 Filename을 선택합니다.
-3. Mouse나 Shortcut으로 Pan·Zoom하며 Image를 분석합니다.
-   - **Toggle** Mode에서는 `Space` 키로 Folder를 전환합니다.
-   - **Pinpoint** Mode에서는 Click으로 기준점을 지정하고 `Alt` + Drag로 Rotation합니다.
+- Mode: Compare / Pinpoint / Analysis
+- Layout: 행×열 레이아웃 선택(뷰어 수 자동 계산)
+- Toggle: 선택한 뷰어를 토글 모달로 열기
+- Capture: 화면 캡처(라벨/교차선/미니맵 포함 옵션)
+- Minimap: 켜기/끄기 + 옵션 버튼(톱니) → 위치/크기 설정 모달
+- Grid: 켜기/끄기 + 색상 인디케이터(클릭 시 색상 모달)
+- Viewport(비-Pinpoint 모드): Scale/X/Y 입력으로 배율·좌표 직접 설정
+- 제목(CompareX) 클릭: 페이지 새로고침(초기화)
+
+## 모드 안내
+
+### Compare(비교)
+- 폴더 슬롯 A~Z에 폴더를 로드하고 동일 파일명(확장자 무시 옵션 지원)으로 매칭
+- 선택된 뷰어만 모달에서 순서대로 토글(아래 단축키 참고)
+- 전역 회전: 컨트롤 UI 또는 Alt+드래그(좌우)로 즉시 회전, 미니맵도 함께 회전
+
+### Pinpoint(핀포인트)
+- 각 뷰어에 서로 다른 이미지를 로드하고 기준점(핀)으로 정밀 정렬
+- 개별 배율(뷰어별) + 글로벌 배율, 개별 회전(뷰어별) + 글로벌 회전
+- 마우스 모드: Pin(핀 찍기) / Pan(이동) 전환 — 우클릭으로 토글
+- = / -: 활성 뷰어의 개별 배율을 1% 단위로 증감
+- Alt+드래그(좌우): 개별 회전(뷰어)
+- 교차선/회전각/미니맵(회전 반영) 제공
+
+### Analysis(분석)
+- 한 장의 이미지를 여러 뷰어에서 서로 다른 필터로 분석
+- 전역 회전(컨트롤 UI 또는 Alt+드래그), 미니맵도 함께 회전
+
+## 토글 모달(Toggle)
+
+- 선택된 뷰어만 모달에서 순환(Next/Prev)
+- Compare/Analysis: 배율 % 및 X/Y 좌표 입력 가능(Enter로 적용) — 적용 시 강조 인디케이터 표시
+- Space / Shift+Space / ← / → / Esc 단축키 지원
+- 필터/라벨/미니맵 상태 유지, 필터 처리 캐시로 빠른 전환
+
+## 캡처(Capture)
+
+- 레이아웃을 한 장으로 합성하여 캡처
+- 라벨/교차선/미니맵 포함 옵션
+- 클립보드 복사 / 파일 저장 지원
+
+## 미니맵(Minimap)
+
+- 옵션 모달(톱니 버튼)에서 위치/크기 설정
+  - 위치: Top-Left / Top-Right / Bottom-Left / Bottom-Right
+  - 크기: Small(120) / Medium(150) / Large(200) / XL(240)
+- 이미지 회전이 반영되어 미니맵 자체가 회전
+- 캡처에도 동일하게 반영
+
+## 그리드(Grid)
+
+- 가이드 라인(3분할) 켜기/끄기
+- 색상: white / red / yellow / blue (색상 인디케이터 클릭)
+
+## 폴더 컨트롤 카드
+
+- Unloaded: 폴더 선택 버튼(아이콘+텍스트)
+- Loaded: 폴더 키 라벨, 별칭(연필 아이콘 또는 더블클릭으로 편집), 파일 수 칩, 변경/클리어 버튼
 
 ## 단축키
 
-| Key                         | Action                                       |
-| --------------------------- | -------------------------------------------- |
-| `1` / `2` / `3` / `4`       | Compare / Toggle / Pinpoint / Analysis Mode로 Switch |
-| `Space` (Toggle Mode)      | Source Folder 순환                          |
-| `=` 또는 `+` / `-`         | Zoom In / Zoom Out                          |
-| 방향키                      | Image Pan (상·하·좌·우)                     |
-| `R`                         | View Reset                                  |
-| `I`                         | Image Info Panel Toggle                     |
-| `Alt` + Drag (Pinpoint)    | 활성 Image Rotation                         |
+- 1 / 2 / 3: Compare / Pinpoint / Analysis 모드 전환
+- R: 리셋(화면에 맞춤 배율)
+- I: 정보 패널 토글
+- + / -: 줌 인/아웃
+- 화살표(←/→/↑/↓): 패닝(비-Pinpoint)
+- Space: 토글 모달 열기 또는 다음(선택한 뷰어가 있을 때)
+- Shift+Space: 토글 모달 이전
+- Esc: 토글 모달 닫기
+- Pinpoint 전용
+  - = / -: 활성 뷰어 개별 배율 1% 증감
+  - 우클릭: Pin ↔ Pan 전환
+  - Alt+드래그(좌우): 개별 회전(뷰어)
+- Compare/Analysis 공통
+  - Alt+드래그(좌우): 전역 회전
 
-## 기대 효과
+## 필터(요약)
 
-- 여러 Image를 동시에 확인하여 품질 검수를 빠르게 진행할 수 있습니다.
-- Dataset 정제와 Algorithm 비교 작업이 수월해집니다.
-- 모든 처리가 Browser 안에서 이루어져 개인정보가 외부로 유출되지 않습니다.
-- 다양한 Filter와 Capture 기능으로 세부적인 Image 분석이 가능합니다.
+- General: None, Grayscale, Invert, Sepia
+- Contrast: Linear Stretch, Histogram Equalization, Local/Adaptive HE, CLAHE, Gamma
+- Blurring: Box, Gaussian(σ), Median, Weighted Median, Alpha-trimmed Mean(α)
+- Sharpening: Sharpen, Unsharp Mask, High-pass, Laplacian
+- Edge: Sobel, Prewitt, Scharr, Canny(low/high), Roberts, LoG(ksize, σ), DoG(σ1, σ2), Marr-Hildreth(ksize, σ, threshold)
+- Advanced Denoising: Bilateral(ksize, sigmaColor/Space), Non-local Means(patchSize, searchWindow, h), Anisotropic Diffusion(iterations, kappa)
+- Texture: Gabor(theta, sigma, lambda, psi), Laws Texture Energy, LBP
+- Edge-preserving: Guided Filter
 
-## 빌드
+각 필터의 파라미터는 뷰어의 ‘필터 설정’ 버튼에서 즉시 조정 가능합니다.
+
+## 빌드/배포
+
 ```bash
 npm run build
+npm run preview
+npm run deploy
 ```
 
-`npm run deploy` 명령으로 GitHub Pages에 배포할 수 있습니다.
+## 기술 스택 & 구조
 
+- React 18 + TypeScript + Vite
+- 상태: Zustand(`src/store.ts`)
+- 모드: `src/modes/` (Compare/Pinpoint/Analysis)
+- 컴포넌트: `src/components/`
+- 유틸/필터: `src/utils/`
+- 훅: `src/hooks/`
+
+## 변경사항(최근)
+
+- 토글 모달: 전역 버튼, 캐시 적용, 배율/X/Y 입력(Compare/Analysis)
+- 회전: Compare/Analysis 전역 회전 + Alt+드래그, Pinpoint 개별/글로벌 회전 + Alt+드래그
+- 미니맵: 옵션 모달(위치/크기), 이미지 회전 반영, 캡처 반영
+- 그리드: 색상 선택 모달
+- 폴더 카드: UI 개선, 별칭 편집 버튼 추가
+- 제목 클릭 시 페이지 리셋
