@@ -309,7 +309,24 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           const minimapCtx = minimapCanvas.getContext('2d');
           
           if (minimapCtx) {
-            // 미니맵 이미지 그리기
+            // 미니맵 이미지 그리기 (회전 반영)
+            const { pinpointRotations, pinpointGlobalRotation } = useStore.getState();
+            let angleDeg = 0;
+            if (appMode === 'pinpoint') {
+              const localAngle = (typeof folderKey === 'string') ? (pinpointRotations[folderKey] || 0) : 0;
+              const globalAngle = (pinpointGlobalRotation || 0);
+              angleDeg = localAngle + globalAngle;
+            } else if (appMode === 'analysis') {
+              angleDeg = rotation || 0;
+            }
+            const angleRad = angleDeg * Math.PI / 180;
+            minimapCtx.save();
+            if ((appMode === 'pinpoint' || appMode === 'analysis') && angleRad !== 0) {
+              minimapCtx.translate(MINIMAP_WIDTH / 2, minimapHeight / 2);
+              minimapCtx.rotate(angleRad);
+              minimapCtx.translate(-MINIMAP_WIDTH / 2, -minimapHeight / 2);
+            }
+
             minimapCtx.drawImage(sourceImage, 0, 0, MINIMAP_WIDTH, minimapHeight);
             
             // 뷰포트 사각형 그리기 (Pinpoint 모드와 일반 모드 구분)
@@ -400,6 +417,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
               }
             }
             
+            // 미니맵 회전 복원
+            minimapCtx.restore();
+
             // 미니맵을 메인 캔버스의 우하단에 그리기
             const padding = 10;
             const minimapX = ctx.canvas.width - MINIMAP_WIDTH - padding;
@@ -674,8 +694,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     };
   }, [sourceImage, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, setPinpointScale]);
 
-  const rotationAngle = (appMode === 'pinpoint' && typeof folderKey === 'string') ? 
-    (pinpointRotations[folderKey] || 0) + (pinpointGlobalRotation || 0) : 0;
+  const rotationAngle = (
+    appMode === 'pinpoint' && typeof folderKey === 'string'
+      ? (pinpointRotations[folderKey] || 0) + (pinpointGlobalRotation || 0)
+      : appMode === 'analysis'
+        ? (rotation || 0)
+        : 0
+  );
 
   const handleContainerClick = () => {
     // In analysis mode, clicks are handled by the dedicated button.

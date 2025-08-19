@@ -32,7 +32,16 @@ export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode
     canvas.width = MINIMAP_WIDTH;
     canvas.height = minimapHeight;
 
-    // Draw the full image scaled down
+    // Optional rotation for pinpoint mode: rotate the minimap instead of the box
+    const angleRad = (rotationDeg || 0) * Math.PI / 180;
+    ctx.save();
+    if (angleRad !== 0 && (appMode === 'pinpoint' || appMode === 'analysis')) {
+      ctx.translate(MINIMAP_WIDTH / 2, minimapHeight / 2);
+      ctx.rotate(angleRad);
+      ctx.translate(-MINIMAP_WIDTH / 2, -minimapHeight / 2);
+    }
+
+    // Draw the full image scaled down (with rotation applied if any)
     ctx.drawImage(bitmap, 0, 0, MINIMAP_WIDTH, minimapHeight);
 
     // Draw the viewport rectangle with mode-specific calculations
@@ -94,7 +103,7 @@ export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode
           };
         });
 
-        // Draw rotated polygon
+        // Draw rotated polygon (minimap is rotated, overlay drawn in same transform)
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
         ctx.lineWidth = 2;
         ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
@@ -139,7 +148,9 @@ export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode
         }
       }
     }
-  }, [bitmap, viewport, canvasSize, appMode, folderKey, overrideScale, pinpointGlobalScale, refPoint]);
+    // Restore rotation transform if applied
+    ctx.restore();
+  }, [bitmap, viewport, canvasSize, appMode, folderKey, overrideScale, pinpointGlobalScale, refPoint, rotationDeg]);
 
   if (!bitmap) {
     return null;
