@@ -27,9 +27,11 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
       const viewersElement = document.querySelector('.viewers');
       if (viewersElement) {
         const rect = viewersElement.getBoundingClientRect();
+        const maxW = window.innerWidth * 0.9;
+        const maxH = window.innerHeight * 0.9;
         setModalSize({
-          width: rect.width,
-          height: rect.height
+          width: Math.min(rect.width, maxW),
+          height: Math.min(rect.height, maxH)
         });
         return;
       }
@@ -45,7 +47,7 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
       
       setModalSize({
         width: Math.min(viewersWidth, availableWidth * 0.9),
-        height: Math.min(availableHeight, availableHeight * 0.9)
+        height: Math.min(availableHeight, window.innerHeight * 0.9)
       });
     }, 100);
   }, [appMode]);
@@ -169,8 +171,8 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
         style={{
           width: modalSize.width + 'px',
           height: modalSize.height + 'px',
-          maxWidth: 'none',
-          maxHeight: 'none'
+          maxWidth: '90vw',
+          maxHeight: '90vh'
         }}
       >
         <div className="toggle-modal-header">

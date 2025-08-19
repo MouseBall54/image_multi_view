@@ -420,8 +420,9 @@ main {
 
 .toggle-modal-content {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: 1fr auto; /* image area + info */
+  min-height: 0; /* allow proper shrinking */
   overflow: hidden;
 }
 
@@ -429,6 +430,12 @@ main {
   flex: 1;
   position: relative;
   background: #111;
+  min-height: 0; /* prevent overflow pushing info off-screen */
+}
+
+/* Ensure the image viewer fills the container area in the modal */
+.toggle-image-container > .viewer {
+  height: 100%;
 }
 
 .toggle-modal-info {

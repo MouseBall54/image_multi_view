@@ -525,17 +525,22 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         ((overrideScale ?? currentViewport.scale) * currentGlobalScale) : 
         currentViewport.scale;
       
-      // Never exceed 50% increase (1.5x) per wheel step
-      const actualZoomStep = Math.min(WHEEL_ZOOM_STEP, 1.5);
-      
-      const delta = e.deltaY < 0 ? actualZoomStep : (1 / actualZoomStep);
+      // Cap per-event zoom change to at most 20%
+      const MAX_WHEEL_FACTOR = 1.2;
+      const step = Math.min(WHEEL_ZOOM_STEP, MAX_WHEEL_FACTOR);
+      const delta = e.deltaY < 0 ? step : (1 / step);
       if (appMode === 'pinpoint') {
         // Only handle global scale in pinpoint mode if this canvas is active, or if this is the reference canvas (A)
         const { activeCanvasKey: currentActiveKey } = useStore.getState();
         if (currentActiveKey === folderKey || (currentActiveKey === null && typeof folderKey === 'string' && folderKey === 'A')) {
           const preScale = (overrideScale ?? currentViewport.scale) * currentGlobalScale;
-          const nextGlobalScale = currentGlobalScale * delta;
-          const nextScale = (overrideScale ?? currentViewport.scale) * nextGlobalScale;
+          // Desired next scale from step
+          const desiredNextScale = preScale * delta;
+          // Clamp to at most 20% per event
+          const maxIn = preScale * MAX_WHEEL_FACTOR;
+          const minOut = preScale / MAX_WHEEL_FACTOR;
+          const nextScale = e.deltaY < 0 ? Math.min(desiredNextScale, maxIn) : Math.max(desiredNextScale, minOut);
+          const nextGlobalScale = nextScale / (overrideScale ?? currentViewport.scale);
           if (nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
           setPinpointGlobalScale(nextGlobalScale);
           const refScreenX = currentViewport.refScreenX || (width / 2);
@@ -546,7 +551,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         }
       } else {
         const preScale = currentViewport.scale;
-        let nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, preScale * delta));
+        // Desired next scale from step
+        const desiredNextScale = preScale * delta;
+        // Clamp to at most 20% per event
+        const maxIn = preScale * MAX_WHEEL_FACTOR;
+        const minOut = preScale / MAX_WHEEL_FACTOR;
+        let nextScale = e.deltaY < 0 ? Math.min(desiredNextScale, maxIn) : Math.max(desiredNextScale, minOut);
+        nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextScale));
         if (nextScale === preScale) return;
         let { cx, cy } = currentViewport;
         if (CURSOR_ZOOM_CENTERED) {
