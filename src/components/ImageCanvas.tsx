@@ -39,9 +39,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   const { 
     viewport, setViewport, setFitScaleFn, 
     pinpointMouseMode, setPinpointScale, 
-    pinpointGlobalScale, setPinpointGlobalScale, showMinimap, showGrid, gridColor,
-    pinpointRotations, viewerFilters, viewerFilterParams, indicator, isCvReady,
-    analysisRotation, activeCanvasKey
+    pinpointGlobalScale, showMinimap, showGrid, gridColor,
+    pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator, isCvReady,
+    activeCanvasKey
   } = useStore();
 
   // Effect to load the source image from file
@@ -197,12 +197,14 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const refImgY = currentRefPoint.y * currentImage.height;
       x = Math.round(refScreenX - (refImgX * scale));
       y = Math.round(refScreenY - (refImgY * scale));
-      const angle = pinpointRotations[folderKey] || 0;
+      const localAngle = pinpointRotations[folderKey] || 0;
+      const globalAngle = pinpointGlobalRotation || 0;
+      const totalAngle = localAngle + globalAngle;
       centerX = x + drawW / 2;
       centerY = y + drawH / 2;
-      if (angle !== 0) {
+      if (totalAngle !== 0) {
         ctx.translate(centerX, centerY);
-        ctx.rotate(angle * Math.PI / 180);
+        ctx.rotate(totalAngle * Math.PI / 180);
         ctx.translate(-centerX, -centerY);
       }
     } else {
@@ -288,7 +290,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       ctx.stroke();
       ctx.restore();
     }
-  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, folderKey, isRotating, showGrid, gridColor, rotation]);
+  }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, pinpointGlobalRotation, folderKey, isRotating, showGrid, gridColor, rotation]);
 
   useImperativeHandle(ref, () => ({
     drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean, withMinimap: boolean = false) => {
@@ -433,7 +435,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     setCanvasSize({ width: Math.round(width), height: Math.round(height) });
     
     drawImage(ctx, processedImage, true);
-  }, [processedImage, drawImage, viewport, pinpointGlobalScale, pinpointRotations, isRotating, showGrid, gridColor]);
+  }, [processedImage, drawImage, viewport, pinpointGlobalScale, pinpointRotations, pinpointGlobalRotation, isRotating, showGrid, gridColor]);
 
   // Effect to handle canvas resize (레이아웃 변경이나 창 크기 변경 시 자동 리프레시)
   useEffect(() => {
@@ -627,7 +629,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     };
   }, [sourceImage, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, setPinpointScale]);
 
-  const rotationAngle = (appMode === 'pinpoint' && typeof folderKey === 'string') ? (pinpointRotations[folderKey] || 0) : 0;
+  const rotationAngle = (appMode === 'pinpoint' && typeof folderKey === 'string') ? 
+    (pinpointRotations[folderKey] || 0) + (pinpointGlobalRotation || 0) : 0;
 
   const handleContainerClick = () => {
     // In analysis mode, clicks are handled by the dedicated button.
@@ -652,7 +655,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" 
             viewBox="0 0 24 24" fill="none" stroke="currentColor" 
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="4" y1="21" x2="4" y2="14"></line>
             <line x1="4" y1="10" x2="4" y2="3"></line>
             <line x1="12" y1="21" x2="12" y2="12"></line>
@@ -678,16 +681,41 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} />
       {!processedImage && <div className="viewer__placeholder">{file ? 'Processing...' : (appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image')}</div>}
       
-      {indicator && processedImage && canvasRef.current && appMode !== 'pinpoint' && (
-        <div
-          key={indicator.key}
-          className="indicator-dot"
-          style={{
-            left: `${(viewport.cx || 0.5) * 100}%`,
-            top: `${(viewport.cy || 0.5) * 100}%`,
-          }}
-        />
-      )}
+      {indicator && processedImage && canvasRef.current && appMode !== 'pinpoint' && (() => {
+        const canvas = canvasRef.current;
+        const { width: canvasWidth, height: canvasHeight } = canvas.getBoundingClientRect();
+        
+        // 이미지 좌표를 화면 좌표로 변환
+        const imageWidth = processedImage.width;
+        const imageHeight = processedImage.height;
+        const scale = viewport.scale;
+        
+        // 이미지가 화면에 그려지는 위치 계산
+        const scaledImageWidth = imageWidth * scale;
+        const scaledImageHeight = imageHeight * scale;
+        const imageX = (canvasWidth / 2) - ((viewport.cx || 0.5) * imageWidth * scale);
+        const imageY = (canvasHeight / 2) - ((viewport.cy || 0.5) * imageHeight * scale);
+        
+        // 사용자가 지정한 이미지 좌표 (indicator.cx, indicator.cy는 상대 좌표)
+        const targetImageX = indicator.cx * imageWidth;
+        const targetImageY = indicator.cy * imageHeight;
+        
+        // 화면 좌표로 변환
+        const screenX = imageX + (targetImageX * scale);
+        const screenY = imageY + (targetImageY * scale);
+        
+        return (
+          <div
+            key={indicator.key}
+            className="indicator-dot"
+            style={{
+              left: `${screenX}px`,
+              top: `${screenY}px`,
+              position: 'absolute',
+            }}
+          />
+        );
+      })()}
       {showMinimap && sourceImage instanceof ImageBitmap && canvasSize && (
         <Minimap 
           bitmap={sourceImage} 

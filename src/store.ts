@@ -57,6 +57,7 @@ interface State {
   pinpointScales: Partial<Record<FolderKey, number>>;
   pinpointGlobalScale: number;
   pinpointRotations: Partial<Record<FolderKey, number>>;
+  pinpointGlobalRotation: number;
   activeCanvasKey: FolderKey | null;
   fitScaleFn: (() => number) | null;
   current: MatchedItem | null;
@@ -97,6 +98,7 @@ interface State {
   clearPinpointScales: () => void;
   setPinpointGlobalScale: (scale: number) => void;
   setPinpointRotation: (key: FolderKey, angle: number) => void;
+  setPinpointGlobalRotation: (angle: number) => void;
   setActiveCanvasKey: (key: FolderKey | null) => void;
   setFitScaleFn: (fn: () => number) => void;
   setCurrent: (item: MatchedItem | null) => void;
@@ -135,6 +137,7 @@ export const useStore = create<State>((set) => ({
   pinpointScales: {},
   pinpointGlobalScale: 1,
   pinpointRotations: {},
+  pinpointGlobalRotation: 0,
   activeCanvasKey: null,
   fitScaleFn: null,
   current: null,
@@ -179,6 +182,7 @@ export const useStore = create<State>((set) => ({
   setPinpointRotation: (key, angle) => set(state => ({
     pinpointRotations: { ...state.pinpointRotations, [key]: angle }
   })),
+  setPinpointGlobalRotation: (angle) => set({ pinpointGlobalRotation: angle }),
   setActiveCanvasKey: (key) => set({ activeCanvasKey: key }),
   setFitScaleFn: (fn) => set({ fitScaleFn: fn }),
   setCurrent: (item) => set({ current: item }),

@@ -8,6 +8,7 @@ import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterControls } from "./components/FilterControls";
 import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
+import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
 import { decodeTiffWithUTIF } from "./utils/utif";
 
@@ -327,6 +328,7 @@ export default function App() {
           </div>
           <div className="controls-right">
             {appMode === 'analysis' && <AnalysisRotationControl />}
+            {appMode === 'pinpoint' && <PinpointGlobalRotationControl />}
             {appMode === 'pinpoint' && (
               <div className="global-controls-wrapper">
                 <div className="global-scale-control">
