@@ -8,14 +8,26 @@ Image Compare Viewer helps researchers, artists and QA teams inspect large batch
 ## Features
 - **Privacy-friendly:** All processing happens locally; files never leave your machine.
 - **Flexible Viewers:** Load up to nine folders and view any combination side by side.
+- **Flexible Layout System:** Switch between Auto Layout's balanced grid and Free Layout's drag-anywhere positioning with resizable panels. Layouts persist between sessions.
 - **Advanced Analysis Tools:** Apply a wide range of filters and capture composite views.
 - **Keyboard Driven:** Numerous hotkeys for rapid navigation and mode switching.
 - **Synchronized Viewports:** Pan and zoom on one image and all others follow.
+- **Auto Fit on Resize:** Images automatically refit when the window size changes.
 - **Flexible File Matching:** Match by full filename or ignore extensions.
 - **Per-Viewer Filters:** Apply contrast, blur, edge detection, texture, and noise-reduction filters with adjustable parameters.
-- **Capture Tool:** Export the current view to the clipboard or as an image file.
+- **Collapsible Folder List:** Hide the folder picker to maximize workspace.
+- **Capture Tool:** Export the current view to the clipboard or as an image file, optionally including the minimap.
 - **Minimap & Grid:** Optional minimap overview and adjustable grid overlay.
 - **Image Info Panel:** Shows filename, dimensions and file size of the active image.
+
+## Layout Modes
+
+The viewer area supports two layout styles:
+
+- **Auto Layout** automatically arranges panels in a balanced grid based on the number of loaded viewers.
+- **Free Layout** lets you drag panel headers to place them anywhere and resize without grid constraints.
+
+Use the layout controls in the top-right corner to switch modes or reset the arrangement. Layout changes are saved to local storage so your workspace persists between sessions.
 
 ## Modes and Usage
 
