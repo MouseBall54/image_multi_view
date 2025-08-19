@@ -1763,6 +1763,23 @@ main {
   color: var(--text-primary);
 }
 
+/* Toggle modal header actions (scale + close) */
+.toggle-modal-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-scale {
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-light);
+  color: var(--text-primary);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1;
+}
+
 .toggle-modal-content {
   padding: 20px;
 }

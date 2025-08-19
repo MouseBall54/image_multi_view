@@ -15,7 +15,7 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
     toggleModalOpen, closeToggleModal, selectedViewers, toggleCurrentIndex, setToggleCurrentIndex,
     current, folders, viewerFilters, viewerFilterParams, appMode,
     analysisFile, analysisFilters, analysisFilterParams, analysisRotation,
-    pinpointScales
+    pinpointScales, viewport, pinpointGlobalScale
   } = useStore();
 
   const canvasRef = useRef<ImageCanvasHandle>(null);
@@ -106,6 +106,21 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
 
   const { file: currentFile, label: currentLabel, folderKey } = getCurrentFileAndLabel();
 
+  // Compute effective scale used by ImageCanvas in this modal
+  const computeScalePercent = () => {
+    let totalScale = viewport.scale || 1;
+    if (appMode === 'pinpoint') {
+      const key = currentViewerKey as FolderKey;
+      const individualScale = (pinpointScales && key && pinpointScales[key] != null)
+        ? (pinpointScales[key] as number)
+        : (viewport.scale || 1);
+      totalScale = individualScale * (pinpointGlobalScale || 1);
+    }
+    const pct = Math.round((totalScale || 1) * 100);
+    return `${pct}%`;
+  };
+  const scaleText = computeScalePercent();
+
   const handleNext = useCallback(() => {
     if (selectedViewers.length === 0) return;
     const nextIndex = (toggleCurrentIndex + 1) % selectedViewers.length;
@@ -179,7 +194,10 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
       >
         <div className="toggle-modal-header">
           <h3>{getHeaderText()}</h3>
-          <button className="close-btn" onClick={closeToggleModal}>×</button>
+          <div className="toggle-modal-actions">
+            <div className="toggle-scale" title="Zoom">{scaleText}</div>
+            <button className="close-btn" onClick={closeToggleModal}>×</button>
+          </div>
         </div>
         
         <div className="toggle-modal-content">
