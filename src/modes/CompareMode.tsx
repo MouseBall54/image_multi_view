@@ -253,7 +253,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
             const finalLabel = lines.join('\n');
 
             return (
-              <div key={key} className="viewer-container">
+              <div key={key} className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''}`}>
                 <ImageCanvas
                   ref={canvasRefs[key]}
                   label={finalLabel}

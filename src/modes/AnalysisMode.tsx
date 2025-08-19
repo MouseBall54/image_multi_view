@@ -267,8 +267,9 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               }
               const label = lines.join('\n');
 
+              const isSelected = selectedViewers.includes(i.toString() as FolderKey);
               return (
-                <div key={i} className="viewer-container">
+                <div key={i} className={`viewer-container ${isSelected ? 'selected' : ''}`}>
                   <ImageCanvas
                     ref={el => el ? imageCanvasRefs.current.set(i, el) : imageCanvasRefs.current.delete(i)}
                     file={analysisFile}

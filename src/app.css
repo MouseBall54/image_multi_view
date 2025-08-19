@@ -1071,6 +1071,24 @@ main {
   min-height: 0; /* Crucial fix for grid layout with dynamic content */
 }
 
+/* Emphasize viewers selected for Toggle with an overlay outline above the image */
+.viewer-container.selected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent-primary);
+  border-radius: 6px; /* match .viewer rounding */
+  pointer-events: none;
+  z-index: 30; /* above image and controls */
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+}
+
+/* Keep selection controls visible when selected */
+.viewer-container.selected .viewer-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .viewer-container .viewer {
   flex-grow: 1;
   min-height: 0;

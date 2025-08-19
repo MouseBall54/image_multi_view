@@ -331,7 +331,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             const label = lines.join('\n');
 
             return (
-              <div key={key} className="viewer-container">
+              <div key={key} className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''}`}>
                 <ImageCanvas 
                   ref={canvasRefs[key]}
                   label={label}
