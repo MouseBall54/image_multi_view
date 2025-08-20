@@ -841,6 +841,97 @@ export function applyDistanceTransformOpenCV(ctx: CanvasRenderingContext2D, para
   }
 }
 
+// ========== Histogram / Contrast ==========
+
+export function applyHistogramEqualizationOpenCV(ctx: CanvasRenderingContext2D): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const rgb = new cv.Mat();
+  const ycrcb = new cv.Mat();
+  const y = new cv.Mat();
+  const yEq = new cv.Mat();
+  const rgbOut = new cv.Mat();
+  const dst = new cv.Mat();
+
+  try {
+    // Convert RGBA -> RGB -> YCrCb
+    cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(rgb, ycrcb, cv.COLOR_RGB2YCrCb);
+
+    // Equalize only the luminance (channel 0)
+    cv.extractChannel(ycrcb, y, 0);
+    cv.equalizeHist(y, yEq);
+    cv.insertChannel(yEq, ycrcb, 0);
+
+    // Convert YCrCb -> RGB -> RGBA
+    cv.cvtColor(ycrcb, rgbOut, cv.COLOR_YCrCb2RGB);
+    cv.cvtColor(rgbOut, dst, cv.COLOR_RGB2RGBA);
+
+    matToCanvas(ctx, dst);
+
+    y.delete();
+    yEq.delete();
+  } finally {
+    src.delete();
+    rgb.delete();
+    ycrcb.delete();
+    rgbOut.delete();
+    dst.delete();
+  }
+}
+
+export function applyClaheOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const rgb = new cv.Mat();
+  const ycrcb = new cv.Mat();
+  const y = new cv.Mat();
+  const yClahe = new cv.Mat();
+  const rgbOut = new cv.Mat();
+  const dst = new cv.Mat();
+
+  try {
+    const clipLimit = Math.max(0.1, params.clipLimit || 2.0);
+    const grid = Math.max(1, params.gridSize || 8);
+
+    // Convert to YCrCb luminance
+    cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(rgb, ycrcb, cv.COLOR_RGB2YCrCb);
+    cv.extractChannel(ycrcb, y, 0);
+
+    // OpenCV.js exposes CLAHE via createCLAHE
+    const tileSize = new cv.Size(grid, grid);
+    const clahe = (cv as any).createCLAHE ? (cv as any).createCLAHE(clipLimit, tileSize) : new (cv as any).CLAHE(clipLimit, tileSize);
+    clahe.apply(y, yClahe);
+
+    cv.insertChannel(yClahe, ycrcb, 0);
+    cv.cvtColor(ycrcb, rgbOut, cv.COLOR_YCrCb2RGB);
+    cv.cvtColor(rgbOut, dst, cv.COLOR_RGB2RGBA);
+
+    matToCanvas(ctx, dst);
+
+    y.delete();
+    yClahe.delete();
+    clahe.delete();
+  } finally {
+    src.delete();
+    rgb.delete();
+    ycrcb.delete();
+    rgbOut.delete();
+    dst.delete();
+  }
+}
+
+export function applyLocalHistogramEqualizationOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  // Fast-path approximation using CLAHE with tile size derived from kernel
+  const grid = Math.max(1, Math.round((params.kernelSize || 15) / 8));
+  applyClaheOpenCV(ctx, { ...params, gridSize: grid, clipLimit: params.clipLimit || 2.0 } as FilterParams);
+}
+
 // ========== Advanced Edge Detection ==========
 
 export function applyPrewittOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {

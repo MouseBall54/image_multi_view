@@ -20,6 +20,11 @@ import {
   applyDoGOpenCV,
   applyMarrHildrethOpenCV
 } from './opencvFilters';
+import {
+  applyHistogramEqualizationOpenCV,
+  applyClaheOpenCV,
+  applyLocalHistogramEqualizationOpenCV
+} from './opencvFilters';
 
 // Helper function to create a Gaussian kernel
 function createGaussianKernel(sigma: number, size: number): number[][] {
@@ -666,155 +671,163 @@ export const applyLinearStretch = (ctx: CanvasRenderingContext2D) => {
   ctx.putImageData(imageData, 0, 0);
 };
 
-export const applyHistogramEqualization = (ctx: CanvasRenderingContext2D) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const grayscale = new Uint8ClampedArray(width * height);
-  const hist = new Array(256).fill(0);
+export const applyHistogramEqualization = async (ctx: CanvasRenderingContext2D) => {
+  const originalFn = (ctx: CanvasRenderingContext2D) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
+    const grayscale = new Uint8ClampedArray(width * height);
+    const hist = new Array(256).fill(0);
 
-  // Convert to grayscale and calculate histogram
-  for (let i = 0; i < data.length; i += 4) {
-    const gray = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-    grayscale[i / 4] = gray;
-    hist[gray]++;
-  }
-
-  // Calculate CDF
-  const cdf = new Array(256).fill(0);
-  cdf[0] = hist[0];
-  for (let i = 1; i < 256; i++) {
-    cdf[i] = cdf[i - 1] + hist[i];
-  }
-
-  // Find the first non-zero CDF value
-  let cdfMin = 0;
-  for (let i = 0; i < 256; i++) {
-    if (cdf[i] > 0) {
-      cdfMin = cdf[i];
-      break;
+    // Convert to grayscale and calculate histogram
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+      grayscale[i / 4] = gray;
+      hist[gray]++;
     }
-  }
 
-  // Create lookup table (LUT)
-  const lut = new Uint8ClampedArray(256);
-  const totalPixels = width * height;
-  for (let i = 0; i < 256; i++) {
-    lut[i] = Math.round(255 * (cdf[i] - cdfMin) / (totalPixels - cdfMin));
-  }
+    // Calculate CDF
+    const cdf = new Array(256).fill(0);
+    cdf[0] = hist[0];
+    for (let i = 1; i < 256; i++) {
+      cdf[i] = cdf[i - 1] + hist[i];
+    }
 
-  // Apply LUT to the original image data
-  for (let i = 0; i < data.length; i += 4) {
-    const gray = grayscale[i / 4];
-    const equalized = lut[gray];
-    data[i] = equalized;
-    data[i+1] = equalized;
-    data[i+2] = equalized;
-  }
+    // Find the first non-zero CDF value
+    let cdfMin = 0;
+    for (let i = 0; i < 256; i++) {
+      if (cdf[i] > 0) {
+        cdfMin = cdf[i];
+        break;
+      }
+    }
 
-  ctx.putImageData(imageData, 0, 0);
+    // Create lookup table (LUT)
+    const lut = new Uint8ClampedArray(256);
+    const totalPixels = width * height;
+    for (let i = 0; i < 256; i++) {
+      lut[i] = Math.round(255 * (cdf[i] - cdfMin) / (totalPixels - cdfMin));
+    }
+
+    // Apply LUT to the original image data
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = grayscale[i / 4];
+      const equalized = lut[gray];
+      data[i] = equalized;
+      data[i+1] = equalized;
+      data[i+2] = equalized;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  };
+
+  await applyFilterWithFallback(ctx, 'histogramEqualization', {} as any, originalFn, applyHistogramEqualizationOpenCV as any);
 };
 
-export const applyClahe = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const { clipLimit, gridSize } = params;
+export const applyClahe = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
+    const { clipLimit, gridSize } = params;
 
-  const tileWidth = Math.floor(width / gridSize);
-  const tileHeight = Math.floor(height / gridSize);
+    const tileWidth = Math.floor(width / gridSize);
+    const tileHeight = Math.floor(height / gridSize);
 
-  // 1. Convert to grayscale
-  const grayscale = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < data.length; i += 4) {
-    grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-  }
+    // 1. Convert to grayscale
+    const grayscale = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < data.length; i += 4) {
+      grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+    }
 
-  // 2. Create tile LUTs
-  const luts = new Array(gridSize * gridSize).fill(0).map(() => new Uint8ClampedArray(256));
+    // 2. Create tile LUTs
+    const luts = new Array(gridSize * gridSize).fill(0).map(() => new Uint8ClampedArray(256));
 
-  for (let ty = 0; ty < gridSize; ty++) {
-    for (let tx = 0; tx < gridSize; tx++) {
-      const startX = tx * tileWidth;
-      const startY = ty * tileHeight;
-      const endX = startX + tileWidth;
-      const endY = startY + tileHeight;
-      const tilePixels = tileWidth * tileHeight;
+    for (let ty = 0; ty < gridSize; ty++) {
+      for (let tx = 0; tx < gridSize; tx++) {
+        const startX = tx * tileWidth;
+        const startY = ty * tileHeight;
+        const endX = startX + tileWidth;
+        const endY = startY + tileHeight;
+        const tilePixels = tileWidth * tileHeight;
 
-      // a. Calculate tile histogram
-      const hist = new Array(256).fill(0);
-      for (let y = startY; y < endY; y++) {
-        for (let x = startX; x < endX; x++) {
-          hist[grayscale[y * width + x]]++;
+        // a. Calculate tile histogram
+        const hist = new Array(256).fill(0);
+        for (let y = startY; y < endY; y++) {
+          for (let x = startX; x < endX; x++) {
+            hist[grayscale[y * width + x]]++;
+          }
+        }
+
+        // b. Clip histogram
+        const actualClipLimit = Math.max(1, clipLimit * tilePixels / 256);
+        let clipped = 0;
+        for (let i = 0; i < 256; i++) {
+          if (hist[i] > actualClipLimit) {
+            clipped += hist[i] - actualClipLimit;
+            hist[i] = actualClipLimit;
+          }
+        }
+
+        // c. Redistribute clipped pixels
+        const redistAdd = clipped / 256;
+        for (let i = 0; i < 256; i++) {
+          hist[i] += redistAdd;
+        }
+
+        // d. Create LUT from clipped histogram
+        const cdf = new Array(256).fill(0);
+        cdf[0] = hist[0];
+        for (let i = 1; i < 256; i++) {
+          cdf[i] = cdf[i - 1] + hist[i];
+        }
+
+        const lut = luts[ty * gridSize + tx];
+        for (let i = 0; i < 256; i++) {
+          lut[i] = Math.round(255 * cdf[i] / tilePixels);
         }
       }
+    }
 
-      // b. Clip histogram
-      const actualClipLimit = Math.max(1, clipLimit * tilePixels / 256);
-      let clipped = 0;
-      for (let i = 0; i < 256; i++) {
-        if (hist[i] > actualClipLimit) {
-          clipped += hist[i] - actualClipLimit;
-          hist[i] = actualClipLimit;
-        }
-      }
+    // 3. Apply bilinear interpolation
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const tx = x / tileWidth - 0.5;
+        const ty = y / tileHeight - 0.5;
 
-      // c. Redistribute clipped pixels
-      const redistAdd = clipped / 256;
-      for (let i = 0; i < 256; i++) {
-        hist[i] += redistAdd;
-      }
+        let x1 = Math.floor(tx);
+        let y1 = Math.floor(ty);
+        let x2 = x1 + 1;
+        let y2 = y1 + 1;
 
-      // d. Create LUT from clipped histogram
-      const cdf = new Array(256).fill(0);
-      cdf[0] = hist[0];
-      for (let i = 1; i < 256; i++) {
-        cdf[i] = cdf[i - 1] + hist[i];
-      }
+        x1 = Math.max(0, Math.min(gridSize - 1, x1));
+        y1 = Math.max(0, Math.min(gridSize - 1, y1));
+        x2 = Math.max(0, Math.min(gridSize - 1, x2));
+        y2 = Math.max(0, Math.min(gridSize - 1, y2));
 
-      const lut = luts[ty * gridSize + tx];
-      for (let i = 0; i < 256; i++) {
-        lut[i] = Math.round(255 * cdf[i] / tilePixels);
+        const gray = grayscale[y * width + x];
+
+        const q11 = luts[y1 * gridSize + x1][gray];
+        const q12 = luts[y2 * gridSize + x1][gray];
+        const q21 = luts[y1 * gridSize + x2][gray];
+        const q22 = luts[y2 * gridSize + x2][gray];
+
+        const xFrac = tx - x1;
+        const yFrac = ty - y1;
+
+        const top = q11 * (1 - xFrac) + q21 * xFrac;
+        const bottom = q12 * (1 - xFrac) + q22 * xFrac;
+        const val = top * (1 - yFrac) + bottom * yFrac;
+        
+        const i = (y * width + x) * 4;
+        data[i] = val;
+        data[i+1] = val;
+        data[i+2] = val;
       }
     }
-  }
 
-  // 3. Apply bilinear interpolation
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const tx = x / tileWidth - 0.5;
-      const ty = y / tileHeight - 0.5;
+    ctx.putImageData(imageData, 0, 0);
+  };
 
-      let x1 = Math.floor(tx);
-      let y1 = Math.floor(ty);
-      let x2 = x1 + 1;
-      let y2 = y1 + 1;
-
-      x1 = Math.max(0, Math.min(gridSize - 1, x1));
-      y1 = Math.max(0, Math.min(gridSize - 1, y1));
-      x2 = Math.max(0, Math.min(gridSize - 1, x2));
-      y2 = Math.max(0, Math.min(gridSize - 1, y2));
-
-      const gray = grayscale[y * width + x];
-
-      const q11 = luts[y1 * gridSize + x1][gray];
-      const q12 = luts[y2 * gridSize + x1][gray];
-      const q21 = luts[y1 * gridSize + x2][gray];
-      const q22 = luts[y2 * gridSize + x2][gray];
-
-      const xFrac = tx - x1;
-      const yFrac = ty - y1;
-
-      const top = q11 * (1 - xFrac) + q21 * xFrac;
-      const bottom = q12 * (1 - xFrac) + q22 * xFrac;
-      const val = top * (1 - yFrac) + bottom * yFrac;
-      
-      const i = (y * width + x) * 4;
-      data[i] = val;
-      data[i+1] = val;
-      data[i+2] = val;
-    }
-  }
-
-  ctx.putImageData(imageData, 0, 0);
+  await applyFilterWithFallback(ctx, 'clahe', params, originalFn, applyClaheOpenCV);
 };
 
 export const applyGammaCorrection = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
@@ -880,65 +893,75 @@ export const applyMedian = async (ctx: CanvasRenderingContext2D, params: FilterP
 };
 
 
-export const applyLocalHistogramEqualization = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const { kernelSize } = params;
-  const half = Math.floor(kernelSize / 2);
+export const applyLocalHistogramEqualization = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
+    const { kernelSize } = params;
+    const half = Math.floor(kernelSize / 2);
 
-  const grayscale = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < data.length; i += 4) {
-    grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-  }
+    const grayscale = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < data.length; i += 4) {
+      grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+    }
 
-  const equalizedData = new Uint8ClampedArray(data.length);
+    const equalizedData = new Uint8ClampedArray(data.length);
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const currentPixelValue = grayscale[y * width + x];
-      const hist = new Array(256).fill(0);
-      let pixelCount = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const currentPixelValue = grayscale[y * width + x];
+        const hist = new Array(256).fill(0);
+        let pixelCount = 0;
 
-      // Calculate histogram for the local window
-      for (let ky = -half; ky <= half; ky++) {
-        for (let kx = -half; kx <= half; kx++) {
-          const ny = y + ky;
-          const nx = x + kx;
-          if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
-            hist[grayscale[ny * width + nx]]++;
-            pixelCount++;
+        // Calculate histogram for the local window
+        for (let ky = -half; ky <= half; ky++) {
+          for (let kx = -half; kx <= half; kx++) {
+            const ny = y + ky;
+            const nx = x + kx;
+            if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+              hist[grayscale[ny * width + nx]]++;
+              pixelCount++;
+            }
           }
         }
-      }
 
-      // Calculate CDF for the local window
-      const cdf = new Array(256).fill(0);
-      cdf[0] = hist[0];
-      for (let i = 1; i < 256; i++) {
-        cdf[i] = cdf[i - 1] + hist[i];
-      }
-      
-      // Find the first non-zero CDF value
-      let cdfMin = 0;
-      for (let i = 0; i < 256; i++) {
-          if (cdf[i] > 0) {
-              cdfMin = cdf[i];
-              break;
-          }
-      }
+        // Calculate CDF for the local window
+        const cdf = new Array(256).fill(0);
+        cdf[0] = hist[0];
+        for (let i = 1; i < 256; i++) {
+          cdf[i] = cdf[i - 1] + hist[i];
+        }
+        
+        // Find the first non-zero CDF value
+        let cdfMin = 0;
+        for (let i = 0; i < 256; i++) {
+            if (cdf[i] > 0) {
+                cdfMin = cdf[i];
+                break;
+            }
+        }
 
-      // Apply equalization formula to the center pixel
-      const equalizedValue = Math.round(255 * (cdf[currentPixelValue] - cdfMin) / (pixelCount - cdfMin));
+        // Apply equalization formula to the center pixel
+        const equalizedValue = Math.round(255 * (cdf[currentPixelValue] - cdfMin) / (pixelCount - cdfMin));
 
-      const outIndex = (y * width + x) * 4;
-      equalizedData[outIndex] = equalizedValue;
-      equalizedData[outIndex + 1] = equalizedValue;
-      equalizedData[outIndex + 2] = equalizedValue;
-      equalizedData[outIndex + 3] = 255;
+        const outIndex = (y * width + x) * 4;
+        equalizedData[outIndex] = equalizedValue;
+        equalizedData[outIndex + 1] = equalizedValue;
+        equalizedData[outIndex + 2] = equalizedValue;
+        equalizedData[outIndex + 3] = 255;
+      }
     }
-  }
 
-  ctx.putImageData(new ImageData(equalizedData, width, height), 0, 0);
+    ctx.putImageData(new ImageData(equalizedData, width, height), 0, 0);
+  };
+
+  await applyFilterWithFallback(
+    ctx,
+    'localHistogramEqualization',
+    params,
+    originalFn,
+    applyLocalHistogramEqualizationOpenCV as any
+  );
 };
 
 export const applyAdaptiveHistogramEqualization = (ctx: CanvasRenderingContext2D, params: FilterParams) => {

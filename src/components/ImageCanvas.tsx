@@ -128,7 +128,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
       switch (filter) {
         case 'linearstretch': Filters.applyLinearStretch(ctx); break;
-        case 'histogramequalization': Filters.applyHistogramEqualization(ctx); break;
+        case 'histogramequalization': await Filters.applyHistogramEqualization(ctx); break;
         case 'laplacian': if (params) await Filters.applyLaplacian(ctx, params); break;
         case 'highpass': Filters.applyHighpass(ctx); break;
         case 'prewitt': if (params) await Filters.applyPrewitt(ctx, params); break;
@@ -143,11 +143,11 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         case 'median': if (params) Filters.applyMedian(ctx, params); break;
         case 'weightedmedian': if (params) Filters.applyWeightedMedian(ctx, params); break;
         case 'alphatrimmedmean': if (params) Filters.applyAlphaTrimmedMean(ctx, params); break;
-        case 'localhistogramequalization': if (params) Filters.applyLocalHistogramEqualization(ctx, params); break;
+        case 'localhistogramequalization': if (params) await Filters.applyLocalHistogramEqualization(ctx, params); break;
         case 'adaptivehistogramequalization': if (params) Filters.applyAdaptiveHistogramEqualization(ctx, params); break;
         case 'sharpen': if (params) Filters.applySharpen(ctx, params); break;
         case 'canny': if (params) await Filters.applyCanny(ctx, params); break;
-        case 'clahe': if (params) Filters.applyClahe(ctx, params); break;
+        case 'clahe': if (params) await Filters.applyClahe(ctx, params); break;
         case 'gammacorrection': if (params) Filters.applyGammaCorrection(ctx, params); break;
         case 'anisotropicdiffusion': if (params) Filters.applyAnisotropicDiffusion(ctx, params); break;
         case 'unsharpmask': if (params) Filters.applyUnsharpMask(ctx, params); break;
