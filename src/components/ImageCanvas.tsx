@@ -127,7 +127,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       }
 
       switch (filter) {
-        case 'linearstretch': Filters.applyLinearStretch(ctx); break;
+        case 'linearstretch': await Filters.applyLinearStretch(ctx); break;
         case 'histogramequalization': await Filters.applyHistogramEqualization(ctx); break;
         case 'laplacian': if (params) await Filters.applyLaplacian(ctx, params); break;
         case 'highpass': Filters.applyHighpass(ctx); break;
@@ -148,9 +148,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         case 'sharpen': if (params) Filters.applySharpen(ctx, params); break;
         case 'canny': if (params) await Filters.applyCanny(ctx, params); break;
         case 'clahe': if (params) await Filters.applyClahe(ctx, params); break;
-        case 'gammacorrection': if (params) Filters.applyGammaCorrection(ctx, params); break;
+        case 'gammacorrection': if (params) await Filters.applyGammaCorrection(ctx, params); break;
         case 'anisotropicdiffusion': if (params) Filters.applyAnisotropicDiffusion(ctx, params); break;
-        case 'unsharpmask': if (params) Filters.applyUnsharpMask(ctx, params); break;
+        case 'unsharpmask': if (params) await Filters.applyUnsharpMask(ctx, params); break;
         case 'gabor': if (params) Filters.applyGabor(ctx, params); break;
         case 'lawstextureenergy': if (params) Filters.applyLawsTextureEnergy(ctx, params); break;
         case 'lbp': Filters.applyLbp(ctx); break;

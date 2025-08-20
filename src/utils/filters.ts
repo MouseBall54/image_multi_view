@@ -642,33 +642,39 @@ export const applyDistanceTransform = async (ctx: CanvasRenderingContext2D, para
   await applyFilterWithFallback(ctx, 'distancetransform', params, originalFn, applyDistanceTransformOpenCV);
 };
 
-export const applyLinearStretch = (ctx: CanvasRenderingContext2D) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data } = imageData;
-  let min = 255, max = 0;
+import { applyGammaCorrectionOpenCV, applyLinearStretchOpenCV, applyUnsharpMaskOpenCV } from './opencvFilters';
 
-  // First pass: find min and max grayscale values
-  for (let i = 0; i < data.length; i += 4) {
-    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-    if (gray < min) min = gray;
-    if (gray > max) max = gray;
-  }
+export const applyLinearStretch = async (ctx: CanvasRenderingContext2D) => {
+  const originalFn = (ctx: CanvasRenderingContext2D) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data } = imageData;
+    let min = 255, max = 0;
 
-  const range = max - min;
-  if (range === 0) return; // Avoid division by zero for flat images
+    // First pass: find min and max grayscale values
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      if (gray < min) min = gray;
+      if (gray > max) max = gray;
+    }
 
-  // Second pass: apply the linear stretch formula
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i+1];
-    const b = data[i+2];
+    const range = max - min;
+    if (range === 0) return; // Avoid division by zero for flat images
 
-    data[i] = 255 * (r - min) / range;
-    data[i+1] = 255 * (g - min) / range;
-    data[i+2] = 255 * (b - min) / range;
-  }
+    // Second pass: apply the linear stretch formula
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i+1];
+      const b = data[i+2];
 
-  ctx.putImageData(imageData, 0, 0);
+      data[i] = 255 * (r - min) / range;
+      data[i+1] = 255 * (g - min) / range;
+      data[i+2] = 255 * (b - min) / range;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  };
+
+  await applyFilterWithFallback(ctx, 'linearStretch', {} as any, originalFn, applyLinearStretchOpenCV as any);
 };
 
 export const applyHistogramEqualization = async (ctx: CanvasRenderingContext2D) => {
@@ -830,25 +836,29 @@ export const applyClahe = async (ctx: CanvasRenderingContext2D, params: FilterPa
   await applyFilterWithFallback(ctx, 'clahe', params, originalFn, applyClaheOpenCV);
 };
 
-export const applyGammaCorrection = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data } = imageData;
-  const { gamma } = params;
-  if (gamma === 1) return; // No change
+export const applyGammaCorrection = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data } = imageData;
+    const { gamma } = params;
+    if (gamma === 1) return; // No change
 
-  const gammaReciprocal = 1 / gamma;
-  const lut = new Uint8ClampedArray(256);
-  for (let i = 0; i < 256; i++) {
-    lut[i] = Math.pow(i / 255, gammaReciprocal) * 255;
-  }
+    const gammaReciprocal = 1 / gamma;
+    const lut = new Uint8ClampedArray(256);
+    for (let i = 0; i < 256; i++) {
+      lut[i] = Math.pow(i / 255, gammaReciprocal) * 255;
+    }
 
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = lut[data[i]];
-    data[i+1] = lut[data[i+1]];
-    data[i+2] = lut[data[i+2]];
-  }
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = lut[data[i]];
+      data[i+1] = lut[data[i+1]];
+      data[i+2] = lut[data[i+2]];
+    }
 
-  ctx.putImageData(imageData, 0, 0);
+    ctx.putImageData(imageData, 0, 0);
+  };
+
+  await applyFilterWithFallback(ctx, 'gammaCorrection', params, originalFn, applyGammaCorrectionOpenCV as any);
 };
 
 export const applyMedian = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
@@ -1172,49 +1182,53 @@ export const applyAlphaTrimmedMean = (ctx: CanvasRenderingContext2D, params: Fil
 };
 
 
-export const applyUnsharpMask = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const { kernelSize, sigma, sharpenAmount: unsharpAmount } = params;
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const originalData = new Uint8ClampedArray(data);
+export const applyUnsharpMask = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const { kernelSize, sigma, sharpenAmount: unsharpAmount } = params;
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
+    const originalData = new Uint8ClampedArray(data);
 
-  // 1. Create a blurred version of the image on a temporary canvas
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = width;
-  tempCanvas.height = height;
-  const tempCtx = tempCanvas.getContext('2d')!;
-  tempCtx.putImageData(imageData, 0, 0);
+    // 1. Create a blurred version of the image on a temporary canvas
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d')!;
+    tempCtx.putImageData(imageData, 0, 0);
 
-  // Create and apply Gaussian kernel
-  const kernel = createGaussianKernel(sigma, kernelSize);
-  convolve(tempCtx, kernel);
-  const blurredData = tempCtx.getImageData(0, 0, width, height).data;
+    // Create and apply Gaussian kernel
+    const kernel = createGaussianKernel(sigma, kernelSize);
+    convolve(tempCtx, kernel);
+    const blurredData = tempCtx.getImageData(0, 0, width, height).data;
 
-  // 2. Calculate sharpened image: Sharpened = Original + Amount * (Original - Blurred)
-  for (let i = 0; i < data.length; i += 4) {
-    // Red channel
-    const originalR = originalData[i];
-    const blurredR = blurredData[i];
-    const sharpenedR = originalR + unsharpAmount * (originalR - blurredR);
-    data[i] = Math.max(0, Math.min(255, sharpenedR));
+    // 2. Calculate sharpened image: Sharpened = Original + Amount * (Original - Blurred)
+    for (let i = 0; i < data.length; i += 4) {
+      // Red channel
+      const originalR = originalData[i];
+      const blurredR = blurredData[i];
+      const sharpenedR = originalR + unsharpAmount * (originalR - blurredR);
+      data[i] = Math.max(0, Math.min(255, sharpenedR));
 
-    // Green channel
-    const originalG = originalData[i + 1];
-    const blurredG = blurredData[i + 1];
-    const sharpenedG = originalG + unsharpAmount * (originalG - blurredG);
-    data[i + 1] = Math.max(0, Math.min(255, sharpenedG));
+      // Green channel
+      const originalG = originalData[i + 1];
+      const blurredG = blurredData[i + 1];
+      const sharpenedG = originalG + unsharpAmount * (originalG - blurredG);
+      data[i + 1] = Math.max(0, Math.min(255, sharpenedG));
 
-    // Blue channel
-    const originalB = originalData[i + 2];
-    const blurredB = blurredData[i + 2];
-    const sharpenedB = originalB + unsharpAmount * (originalB - blurredB);
-    data[i + 2] = Math.max(0, Math.min(255, sharpenedB));
-    
-    // Alpha channel remains the same
-    data[i + 3] = originalData[i + 3];
-  }
+      // Blue channel
+      const originalB = originalData[i + 2];
+      const blurredB = blurredData[i + 2];
+      const sharpenedB = originalB + unsharpAmount * (originalB - blurredB);
+      data[i + 2] = Math.max(0, Math.min(255, sharpenedB));
+      
+      // Alpha channel remains the same
+      data[i + 3] = originalData[i + 3];
+    }
 
-  ctx.putImageData(imageData, 0, 0);
+    ctx.putImageData(imageData, 0, 0);
+  };
+
+  await applyFilterWithFallback(ctx, 'unsharpMask', params, originalFn, applyUnsharpMaskOpenCV as any);
 };
 
 export const applyAnisotropicDiffusion = (ctx: CanvasRenderingContext2D, params: FilterParams) => {

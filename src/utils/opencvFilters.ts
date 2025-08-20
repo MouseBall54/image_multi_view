@@ -932,6 +932,121 @@ export function applyLocalHistogramEqualizationOpenCV(ctx: CanvasRenderingContex
   applyClaheOpenCV(ctx, { ...params, gridSize: grid, clipLimit: params.clipLimit || 2.0 } as FilterParams);
 }
 
+export function applyGammaCorrectionOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const rgb = new cv.Mat();
+  const dst = new cv.Mat();
+
+  try {
+    const gamma = params.gamma || 1.0;
+    if (gamma === 1.0) {
+      // No change
+      return;
+    }
+    // Prepare RGB
+    cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
+
+    // Build LUT
+    const lut = new cv.Mat(1, 256, cv.CV_8UC1);
+    const lutData = lut.data as Uint8Array;
+    const gr = 1.0 / gamma;
+    for (let i = 0; i < 256; i++) {
+      lutData[i] = Math.max(0, Math.min(255, Math.round(Math.pow(i / 255, gr) * 255)));
+    }
+
+    // Apply LUT per channel
+    (cv as any).LUT(rgb, lut, rgb);
+
+    // Convert back to RGBA
+    cv.cvtColor(rgb, dst, cv.COLOR_RGB2RGBA);
+    matToCanvas(ctx, dst);
+
+    lut.delete();
+  } finally {
+    src.delete();
+    rgb.delete();
+    dst.delete();
+  }
+}
+
+export function applyLinearStretchOpenCV(ctx: CanvasRenderingContext2D): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const rgb = new cv.Mat();
+  const gray = new cv.Mat();
+  const dst = new cv.Mat();
+
+  try {
+    // Prepare mats
+    cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(rgb, gray, cv.COLOR_RGB2GRAY);
+
+    const minMax = cv.minMaxLoc(gray);
+    const minVal = minMax.minVal;
+    const maxVal = minMax.maxVal;
+    const range = maxVal - minVal;
+    if (range <= 0) {
+      return; // avoid division by zero; image is flat
+    }
+
+    const alpha = 255.0 / range; // scale
+    const beta = -minVal * alpha; // shift
+
+    // Apply to each channel using extract/insert to avoid MatVector typing
+    for (let c = 0; c < 3; c++) {
+      const ch = new cv.Mat();
+      cv.extractChannel(rgb, ch, c);
+      (cv as any).convertScaleAbs(ch, ch, alpha, beta);
+      cv.insertChannel(ch, rgb, c);
+      ch.delete();
+    }
+
+    cv.cvtColor(rgb, dst, cv.COLOR_RGB2RGBA);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    rgb.delete();
+    gray.delete();
+    dst.delete();
+  }
+}
+
+export function applyUnsharpMaskOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const rgb = new cv.Mat();
+  const blurred = new cv.Mat();
+  const sharp = new cv.Mat();
+  const dst = new cv.Mat();
+
+  try {
+    const kRaw = params.kernelSize || 5;
+    const ksize = (kRaw % 2 === 0) ? kRaw + 1 : kRaw;
+    const sigma = params.sigma || 1.0;
+    const amount = params.sharpenAmount ?? 1.0;
+
+    cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
+    cv.GaussianBlur(rgb, blurred, new cv.Size(ksize, ksize), sigma, sigma, cv.BORDER_DEFAULT);
+    // sharp = (1+amount)*rgb + (-amount)*blurred
+    (cv as any).addWeighted(rgb, 1 + amount, blurred, -amount, 0, sharp);
+    cv.cvtColor(sharp, dst, cv.COLOR_RGB2RGBA);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    rgb.delete();
+    blurred.delete();
+    sharp.delete();
+    dst.delete();
+  }
+}
+
 // ========== Advanced Edge Detection ==========
 
 export function applyPrewittOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
