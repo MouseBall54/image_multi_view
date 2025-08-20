@@ -11,6 +11,7 @@ import { CompareRotationControl } from "./components/CompareRotationControl";
 import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
 import { decodeTiffWithUTIF } from "./utils/utif";
+import { initializeOpenCV } from "./utils/opencv";
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -163,6 +164,10 @@ export default function App() {
       setImageDimensions(null);
     }
   }, [current, primaryFileRef]);
+
+  useEffect(() => {
+    initializeOpenCV().catch(console.error);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
