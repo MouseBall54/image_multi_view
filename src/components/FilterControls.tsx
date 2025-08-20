@@ -27,15 +27,15 @@ export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = 
   { name: 'Sharpen', type: 'sharpen', group: 'Sharpening' },
   { name: 'Unsharp Masking', type: 'unsharpmask', group: 'Sharpening' },
   { name: 'High-pass Filter', type: 'highpass', group: 'Sharpening' },
-  { name: 'Sobel', type: 'sobel', group: 'Edge Detection' },
-  { name: 'Laplacian', type: 'laplacian', group: 'Edge Detection' },
-  { name: 'Prewitt', type: 'prewitt', group: 'Edge Detection' },
-  { name: 'Scharr', type: 'scharr', group: 'Edge Detection' },
-  { name: 'Canny', type: 'canny', group: 'Edge Detection' },
-  { name: 'Roberts Cross', type: 'robertscross', group: 'Edge Detection' },
-  { name: 'LoG', type: 'log', group: 'Edge Detection' },
-  { name: 'DoG', type: 'dog', group: 'Edge Detection' },
-  { name: 'Marr-Hildreth', type: 'marrhildreth', group: 'Edge Detection' },
+  { name: 'Sobel', type: 'sobel', group: 'Basic Edge Detection' },
+  { name: 'Scharr', type: 'scharr', group: 'Basic Edge Detection' },
+  { name: 'Canny', type: 'canny', group: 'Basic Edge Detection' },
+  { name: 'Laplacian', type: 'laplacian', group: 'Basic Edge Detection' },
+  { name: 'Prewitt', type: 'prewitt', group: 'Advanced Edge Detection' },
+  { name: 'Roberts Cross', type: 'robertscross', group: 'Advanced Edge Detection' },
+  { name: 'LoG', type: 'log', group: 'Advanced Edge Detection' },
+  { name: 'DoG', type: 'dog', group: 'Advanced Edge Detection' },
+  { name: 'Marr-Hildreth', type: 'marrhildreth', group: 'Advanced Edge Detection' },
   { name: 'Gabor Filter', type: 'gabor', group: 'Texture Analysis' },
   { name: 'Laws Texture Energy', type: 'lawstextureenergy', group: 'Texture Analysis' },
   { name: 'Local Binary Patterns', type: 'lbp', group: 'Texture Analysis' },
@@ -52,7 +52,7 @@ export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = 
   { name: 'Distance Transform', type: 'distancetransform', group: 'Morphology' },
 ];
 
-const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Texture Analysis', 'Edge-preserving Filter', 'Frequency Domain', 'Morphology'];
+const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Basic Edge Detection', 'Advanced Edge Detection', 'Texture Analysis', 'Edge-preserving Filter', 'Frequency Domain', 'Morphology'];
 
 export const FilterControls: React.FC = () => {
   const {
