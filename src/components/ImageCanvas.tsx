@@ -41,7 +41,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     pinpointMouseMode, setPinpointScale, 
     pinpointGlobalScale, showMinimap, showGrid, gridColor,
     pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator,
-    compareRotation, minimapWidth, minimapPosition
+    compareRotation, minimapWidth, minimapPosition,
+    setViewerImageSize, setAnalysisImageSize
   } = useStore();
 
   // Effect to load the source image from file
@@ -54,7 +55,14 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const cacheKey = `${label}-${file.name}`;
     const cachedImage = cache.get(cacheKey);
     if (cachedImage) { 
-      setSourceImage(cachedImage); 
+      setSourceImage(cachedImage);
+      // Also record its size for performance estimates
+      const size = { width: cachedImage.width as number, height: cachedImage.height as number };
+      if (typeof folderKey === 'string') {
+        useStore.getState().setViewerImageSize(folderKey as FolderKey, size);
+      } else {
+        useStore.getState().setAnalysisImageSize(folderKey as number, size);
+      }
       return; 
     }
     (async () => {
@@ -71,6 +79,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         if (!revoked) {
           cache.set(cacheKey, newImage);
           setSourceImage(newImage);
+          // Record size immediately
+          const size = { width: (newImage as any).width as number, height: (newImage as any).height as number };
+          if (typeof folderKey === 'string') {
+            useStore.getState().setViewerImageSize(folderKey as FolderKey, size);
+          } else {
+            useStore.getState().setAnalysisImageSize(folderKey as number, size);
+          }
         }
       } catch (err) {
         console.error('Error loading image:', err);
@@ -92,6 +107,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       }
 
       if (filter === 'none') {
+        // Ensure size is recorded even when no filtering
+        const size = { width: sourceImage.width as number, height: sourceImage.height as number };
+        if (typeof folderKey === 'string') {
+          setViewerImageSize(folderKey as FolderKey, size);
+        } else {
+          setAnalysisImageSize(folderKey as number, size);
+        }
         setProcessedImage(sourceImage);
         return;
       }
@@ -113,6 +135,14 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       offscreenCanvas.height = sourceImage.height;
       const ctx = offscreenCanvas.getContext('2d');
       if (!ctx) return;
+
+      // Store actual image size for performance estimation
+      const size = { width: offscreenCanvas.width, height: offscreenCanvas.height };
+      if (typeof folderKey === 'string') {
+        setViewerImageSize(folderKey as FolderKey, size);
+      } else {
+        setAnalysisImageSize(folderKey as number, size);
+      }
 
       const cssFilters: Partial<Record<FilterType, string>> = {
         'grayscale': 'grayscale(100%)', 'invert': 'invert(100%)', 'sepia': 'sepia(100%)',

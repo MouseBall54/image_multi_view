@@ -4,8 +4,7 @@ import type { FilterType } from '../types';
 import { LAWS_KERNEL_TYPES } from '../utils/filters';
 import { 
   calculatePerformanceMetrics, 
-  formatPerformanceEstimate, 
-  getComplexityColor 
+  formatPerformanceEstimate
 } from '../utils/opencvFilters';
 
 export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
@@ -94,6 +93,8 @@ export const FilterControls: React.FC = () => {
     setTempFilterParams,
     applyTempFilterSettings,
     current,
+    viewerImageSizes,
+    analysisImageSizes,
   } = useStore();
 
   if (activeFilterEditor === null) return null;
@@ -116,9 +117,24 @@ export const FilterControls: React.FC = () => {
     // Try to get actual image dimensions from current file
     let estimatedWidth = 1920; // Default HD width
     let estimatedHeight = 1080; // Default HD height
+
+    // Prefer actual canvas image size from store
+    if (typeof activeFilterEditor === 'string') {
+      const s = viewerImageSizes[activeFilterEditor];
+      if (s && s.width && s.height) {
+        estimatedWidth = s.width;
+        estimatedHeight = s.height;
+      }
+    } else if (typeof activeFilterEditor === 'number') {
+      const s = analysisImageSizes[activeFilterEditor];
+      if (s && s.width && s.height) {
+        estimatedWidth = s.width;
+        estimatedHeight = s.height;
+      }
+    }
     
     // Enhanced logic: try to get actual dimensions from current image
-    if (current && current.filename) {
+    if (current && current.filename && (!estimatedWidth || !estimatedHeight || (estimatedWidth === 1920 && estimatedHeight === 1080))) {
       // Extract resolution hints from filename if available
       const filename = current.filename;
       const resolutionMatch = filename.match(/(\d{3,4})[x×](\d{3,4})/i);
@@ -208,6 +224,23 @@ export const FilterControls: React.FC = () => {
   };
 
   const performanceMetrics = getPerformanceMetrics();
+  const getEstimateColor = (ms: number): string => {
+    if (ms < 200) return '#10b981';
+    if (ms < 800) return '#f59e0b';
+    if (ms < 3000) return '#ef4444';
+    return '#dc2626';
+  };
+  const perfDims = (() => {
+    let w = 1920, h = 1080;
+    if (typeof activeFilterEditor === 'string') {
+      const s = viewerImageSizes[activeFilterEditor];
+      if (s && s.width && s.height) { w = s.width; h = s.height; }
+    } else if (typeof activeFilterEditor === 'number') {
+      const s = analysisImageSizes[activeFilterEditor];
+      if (s && s.width && s.height) { w = s.width; h = s.height; }
+    }
+    return { w, h };
+  })();
 
   const renderParams = () => {
     switch (tempViewerFilter) {
@@ -723,7 +756,7 @@ export const FilterControls: React.FC = () => {
                 <span 
                   className="performance-badge"
                   style={{ 
-                    backgroundColor: getComplexityColor(performanceMetrics.complexity),
+                    backgroundColor: getEstimateColor(performanceMetrics.estimatedTimeMs),
                     color: 'white',
                     padding: '2px 8px',
                     borderRadius: '12px',
@@ -743,12 +776,8 @@ export const FilterControls: React.FC = () => {
                 </span>
               </div>
               <div className="performance-info">
-                <small>Estimated for 1920×1080 resolution</small>
-                {['gaussianblur', 'boxblur', 'median', 'sobel', 'scharr', 'canny', 'laplacian', 'morph_open', 'morph_close', 'morph_tophat', 'morph_blackhat', 'morph_gradient', 'distancetransform', 'prewitt', 'robertscross', 'log', 'dog', 'marrhildreth'].includes(tempViewerFilter) && (
-                  <div className="opencv-badge">
-                    <small>🚀 OpenCV Accelerated</small>
-                  </div>
-                )}
+                <small>Current resolution: {perfDims.w}×{perfDims.h}</small>
+                {/* Removed OpenCV badge per request */}
               </div>
               {performanceMetrics.estimatedTimeMs > 1000 && (
                 <div className="performance-warning">
@@ -760,37 +789,7 @@ export const FilterControls: React.FC = () => {
                   🔥 Very intensive operation - consider reducing parameters
                 </div>
               )}
-              {/* Performance tips for specific filters */}
-              {(['weightedmedian', 'alphatrimmedmean'].includes(tempViewerFilter)) && (
-                <div className="performance-tip">
-                  💡 Tip: Smaller kernel sizes will significantly improve performance
-                </div>
-              )}
-              {tempViewerFilter === 'localhistogramequalization' && (
-                <div className="performance-tip">
-                  💡 Tip: Smaller kernel size reduces computation time significantly
-                </div>
-              )}
-              {tempViewerFilter === 'clahe' && (
-                <div className="performance-tip">
-                  💡 Tip: Larger grid size = better performance
-                </div>
-              )}
-              {tempViewerFilter === 'canny' && (
-                <div className="performance-tip">
-                  💡 Tip: OpenCV Canny includes automatic Gaussian blur and non-maximum suppression
-                </div>
-              )}
-              {['sobel', 'scharr'].includes(tempViewerFilter) && (
-                <div className="performance-tip">
-                  💡 Tip: OpenCV version combines X & Y gradients automatically
-                </div>
-              )}
-              {tempViewerFilter === 'laplacian' && (
-                <div className="performance-tip">
-                  💡 Tip: Kernel size 1 is fastest (optimized 3×3), size 7 provides finest details
-                </div>
-              )}
+              {/* Removed all per-filter performance tips for a cleaner UI */}
             </div>
           )}
         </div>

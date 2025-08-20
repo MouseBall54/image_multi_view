@@ -235,10 +235,19 @@ export function calculatePerformanceMetrics(
       break;
 
     case 'localHistogramEqualization':
-      baseTimeMs = megapixels * 45; // Local window processing
-      complexity = 'high';
+      // JS windowed local HE is heavy: O(pixels * k^2)
       const localKernel = params.kernelSize || 15;
+      baseTimeMs = megapixels * 45;
       baseTimeMs *= (localKernel * localKernel) / (15 * 15);
+      // Complexity scales with effective work factor (MP * k^2)
+      const workFactor = megapixels * (localKernel * localKernel) / (15 * 15);
+      if (workFactor < 6) {
+        complexity = 'medium';
+      } else if (workFactor < 20) {
+        complexity = 'high';
+      } else {
+        complexity = 'very_high';
+      }
       memoryMultiplier = 2;
       break;
 

@@ -98,6 +98,9 @@ interface State {
   current: MatchedItem | null;
   indicator: { cx: number, cy: number, key: number } | null;
   folders: Partial<Record<FolderKey, FolderState>>;
+  // Image sizes used for performance estimation
+  viewerImageSizes: Partial<Record<FolderKey, { width: number; height: number }>>;
+  analysisImageSizes: Partial<Record<number, { width: number; height: number }>>;
   
   // Filter states
   viewerFilters: Partial<Record<FolderKey, FilterType>>;
@@ -149,6 +152,8 @@ interface State {
   setFolder: (key: FolderKey, folderState: FolderState) => void;
   updateFolderAlias: (key: FolderKey, alias: string) => void;
   clearFolder: (key: FolderKey) => void;
+  setViewerImageSize: (key: FolderKey, size: { width: number; height: number }) => void;
+  setAnalysisImageSize: (index: number, size: { width: number; height: number }) => void;
 
   // Analysis Mode Actions
   setAnalysisFile: (file: File | null, source?: string) => void;
@@ -195,6 +200,8 @@ export const useStore = create<State>((set) => ({
   current: null,
   indicator: null,
   folders: {},
+  viewerImageSizes: {},
+  analysisImageSizes: {},
   
   // Filter states
   viewerFilters: {},
@@ -271,6 +278,12 @@ export const useStore = create<State>((set) => ({
       viewerFilterParams: remainingFilterParams
     };
   }),
+  setViewerImageSize: (key, size) => set(state => ({
+    viewerImageSizes: { ...state.viewerImageSizes, [key]: size }
+  })),
+  setAnalysisImageSize: (index, size) => set(state => ({
+    analysisImageSizes: { ...state.analysisImageSizes, [index]: size }
+  })),
 
   // Analysis Mode Actions
   setAnalysisFile: (file, source) => set({ 
