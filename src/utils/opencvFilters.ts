@@ -564,3 +564,248 @@ export async function applyFilterWithFallback(
   // Fallback to original implementation
   originalFilterFn(ctx, params);
 }
+
+// ========== Morphology Operations ==========
+
+export function applyMorphOpeningOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Create morphological kernel
+    const kernelSize = params.kernelSize || 5;
+    const morphShape = params.morphShape || 'ellipse';
+    
+    let shape;
+    switch (morphShape) {
+      case 'rect': shape = cv.MORPH_RECT; break;
+      case 'cross': shape = cv.MORPH_CROSS; break;
+      case 'ellipse':
+      default: shape = cv.MORPH_ELLIPSE; break;
+    }
+    
+    const kernel = cv.getStructuringElement(shape, new cv.Size(kernelSize, kernelSize));
+    const anchor = new cv.Point(-1, -1);
+    const iterations = params.morphIterations || 1;
+    
+    // Apply morphological opening
+    cv.morphologyEx(gray, dst, cv.MORPH_OPEN, kernel, anchor, iterations);
+    
+    matToCanvas(ctx, dst);
+    
+    kernel.delete();
+  } finally {
+    src.delete();
+    gray.delete();
+    dst.delete();
+  }
+}
+
+export function applyMorphClosingOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Create morphological kernel
+    const kernelSize = params.kernelSize || 5;
+    const morphShape = params.morphShape || 'ellipse';
+    
+    let shape;
+    switch (morphShape) {
+      case 'rect': shape = cv.MORPH_RECT; break;
+      case 'cross': shape = cv.MORPH_CROSS; break;
+      case 'ellipse':
+      default: shape = cv.MORPH_ELLIPSE; break;
+    }
+    
+    const kernel = cv.getStructuringElement(shape, new cv.Size(kernelSize, kernelSize));
+    const anchor = new cv.Point(-1, -1);
+    const iterations = params.morphIterations || 1;
+    
+    // Apply morphological closing
+    cv.morphologyEx(gray, dst, cv.MORPH_CLOSE, kernel, anchor, iterations);
+    
+    matToCanvas(ctx, dst);
+    
+    kernel.delete();
+  } finally {
+    src.delete();
+    gray.delete();
+    dst.delete();
+  }
+}
+
+export function applyMorphTopHatOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Create morphological kernel
+    const kernelSize = params.kernelSize || 5;
+    const morphShape = params.morphShape || 'ellipse';
+    
+    let shape;
+    switch (morphShape) {
+      case 'rect': shape = cv.MORPH_RECT; break;
+      case 'cross': shape = cv.MORPH_CROSS; break;
+      case 'ellipse':
+      default: shape = cv.MORPH_ELLIPSE; break;
+    }
+    
+    const kernel = cv.getStructuringElement(shape, new cv.Size(kernelSize, kernelSize));
+    const anchor = new cv.Point(-1, -1);
+    const iterations = params.morphIterations || 1;
+    
+    // Apply morphological top-hat
+    cv.morphologyEx(gray, dst, cv.MORPH_TOPHAT, kernel, anchor, iterations);
+    
+    matToCanvas(ctx, dst);
+    
+    kernel.delete();
+  } finally {
+    src.delete();
+    gray.delete();
+    dst.delete();
+  }
+}
+
+export function applyMorphBlackHatOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Create morphological kernel
+    const kernelSize = params.kernelSize || 5;
+    const morphShape = params.morphShape || 'ellipse';
+    
+    let shape;
+    switch (morphShape) {
+      case 'rect': shape = cv.MORPH_RECT; break;
+      case 'cross': shape = cv.MORPH_CROSS; break;
+      case 'ellipse':
+      default: shape = cv.MORPH_ELLIPSE; break;
+    }
+    
+    const kernel = cv.getStructuringElement(shape, new cv.Size(kernelSize, kernelSize));
+    const anchor = new cv.Point(-1, -1);
+    const iterations = params.morphIterations || 1;
+    
+    // Apply morphological black-hat
+    cv.morphologyEx(gray, dst, cv.MORPH_BLACKHAT, kernel, anchor, iterations);
+    
+    matToCanvas(ctx, dst);
+    
+    kernel.delete();
+  } finally {
+    src.delete();
+    gray.delete();
+    dst.delete();
+  }
+}
+
+export function applyMorphGradientOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Create morphological kernel
+    const kernelSize = params.kernelSize || 5;
+    const morphShape = params.morphShape || 'ellipse';
+    
+    let shape;
+    switch (morphShape) {
+      case 'rect': shape = cv.MORPH_RECT; break;
+      case 'cross': shape = cv.MORPH_CROSS; break;
+      case 'ellipse':
+      default: shape = cv.MORPH_ELLIPSE; break;
+    }
+    
+    const kernel = cv.getStructuringElement(shape, new cv.Size(kernelSize, kernelSize));
+    const anchor = new cv.Point(-1, -1);
+    const iterations = params.morphIterations || 1;
+    
+    // Apply morphological gradient
+    cv.morphologyEx(gray, dst, cv.MORPH_GRADIENT, kernel, anchor, iterations);
+    
+    matToCanvas(ctx, dst);
+    
+    kernel.delete();
+  } finally {
+    src.delete();
+    gray.delete();
+    dst.delete();
+  }
+}
+
+export function applyDistanceTransformOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const binary = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Apply threshold to create binary image
+    const threshold = params.lowThreshold || 128;
+    cv.threshold(gray, binary, threshold, 255, cv.THRESH_BINARY);
+    
+    // Apply distance transform
+    cv.distanceTransform(binary, dst, cv.DIST_L2, cv.DIST_MASK_PRECISE);
+    
+    // Normalize to 0-255 range
+    const minMax = cv.minMaxLoc(dst);
+    const maxVal = minMax.maxVal;
+    
+    if (maxVal > 0) {
+      cv.convertScaleAbs(dst, dst, 255.0 / maxVal, 0);
+    }
+    
+    matToCanvas(ctx, dst);
+    
+  } finally {
+    src.delete();
+    gray.delete();
+    binary.delete();
+    dst.delete();
+  }
+}

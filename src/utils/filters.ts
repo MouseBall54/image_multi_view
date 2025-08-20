@@ -7,7 +7,13 @@ import {
   applySobelOpenCV,
   applyScharrOpenCV,
   applyCannyOpenCV,
-  applyLaplacianOpenCV
+  applyLaplacianOpenCV,
+  applyMorphOpeningOpenCV,
+  applyMorphClosingOpenCV,
+  applyMorphTopHatOpenCV,
+  applyMorphBlackHatOpenCV,
+  applyMorphGradientOpenCV,
+  applyDistanceTransformOpenCV
 } from './opencvFilters';
 
 // Helper function to create a Gaussian kernel
@@ -486,95 +492,119 @@ function dilate(ctx: CanvasRenderingContext2D, ksize: number) {
   ctx.putImageData(dst, 0, 0);
 }
 
-export const applyMorphOpen = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  toGrayscale(ctx);
-  erode(ctx, params.kernelSize || 3);
-  dilate(ctx, params.kernelSize || 3);
+export const applyMorphOpen = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    toGrayscale(ctx);
+    erode(ctx, params.kernelSize || 3);
+    dilate(ctx, params.kernelSize || 3);
+  };
+  
+  await applyFilterWithFallback(ctx, 'morph_open', params, originalFn, applyMorphOpeningOpenCV);
 };
 
-export const applyMorphClose = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  toGrayscale(ctx);
-  dilate(ctx, params.kernelSize || 3);
-  erode(ctx, params.kernelSize || 3);
+export const applyMorphClose = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    toGrayscale(ctx);
+    dilate(ctx, params.kernelSize || 3);
+    erode(ctx, params.kernelSize || 3);
+  };
+  
+  await applyFilterWithFallback(ctx, 'morph_close', params, originalFn, applyMorphClosingOpenCV);
 };
 
-export const applyMorphTopHat = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const src = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const work = document.createElement('canvas').getContext('2d')!;
-  work.canvas.width = src.width; work.canvas.height = src.height;
-  work.putImageData(src, 0, 0);
-  applyMorphOpen(work as any, params);
-  const opened = work.getImageData(0, 0, src.width, src.height);
-  for (let i = 0; i < src.data.length; i += 4) {
-    const val = Math.max(0, src.data[i] - opened.data[i]);
-    src.data[i] = src.data[i+1] = src.data[i+2] = val;
-  }
-  ctx.putImageData(src, 0, 0);
-};
-
-export const applyMorphBlackHat = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const src = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const work = document.createElement('canvas').getContext('2d')!;
-  work.canvas.width = src.width; work.canvas.height = src.height;
-  work.putImageData(src, 0, 0);
-  applyMorphClose(work as any, params);
-  const closed = work.getImageData(0, 0, src.width, src.height);
-  for (let i = 0; i < src.data.length; i += 4) {
-    const val = Math.max(0, closed.data[i] - src.data[i]);
-    src.data[i] = src.data[i+1] = src.data[i+2] = val;
-  }
-  ctx.putImageData(src, 0, 0);
-};
-
-export const applyMorphGradient = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const src = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const dctx = document.createElement('canvas').getContext('2d')!;
-  const ectx = document.createElement('canvas').getContext('2d')!;
-  dctx.canvas.width = ectx.canvas.width = src.width;
-  dctx.canvas.height = ectx.canvas.height = src.height;
-  dctx.putImageData(src, 0, 0);
-  ectx.putImageData(src, 0, 0);
-  dilate(dctx as any, params.kernelSize || 3);
-  erode(ectx as any, params.kernelSize || 3);
-  const dil = dctx.getImageData(0, 0, src.width, src.height);
-  const ero = ectx.getImageData(0, 0, src.width, src.height);
-  for (let i = 0; i < src.data.length; i += 4) {
-    const val = Math.max(0, dil.data[i] - ero.data[i]);
-    src.data[i] = src.data[i+1] = src.data[i+2] = val;
-  }
-  ctx.putImageData(src, 0, 0);
-};
-
-export const applyDistanceTransform = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const th = (params.lowThreshold ?? 128);
-  const bin = new Uint8Array(width * height);
-  for (let i = 0, p = 0; i < data.length; i += 4, p++) bin[p] = (0.299*data[i]+0.587*data[i+1]+0.114*data[i+2]) > th ? 0 : 1;
-  const dist = new Uint16Array(width * height).fill(10000);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = y*width + x;
-      if (bin[i] === 0) { dist[i] = 0; continue; }
-      const top = y>0 ? dist[i - width] + 1 : 10000;
-      const left = x>0 ? dist[i - 1] + 1 : 10000;
-      dist[i] = Math.min(dist[i], top, left);
+export const applyMorphTopHat = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const src = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const work = document.createElement('canvas').getContext('2d')!;
+    work.canvas.width = src.width; work.canvas.height = src.height;
+    work.putImageData(src, 0, 0);
+    await applyMorphOpen(work as any, params);
+    const opened = work.getImageData(0, 0, src.width, src.height);
+    for (let i = 0; i < src.data.length; i += 4) {
+      const val = Math.max(0, src.data[i] - opened.data[i]);
+      src.data[i] = src.data[i+1] = src.data[i+2] = val;
     }
-  }
-  for (let y = height-1; y >=0; y--) {
-    for (let x = width-1; x >=0; x--) {
-      const i = y*width + x;
-      const bottom = y<height-1 ? dist[i + width] + 1 : 10000;
-      const right = x<width-1 ? dist[i + 1] + 1 : 10000;
-      dist[i] = Math.min(dist[i], bottom, right);
+    ctx.putImageData(src, 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'morph_tophat', params, originalFn, applyMorphTopHatOpenCV);
+};
+
+export const applyMorphBlackHat = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const src = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const work = document.createElement('canvas').getContext('2d')!;
+    work.canvas.width = src.width; work.canvas.height = src.height;
+    work.putImageData(src, 0, 0);
+    await applyMorphClose(work as any, params);
+    const closed = work.getImageData(0, 0, src.width, src.height);
+    for (let i = 0; i < src.data.length; i += 4) {
+      const val = Math.max(0, closed.data[i] - src.data[i]);
+      src.data[i] = src.data[i+1] = src.data[i+2] = val;
     }
-  }
-  let maxd = 0; for (let i=0;i<dist.length;i++) if (dist[i] < 10000) maxd = Math.max(maxd, dist[i]);
-  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
-    const v = dist[p] >= 10000 ? 0 : Math.round(255 * dist[p] / (maxd || 1));
-    data[i]=data[i+1]=data[i+2]=v; data[i+3]=255;
-  }
-  ctx.putImageData(imageData, 0, 0);
+    ctx.putImageData(src, 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'morph_blackhat', params, originalFn, applyMorphBlackHatOpenCV);
+};
+
+export const applyMorphGradient = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const src = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const dctx = document.createElement('canvas').getContext('2d')!;
+    const ectx = document.createElement('canvas').getContext('2d')!;
+    dctx.canvas.width = ectx.canvas.width = src.width;
+    dctx.canvas.height = ectx.canvas.height = src.height;
+    dctx.putImageData(src, 0, 0);
+    ectx.putImageData(src, 0, 0);
+    dilate(dctx as any, params.kernelSize || 3);
+    erode(ectx as any, params.kernelSize || 3);
+    const dil = dctx.getImageData(0, 0, src.width, src.height);
+    const ero = ectx.getImageData(0, 0, src.width, src.height);
+    for (let i = 0; i < src.data.length; i += 4) {
+      const val = Math.max(0, dil.data[i] - ero.data[i]);
+      src.data[i] = src.data[i+1] = src.data[i+2] = val;
+    }
+    ctx.putImageData(src, 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'morph_gradient', params, originalFn, applyMorphGradientOpenCV);
+};
+
+export const applyDistanceTransform = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
+    const th = (params.lowThreshold ?? 128);
+    const bin = new Uint8Array(width * height);
+    for (let i = 0, p = 0; i < data.length; i += 4, p++) bin[p] = (0.299*data[i]+0.587*data[i+1]+0.114*data[i+2]) > th ? 0 : 1;
+    const dist = new Uint16Array(width * height).fill(10000);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y*width + x;
+        if (bin[i] === 0) { dist[i] = 0; continue; }
+        const top = y>0 ? dist[i - width] + 1 : 10000;
+        const left = x>0 ? dist[i - 1] + 1 : 10000;
+        dist[i] = Math.min(dist[i], top, left);
+      }
+    }
+    for (let y = height-1; y >=0; y--) {
+      for (let x = width-1; x >=0; x--) {
+        const i = y*width + x;
+        const bottom = y<height-1 ? dist[i + width] + 1 : 10000;
+        const right = x<width-1 ? dist[i + 1] + 1 : 10000;
+        dist[i] = Math.min(dist[i], bottom, right);
+      }
+    }
+    let maxd = 0; for (let i=0;i<dist.length;i++) if (dist[i] < 10000) maxd = Math.max(maxd, dist[i]);
+    for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+      const v = dist[p] >= 10000 ? 0 : Math.round(255 * dist[p] / (maxd || 1));
+      data[i]=data[i+1]=data[i+2]=v; data[i+3]=255;
+    }
+    ctx.putImageData(imageData, 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'distancetransform', params, originalFn, applyDistanceTransformOpenCV);
 };
 
 export const applyLinearStretch = (ctx: CanvasRenderingContext2D) => {

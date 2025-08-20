@@ -161,12 +161,12 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         case 'dft': Filters.applyDft(ctx); break;
         case 'dct': Filters.applyDct(ctx); break;
         case 'wavelet': Filters.applyWavelet(ctx); break;
-        case 'morph_open': if (params) Filters.applyMorphOpen(ctx, params); break;
-        case 'morph_close': if (params) Filters.applyMorphClose(ctx, params); break;
-        case 'morph_tophat': if (params) Filters.applyMorphTopHat(ctx, params); break;
-        case 'morph_blackhat': if (params) Filters.applyMorphBlackHat(ctx, params); break;
-        case 'morph_gradient': if (params) Filters.applyMorphGradient(ctx, params); break;
-        case 'distancetransform': if (params) Filters.applyDistanceTransform(ctx, params); break;
+        case 'morph_open': if (params) await Filters.applyMorphOpen(ctx, params); break;
+        case 'morph_close': if (params) await Filters.applyMorphClose(ctx, params); break;
+        case 'morph_tophat': if (params) await Filters.applyMorphTopHat(ctx, params); break;
+        case 'morph_blackhat': if (params) await Filters.applyMorphBlackHat(ctx, params); break;
+        case 'morph_gradient': if (params) await Filters.applyMorphGradient(ctx, params); break;
+        case 'distancetransform': if (params) await Filters.applyDistanceTransform(ctx, params); break;
       }
 
       const finalImage = await createImageBitmap(offscreenCanvas);

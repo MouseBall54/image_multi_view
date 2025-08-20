@@ -712,7 +712,7 @@ export const FilterControls: React.FC = () => {
               </div>
               <div className="performance-info">
                 <small>Estimated for 1920×1080 resolution</small>
-                {['gaussianblur', 'boxblur', 'median', 'sobel', 'scharr', 'canny', 'laplacian'].includes(tempViewerFilter) && (
+                {['gaussianblur', 'boxblur', 'median', 'sobel', 'scharr', 'canny', 'laplacian', 'morph_open', 'morph_close', 'morph_tophat', 'morph_blackhat', 'morph_gradient', 'distancetransform'].includes(tempViewerFilter) && (
                   <div className="opencv-badge">
                     <small>🚀 OpenCV Accelerated</small>
                   </div>

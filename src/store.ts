@@ -36,6 +36,9 @@ export interface FilterParams {
   kappa?: number;
   epsilon?: number;
   lawsKernelType?: string;
+  // Morphology params
+  morphShape?: string; // 'rect', 'ellipse', 'cross'
+  morphIterations?: number;
 }
 
 const defaultFilterParams: FilterParams = {
@@ -66,6 +69,9 @@ const defaultFilterParams: FilterParams = {
   kappa: 30,
   epsilon: 0.04,
   lawsKernelType: 'L5E5',
+  // Morphology defaults
+  morphShape: 'ellipse',
+  morphIterations: 1,
 };
 
 interface State {
