@@ -225,9 +225,14 @@ export const applySharpen = (ctx: CanvasRenderingContext2D, params: FilterParams
   convolve(ctx, kernel);
 };
 
-export const applyGabor = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const kernel = createGaborKernel(params);
-  convolve(ctx, kernel);
+import { applyGaborOpenCV, applyLawsTextureEnergyOpenCV, applyLbpOpenCV } from './opencvFilters';
+
+export const applyGabor = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const kernel = createGaborKernel(params);
+    convolve(ctx, kernel);
+  };
+  await applyFilterWithFallback(ctx, 'gabor', params, originalFn, applyGaborOpenCV as any);
 };
 
 export const applyLaplacian = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
@@ -1279,52 +1284,46 @@ export const applyAnisotropicDiffusion = (ctx: CanvasRenderingContext2D, params:
   ctx.putImageData(imageData, 0, 0);
 };
 
-export const applyLbp = (ctx: CanvasRenderingContext2D) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
+export const applyLbp = async (ctx: CanvasRenderingContext2D) => {
+  const originalFn = (ctx: CanvasRenderingContext2D) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
 
-  // 1. Convert to grayscale
-  const grayscale = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < data.length; i += 4) {
-    grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-  }
-
-  const lbpData = new Uint8ClampedArray(data.length);
-
-  // 2. Compute LBP for each pixel
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      const centerIndex = y * width + x;
-      const centerPixel = grayscale[centerIndex];
-      
-      let binaryCode = 0;
-      
-      // Top-left
-      if (grayscale[centerIndex - width - 1] >= centerPixel) binaryCode |= 1;
-      // Top
-      if (grayscale[centerIndex - width] >= centerPixel) binaryCode |= 2;
-      // Top-right
-      if (grayscale[centerIndex - width + 1] >= centerPixel) binaryCode |= 4;
-      // Right
-      if (grayscale[centerIndex + 1] >= centerPixel) binaryCode |= 8;
-      // Bottom-right
-      if (grayscale[centerIndex + width + 1] >= centerPixel) binaryCode |= 16;
-      // Bottom
-      if (grayscale[centerIndex + width] >= centerPixel) binaryCode |= 32;
-      // Bottom-left
-      if (grayscale[centerIndex + width - 1] >= centerPixel) binaryCode |= 64;
-      // Left
-      if (grayscale[centerIndex - 1] >= centerPixel) binaryCode |= 128;
-
-      const outIndex = (y * width + x) * 4;
-      lbpData[outIndex] = binaryCode;
-      lbpData[outIndex + 1] = binaryCode;
-      lbpData[outIndex + 2] = binaryCode;
-      lbpData[outIndex + 3] = 255;
+    const grayscale = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < data.length; i += 4) {
+      grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
     }
-  }
 
-  ctx.putImageData(new ImageData(lbpData, width, height), 0, 0);
+    const lbpData = new Uint8ClampedArray(data.length);
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const centerIndex = y * width + x;
+        const centerPixel = grayscale[centerIndex];
+        let binaryCode = 0;
+        if (grayscale[centerIndex - width - 1] >= centerPixel) binaryCode |= 1;
+        if (grayscale[centerIndex - width] >= centerPixel) binaryCode |= 2;
+        if (grayscale[centerIndex - width + 1] >= centerPixel) binaryCode |= 4;
+        if (grayscale[centerIndex + 1] >= centerPixel) binaryCode |= 8;
+        if (grayscale[centerIndex + width + 1] >= centerPixel) binaryCode |= 16;
+        if (grayscale[centerIndex + width] >= centerPixel) binaryCode |= 32;
+        if (grayscale[centerIndex + width - 1] >= centerPixel) binaryCode |= 64;
+        if (grayscale[centerIndex - 1] >= centerPixel) binaryCode |= 128;
+        const outIndex = (y * width + x) * 4;
+        lbpData[outIndex] = binaryCode;
+        lbpData[outIndex + 1] = binaryCode;
+        lbpData[outIndex + 2] = binaryCode;
+        lbpData[outIndex + 3] = 255;
+      }
+    }
+    ctx.putImageData(new ImageData(lbpData, width, height), 0, 0);
+  };
+
+  await applyFilterWithFallback(ctx, 'lbp', {} as any, originalFn, applyLbpOpenCV as any);
+};
+
+export const applyLbpOpenCVFallback = async (ctx: CanvasRenderingContext2D) => {
+  const originalFn = (ctx: CanvasRenderingContext2D) => { applyLbp(ctx as any); };
+  await applyFilterWithFallback(ctx, 'lbp', {} as any, originalFn, applyLbpOpenCV as any);
 };
 
 // --- Guided Filter ---
@@ -1475,74 +1474,77 @@ export const LAWS_KERNEL_TYPES = [
   'L5E5', 'E5L5', 'L5R5', 'R5L5', 'E5S5', 'S5E5', 'S5S5', 'R5R5', 'L5S5', 'S5L5', 'E5E5', 'E5W5', 'W5E5', 'S5W5', 'W5S5'
 ];
 
-export const applyLawsTextureEnergy = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const { lawsKernelType, kernelSize: energyWindowSize } = params;
-  const [vec1_name, vec2_name] = lawsKernelType.match(/.{1,2}/g)!;
+export const applyLawsTextureEnergy = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const { lawsKernelType, kernelSize: energyWindowSize } = params;
+    const [vec1_name, vec2_name] = lawsKernelType.match(/.{1,2}/g)!;
 
-  const lawsKernel = createLawsKernel(vec1_name, vec2_name);
+    const lawsKernel = createLawsKernel(vec1_name, vec2_name);
 
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
 
-  // 1. Convert to grayscale
-  const grayscale = new Float32Array(width * height);
-  for (let i = 0; i < data.length; i += 4) {
-    grayscale[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-  }
+    const grayscale = new Float32Array(width * height);
+    for (let i = 0; i < data.length; i += 4) {
+      grayscale[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    }
 
-  // 2. Convolve with the selected Laws' kernel
-  const convolved = new Float32Array(width * height);
-  const halfKernel = 2; // 5x5 kernel
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let sum = 0;
-      for (let ky = 0; ky < 5; ky++) {
-        for (let kx = 0; kx < 5; kx++) {
-          const sy = y + ky - halfKernel;
-          const sx = x + kx - halfKernel;
-          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
-            sum += grayscale[sy * width + sx] * lawsKernel[ky][kx];
+    const convolved = new Float32Array(width * height);
+    const halfKernel = 2;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let sum = 0;
+        for (let ky = 0; ky < 5; ky++) {
+          for (let kx = 0; kx < 5; kx++) {
+            const sy = y + ky - halfKernel;
+            const sx = x + kx - halfKernel;
+            if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+              sum += grayscale[sy * width + sx] * lawsKernel[ky][kx];
+            }
           }
         }
+        convolved[y * width + x] = sum;
       }
-      convolved[y * width + x] = sum;
     }
-  }
 
-  // 3. Calculate texture energy (sum of absolute values in a window)
-  const energy = new Float32Array(width * height);
-  const halfWindow = Math.floor(energyWindowSize / 2);
-  let maxEnergy = 0;
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let sum = 0;
-      for (let wy = -halfWindow; wy <= halfWindow; wy++) {
-        for (let wx = -halfWindow; wx <= halfWindow; wx++) {
-          const sy = y + wy;
-          const sx = x + wx;
-          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
-            sum += Math.abs(convolved[sy * width + sx]);
+    const energy = new Float32Array(width * height);
+    const halfWindow = Math.floor(energyWindowSize / 2);
+    let maxEnergy = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let sum = 0;
+        for (let wy = -halfWindow; wy <= halfWindow; wy++) {
+          for (let wx = -halfWindow; wx <= halfWindow; wx++) {
+            const sy = y + wy;
+            const sx = x + wx;
+            if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+              sum += Math.abs(convolved[sy * width + sx]);
+            }
           }
         }
-      }
-      const energyValue = sum / (energyWindowSize * energyWindowSize);
-      energy[y * width + x] = energyValue;
-      if (energyValue > maxEnergy) {
-        maxEnergy = energyValue;
+        const energyValue = sum / (energyWindowSize * energyWindowSize);
+        energy[y * width + x] = energyValue;
+        if (energyValue > maxEnergy) {
+          maxEnergy = energyValue;
+        }
       }
     }
-  }
 
-  // 4. Normalize and draw the energy map
-  if (maxEnergy === 0) maxEnergy = 1; // Avoid division by zero
-  for (let i = 0; i < data.length; i += 4) {
-    const normalizedValue = (energy[i / 4] / maxEnergy) * 255;
-    data[i] = normalizedValue;
-    data[i + 1] = normalizedValue;
-    data[i + 2] = normalizedValue;
-    data[i + 3] = 255;
-  }
+    if (maxEnergy === 0) maxEnergy = 1;
+    for (let i = 0; i < data.length; i += 4) {
+      const normalizedValue = (energy[i / 4] / maxEnergy) * 255;
+      data[i] = normalizedValue;
+      data[i + 1] = normalizedValue;
+      data[i + 2] = normalizedValue;
+      data[i + 3] = 255;
+    }
+    ctx.putImageData(imageData, 0, 0);
+  };
 
-  ctx.putImageData(imageData, 0, 0);
+  await applyFilterWithFallback(ctx, 'lawsTextureEnergy', params, originalFn, applyLawsTextureEnergyOpenCV as any);
+};
+
+export const applyLawsTextureEnergyOpenCVFallback = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => { applyLawsTextureEnergy(ctx as any, params); };
+  await applyFilterWithFallback(ctx, 'lawsTextureEnergy', params, originalFn, applyLawsTextureEnergyOpenCV as any);
 };

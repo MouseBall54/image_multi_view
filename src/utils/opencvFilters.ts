@@ -1047,6 +1047,177 @@ export function applyUnsharpMaskOpenCV(ctx: CanvasRenderingContext2D, params: Fi
   }
 }
 
+// ========== Texture Analysis ==========
+
+export function applyGaborOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const kernel = new cv.Mat();
+  const resp = new cv.Mat();
+  const dst = new cv.Mat();
+
+  try {
+    const ksize = params.kernelSize || 31;
+    const sigma = params.gaborSigma || params.sigma || 4.0;
+    const theta = params.theta || 0; // radians expected
+    const lambda = params.lambda || 10.0;
+    const gamma = params.gamma || 0.5;
+    const psi = params.psi || 0;
+
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    const getter = (cv as any).getGaborKernel;
+    if (typeof getter !== 'function') {
+      throw new Error('OpenCV Gabor kernel not available');
+    }
+    const ksizeObj = new cv.Size(ksize, ksize);
+    const k = getter(ksizeObj, sigma, theta, lambda, gamma, psi, cv.CV_32F);
+    k.copyTo(kernel);
+    k.delete();
+
+    cv.filter2D(gray, resp, cv.CV_32F, kernel);
+    cv.convertScaleAbs(resp, dst);
+
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    kernel.delete();
+    resp.delete();
+    dst.delete();
+  }
+}
+
+// Laws' vectors
+const LAWS_L5 = [1, 4, 6, 4, 1];
+const LAWS_E5 = [-1, -2, 0, 2, 1];
+const LAWS_S5 = [-1, 0, 2, 0, -1];
+const LAWS_W5 = [-1, 2, 0, -2, 1];
+const LAWS_R5 = [1, -4, 6, -4, 1];
+
+function createLawsKernelMat(cvRef: any, typeCode: string): any {
+  const map: Record<string, number[]> = { L5: LAWS_L5, E5: LAWS_E5, S5: LAWS_S5, W5: LAWS_W5, R5: LAWS_R5 };
+  const parts = typeCode.match(/.{1,2}/g) || ['L5', 'E5'];
+  const v1 = map[parts[0]] || map['L5'];
+  const v2 = map[parts[1]] || map['E5'];
+  const mat = new cvRef.Mat(5, 5, cvRef.CV_32F);
+  for (let i = 0; i < 5; i++) {
+    for (let j = 0; j < 5; j++) {
+      (mat.data32F as Float32Array)[i * 5 + j] = v1[i] * v2[j];
+    }
+  }
+  return mat;
+}
+
+export function applyLawsTextureEnergyOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const kernel = createLawsKernelMat(cv, params.lawsKernelType || 'L5E5');
+  const resp = new cv.Mat();
+  const respSq = new cv.Mat();
+  const energy = new cv.Mat();
+  const out8 = new cv.Mat();
+  const dst = new cv.Mat();
+
+  try {
+    const win = Math.max(3, params.kernelSize || 15);
+    const ksize = new cv.Size(win, win);
+
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    cv.filter2D(gray, resp, cv.CV_32F, kernel);
+    cv.multiply(resp, resp, respSq); // square
+    // Box filter to compute local average energy
+    cv.boxFilter(respSq, energy, -1, ksize, new cv.Point(-1, -1), true, cv.BORDER_DEFAULT);
+    cv.convertScaleAbs(energy, out8);
+
+    // Convert to RGBA and draw
+    cv.cvtColor(out8, dst, cv.COLOR_GRAY2RGBA);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    kernel.delete();
+    resp.delete();
+    respSq.delete();
+    energy.delete();
+    out8.delete();
+    dst.delete();
+  }
+}
+
+export function applyLbpOpenCV(ctx: CanvasRenderingContext2D): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const padded = new cv.Mat();
+  const center = new cv.Mat();
+  const acc = new cv.Mat();
+  const tmp = new cv.Mat();
+  const mask = new cv.Mat();
+  const maskF = new cv.Mat();
+  const acc8 = new cv.Mat();
+  const dst = new cv.Mat();
+
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    // pad 1 pixel on all sides to simplify neighbors
+    cv.copyMakeBorder(gray, padded, 1, 1, 1, 1, cv.BORDER_REPLICATE);
+    const w = gray.cols, h = gray.rows;
+    center.create(h, w, cv.CV_8UC1);
+    // ROI for center is (1,1)-(w,h) in padded
+    const centerRoi = padded.roi(new cv.Rect(1, 1, w, h));
+    centerRoi.copyTo(center);
+    centerRoi.delete();
+
+    acc.create(h, w, cv.CV_32FC1);
+    acc.setTo(new cv.Scalar(0, 0, 0, 0));
+
+    const shifts: Array<{dx: number, dy: number, weight: number}> = [
+      { dx: -1, dy: -1, weight: 1 },   // top-left
+      { dx: 0, dy: -1, weight: 2 },    // top
+      { dx: 1, dy: -1, weight: 4 },    // top-right
+      { dx: 1, dy: 0, weight: 8 },     // right
+      { dx: 1, dy: 1, weight: 16 },    // bottom-right
+      { dx: 0, dy: 1, weight: 32 },    // bottom
+      { dx: -1, dy: 1, weight: 64 },   // bottom-left
+      { dx: -1, dy: 0, weight: 128 },  // left
+    ];
+
+    for (const s of shifts) {
+      const roi = padded.roi(new cv.Rect(1 + s.dx, 1 + s.dy, w, h));
+      // mask = roi >= center ? 255 : 0
+      cv.compare(roi, center, mask, cv.CMP_GE);
+      // maskF = (mask / 255.0) as float
+      mask.convertTo(maskF, cv.CV_32F, 1.0 / 255.0);
+      // acc += maskF * weight
+      cv.addWeighted(acc, 1.0, maskF, s.weight, 0.0, acc);
+      roi.delete();
+    }
+
+    acc.convertTo(acc8, cv.CV_8U);
+    cv.cvtColor(acc8, dst, cv.COLOR_GRAY2RGBA);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    padded.delete();
+    center.delete();
+    acc.delete();
+    tmp.delete();
+    mask.delete();
+    maskF.delete();
+    acc8.delete();
+    dst.delete();
+  }
+}
+
 // ========== Advanced Edge Detection ==========
 
 export function applyPrewittOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {

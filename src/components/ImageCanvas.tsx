@@ -151,9 +151,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         case 'gammacorrection': if (params) await Filters.applyGammaCorrection(ctx, params); break;
         case 'anisotropicdiffusion': if (params) Filters.applyAnisotropicDiffusion(ctx, params); break;
         case 'unsharpmask': if (params) await Filters.applyUnsharpMask(ctx, params); break;
-        case 'gabor': if (params) Filters.applyGabor(ctx, params); break;
-        case 'lawstextureenergy': if (params) Filters.applyLawsTextureEnergy(ctx, params); break;
-        case 'lbp': Filters.applyLbp(ctx); break;
+        case 'gabor': if (params) await Filters.applyGabor(ctx, params); break;
+        case 'lawstextureenergy': if (params) await Filters.applyLawsTextureEnergy(ctx, params); break;
+        case 'lbp': await Filters.applyLbp(ctx); break;
         case 'guided': if (params) Filters.applyGuidedFilter(ctx, params); break;
         case 'edgepreserving': if (params) Filters.applyEdgePreserving(ctx, params); break;
         case 'dft': Filters.applyDft(ctx); break;
