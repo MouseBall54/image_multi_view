@@ -143,7 +143,7 @@ export const FilterControls: React.FC = () => {
     // Map filter types to performance calculation types
     const filterMap: Record<string, string> = {
       // Basic filters
-      'none': 'grayscale', // No processing
+      'none': 'none',
       'grayscale': 'grayscale',
       'invert': 'invert',
       'sepia': 'sepia',

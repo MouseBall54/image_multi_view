@@ -66,6 +66,10 @@ export function calculatePerformanceMetrics(
   let memoryMultiplier = 1;
 
   switch (filterType) {
+    case 'none':
+      baseTimeMs = 0;
+      complexity = 'low';
+      break;
     // Blurring filters
     case 'gaussianBlur':
       baseTimeMs = megapixels * 15; // OpenCV optimized
@@ -192,7 +196,13 @@ export function calculatePerformanceMetrics(
     // Texture analysis
     case 'gabor':
       baseTimeMs = megapixels * 22;
-      complexity = params.kernelSize > 15 ? 'medium' : 'low';
+      if (params.kernelSize <= 15) {
+        complexity = 'low';
+      } else if (params.kernelSize <= 31) {
+        complexity = 'medium';
+      } else {
+        complexity = 'high';
+      }
       break;
 
     case 'lawsTextureEnergy':
