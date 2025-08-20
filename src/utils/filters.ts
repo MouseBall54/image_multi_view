@@ -13,7 +13,12 @@ import {
   applyMorphTopHatOpenCV,
   applyMorphBlackHatOpenCV,
   applyMorphGradientOpenCV,
-  applyDistanceTransformOpenCV
+  applyDistanceTransformOpenCV,
+  applyPrewittOpenCV,
+  applyRobertsCrossOpenCV,
+  applyLoGOpenCV,
+  applyDoGOpenCV,
+  applyMarrHildrethOpenCV
 } from './opencvFilters';
 
 // Helper function to create a Gaussian kernel
@@ -230,7 +235,13 @@ export const applyLaplacian = async (ctx: CanvasRenderingContext2D, params: Filt
 
 export const applyHighpass = (ctx: CanvasRenderingContext2D) => convolve(ctx, highpassKernel);
 
-export const applyPrewitt = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, prewittKernelX, prewittKernelY);
+export const applyPrewitt = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, _params: FilterParams) => {
+    applyEdgeFilter(ctx, prewittKernelX, prewittKernelY);
+  };
+  
+  await applyFilterWithFallback(ctx, 'prewitt', params, originalFn, applyPrewittOpenCV);
+};
 
 export const applyScharr = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
   const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
@@ -248,68 +259,83 @@ export const applySobel = async (ctx: CanvasRenderingContext2D, params: FilterPa
   await applyFilterWithFallback(ctx, 'sobel', params, originalFn, applySobelOpenCV);
 };
 
-export const applyRobertsCross = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, robertsKernelX, robertsKernelY);
-export const applyLoG = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const kernel = createLoGKernel(params.sigma, params.kernelSize);
-  convolve(ctx, kernel);
+export const applyRobertsCross = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, _params: FilterParams) => {
+    applyEdgeFilter(ctx, robertsKernelX, robertsKernelY);
+  };
+  
+  await applyFilterWithFallback(ctx, 'robertscross', params, originalFn, applyRobertsCrossOpenCV);
+};
+export const applyLoG = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const kernel = createLoGKernel(params.sigma, params.kernelSize);
+    convolve(ctx, kernel);
+  };
+  
+  await applyFilterWithFallback(ctx, 'log', params, originalFn, applyLoGOpenCV);
 };
 
 // Basic Canny implementation - for simplicity, this is a placeholder.
 // A full Canny implementation is much more complex involving non-maximum suppression and hysteresis thresholding.
 
-export const applyDoG = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const { kernelSize, sigma, sigma2 } = params;
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
+export const applyDoG = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const { kernelSize, sigma, sigma2 = 2.0 } = params;
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
 
-  // 1. Create a grayscale version of the source image
-  const grayscale = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < data.length; i += 4) {
-    grayscale[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-  }
+    // 1. Create a grayscale version of the source image
+    const grayscale = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < data.length; i += 4) {
+      grayscale[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    }
 
-  // Create a temporary canvas to apply convolutions without affecting the original
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = width;
-  tempCanvas.height = height;
-  const tempCtx = tempCanvas.getContext('2d')!;
+    // Create a temporary canvas to apply convolutions without affecting the original
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d')!;
+    
+    // Create an ImageData object from the grayscale data to use with convolve
+    const grayImageData = tempCtx.createImageData(width, height);
+    for (let i = 0; i < grayscale.length; i++) {
+      grayImageData.data[i * 4] = grayscale[i];
+      grayImageData.data[i * 4 + 1] = grayscale[i];
+      grayImageData.data[i * 4 + 2] = grayscale[i];
+      grayImageData.data[i * 4 + 3] = 255;
+    }
+
+    // 2. Apply first Gaussian blur
+    tempCtx.putImageData(grayImageData, 0, 0);
+    const kernel1 = createGaussianKernel(sigma, kernelSize);
+    convolve(tempCtx, kernel1);
+    const data1 = tempCtx.getImageData(0, 0, width, height).data;
+
+    // 3. Apply second Gaussian blur
+    tempCtx.putImageData(grayImageData, 0, 0);
+    const kernel2 = createGaussianKernel(sigma2, kernelSize);
+    convolve(tempCtx, kernel2);
+    const data2 = tempCtx.getImageData(0, 0, width, height).data;
+
+    // 4. Subtract the two blurred images and apply to the original canvas context
+    for (let i = 0; i < data.length; i += 4) {
+      // We only need to calculate for one channel since both are grayscale
+      const diff = Math.abs(data1[i] - data2[i]);
+      data[i] = diff;
+      data[i + 1] = diff;
+      data[i + 2] = diff;
+      data[i + 3] = 255; // Keep alpha solid
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  };
   
-  // Create an ImageData object from the grayscale data to use with convolve
-  const grayImageData = tempCtx.createImageData(width, height);
-  for (let i = 0; i < grayscale.length; i++) {
-    grayImageData.data[i * 4] = grayscale[i];
-    grayImageData.data[i * 4 + 1] = grayscale[i];
-    grayImageData.data[i * 4 + 2] = grayscale[i];
-    grayImageData.data[i * 4 + 3] = 255;
-  }
-
-  // 2. Apply first Gaussian blur
-  tempCtx.putImageData(grayImageData, 0, 0);
-  const kernel1 = createGaussianKernel(sigma, kernelSize);
-  convolve(tempCtx, kernel1);
-  const data1 = tempCtx.getImageData(0, 0, width, height).data;
-
-  // 3. Apply second Gaussian blur
-  tempCtx.putImageData(grayImageData, 0, 0);
-  const kernel2 = createGaussianKernel(sigma2, kernelSize);
-  convolve(tempCtx, kernel2);
-  const data2 = tempCtx.getImageData(0, 0, width, height).data;
-
-  // 4. Subtract the two blurred images and apply to the original canvas context
-  for (let i = 0; i < data.length; i += 4) {
-    // We only need to calculate for one channel since both are grayscale
-    const diff = Math.abs(data1[i] - data2[i]);
-    data[i] = diff;
-    data[i + 1] = diff;
-    data[i + 2] = diff;
-    data[i + 3] = 255; // Keep alpha solid
-  }
-
-  ctx.putImageData(imageData, 0, 0);
+  await applyFilterWithFallback(ctx, 'dog', params, originalFn, applyDoGOpenCV);
 };
 
-export const applyMarrHildreth = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const { kernelSize, sigma, threshold } = params;
+export const applyMarrHildreth = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const { kernelSize, sigma, threshold = 10 } = params;
   const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
   const { data, width, height } = imageData;
 
@@ -387,7 +413,10 @@ export const applyMarrHildreth = (ctx: CanvasRenderingContext2D, params: FilterP
     }
   }
   
-  ctx.putImageData(new ImageData(edgeData, width, height), 0, 0);
+    ctx.putImageData(new ImageData(edgeData, width, height), 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'marrhildreth', params, originalFn, applyMarrHildrethOpenCV);
 };
 
 export const applyCanny = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {

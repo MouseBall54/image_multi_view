@@ -131,13 +131,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         case 'histogramequalization': Filters.applyHistogramEqualization(ctx); break;
         case 'laplacian': Filters.applyLaplacian(ctx); break;
         case 'highpass': Filters.applyHighpass(ctx); break;
-        case 'prewitt': Filters.applyPrewitt(ctx); break;
+        case 'prewitt': if (params) await Filters.applyPrewitt(ctx, params); break;
         case 'scharr': Filters.applyScharr(ctx); break;
         case 'sobel': Filters.applySobel(ctx); break;
-        case 'robertscross': Filters.applyRobertsCross(ctx); break;
-        case 'log': if (params) Filters.applyLoG(ctx, params); break;
-        case 'dog': if (params) Filters.applyDoG(ctx, params); break;
-        case 'marrhildreth': if (params) Filters.applyMarrHildreth(ctx, params); break;
+        case 'robertscross': if (params) await Filters.applyRobertsCross(ctx, params); break;
+        case 'log': if (params) await Filters.applyLoG(ctx, params); break;
+        case 'dog': if (params) await Filters.applyDoG(ctx, params); break;
+        case 'marrhildreth': if (params) await Filters.applyMarrHildreth(ctx, params); break;
         case 'gaussianblur': if (params) Filters.applyGaussianBlur(ctx, params); break;
         case 'boxblur': if (params) Filters.applyBoxBlur(ctx, params); break;
         case 'median': if (params) Filters.applyMedian(ctx, params); break;

@@ -124,8 +124,12 @@ export function calculatePerformanceMetrics(
       break;
 
     case 'canny':
-      baseTimeMs = megapixels * 12; // OpenCV optimized (was 20)
-      complexity = 'medium';
+      // Canny = Gaussian blur + Sobel + Non-maximum suppression + Hysteresis
+      const lowThresh = params.lowThreshold || 50;
+      const highThresh = params.highThreshold || 100;
+      const thresholdComplexity = (lowThresh < 30 || highThresh > 200) ? 1.2 : 1.0;
+      baseTimeMs = megapixels * (12 * thresholdComplexity); // OpenCV optimized
+      complexity = thresholdComplexity > 1.0 ? 'high' : 'medium';
       break;
 
     case 'laplacian':
@@ -141,20 +145,47 @@ export function calculatePerformanceMetrics(
       break;
 
     case 'log':
-      baseTimeMs = megapixels * 18;
-      complexity = params.kernelSize > 15 ? 'medium' : 'low';
+      // LoG = Gaussian blur + Laplacian
+      const kernelSizeLog = params.kernelSize || 5;
+      const logComplexityFactor = Math.pow(kernelSizeLog, 1.3);
+      baseTimeMs = megapixels * (12 + logComplexityFactor * 1.8); // Base + kernel complexity
+      if (kernelSizeLog <= 7) {
+        complexity = 'low';
+      } else if (kernelSizeLog <= 15) {
+        complexity = 'medium';
+      } else {
+        complexity = 'high';
+      }
       break;
 
     case 'dog':
-      baseTimeMs = megapixels * 32; // Two gaussian blurs + subtraction
-      complexity = 'medium';
-      memoryMultiplier = 2;
+      // DoG = Two Gaussian blurs + subtraction
+      const kernelSizeDog = params.kernelSize || 5;
+      const dogComplexityFactor = Math.pow(kernelSizeDog, 1.5);
+      baseTimeMs = megapixels * (20 + dogComplexityFactor * 2.5); // Base + kernel complexity
+      if (kernelSizeDog <= 7) {
+        complexity = 'low';
+      } else if (kernelSizeDog <= 15) {
+        complexity = 'medium';
+      } else {
+        complexity = 'high';
+      }
+      memoryMultiplier = 2; // Two blur operations
       break;
 
     case 'marrHildreth':
-      baseTimeMs = megapixels * 45; // LoG + zero crossing detection
-      complexity = 'high';
-      memoryMultiplier = 2.5;
+      // Marr-Hildreth = LoG + zero crossing detection + threshold processing
+      const kernelSizeMarr = params.kernelSize || 5;
+      const marrComplexityFactor = Math.pow(kernelSizeMarr, 1.4);
+      baseTimeMs = megapixels * (25 + marrComplexityFactor * 3.2); // Base + kernel complexity + zero crossing
+      if (kernelSizeMarr <= 5) {
+        complexity = 'medium';
+      } else if (kernelSizeMarr <= 13) {
+        complexity = 'high';
+      } else {
+        complexity = 'very_high';
+      }
+      memoryMultiplier = 2.5; // LoG + edge detection buffers
       break;
 
 
@@ -806,6 +837,209 @@ export function applyDistanceTransformOpenCV(ctx: CanvasRenderingContext2D, para
     src.delete();
     gray.delete();
     binary.delete();
+    dst.delete();
+  }
+}
+
+// ========== Advanced Edge Detection ==========
+
+export function applyPrewittOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const gradX = new cv.Mat();
+  const gradY = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Create Prewitt kernels
+    const kernelX = cv.matFromArray(3, 3, cv.CV_32FC1, [-1, 0, 1, -1, 0, 1, -1, 0, 1]);
+    const kernelY = cv.matFromArray(3, 3, cv.CV_32FC1, [-1, -1, -1, 0, 0, 0, 1, 1, 1]);
+    
+    // Apply filters
+    cv.filter2D(gray, gradX, cv.CV_32F, kernelX);
+    cv.filter2D(gray, gradY, cv.CV_32F, kernelY);
+    
+    // Combine gradients
+    cv.magnitude(gradX, gradY, dst);
+    
+    // Convert back to 8-bit
+    cv.convertScaleAbs(dst, dst);
+    
+    matToCanvas(ctx, dst);
+    
+    kernelX.delete();
+    kernelY.delete();
+  } finally {
+    src.delete();
+    gray.delete();
+    gradX.delete();
+    gradY.delete();
+    dst.delete();
+  }
+}
+
+export function applyRobertsCrossOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const gradX = new cv.Mat();
+  const gradY = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Create Roberts Cross kernels
+    const kernelX = cv.matFromArray(2, 2, cv.CV_32FC1, [1, 0, 0, -1]);
+    const kernelY = cv.matFromArray(2, 2, cv.CV_32FC1, [0, 1, -1, 0]);
+    
+    // Apply filters
+    cv.filter2D(gray, gradX, cv.CV_32F, kernelX);
+    cv.filter2D(gray, gradY, cv.CV_32F, kernelY);
+    
+    // Combine gradients
+    cv.magnitude(gradX, gradY, dst);
+    
+    // Convert back to 8-bit
+    cv.convertScaleAbs(dst, dst);
+    
+    matToCanvas(ctx, dst);
+    
+    kernelX.delete();
+    kernelY.delete();
+  } finally {
+    src.delete();
+    gray.delete();
+    gradX.delete();
+    gradY.delete();
+    dst.delete();
+  }
+}
+
+export function applyLoGOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const blurred = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Apply Gaussian blur first
+    const sigma = params.sigma || 1.5;
+    const kernelSize = params.kernelSize || 5;
+    const ksize = new cv.Size(kernelSize, kernelSize);
+    cv.GaussianBlur(gray, blurred, ksize, sigma, sigma);
+    
+    // Apply Laplacian
+    cv.Laplacian(blurred, dst, cv.CV_32F, 1);
+    
+    // Convert back to 8-bit
+    cv.convertScaleAbs(dst, dst);
+    
+    matToCanvas(ctx, dst);
+    
+  } finally {
+    src.delete();
+    gray.delete();
+    blurred.delete();
+    dst.delete();
+  }
+}
+
+export function applyDoGOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const blur1 = new cv.Mat();
+  const blur2 = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Parameters for two Gaussians
+    const sigma1 = params.sigma || 1.5;
+    const sigma2 = params.sigma2 || 2.0;
+    const kernelSize = params.kernelSize || 5;
+    const ksize = new cv.Size(kernelSize, kernelSize);
+    
+    // Apply two Gaussian blurs with different sigmas
+    cv.GaussianBlur(gray, blur1, ksize, sigma1, sigma1);
+    cv.GaussianBlur(gray, blur2, ksize, sigma2, sigma2);
+    
+    // Subtract the two blurred images
+    cv.subtract(blur1, blur2, dst);
+    
+    // Convert back to 8-bit
+    cv.convertScaleAbs(dst, dst);
+    
+    matToCanvas(ctx, dst);
+    
+  } finally {
+    src.delete();
+    gray.delete();
+    blur1.delete();
+    blur2.delete();
+    dst.delete();
+  }
+}
+
+export function applyMarrHildrethOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const blurred = new cv.Mat();
+  const laplacian = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Apply Gaussian blur first
+    const sigma = params.sigma || 1.5;
+    const kernelSize = params.kernelSize || 5;
+    const ksize = new cv.Size(kernelSize, kernelSize);
+    cv.GaussianBlur(gray, blurred, ksize, sigma, sigma);
+    
+    // Apply Laplacian
+    cv.Laplacian(blurred, laplacian, cv.CV_32F, 1);
+    
+    // Zero-crossing detection (simplified)
+    // In a full implementation, this would involve checking neighboring pixels
+    // For now, we'll threshold the Laplacian result
+    const threshold = params.threshold || 10;
+    cv.threshold(laplacian, dst, threshold, 255, cv.THRESH_BINARY);
+    
+    // Convert back to 8-bit
+    cv.convertScaleAbs(dst, dst);
+    
+    matToCanvas(ctx, dst);
+    
+  } finally {
+    src.delete();
+    gray.delete();
+    blurred.delete();
+    laplacian.delete();
     dst.delete();
   }
 }
