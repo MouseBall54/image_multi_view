@@ -2,55 +2,145 @@ import React from 'react';
 import { useStore } from '../store';
 import type { FilterType } from '../types';
 import { LAWS_KERNEL_TYPES } from '../utils/filters';
+import { 
+  calculatePerformanceMetrics, 
+  formatPerformanceEstimate
+} from '../utils/opencvFilters';
+
+// Inline editable number: click value to edit, blur/Enter to commit, Esc to cancel
+const InlineNumber: React.FC<{
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onCommit: (v: number) => void;
+}> = ({ value, min, max, step, onCommit }) => {
+  const [editing, setEditing] = React.useState(false);
+  const [text, setText] = React.useState(String(value));
+
+  React.useEffect(() => {
+    if (!editing) setText(String(value));
+  }, [value, editing]);
+
+  // Format up to 2 decimal places, trimming trailing zeros
+  const fmt = (v: number) => {
+    const rounded = Number.isFinite(v) ? Number(v.toFixed(2)) : v;
+    const s = rounded.toFixed(2);
+    return s.replace(/\.?0+$/, '');
+  };
+
+  return (
+    <span className="inline-number-wrap">
+      {editing ? (
+        <input
+          className="inline-number-input"
+          type="number"
+          value={text}
+          min={min}
+          max={max}
+          step={step}
+          autoFocus
+          onChange={(e) => setText(e.target.value)}
+          onBlur={() => {
+            const num = parseFloat(text);
+            if (!isNaN(num)) onCommit(Number(num.toFixed(2)));
+            setEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const num = parseFloat(text);
+              if (!isNaN(num)) onCommit(Number(num.toFixed(2)));
+              setEditing(false);
+            } else if (e.key === 'Escape') {
+              setText(String(value));
+              setEditing(false);
+            }
+          }}
+        />
+      ) : (
+        <span className="inline-number" onClick={() => setEditing(true)}>
+          {fmt(value)}
+        </span>
+      )}
+    </span>
+  );
+};
 
 export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
-  { name: 'None', type: 'none', group: 'General' },
-  { name: 'Grayscale', type: 'grayscale', group: 'General' },
-  { name: 'Invert', type: 'invert', group: 'General' },
-  { name: 'Sepia', type: 'sepia', group: 'General' },
-  { name: 'Linear Contrast Stretching', type: 'linearstretch', group: 'Contrast' },
-  { name: 'Histogram Equalization', type: 'histogramequalization', group: 'Contrast' },
-  { name: 'Local Histogram Equalization', type: 'localhistogramequalization', group: 'Contrast' },
-  { name: 'Adaptive Histogram Equalization', type: 'adaptivehistogramequalization', group: 'Contrast' },
-  { name: 'CLAHE', type: 'clahe', group: 'Contrast' },
-  { name: 'Gamma Correction', type: 'gammacorrection', group: 'Contrast' },
-  { name: 'Box Blur', type: 'boxblur', group: 'Blurring' },
-  { name: 'Gaussian Blur', type: 'gaussianblur', group: 'Blurring' },
-  { name: 'Median', type: 'median', group: 'Blurring' },
-  { name: 'Weighted Median', type: 'weightedmedian', group: 'Blurring' },
-  { name: 'Alpha-trimmed Mean', type: 'alphatrimmedmean', group: 'Blurring' },
+  // Tone & Basics
+  { name: 'None', type: 'none', group: 'Tone & Basics' },
+  { name: 'Grayscale', type: 'grayscale', group: 'Tone & Basics' },
+  { name: 'Invert', type: 'invert', group: 'Tone & Basics' },
+  { name: 'Sepia', type: 'sepia', group: 'Tone & Basics' },
+  { name: 'Linear Contrast Stretching', type: 'linearstretch', group: 'Tone & Basics' },
+  { name: 'Gamma Correction', type: 'gammacorrection', group: 'Tone & Basics' },
+
+  // Contrast Enhancement
+  { name: 'Histogram Equalization', type: 'histogramequalization', group: 'Contrast Enhancement' },
+  { name: 'CLAHE (Contrast Limited Adaptive Histogram Equalization)', type: 'clahe', group: 'Contrast Enhancement' },
+  { name: 'Local Histogram Equalization', type: 'localhistogramequalization', group: 'Contrast Enhancement' },
+  { name: 'Adaptive Histogram Equalization (AHE)', type: 'adaptivehistogramequalization', group: 'Contrast Enhancement' },
+
+  // Noise Reduction & Blurring
+  { name: 'Box Blur', type: 'boxblur', group: 'Noise Reduction & Blurring' },
+  { name: 'Gaussian Blur', type: 'gaussianblur', group: 'Noise Reduction & Blurring' },
+  { name: 'Median Blur', type: 'median', group: 'Noise Reduction & Blurring' },
+  { name: 'Weighted Median', type: 'weightedmedian', group: 'Noise Reduction & Blurring' },
+  { name: 'Alpha-trimmed Mean', type: 'alphatrimmedmean', group: 'Noise Reduction & Blurring' },
+
+  // Edge-Preserving Smoothing
+  { name: 'Guided Filter', type: 'guided', group: 'Edge-Preserving Smoothing' },
+  { name: 'Edge-preserving (Approx.)', type: 'edgepreserving', group: 'Edge-Preserving Smoothing' },
+
+  // Sharpening
   { name: 'Sharpen', type: 'sharpen', group: 'Sharpening' },
   { name: 'Unsharp Masking', type: 'unsharpmask', group: 'Sharpening' },
   { name: 'High-pass Filter', type: 'highpass', group: 'Sharpening' },
-  { name: 'Laplacian', type: 'laplacian', group: 'Sharpening' },
-  { name: 'Sobel', type: 'sobel', group: 'Edge Detection' },
-  { name: 'Prewitt', type: 'prewitt', group: 'Edge Detection' },
-  { name: 'Scharr', type: 'scharr', group: 'Edge Detection' },
-  { name: 'Canny', type: 'canny', group: 'Edge Detection' },
-  { name: 'Roberts Cross', type: 'robertscross', group: 'Edge Detection' },
-  { name: 'LoG', type: 'log', group: 'Edge Detection' },
-  { name: 'DoG', type: 'dog', group: 'Edge Detection' },
-  { name: 'Marr-Hildreth', type: 'marrhildreth', group: 'Edge Detection' },
-  { name: 'Bilateral Filter', type: 'bilateral', group: 'Advanced Denoising' },
-  { name: 'Non-local Means', type: 'nonlocalmeans', group: 'Advanced Denoising' },
-  { name: 'Anisotropic Diffusion', type: 'anisotropicdiffusion', group: 'Advanced Denoising' },
+
+  // Edge Detection - Basic
+  { name: 'Sobel', type: 'sobel', group: 'Edge Detection - Basic' },
+  { name: 'Scharr', type: 'scharr', group: 'Edge Detection - Basic' },
+  { name: 'Laplacian', type: 'laplacian', group: 'Edge Detection - Basic' },
+
+  // Edge Detection - Advanced
+  { name: 'Canny', type: 'canny', group: 'Edge Detection - Advanced' },
+  { name: 'LoG (Laplacian of Gaussian)', type: 'log', group: 'Edge Detection - Advanced' },
+  { name: 'DoG (Difference of Gaussians)', type: 'dog', group: 'Edge Detection - Advanced' },
+  { name: 'Marr-Hildreth', type: 'marrhildreth', group: 'Edge Detection - Advanced' },
+  { name: 'Prewitt', type: 'prewitt', group: 'Edge Detection - Advanced' },
+  { name: 'Roberts Cross', type: 'robertscross', group: 'Edge Detection - Advanced' },
+
+  // Texture Analysis
   { name: 'Gabor Filter', type: 'gabor', group: 'Texture Analysis' },
   { name: 'Laws Texture Energy', type: 'lawstextureenergy', group: 'Texture Analysis' },
-  { name: 'Local Binary Patterns', type: 'lbp', group: 'Texture Analysis' },
-  { name: 'Guided Filter', type: 'guided', group: 'Edge-preserving Filter' },
-  { name: 'Edge-preserving (Approx.)', type: 'edgepreserving', group: 'Edge-preserving Filter' },
-  { name: 'Discrete Fourier Transform (DFT)', type: 'dft', group: 'Frequency Domain' },
-  { name: 'Discrete Cosine Transform (DCT)', type: 'dct', group: 'Frequency Domain' },
-  { name: 'Wavelet Transform', type: 'wavelet', group: 'Frequency Domain' },
-  { name: 'Morphology - Opening', type: 'morph_open', group: 'Morphology' },
-  { name: 'Morphology - Closing', type: 'morph_close', group: 'Morphology' },
-  { name: 'Morphology - Top-hat', type: 'morph_tophat', group: 'Morphology' },
-  { name: 'Morphology - Black-hat', type: 'morph_blackhat', group: 'Morphology' },
-  { name: 'Morphology - Gradient', type: 'morph_gradient', group: 'Morphology' },
-  { name: 'Distance Transform', type: 'distancetransform', group: 'Morphology' },
+  { name: 'Local Binary Patterns (LBP)', type: 'lbp', group: 'Texture Analysis' },
+
+  // Morphology & Distance
+  { name: 'Morphology - Opening', type: 'morph_open', group: 'Morphology & Distance' },
+  { name: 'Morphology - Closing', type: 'morph_close', group: 'Morphology & Distance' },
+  { name: 'Morphology - Top-hat', type: 'morph_tophat', group: 'Morphology & Distance' },
+  { name: 'Morphology - Black-hat', type: 'morph_blackhat', group: 'Morphology & Distance' },
+  { name: 'Morphology - Gradient', type: 'morph_gradient', group: 'Morphology & Distance' },
+  { name: 'Distance Transform', type: 'distancetransform', group: 'Morphology & Distance' },
+
+  // Frequency Domain (Experimental)
+  { name: 'Discrete Fourier Transform (DFT)', type: 'dft', group: 'Frequency Domain (Experimental)' },
+  { name: 'Discrete Cosine Transform (DCT)', type: 'dct', group: 'Frequency Domain (Experimental)' },
+  { name: 'Wavelet Transform', type: 'wavelet', group: 'Frequency Domain (Experimental)' },
 ];
 
-const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising', 'Texture Analysis', 'Edge-preserving Filter', 'Frequency Domain', 'Morphology'];
+const filterGroups = [
+  'Tone & Basics',
+  'Contrast Enhancement',
+  'Noise Reduction & Blurring',
+  'Edge-Preserving Smoothing',
+  'Sharpening',
+  'Edge Detection - Basic',
+  'Edge Detection - Advanced',
+  'Texture Analysis',
+  'Morphology & Distance',
+  'Frequency Domain (Experimental)'
+];
 
 export const FilterControls: React.FC = () => {
   const {
@@ -61,6 +151,9 @@ export const FilterControls: React.FC = () => {
     setTempFilterType,
     setTempFilterParams,
     applyTempFilterSettings,
+    current,
+    viewerImageSizes,
+    analysisImageSizes,
   } = useStore();
 
   if (activeFilterEditor === null) return null;
@@ -75,6 +168,137 @@ export const FilterControls: React.FC = () => {
   const handleStringParamChange = (param: string, value: string) => {
     setTempFilterParams({ [param]: value });
   };
+
+  // Calculate performance metrics for current filter and image
+  const getPerformanceMetrics = () => {
+    
+    // Try to get actual image dimensions from current file
+    let estimatedWidth = 1920; // Default HD width
+    let estimatedHeight = 1080; // Default HD height
+
+    // Prefer actual canvas image size from store
+    if (typeof activeFilterEditor === 'string') {
+      const s = viewerImageSizes[activeFilterEditor];
+      if (s && s.width && s.height) {
+        estimatedWidth = s.width;
+        estimatedHeight = s.height;
+      }
+    } else if (typeof activeFilterEditor === 'number') {
+      const s = analysisImageSizes[activeFilterEditor];
+      if (s && s.width && s.height) {
+        estimatedWidth = s.width;
+        estimatedHeight = s.height;
+      }
+    }
+    
+    // Enhanced logic: try to get actual dimensions from current image
+    if (current && current.filename && (!estimatedWidth || !estimatedHeight || (estimatedWidth === 1920 && estimatedHeight === 1080))) {
+      // Extract resolution hints from filename if available
+      const filename = current.filename;
+      const resolutionMatch = filename.match(/(\d{3,4})[x×](\d{3,4})/i);
+      if (resolutionMatch) {
+        estimatedWidth = parseInt(resolutionMatch[1]);
+        estimatedHeight = parseInt(resolutionMatch[2]);
+      } else {
+        // Common resolution indicators in filenames
+        const filenameLower = filename.toLowerCase();
+        if (filenameLower.includes('4k') || filenameLower.includes('uhd')) {
+          estimatedWidth = 3840; estimatedHeight = 2160;
+        } else if (filenameLower.includes('2k') || filenameLower.includes('qhd')) {
+          estimatedWidth = 2560; estimatedHeight = 1440;
+        } else if (filenameLower.includes('fullhd') || filenameLower.includes('1080p')) {
+          estimatedWidth = 1920; estimatedHeight = 1080;
+        } else if (filenameLower.includes('hd') || filenameLower.includes('720p')) {
+          estimatedWidth = 1280; estimatedHeight = 720;
+        }
+      }
+    }
+    
+    // Map filter types to performance calculation types
+    const filterMap: Record<string, string> = {
+      // Basic filters
+      'none': 'none',
+      'grayscale': 'grayscale',
+      'invert': 'invert',
+      'sepia': 'sepia',
+      
+      // Contrast enhancement
+      'linearstretch': 'linearStretch',
+      'histogramequalization': 'histogramEqualization',
+      'localhistogramequalization': 'localHistogramEqualization',
+      'adaptivehistogramequalization': 'adaptiveHistogramEqualization',
+      'clahe': 'clahe',
+      'gammacorrection': 'gammaCorrection',
+      
+      // Blurring filters
+      'boxblur': 'boxBlur',
+      'gaussianblur': 'gaussianBlur',
+      'median': 'medianBlur',
+      'weightedmedian': 'weightedMedian',
+      'alphatrimmedmean': 'alphaTrimmedMean',
+      
+      // Sharpening filters
+      'sharpen': 'sharpen',
+      'unsharpmask': 'unsharpMask',
+      'highpass': 'highpass',
+      'laplacian': 'laplacian',
+      
+      // Edge detection filters
+      'sobel': 'sobel',
+      'prewitt': 'prewitt',
+      'scharr': 'scharr',
+      'canny': 'canny',
+      'robertscross': 'robertsCross',
+      'log': 'log',
+      'dog': 'dog',
+      'marrhildreth': 'marrHildreth',
+      
+      
+      // Texture analysis filters
+      'gabor': 'gabor',
+      'lawstextureenergy': 'lawsTextureEnergy',
+      'lbp': 'lbp',
+      
+      // Edge-preserving filters
+      'guided': 'guidedFilter',
+      'edgepreserving': 'edgePreserving',
+      
+      // Frequency domain filters
+      'dft': 'dft',
+      'dct': 'dct',
+      'wavelet': 'wavelet',
+      
+      // Morphology filters
+      'morph_open': 'morphology',
+      'morph_close': 'morphology',
+      'morph_tophat': 'morphology',
+      'morph_blackhat': 'morphology',
+      'morph_gradient': 'morphology',
+      'distancetransform': 'distanceTransform',
+    };
+    
+    const performanceType = filterMap[tempViewerFilter] || 'default';
+    return calculatePerformanceMetrics(estimatedWidth, estimatedHeight, performanceType, tempViewerFilterParams);
+  };
+
+  const performanceMetrics = getPerformanceMetrics();
+  const getEstimateColor = (ms: number): string => {
+    if (ms < 200) return '#10b981';
+    if (ms < 800) return '#f59e0b';
+    if (ms < 3000) return '#ef4444';
+    return '#dc2626';
+  };
+  const perfDims = (() => {
+    let w = 1920, h = 1080;
+    if (typeof activeFilterEditor === 'string') {
+      const s = viewerImageSizes[activeFilterEditor];
+      if (s && s.width && s.height) { w = s.width; h = s.height; }
+    } else if (typeof activeFilterEditor === 'number') {
+      const s = analysisImageSizes[activeFilterEditor];
+      if (s && s.width && s.height) { w = s.width; h = s.height; }
+    }
+    return { w, h };
+  })();
 
   const renderParams = () => {
     switch (tempViewerFilter) {
@@ -161,7 +385,13 @@ export const FilterControls: React.FC = () => {
                 value={tempViewerFilterParams.sigma ?? 1.0}
                 onChange={(e) => handleParamChange('sigma', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+              <InlineNumber
+                value={tempViewerFilterParams.sigma ?? 1.0}
+                min={0.1}
+                max={10}
+                step={0.01}
+                onCommit={(v)=> setTempFilterParams({ sigma: v })}
+              />
             </div>
           </>
         );
@@ -190,7 +420,13 @@ export const FilterControls: React.FC = () => {
                 value={tempViewerFilterParams.sigma ?? 1.0}
                 onChange={(e) => handleParamChange('sigma', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+              <InlineNumber
+                value={tempViewerFilterParams.sigma ?? 1.0}
+                min={0.1}
+                max={10}
+                step={0.01}
+                onCommit={(v)=> setTempFilterParams({ sigma: v })}
+              />
             </div>
           </>
         );
@@ -320,6 +556,23 @@ export const FilterControls: React.FC = () => {
             <span>{(tempViewerFilterParams.sharpenAmount ?? 1.0).toFixed(1)}</span>
           </div>
         );
+      case 'laplacian':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Size</label>
+              <input
+                type="range"
+                min="1"
+                max="7"
+                step="2"
+                value={tempViewerFilterParams.kernelSize ?? 3}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+            </div>
+          </>
+        );
       case 'canny':
         return (
           <>
@@ -375,7 +628,13 @@ export const FilterControls: React.FC = () => {
                 value={tempViewerFilterParams.clipLimit ?? 2.0}
                 onChange={(e) => handleParamChange('clipLimit', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.clipLimit ?? 2.0).toFixed(1)}</span>
+              <InlineNumber
+                value={tempViewerFilterParams.clipLimit ?? 2.0}
+                min={1}
+                max={10}
+                step={0.01}
+                onCommit={(v)=> setTempFilterParams({ clipLimit: v })}
+              />
             </div>
             <div className="control-row">
               <label>Grid Size</label>
@@ -403,119 +662,14 @@ export const FilterControls: React.FC = () => {
               value={tempViewerFilterParams.gamma ?? 1.0}
               onChange={(e) => handleParamChange('gamma', e.target.value)}
             />
-            <span>{(tempViewerFilterParams.gamma ?? 1.0).toFixed(1)}</span>
+            <InlineNumber
+              value={tempViewerFilterParams.gamma ?? 1.0}
+              min={0.2}
+              max={2.2}
+              step={0.01}
+              onCommit={(v)=> setTempFilterParams({ gamma: v })}
+            />
           </div>
-        );
-      case 'bilateral':
-        return (
-          <>
-            <div className="control-row">
-              <label>Kernel Size</label>
-              <input
-                type="range"
-                min="3"
-                max="21"
-                step="2"
-                value={tempViewerFilterParams.kernelSize ?? 3}
-                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
-            </div>
-            <div className="control-row">
-              <label>Sigma Color</label>
-              <input
-                type="range"
-                min="1"
-                max="100"
-                step="1"
-                value={tempViewerFilterParams.sigmaColor ?? 20}
-                onChange={(e) => handleParamChange('sigmaColor', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.sigmaColor ?? 20}</span>
-            </div>
-            <div className="control-row">
-              <label>Sigma Space</label>
-              <input
-                type="range"
-                min="1"
-                max="100"
-                step="1"
-                value={tempViewerFilterParams.sigmaSpace ?? 20}
-                onChange={(e) => handleParamChange('sigmaSpace', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.sigmaSpace ?? 20}</span>
-            </div>
-          </>
-        );
-      case 'nonlocalmeans':
-        return (
-          <>
-            <div className="control-row">
-              <label>Patch Size</label>
-              <input
-                type="range"
-                min="3"
-                max="9"
-                step="2"
-                value={tempViewerFilterParams.patchSize ?? 5}
-                onChange={(e) => handleParamChange('patchSize', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.patchSize ?? 5}</span>
-            </div>
-            <div className="control-row">
-              <label>Search Window</label>
-              <input
-                type="range"
-                min="5"
-                max="21"
-                step="2"
-                value={tempViewerFilterParams.searchWindowSize ?? 11}
-                onChange={(e) => handleParamChange('searchWindowSize', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.searchWindowSize ?? 11}</span>
-            </div>
-            <div className="control-row">
-              <label>H (Smoothing)</label>
-              <input
-                type="range"
-                min="1"
-                max="50"
-                step="1"
-                value={tempViewerFilterParams.h ?? 10}
-                onChange={(e) => handleParamChange('h', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.h ?? 10}</span>
-            </div>
-          </>
-        );
-      case 'anisotropicdiffusion':
-        return (
-          <>
-            <div className="control-row">
-              <label>Iterations</label>
-              <input
-                type="range"
-                min="1"
-                max="100"
-                step="1"
-                value={tempViewerFilterParams.iterations ?? 10}
-                onChange={(e) => handleParamChange('iterations', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.iterations ?? 10}</span>
-            </div>
-            <div className="control-row">
-              <label>Kappa</label>
-              <input
-                type="range"
-                min="1"
-                max="100"
-                step="1"
-                value={tempViewerFilterParams.kappa ?? 20}
-                onChange={(e) => handleParamChange('kappa', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.kappa ?? 20}</span>
-            </div>
-          </>
         );
       case 'unsharpmask':
         return (
@@ -542,7 +696,13 @@ export const FilterControls: React.FC = () => {
                 value={tempViewerFilterParams.sigma ?? 1.0}
                 onChange={(e) => handleParamChange('sigma', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+              <InlineNumber
+                value={tempViewerFilterParams.sigma ?? 1.0}
+                min={0.1}
+                max={10}
+                step={0.01}
+                onCommit={(v)=> setTempFilterParams({ sigma: v })}
+              />
             </div>
             <div className="control-row">
               <label>Amount</label>
@@ -554,7 +714,13 @@ export const FilterControls: React.FC = () => {
                 value={tempViewerFilterParams.sharpenAmount ?? 1.0}
                 onChange={(e) => handleParamChange('sharpenAmount', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.sharpenAmount ?? 1.0).toFixed(1)}</span>
+              <InlineNumber
+                value={tempViewerFilterParams.sharpenAmount ?? 1.0}
+                min={0.1}
+                max={5}
+                step={0.01}
+                onCommit={(v)=> setTempFilterParams({ sharpenAmount: v })}
+              />
             </div>
           </>
         );
@@ -569,27 +735,27 @@ export const FilterControls: React.FC = () => {
             <div className="control-row">
               <label>Theta (θ)</label>
               <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.theta ?? 0} onChange={(e) => handleParamChange('theta', e.target.value)} />
-              <span>{(tempViewerFilterParams.theta ?? 0).toFixed(2)}</span>
+              <InlineNumber value={tempViewerFilterParams.theta ?? 0} min={0} max={3.14} step={0.01} onCommit={(v)=> setTempFilterParams({ theta: v })} />
             </div>
             <div className="control-row">
               <label>Sigma (σ)</label>
               <input type="range" min="1" max="10" step="0.5" value={tempViewerFilterParams.sigma ?? 4.0} onChange={(e) => handleParamChange('sigma', e.target.value)} />
-              <span>{(tempViewerFilterParams.sigma ?? 4.0).toFixed(1)}</span>
+              <InlineNumber value={tempViewerFilterParams.sigma ?? 4.0} min={1} max={10} step={0.01} onCommit={(v)=> setTempFilterParams({ sigma: v })} />
             </div>
             <div className="control-row">
               <label>Lambda (λ)</label>
               <input type="range" min="3" max="20" step="1" value={tempViewerFilterParams.lambda ?? 10.0} onChange={(e) => handleParamChange('lambda', e.target.value)} />
-              <span>{(tempViewerFilterParams.lambda ?? 10.0).toFixed(1)}</span>
+              <InlineNumber value={tempViewerFilterParams.lambda ?? 10.0} min={3} max={20} step={0.01} onCommit={(v)=> setTempFilterParams({ lambda: v })} />
             </div>
             <div className="control-row">
               <label>Gamma (γ)</label>
               <input type="range" min="0.2" max="1" step="0.1" value={tempViewerFilterParams.gamma ?? 0.5} onChange={(e) => handleParamChange('gamma', e.target.value)} />
-              <span>{(tempViewerFilterParams.gamma ?? 0.5).toFixed(1)}</span>
+              <InlineNumber value={tempViewerFilterParams.gamma ?? 0.5} min={0.2} max={1} step={0.01} onCommit={(v)=> setTempFilterParams({ gamma: v })} />
             </div>
             <div className="control-row">
               <label>Psi (ψ)</label>
               <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.psi ?? 0} onChange={(e) => handleParamChange('psi', e.target.value)} />
-              <span>{(tempViewerFilterParams.psi ?? 0).toFixed(2)}</span>
+              <InlineNumber value={tempViewerFilterParams.psi ?? 0} min={0} max={3.14} step={0.01} onCommit={(v)=> setTempFilterParams({ psi: v })} />
             </div>
           </>
         );
@@ -644,7 +810,7 @@ export const FilterControls: React.FC = () => {
                 value={tempViewerFilterParams.epsilon ?? 0.04}
                 onChange={(e) => handleParamChange('epsilon', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.epsilon ?? 0.04).toFixed(2)}</span>
+              <InlineNumber value={tempViewerFilterParams.epsilon ?? 0.04} min={0.01} max={0.2} step={0.01} onCommit={(v)=> setTempFilterParams({ epsilon: v })} />
             </div>
           </>
         );
@@ -676,9 +842,56 @@ export const FilterControls: React.FC = () => {
           <div className="params-container">
             {renderParams()}
           </div>
+          
+          {performanceMetrics && (
+            <div className="performance-metrics">
+              <div className="performance-header">
+                <span className="performance-label">Performance Estimate</span>
+                <span 
+                  className="performance-badge"
+                  style={{ 
+                    backgroundColor: getEstimateColor(performanceMetrics.estimatedTimeMs),
+                    color: 'white',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {formatPerformanceEstimate(performanceMetrics)}
+                </span>
+              </div>
+              <div className="performance-details">
+                <span className="detail-item">
+                  Complexity: <strong>{performanceMetrics.complexity.replace('_', ' ')}</strong>
+                </span>
+                <span className="detail-item">
+                  Memory: <strong>~{performanceMetrics.memoryUsageMB}MB</strong>
+                </span>
+              </div>
+              <div className="performance-info">
+                <small>Current resolution: {perfDims.w}×{perfDims.h}</small>
+                {/* Removed OpenCV badge per request */}
+              </div>
+              {performanceMetrics.estimatedTimeMs > 1000 && (
+                <div className="performance-warning">
+                  ⚠️ This filter may take a while with high-resolution images
+                </div>
+              )}
+              {performanceMetrics.estimatedTimeMs > 5000 && (
+                <div className="performance-critical">
+                  🔥 Very intensive operation - consider reducing parameters
+                </div>
+              )}
+              {/* Removed all per-filter performance tips for a cleaner UI */}
+            </div>
+          )}
         </div>
         <div className="panel-footer">
-          <button onClick={applyTempFilterSettings} className="apply-btn">Apply Filter</button>
+          <button onClick={applyTempFilterSettings} className="apply-btn">
+            Apply Filter
+            {performanceMetrics && ` (${formatPerformanceEstimate(performanceMetrics)})`}
+          </button>
         </div>
       </div>
     </div>

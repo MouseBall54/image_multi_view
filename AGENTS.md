@@ -47,3 +47,70 @@
 - Modes: Compare/Pinpoint/Analysis encapsulated in src/modes/ with shared components.
 - Imaging: TIFF support via UTIF utilities; heavy work isolated in src/utils/.
 
+
+📋 남은 작업들 (우선순위별)
+
+  🎯 단기 작업 (바로 진행 가능)
+
+  🧪 1. 테스트 & 검증
+  - 현재 구현된 19개 OpenCV 필터 동작 테스트
+  - 성능 비교 및 품질 검증
+  - 버그 발견 및 수정
+
+  🔧 2. TypeScript 오류 수정
+  - 코드 안정성 및 타입 안전성 향상
+  - 개발 환경 개선
+
+  🚀 중기 작업 (새로운 필터 구현)
+
+  📊 3. Phase 5: Histogram Operations
+  - Histogram Equalization OpenCV 구현
+  - CLAHE (Contrast Limited Adaptive Histogram Equalization)
+  - Local Histogram Equalization
+  - 예상 성능 향상: 4-7배
+
+  🎨 4. Phase 6: Color Space & Enhancement
+  - Gamma Correction OpenCV 구현
+  - Linear Stretch OpenCV 구현
+  - Unsharp Mask OpenCV 구현
+  - 색상 공간 변환 최적화
+
+  🔍 5. Phase 7: Texture Analysis
+  - Gabor Filter OpenCV 구현
+  - Laws Texture Energy OpenCV 구현
+  - Local Binary Patterns OpenCV 구현
+  - 텍스처 분석 성능 대폭 향상
+
+  📈 장기 작업 (최적화 & 완성도)
+
+  ⚡ 6. 성능 벤치마크 & 최적화
+  - 전체 필터 성능 비교 테스트
+  - 메모리 사용량 최적화
+  - 대용량 이미지 처리 최적화
+
+  🔧 7. 추가 기능
+  - 필터 체인 (여러 필터 연속 적용)
+  - 필터 프리셋 저장/불러오기
+  - 실시간 미리보기 최적화
+
+  ---
+
+  ---
+  📊 현재 상황 요약:
+
+  ✅ 완료된 것:
+
+  - 19개 OpenCV 가속 필터 구현 완료
+  - 4개 Phase 모두 완료
+  - 성능 추정 시스템 구현
+  - UI 통합 및 카테고리 분류
+
+  🚧 진행 중인 것:
+
+  - 없음 (모든 Phase 완료)
+
+  ⏳ 대기 중인 것:
+
+  - 5개 추가 Phase (Histogram, Color, Texture 등)
+  - 테스트 & 검증
+  - 코드 품질 개선

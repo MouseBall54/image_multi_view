@@ -1,4 +1,30 @@
 import type { FilterParams } from '../store';
+import { 
+  applyFilterWithFallback, 
+  applyGaussianBlurOpenCV, 
+  applyBoxBlurOpenCV, 
+  applyMedianBlurOpenCV,
+  applySobelOpenCV,
+  applyScharrOpenCV,
+  applyCannyOpenCV,
+  applyLaplacianOpenCV,
+  applyMorphOpeningOpenCV,
+  applyMorphClosingOpenCV,
+  applyMorphTopHatOpenCV,
+  applyMorphBlackHatOpenCV,
+  applyMorphGradientOpenCV,
+  applyDistanceTransformOpenCV,
+  applyPrewittOpenCV,
+  applyRobertsCrossOpenCV,
+  applyLoGOpenCV,
+  applyDoGOpenCV,
+  applyMarrHildrethOpenCV
+} from './opencvFilters';
+import {
+  applyHistogramEqualizationOpenCV,
+  applyClaheOpenCV,
+  applyLocalHistogramEqualizationOpenCV
+} from './opencvFilters';
 
 // Helper function to create a Gaussian kernel
 function createGaussianKernel(sigma: number, size: number): number[][] {
@@ -176,14 +202,22 @@ function applyEdgeFilter(ctx: CanvasRenderingContext2D, kernelX: Kernel, kernelY
 }
 
 // --- Exported Filter Functions ---
-export const applyBoxBlur = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const kernel = createBoxBlurKernel(params.kernelSize);
-  convolve(ctx, kernel);
+export const applyBoxBlur = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const kernel = createBoxBlurKernel(params.kernelSize);
+    convolve(ctx, kernel);
+  };
+  
+  await applyFilterWithFallback(ctx, 'boxBlur', params, originalFn, applyBoxBlurOpenCV);
 };
 
-export const applyGaussianBlur = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const kernel = createGaussianKernel(params.sigma, params.kernelSize);
-  convolve(ctx, kernel);
+export const applyGaussianBlur = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const kernel = createGaussianKernel(params.sigma, params.kernelSize);
+    convolve(ctx, kernel);
+  };
+  
+  await applyFilterWithFallback(ctx, 'gaussianBlur', params, originalFn, applyGaussianBlurOpenCV);
 };
 
 export const applySharpen = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
@@ -191,78 +225,127 @@ export const applySharpen = (ctx: CanvasRenderingContext2D, params: FilterParams
   convolve(ctx, kernel);
 };
 
-export const applyGabor = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const kernel = createGaborKernel(params);
-  convolve(ctx, kernel);
+import { applyGaborOpenCV, applyLawsTextureEnergyOpenCV, applyLbpOpenCV } from './opencvFilters';
+
+export const applyGabor = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const kernel = createGaborKernel(params);
+    convolve(ctx, kernel);
+  };
+  await applyFilterWithFallback(ctx, 'gabor', params, originalFn, applyGaborOpenCV as any);
 };
 
-export const applyLaplacian = (ctx: CanvasRenderingContext2D) => convolve(ctx, laplacianKernel);
+export const applyLaplacian = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, _params: FilterParams) => {
+    convolve(ctx, laplacianKernel);
+  };
+  
+  await applyFilterWithFallback(ctx, 'laplacian', params, originalFn, applyLaplacianOpenCV);
+};
+
 export const applyHighpass = (ctx: CanvasRenderingContext2D) => convolve(ctx, highpassKernel);
-export const applyPrewitt = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, prewittKernelX, prewittKernelY);
-export const applyScharr = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, scharrKernelX, scharrKernelY);
-export const applySobel = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, sobelKernelX, sobelKernelY);
-export const applyRobertsCross = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, robertsKernelX, robertsKernelY);
-export const applyLoG = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const kernel = createLoGKernel(params.sigma, params.kernelSize);
-  convolve(ctx, kernel);
+
+export const applyPrewitt = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, _params: FilterParams) => {
+    applyEdgeFilter(ctx, prewittKernelX, prewittKernelY);
+  };
+  
+  await applyFilterWithFallback(ctx, 'prewitt', params, originalFn, applyPrewittOpenCV);
+};
+
+export const applyScharr = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, _params: FilterParams) => {
+    applyEdgeFilter(ctx, scharrKernelX, scharrKernelY);
+  };
+  
+  await applyFilterWithFallback(ctx, 'scharr', params, originalFn, applyScharrOpenCV);
+};
+
+export const applySobel = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, _params: FilterParams) => {
+    applyEdgeFilter(ctx, sobelKernelX, sobelKernelY);
+  };
+  
+  await applyFilterWithFallback(ctx, 'sobel', params, originalFn, applySobelOpenCV);
+};
+
+export const applyRobertsCross = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, _params: FilterParams) => {
+    applyEdgeFilter(ctx, robertsKernelX, robertsKernelY);
+  };
+  
+  await applyFilterWithFallback(ctx, 'robertscross', params, originalFn, applyRobertsCrossOpenCV);
+};
+export const applyLoG = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const kernel = createLoGKernel(params.sigma, params.kernelSize);
+    convolve(ctx, kernel);
+  };
+  
+  await applyFilterWithFallback(ctx, 'log', params, originalFn, applyLoGOpenCV);
 };
 
 // Basic Canny implementation - for simplicity, this is a placeholder.
 // A full Canny implementation is much more complex involving non-maximum suppression and hysteresis thresholding.
 
-export const applyDoG = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const { kernelSize, sigma, sigma2 } = params;
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
+export const applyDoG = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const { kernelSize, sigma, sigma2 = 2.0 } = params;
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
 
-  // 1. Create a grayscale version of the source image
-  const grayscale = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < data.length; i += 4) {
-    grayscale[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-  }
+    // 1. Create a grayscale version of the source image
+    const grayscale = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < data.length; i += 4) {
+      grayscale[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    }
 
-  // Create a temporary canvas to apply convolutions without affecting the original
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = width;
-  tempCanvas.height = height;
-  const tempCtx = tempCanvas.getContext('2d')!;
+    // Create a temporary canvas to apply convolutions without affecting the original
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d')!;
+    
+    // Create an ImageData object from the grayscale data to use with convolve
+    const grayImageData = tempCtx.createImageData(width, height);
+    for (let i = 0; i < grayscale.length; i++) {
+      grayImageData.data[i * 4] = grayscale[i];
+      grayImageData.data[i * 4 + 1] = grayscale[i];
+      grayImageData.data[i * 4 + 2] = grayscale[i];
+      grayImageData.data[i * 4 + 3] = 255;
+    }
+
+    // 2. Apply first Gaussian blur
+    tempCtx.putImageData(grayImageData, 0, 0);
+    const kernel1 = createGaussianKernel(sigma, kernelSize);
+    convolve(tempCtx, kernel1);
+    const data1 = tempCtx.getImageData(0, 0, width, height).data;
+
+    // 3. Apply second Gaussian blur
+    tempCtx.putImageData(grayImageData, 0, 0);
+    const kernel2 = createGaussianKernel(sigma2, kernelSize);
+    convolve(tempCtx, kernel2);
+    const data2 = tempCtx.getImageData(0, 0, width, height).data;
+
+    // 4. Subtract the two blurred images and apply to the original canvas context
+    for (let i = 0; i < data.length; i += 4) {
+      // We only need to calculate for one channel since both are grayscale
+      const diff = Math.abs(data1[i] - data2[i]);
+      data[i] = diff;
+      data[i + 1] = diff;
+      data[i + 2] = diff;
+      data[i + 3] = 255; // Keep alpha solid
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  };
   
-  // Create an ImageData object from the grayscale data to use with convolve
-  const grayImageData = tempCtx.createImageData(width, height);
-  for (let i = 0; i < grayscale.length; i++) {
-    grayImageData.data[i * 4] = grayscale[i];
-    grayImageData.data[i * 4 + 1] = grayscale[i];
-    grayImageData.data[i * 4 + 2] = grayscale[i];
-    grayImageData.data[i * 4 + 3] = 255;
-  }
-
-  // 2. Apply first Gaussian blur
-  tempCtx.putImageData(grayImageData, 0, 0);
-  const kernel1 = createGaussianKernel(sigma, kernelSize);
-  convolve(tempCtx, kernel1);
-  const data1 = tempCtx.getImageData(0, 0, width, height).data;
-
-  // 3. Apply second Gaussian blur
-  tempCtx.putImageData(grayImageData, 0, 0);
-  const kernel2 = createGaussianKernel(sigma2, kernelSize);
-  convolve(tempCtx, kernel2);
-  const data2 = tempCtx.getImageData(0, 0, width, height).data;
-
-  // 4. Subtract the two blurred images and apply to the original canvas context
-  for (let i = 0; i < data.length; i += 4) {
-    // We only need to calculate for one channel since both are grayscale
-    const diff = Math.abs(data1[i] - data2[i]);
-    data[i] = diff;
-    data[i + 1] = diff;
-    data[i + 2] = diff;
-    data[i + 3] = 255; // Keep alpha solid
-  }
-
-  ctx.putImageData(imageData, 0, 0);
+  await applyFilterWithFallback(ctx, 'dog', params, originalFn, applyDoGOpenCV);
 };
 
-export const applyMarrHildreth = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const { kernelSize, sigma, threshold } = params;
+export const applyMarrHildreth = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const { kernelSize, sigma, threshold = 10 } = params;
   const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
   const { data, width, height } = imageData;
 
@@ -340,17 +423,19 @@ export const applyMarrHildreth = (ctx: CanvasRenderingContext2D, params: FilterP
     }
   }
   
-  ctx.putImageData(new ImageData(edgeData, width, height), 0, 0);
+    ctx.putImageData(new ImageData(edgeData, width, height), 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'marrhildreth', params, originalFn, applyMarrHildrethOpenCV);
 };
 
-// Basic Canny implementation - for simplicity, this is a placeholder.
-// A full Canny implementation is much more complex involving non-maximum suppression and hysteresis thresholding.
-export const applyCanny = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+export const applyCanny = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    // Simplified Canny implementation as fallback
     const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
     const { data, width, height } = imageData;
     
-    // This is a simplified version. A true Canny filter is more involved.
-    // We will just apply a threshold to a Sobel result for demonstration.
+    // Apply Sobel edge detection as base
     applyEdgeFilter(ctx, sobelKernelX, sobelKernelY);
     
     const edgeData = ctx.getImageData(0, 0, width, height);
@@ -368,11 +453,15 @@ export const applyCanny = (ctx: CanvasRenderingContext2D, params: FilterParams) 
         }
     }
     ctx.putImageData(edgeData, 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'canny', params, originalFn, applyCannyOpenCV);
 };
 
-// Edge-preserving (approximate using bilateral filter)
-export const applyEdgePreserving = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  applyBilateralFilter(ctx, params);
+// Edge-preserving (placeholder - bilateral filter removed)
+export const applyEdgePreserving = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  // Placeholder: apply a mild Gaussian blur as fallback
+  await applyGaussianBlur(ctx, { ...params, sigma: 0.8 });
 };
 
 // --- Frequency domain placeholders ---
@@ -443,395 +532,451 @@ function dilate(ctx: CanvasRenderingContext2D, ksize: number) {
   ctx.putImageData(dst, 0, 0);
 }
 
-export const applyMorphOpen = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  toGrayscale(ctx);
-  erode(ctx, params.kernelSize || 3);
-  dilate(ctx, params.kernelSize || 3);
+export const applyMorphOpen = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    toGrayscale(ctx);
+    erode(ctx, params.kernelSize || 3);
+    dilate(ctx, params.kernelSize || 3);
+  };
+  
+  await applyFilterWithFallback(ctx, 'morph_open', params, originalFn, applyMorphOpeningOpenCV);
 };
 
-export const applyMorphClose = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  toGrayscale(ctx);
-  dilate(ctx, params.kernelSize || 3);
-  erode(ctx, params.kernelSize || 3);
+export const applyMorphClose = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    toGrayscale(ctx);
+    dilate(ctx, params.kernelSize || 3);
+    erode(ctx, params.kernelSize || 3);
+  };
+  
+  await applyFilterWithFallback(ctx, 'morph_close', params, originalFn, applyMorphClosingOpenCV);
 };
 
-export const applyMorphTopHat = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const src = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const work = document.createElement('canvas').getContext('2d')!;
-  work.canvas.width = src.width; work.canvas.height = src.height;
-  work.putImageData(src, 0, 0);
-  applyMorphOpen(work as any, params);
-  const opened = work.getImageData(0, 0, src.width, src.height);
-  for (let i = 0; i < src.data.length; i += 4) {
-    const val = Math.max(0, src.data[i] - opened.data[i]);
-    src.data[i] = src.data[i+1] = src.data[i+2] = val;
-  }
-  ctx.putImageData(src, 0, 0);
-};
-
-export const applyMorphBlackHat = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const src = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const work = document.createElement('canvas').getContext('2d')!;
-  work.canvas.width = src.width; work.canvas.height = src.height;
-  work.putImageData(src, 0, 0);
-  applyMorphClose(work as any, params);
-  const closed = work.getImageData(0, 0, src.width, src.height);
-  for (let i = 0; i < src.data.length; i += 4) {
-    const val = Math.max(0, closed.data[i] - src.data[i]);
-    src.data[i] = src.data[i+1] = src.data[i+2] = val;
-  }
-  ctx.putImageData(src, 0, 0);
-};
-
-export const applyMorphGradient = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const src = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const dctx = document.createElement('canvas').getContext('2d')!;
-  const ectx = document.createElement('canvas').getContext('2d')!;
-  dctx.canvas.width = ectx.canvas.width = src.width;
-  dctx.canvas.height = ectx.canvas.height = src.height;
-  dctx.putImageData(src, 0, 0);
-  ectx.putImageData(src, 0, 0);
-  dilate(dctx as any, params.kernelSize || 3);
-  erode(ectx as any, params.kernelSize || 3);
-  const dil = dctx.getImageData(0, 0, src.width, src.height);
-  const ero = ectx.getImageData(0, 0, src.width, src.height);
-  for (let i = 0; i < src.data.length; i += 4) {
-    const val = Math.max(0, dil.data[i] - ero.data[i]);
-    src.data[i] = src.data[i+1] = src.data[i+2] = val;
-  }
-  ctx.putImageData(src, 0, 0);
-};
-
-export const applyDistanceTransform = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const th = (params.lowThreshold ?? 128);
-  const bin = new Uint8Array(width * height);
-  for (let i = 0, p = 0; i < data.length; i += 4, p++) bin[p] = (0.299*data[i]+0.587*data[i+1]+0.114*data[i+2]) > th ? 0 : 1;
-  const dist = new Uint16Array(width * height).fill(10000);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = y*width + x;
-      if (bin[i] === 0) { dist[i] = 0; continue; }
-      const top = y>0 ? dist[i - width] + 1 : 10000;
-      const left = x>0 ? dist[i - 1] + 1 : 10000;
-      dist[i] = Math.min(dist[i], top, left);
+export const applyMorphTopHat = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const src = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const work = document.createElement('canvas').getContext('2d')!;
+    work.canvas.width = src.width; work.canvas.height = src.height;
+    work.putImageData(src, 0, 0);
+    await applyMorphOpen(work as any, params);
+    const opened = work.getImageData(0, 0, src.width, src.height);
+    for (let i = 0; i < src.data.length; i += 4) {
+      const val = Math.max(0, src.data[i] - opened.data[i]);
+      src.data[i] = src.data[i+1] = src.data[i+2] = val;
     }
-  }
-  for (let y = height-1; y >=0; y--) {
-    for (let x = width-1; x >=0; x--) {
-      const i = y*width + x;
-      const bottom = y<height-1 ? dist[i + width] + 1 : 10000;
-      const right = x<width-1 ? dist[i + 1] + 1 : 10000;
-      dist[i] = Math.min(dist[i], bottom, right);
+    ctx.putImageData(src, 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'morph_tophat', params, originalFn, applyMorphTopHatOpenCV);
+};
+
+export const applyMorphBlackHat = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const src = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const work = document.createElement('canvas').getContext('2d')!;
+    work.canvas.width = src.width; work.canvas.height = src.height;
+    work.putImageData(src, 0, 0);
+    await applyMorphClose(work as any, params);
+    const closed = work.getImageData(0, 0, src.width, src.height);
+    for (let i = 0; i < src.data.length; i += 4) {
+      const val = Math.max(0, closed.data[i] - src.data[i]);
+      src.data[i] = src.data[i+1] = src.data[i+2] = val;
     }
-  }
-  let maxd = 0; for (let i=0;i<dist.length;i++) if (dist[i] < 10000) maxd = Math.max(maxd, dist[i]);
-  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
-    const v = dist[p] >= 10000 ? 0 : Math.round(255 * dist[p] / (maxd || 1));
-    data[i]=data[i+1]=data[i+2]=v; data[i+3]=255;
-  }
-  ctx.putImageData(imageData, 0, 0);
+    ctx.putImageData(src, 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'morph_blackhat', params, originalFn, applyMorphBlackHatOpenCV);
 };
 
-export const applyLinearStretch = (ctx: CanvasRenderingContext2D) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data } = imageData;
-  let min = 255, max = 0;
-
-  // First pass: find min and max grayscale values
-  for (let i = 0; i < data.length; i += 4) {
-    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-    if (gray < min) min = gray;
-    if (gray > max) max = gray;
-  }
-
-  const range = max - min;
-  if (range === 0) return; // Avoid division by zero for flat images
-
-  // Second pass: apply the linear stretch formula
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i+1];
-    const b = data[i+2];
-
-    data[i] = 255 * (r - min) / range;
-    data[i+1] = 255 * (g - min) / range;
-    data[i+2] = 255 * (b - min) / range;
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-};
-
-export const applyHistogramEqualization = (ctx: CanvasRenderingContext2D) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const grayscale = new Uint8ClampedArray(width * height);
-  const hist = new Array(256).fill(0);
-
-  // Convert to grayscale and calculate histogram
-  for (let i = 0; i < data.length; i += 4) {
-    const gray = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-    grayscale[i / 4] = gray;
-    hist[gray]++;
-  }
-
-  // Calculate CDF
-  const cdf = new Array(256).fill(0);
-  cdf[0] = hist[0];
-  for (let i = 1; i < 256; i++) {
-    cdf[i] = cdf[i - 1] + hist[i];
-  }
-
-  // Find the first non-zero CDF value
-  let cdfMin = 0;
-  for (let i = 0; i < 256; i++) {
-    if (cdf[i] > 0) {
-      cdfMin = cdf[i];
-      break;
+export const applyMorphGradient = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const src = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const dctx = document.createElement('canvas').getContext('2d')!;
+    const ectx = document.createElement('canvas').getContext('2d')!;
+    dctx.canvas.width = ectx.canvas.width = src.width;
+    dctx.canvas.height = ectx.canvas.height = src.height;
+    dctx.putImageData(src, 0, 0);
+    ectx.putImageData(src, 0, 0);
+    dilate(dctx as any, params.kernelSize || 3);
+    erode(ectx as any, params.kernelSize || 3);
+    const dil = dctx.getImageData(0, 0, src.width, src.height);
+    const ero = ectx.getImageData(0, 0, src.width, src.height);
+    for (let i = 0; i < src.data.length; i += 4) {
+      const val = Math.max(0, dil.data[i] - ero.data[i]);
+      src.data[i] = src.data[i+1] = src.data[i+2] = val;
     }
-  }
-
-  // Create lookup table (LUT)
-  const lut = new Uint8ClampedArray(256);
-  const totalPixels = width * height;
-  for (let i = 0; i < 256; i++) {
-    lut[i] = Math.round(255 * (cdf[i] - cdfMin) / (totalPixels - cdfMin));
-  }
-
-  // Apply LUT to the original image data
-  for (let i = 0; i < data.length; i += 4) {
-    const gray = grayscale[i / 4];
-    const equalized = lut[gray];
-    data[i] = equalized;
-    data[i+1] = equalized;
-    data[i+2] = equalized;
-  }
-
-  ctx.putImageData(imageData, 0, 0);
+    ctx.putImageData(src, 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'morph_gradient', params, originalFn, applyMorphGradientOpenCV);
 };
 
-export const applyClahe = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const { clipLimit, gridSize } = params;
-
-  const tileWidth = Math.floor(width / gridSize);
-  const tileHeight = Math.floor(height / gridSize);
-
-  // 1. Convert to grayscale
-  const grayscale = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < data.length; i += 4) {
-    grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-  }
-
-  // 2. Create tile LUTs
-  const luts = new Array(gridSize * gridSize).fill(0).map(() => new Uint8ClampedArray(256));
-
-  for (let ty = 0; ty < gridSize; ty++) {
-    for (let tx = 0; tx < gridSize; tx++) {
-      const startX = tx * tileWidth;
-      const startY = ty * tileHeight;
-      const endX = startX + tileWidth;
-      const endY = startY + tileHeight;
-      const tilePixels = tileWidth * tileHeight;
-
-      // a. Calculate tile histogram
-      const hist = new Array(256).fill(0);
-      for (let y = startY; y < endY; y++) {
-        for (let x = startX; x < endX; x++) {
-          hist[grayscale[y * width + x]]++;
-        }
-      }
-
-      // b. Clip histogram
-      const actualClipLimit = Math.max(1, clipLimit * tilePixels / 256);
-      let clipped = 0;
-      for (let i = 0; i < 256; i++) {
-        if (hist[i] > actualClipLimit) {
-          clipped += hist[i] - actualClipLimit;
-          hist[i] = actualClipLimit;
-        }
-      }
-
-      // c. Redistribute clipped pixels
-      const redistAdd = clipped / 256;
-      for (let i = 0; i < 256; i++) {
-        hist[i] += redistAdd;
-      }
-
-      // d. Create LUT from clipped histogram
-      const cdf = new Array(256).fill(0);
-      cdf[0] = hist[0];
-      for (let i = 1; i < 256; i++) {
-        cdf[i] = cdf[i - 1] + hist[i];
-      }
-
-      const lut = luts[ty * gridSize + tx];
-      for (let i = 0; i < 256; i++) {
-        lut[i] = Math.round(255 * cdf[i] / tilePixels);
+export const applyDistanceTransform = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
+    const th = (params.lowThreshold ?? 128);
+    const bin = new Uint8Array(width * height);
+    for (let i = 0, p = 0; i < data.length; i += 4, p++) bin[p] = (0.299*data[i]+0.587*data[i+1]+0.114*data[i+2]) > th ? 0 : 1;
+    const dist = new Uint16Array(width * height).fill(10000);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y*width + x;
+        if (bin[i] === 0) { dist[i] = 0; continue; }
+        const top = y>0 ? dist[i - width] + 1 : 10000;
+        const left = x>0 ? dist[i - 1] + 1 : 10000;
+        dist[i] = Math.min(dist[i], top, left);
       }
     }
-  }
-
-  // 3. Apply bilinear interpolation
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const tx = x / tileWidth - 0.5;
-      const ty = y / tileHeight - 0.5;
-
-      let x1 = Math.floor(tx);
-      let y1 = Math.floor(ty);
-      let x2 = x1 + 1;
-      let y2 = y1 + 1;
-
-      x1 = Math.max(0, Math.min(gridSize - 1, x1));
-      y1 = Math.max(0, Math.min(gridSize - 1, y1));
-      x2 = Math.max(0, Math.min(gridSize - 1, x2));
-      y2 = Math.max(0, Math.min(gridSize - 1, y2));
-
-      const gray = grayscale[y * width + x];
-
-      const q11 = luts[y1 * gridSize + x1][gray];
-      const q12 = luts[y2 * gridSize + x1][gray];
-      const q21 = luts[y1 * gridSize + x2][gray];
-      const q22 = luts[y2 * gridSize + x2][gray];
-
-      const xFrac = tx - x1;
-      const yFrac = ty - y1;
-
-      const top = q11 * (1 - xFrac) + q21 * xFrac;
-      const bottom = q12 * (1 - xFrac) + q22 * xFrac;
-      const val = top * (1 - yFrac) + bottom * yFrac;
-      
-      const i = (y * width + x) * 4;
-      data[i] = val;
-      data[i+1] = val;
-      data[i+2] = val;
+    for (let y = height-1; y >=0; y--) {
+      for (let x = width-1; x >=0; x--) {
+        const i = y*width + x;
+        const bottom = y<height-1 ? dist[i + width] + 1 : 10000;
+        const right = x<width-1 ? dist[i + 1] + 1 : 10000;
+        dist[i] = Math.min(dist[i], bottom, right);
+      }
     }
-  }
-
-  ctx.putImageData(imageData, 0, 0);
+    let maxd = 0; for (let i=0;i<dist.length;i++) if (dist[i] < 10000) maxd = Math.max(maxd, dist[i]);
+    for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+      const v = dist[p] >= 10000 ? 0 : Math.round(255 * dist[p] / (maxd || 1));
+      data[i]=data[i+1]=data[i+2]=v; data[i+3]=255;
+    }
+    ctx.putImageData(imageData, 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'distancetransform', params, originalFn, applyDistanceTransformOpenCV);
 };
 
-export const applyGammaCorrection = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data } = imageData;
-  const { gamma } = params;
-  if (gamma === 1) return; // No change
+import { applyGammaCorrectionOpenCV, applyLinearStretchOpenCV, applyUnsharpMaskOpenCV } from './opencvFilters';
 
-  const gammaReciprocal = 1 / gamma;
-  const lut = new Uint8ClampedArray(256);
-  for (let i = 0; i < 256; i++) {
-    lut[i] = Math.pow(i / 255, gammaReciprocal) * 255;
-  }
+export const applyLinearStretch = async (ctx: CanvasRenderingContext2D) => {
+  const originalFn = (ctx: CanvasRenderingContext2D) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data } = imageData;
+    let min = 255, max = 0;
 
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = lut[data[i]];
-    data[i+1] = lut[data[i+1]];
-    data[i+2] = lut[data[i+2]];
-  }
+    // First pass: find min and max grayscale values
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      if (gray < min) min = gray;
+      if (gray > max) max = gray;
+    }
 
-  ctx.putImageData(imageData, 0, 0);
+    const range = max - min;
+    if (range === 0) return; // Avoid division by zero for flat images
+
+    // Second pass: apply the linear stretch formula
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i+1];
+      const b = data[i+2];
+
+      data[i] = 255 * (r - min) / range;
+      data[i+1] = 255 * (g - min) / range;
+      data[i+2] = 255 * (b - min) / range;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  };
+
+  await applyFilterWithFallback(ctx, 'linearStretch', {} as any, originalFn, applyLinearStretchOpenCV as any);
 };
 
-export const applyMedian = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const src = new Uint8ClampedArray(data);
-  const { kernelSize } = params;
-  const half = Math.floor(kernelSize / 2);
+export const applyHistogramEqualization = async (ctx: CanvasRenderingContext2D) => {
+  const originalFn = (ctx: CanvasRenderingContext2D) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
+    const grayscale = new Uint8ClampedArray(width * height);
+    const hist = new Array(256).fill(0);
 
-  // Convert to grayscale first
-  const grayscale = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < src.length; i += 4) {
-    const gray = src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114;
-    grayscale[i / 4] = gray;
-  }
+    // Convert to grayscale and calculate histogram
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+      grayscale[i / 4] = gray;
+      hist[gray]++;
+    }
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const window: number[] = [];
-      for (let ky = -half; ky <= half; ky++) {
-        for (let kx = -half; kx <= half; kx++) {
-          const sy = y + ky;
-          const sx = x + kx;
-          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
-            window.push(grayscale[sy * width + sx]);
+    // Calculate CDF
+    const cdf = new Array(256).fill(0);
+    cdf[0] = hist[0];
+    for (let i = 1; i < 256; i++) {
+      cdf[i] = cdf[i - 1] + hist[i];
+    }
+
+    // Find the first non-zero CDF value
+    let cdfMin = 0;
+    for (let i = 0; i < 256; i++) {
+      if (cdf[i] > 0) {
+        cdfMin = cdf[i];
+        break;
+      }
+    }
+
+    // Create lookup table (LUT)
+    const lut = new Uint8ClampedArray(256);
+    const totalPixels = width * height;
+    for (let i = 0; i < 256; i++) {
+      lut[i] = Math.round(255 * (cdf[i] - cdfMin) / (totalPixels - cdfMin));
+    }
+
+    // Apply LUT to the original image data
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = grayscale[i / 4];
+      const equalized = lut[gray];
+      data[i] = equalized;
+      data[i+1] = equalized;
+      data[i+2] = equalized;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  };
+
+  await applyFilterWithFallback(ctx, 'histogramEqualization', {} as any, originalFn, applyHistogramEqualizationOpenCV as any);
+};
+
+export const applyClahe = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
+    const { clipLimit, gridSize } = params;
+
+    const tileWidth = Math.floor(width / gridSize);
+    const tileHeight = Math.floor(height / gridSize);
+
+    // 1. Convert to grayscale
+    const grayscale = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < data.length; i += 4) {
+      grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+    }
+
+    // 2. Create tile LUTs
+    const luts = new Array(gridSize * gridSize).fill(0).map(() => new Uint8ClampedArray(256));
+
+    for (let ty = 0; ty < gridSize; ty++) {
+      for (let tx = 0; tx < gridSize; tx++) {
+        const startX = tx * tileWidth;
+        const startY = ty * tileHeight;
+        const endX = startX + tileWidth;
+        const endY = startY + tileHeight;
+        const tilePixels = tileWidth * tileHeight;
+
+        // a. Calculate tile histogram
+        const hist = new Array(256).fill(0);
+        for (let y = startY; y < endY; y++) {
+          for (let x = startX; x < endX; x++) {
+            hist[grayscale[y * width + x]]++;
           }
         }
+
+        // b. Clip histogram
+        const actualClipLimit = Math.max(1, clipLimit * tilePixels / 256);
+        let clipped = 0;
+        for (let i = 0; i < 256; i++) {
+          if (hist[i] > actualClipLimit) {
+            clipped += hist[i] - actualClipLimit;
+            hist[i] = actualClipLimit;
+          }
+        }
+
+        // c. Redistribute clipped pixels
+        const redistAdd = clipped / 256;
+        for (let i = 0; i < 256; i++) {
+          hist[i] += redistAdd;
+        }
+
+        // d. Create LUT from clipped histogram
+        const cdf = new Array(256).fill(0);
+        cdf[0] = hist[0];
+        for (let i = 1; i < 256; i++) {
+          cdf[i] = cdf[i - 1] + hist[i];
+        }
+
+        const lut = luts[ty * gridSize + tx];
+        for (let i = 0; i < 256; i++) {
+          lut[i] = Math.round(255 * cdf[i] / tilePixels);
+        }
       }
-      window.sort((a, b) => a - b);
-      const median = window[Math.floor(window.length / 2)];
-      const outIndex = (y * width + x) * 4;
-      data[outIndex] = median;
-      data[outIndex + 1] = median;
-      data[outIndex + 2] = median;
     }
-  }
-  ctx.putImageData(imageData, 0, 0);
+
+    // 3. Apply bilinear interpolation
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const tx = x / tileWidth - 0.5;
+        const ty = y / tileHeight - 0.5;
+
+        let x1 = Math.floor(tx);
+        let y1 = Math.floor(ty);
+        let x2 = x1 + 1;
+        let y2 = y1 + 1;
+
+        x1 = Math.max(0, Math.min(gridSize - 1, x1));
+        y1 = Math.max(0, Math.min(gridSize - 1, y1));
+        x2 = Math.max(0, Math.min(gridSize - 1, x2));
+        y2 = Math.max(0, Math.min(gridSize - 1, y2));
+
+        const gray = grayscale[y * width + x];
+
+        const q11 = luts[y1 * gridSize + x1][gray];
+        const q12 = luts[y2 * gridSize + x1][gray];
+        const q21 = luts[y1 * gridSize + x2][gray];
+        const q22 = luts[y2 * gridSize + x2][gray];
+
+        const xFrac = tx - x1;
+        const yFrac = ty - y1;
+
+        const top = q11 * (1 - xFrac) + q21 * xFrac;
+        const bottom = q12 * (1 - xFrac) + q22 * xFrac;
+        const val = top * (1 - yFrac) + bottom * yFrac;
+        
+        const i = (y * width + x) * 4;
+        data[i] = val;
+        data[i+1] = val;
+        data[i+2] = val;
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  };
+
+  await applyFilterWithFallback(ctx, 'clahe', params, originalFn, applyClaheOpenCV);
+};
+
+export const applyGammaCorrection = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data } = imageData;
+    const { gamma } = params;
+    if (gamma === 1) return; // No change
+
+    const gammaReciprocal = 1 / gamma;
+    const lut = new Uint8ClampedArray(256);
+    for (let i = 0; i < 256; i++) {
+      lut[i] = Math.pow(i / 255, gammaReciprocal) * 255;
+    }
+
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = lut[data[i]];
+      data[i+1] = lut[data[i+1]];
+      data[i+2] = lut[data[i+2]];
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  };
+
+  await applyFilterWithFallback(ctx, 'gammaCorrection', params, originalFn, applyGammaCorrectionOpenCV as any);
+};
+
+export const applyMedian = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
+    const src = new Uint8ClampedArray(data);
+    const { kernelSize } = params;
+    const half = Math.floor(kernelSize / 2);
+
+    // Convert to grayscale first
+    const grayscale = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < src.length; i += 4) {
+      const gray = src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114;
+      grayscale[i / 4] = gray;
+    }
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const window: number[] = [];
+        for (let ky = -half; ky <= half; ky++) {
+          for (let kx = -half; kx <= half; kx++) {
+            const sy = y + ky;
+            const sx = x + kx;
+            if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+              window.push(grayscale[sy * width + sx]);
+            }
+          }
+        }
+        window.sort((a, b) => a - b);
+        const median = window[Math.floor(window.length / 2)];
+        const outIndex = (y * width + x) * 4;
+        data[outIndex] = median;
+        data[outIndex + 1] = median;
+        data[outIndex + 2] = median;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'medianBlur', params, originalFn, applyMedianBlurOpenCV);
 };
 
 
-export const applyLocalHistogramEqualization = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const { kernelSize } = params;
-  const half = Math.floor(kernelSize / 2);
+export const applyLocalHistogramEqualization = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
+    const { kernelSize } = params;
+    const half = Math.floor(kernelSize / 2);
 
-  const grayscale = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < data.length; i += 4) {
-    grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-  }
+    const grayscale = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < data.length; i += 4) {
+      grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+    }
 
-  const equalizedData = new Uint8ClampedArray(data.length);
+    const equalizedData = new Uint8ClampedArray(data.length);
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const currentPixelValue = grayscale[y * width + x];
-      const hist = new Array(256).fill(0);
-      let pixelCount = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const currentPixelValue = grayscale[y * width + x];
+        const hist = new Array(256).fill(0);
+        let pixelCount = 0;
 
-      // Calculate histogram for the local window
-      for (let ky = -half; ky <= half; ky++) {
-        for (let kx = -half; kx <= half; kx++) {
-          const ny = y + ky;
-          const nx = x + kx;
-          if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
-            hist[grayscale[ny * width + nx]]++;
-            pixelCount++;
+        // Calculate histogram for the local window
+        for (let ky = -half; ky <= half; ky++) {
+          for (let kx = -half; kx <= half; kx++) {
+            const ny = y + ky;
+            const nx = x + kx;
+            if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+              hist[grayscale[ny * width + nx]]++;
+              pixelCount++;
+            }
           }
         }
-      }
 
-      // Calculate CDF for the local window
-      const cdf = new Array(256).fill(0);
-      cdf[0] = hist[0];
-      for (let i = 1; i < 256; i++) {
-        cdf[i] = cdf[i - 1] + hist[i];
-      }
-      
-      // Find the first non-zero CDF value
-      let cdfMin = 0;
-      for (let i = 0; i < 256; i++) {
-          if (cdf[i] > 0) {
-              cdfMin = cdf[i];
-              break;
-          }
-      }
+        // Calculate CDF for the local window
+        const cdf = new Array(256).fill(0);
+        cdf[0] = hist[0];
+        for (let i = 1; i < 256; i++) {
+          cdf[i] = cdf[i - 1] + hist[i];
+        }
+        
+        // Find the first non-zero CDF value
+        let cdfMin = 0;
+        for (let i = 0; i < 256; i++) {
+            if (cdf[i] > 0) {
+                cdfMin = cdf[i];
+                break;
+            }
+        }
 
-      // Apply equalization formula to the center pixel
-      const equalizedValue = Math.round(255 * (cdf[currentPixelValue] - cdfMin) / (pixelCount - cdfMin));
+        // Apply equalization formula to the center pixel
+        const equalizedValue = Math.round(255 * (cdf[currentPixelValue] - cdfMin) / (pixelCount - cdfMin));
 
-      const outIndex = (y * width + x) * 4;
-      equalizedData[outIndex] = equalizedValue;
-      equalizedData[outIndex + 1] = equalizedValue;
-      equalizedData[outIndex + 2] = equalizedValue;
-      equalizedData[outIndex + 3] = 255;
+        const outIndex = (y * width + x) * 4;
+        equalizedData[outIndex] = equalizedValue;
+        equalizedData[outIndex + 1] = equalizedValue;
+        equalizedData[outIndex + 2] = equalizedValue;
+        equalizedData[outIndex + 3] = 255;
+      }
     }
-  }
 
-  ctx.putImageData(new ImageData(equalizedData, width, height), 0, 0);
+    ctx.putImageData(new ImageData(equalizedData, width, height), 0, 0);
+  };
+
+  await applyFilterWithFallback(
+    ctx,
+    'localHistogramEqualization',
+    params,
+    originalFn,
+    applyLocalHistogramEqualizationOpenCV as any
+  );
 };
 
 export const applyAdaptiveHistogramEqualization = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
@@ -1041,181 +1186,54 @@ export const applyAlphaTrimmedMean = (ctx: CanvasRenderingContext2D, params: Fil
   ctx.putImageData(imageData, 0, 0);
 };
 
-export const applyBilateralFilter = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const src = new Uint8ClampedArray(data);
-  const { kernelSize, sigmaColor, sigmaSpace } = params;
-  const half = Math.floor(kernelSize / 2);
 
-  const gaussian = (x: number, sigma: number) => {
-    return (1.0 / (2 * Math.PI * sigma * sigma)) * Math.exp(-(x * x) / (2 * sigma * sigma));
-  };
+export const applyUnsharpMask = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const { kernelSize, sigma, sharpenAmount: unsharpAmount } = params;
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
+    const originalData = new Uint8ClampedArray(data);
 
-  // Convert to grayscale first
-  const grayscale = new Uint8ClampedArray(width * height);
-  const srcGray = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < src.length; i += 4) {
-    const gray = src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114;
-    srcGray[i / 4] = gray;
-  }
+    // 1. Create a blurred version of the image on a temporary canvas
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d')!;
+    tempCtx.putImageData(imageData, 0, 0);
 
-  const spaceKernel = createGaussianKernel(sigmaSpace, kernelSize);
+    // Create and apply Gaussian kernel
+    const kernel = createGaussianKernel(sigma, kernelSize);
+    convolve(tempCtx, kernel);
+    const blurredData = tempCtx.getImageData(0, 0, width, height).data;
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const centerPixelValue = srcGray[y * width + x];
-      let filteredPixel = 0;
-      let weightSum = 0;
+    // 2. Calculate sharpened image: Sharpened = Original + Amount * (Original - Blurred)
+    for (let i = 0; i < data.length; i += 4) {
+      // Red channel
+      const originalR = originalData[i];
+      const blurredR = blurredData[i];
+      const sharpenedR = originalR + unsharpAmount * (originalR - blurredR);
+      data[i] = Math.max(0, Math.min(255, sharpenedR));
 
-      for (let ky = -half; ky <= half; ky++) {
-        for (let kx = -half; kx <= half; kx++) {
-          const sy = y + ky;
-          const sx = x + kx;
+      // Green channel
+      const originalG = originalData[i + 1];
+      const blurredG = blurredData[i + 1];
+      const sharpenedG = originalG + unsharpAmount * (originalG - blurredG);
+      data[i + 1] = Math.max(0, Math.min(255, sharpenedG));
 
-          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
-            const neighborPixelValue = srcGray[sy * width + sx];
-            
-            const colorDistance = neighborPixelValue - centerPixelValue;
-            const colorWeight = gaussian(colorDistance, sigmaColor);
-            
-            const spaceWeight = spaceKernel[ky + half][kx + half];
-
-            const totalWeight = colorWeight * spaceWeight;
-
-            filteredPixel += neighborPixelValue * totalWeight;
-            weightSum += totalWeight;
-          }
-        }
-      }
-
-      const outIndex = (y * width + x) * 4;
-      const finalValue = weightSum === 0 ? centerPixelValue : filteredPixel / weightSum;
-      data[outIndex] = finalValue;
-      data[outIndex + 1] = finalValue;
-      data[outIndex + 2] = finalValue;
-    }
-  }
-  ctx.putImageData(imageData, 0, 0);
-};
-
-// Non-local Means Denoising
-// NOTE: This is a very computationally expensive filter.
-// For performance reasons, the search window is kept small.
-export const applyNonLocalMeans = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const src = new Uint8ClampedArray(data);
-  const { patchSize, searchWindowSize, h } = params;
-
-  const patchRadius = Math.floor(patchSize / 2);
-  const searchRadius = Math.floor(searchWindowSize / 2);
-  const h2 = h * h;
-
-  // Convert to grayscale first
-  const grayscale = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < src.length; i += 4) {
-    grayscale[i / 4] = src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114;
-  }
-  
-  const output = new Uint8ClampedArray(grayscale.length);
-
-  // Helper function to get patch distance
-  const getPatchDistance = (x1: number, y1: number, x2: number, y2: number) => {
-    let ssd = 0;
-    for (let i = -patchRadius; i <= patchRadius; i++) {
-      for (let j = -patchRadius; j <= patchRadius; j++) {
-        const p1x = x1 + j;
-        const p1y = y1 + i;
-        const p2x = x2 + j;
-        const p2y = y2 + i;
-        if (p1x >= 0 && p1x < width && p1y >= 0 && p1y < height && p2x >= 0 && p2x < width && p2y >= 0 && p2y < height) {
-          const diff = grayscale[p1y * width + p1x] - grayscale[p2y * width + p2x];
-          ssd += diff * diff;
-        }
-      }
-    }
-    return ssd / (patchSize * patchSize);
-  };
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let totalWeight = 0;
-      let filteredPixel = 0;
-
-      const yMin = Math.max(y - searchRadius, 0);
-      const yMax = Math.min(y + searchRadius, height - 1);
-      const xMin = Math.max(x - searchRadius, 0);
-      const xMax = Math.min(x + searchRadius, width - 1);
-
-      for (let sy = yMin; sy <= yMax; sy++) {
-        for (let sx = xMin; sx <= xMax; sx++) {
-          const distance = getPatchDistance(x, y, sx, sy);
-          const weight = Math.exp(-distance / h2);
-          
-          totalWeight += weight;
-          filteredPixel += weight * grayscale[sy * width + sx];
-        }
-      }
+      // Blue channel
+      const originalB = originalData[i + 2];
+      const blurredB = blurredData[i + 2];
+      const sharpenedB = originalB + unsharpAmount * (originalB - blurredB);
+      data[i + 2] = Math.max(0, Math.min(255, sharpenedB));
       
-      output[y * width + x] = filteredPixel / totalWeight;
+      // Alpha channel remains the same
+      data[i + 3] = originalData[i + 3];
     }
-  }
 
-  // Apply to original data
-  for (let i = 0; i < data.length; i += 4) {
-    const val = output[i / 4];
-    data[i] = val;
-    data[i+1] = val;
-    data[i+2] = val;
-  }
+    ctx.putImageData(imageData, 0, 0);
+  };
 
-  ctx.putImageData(imageData, 0, 0);
-};
-
-export const applyUnsharpMask = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const { kernelSize, sigma, sharpenAmount: unsharpAmount } = params;
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const originalData = new Uint8ClampedArray(data);
-
-  // 1. Create a blurred version of the image on a temporary canvas
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = width;
-  tempCanvas.height = height;
-  const tempCtx = tempCanvas.getContext('2d')!;
-  tempCtx.putImageData(imageData, 0, 0);
-
-  // Create and apply Gaussian kernel
-  const kernel = createGaussianKernel(sigma, kernelSize);
-  convolve(tempCtx, kernel);
-  const blurredData = tempCtx.getImageData(0, 0, width, height).data;
-
-  // 2. Calculate sharpened image: Sharpened = Original + Amount * (Original - Blurred)
-  for (let i = 0; i < data.length; i += 4) {
-    // Red channel
-    const originalR = originalData[i];
-    const blurredR = blurredData[i];
-    const sharpenedR = originalR + unsharpAmount * (originalR - blurredR);
-    data[i] = Math.max(0, Math.min(255, sharpenedR));
-
-    // Green channel
-    const originalG = originalData[i + 1];
-    const blurredG = blurredData[i + 1];
-    const sharpenedG = originalG + unsharpAmount * (originalG - blurredG);
-    data[i + 1] = Math.max(0, Math.min(255, sharpenedG));
-
-    // Blue channel
-    const originalB = originalData[i + 2];
-    const blurredB = blurredData[i + 2];
-    const sharpenedB = originalB + unsharpAmount * (originalB - blurredB);
-    data[i + 2] = Math.max(0, Math.min(255, sharpenedB));
-    
-    // Alpha channel remains the same
-    data[i + 3] = originalData[i + 3];
-  }
-
-  ctx.putImageData(imageData, 0, 0);
+  await applyFilterWithFallback(ctx, 'unsharpMask', params, originalFn, applyUnsharpMaskOpenCV as any);
 };
 
 export const applyAnisotropicDiffusion = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
@@ -1266,52 +1284,46 @@ export const applyAnisotropicDiffusion = (ctx: CanvasRenderingContext2D, params:
   ctx.putImageData(imageData, 0, 0);
 };
 
-export const applyLbp = (ctx: CanvasRenderingContext2D) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
+export const applyLbp = async (ctx: CanvasRenderingContext2D) => {
+  const originalFn = (ctx: CanvasRenderingContext2D) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
 
-  // 1. Convert to grayscale
-  const grayscale = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < data.length; i += 4) {
-    grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-  }
-
-  const lbpData = new Uint8ClampedArray(data.length);
-
-  // 2. Compute LBP for each pixel
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      const centerIndex = y * width + x;
-      const centerPixel = grayscale[centerIndex];
-      
-      let binaryCode = 0;
-      
-      // Top-left
-      if (grayscale[centerIndex - width - 1] >= centerPixel) binaryCode |= 1;
-      // Top
-      if (grayscale[centerIndex - width] >= centerPixel) binaryCode |= 2;
-      // Top-right
-      if (grayscale[centerIndex - width + 1] >= centerPixel) binaryCode |= 4;
-      // Right
-      if (grayscale[centerIndex + 1] >= centerPixel) binaryCode |= 8;
-      // Bottom-right
-      if (grayscale[centerIndex + width + 1] >= centerPixel) binaryCode |= 16;
-      // Bottom
-      if (grayscale[centerIndex + width] >= centerPixel) binaryCode |= 32;
-      // Bottom-left
-      if (grayscale[centerIndex + width - 1] >= centerPixel) binaryCode |= 64;
-      // Left
-      if (grayscale[centerIndex - 1] >= centerPixel) binaryCode |= 128;
-
-      const outIndex = (y * width + x) * 4;
-      lbpData[outIndex] = binaryCode;
-      lbpData[outIndex + 1] = binaryCode;
-      lbpData[outIndex + 2] = binaryCode;
-      lbpData[outIndex + 3] = 255;
+    const grayscale = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < data.length; i += 4) {
+      grayscale[i / 4] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
     }
-  }
 
-  ctx.putImageData(new ImageData(lbpData, width, height), 0, 0);
+    const lbpData = new Uint8ClampedArray(data.length);
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const centerIndex = y * width + x;
+        const centerPixel = grayscale[centerIndex];
+        let binaryCode = 0;
+        if (grayscale[centerIndex - width - 1] >= centerPixel) binaryCode |= 1;
+        if (grayscale[centerIndex - width] >= centerPixel) binaryCode |= 2;
+        if (grayscale[centerIndex - width + 1] >= centerPixel) binaryCode |= 4;
+        if (grayscale[centerIndex + 1] >= centerPixel) binaryCode |= 8;
+        if (grayscale[centerIndex + width + 1] >= centerPixel) binaryCode |= 16;
+        if (grayscale[centerIndex + width] >= centerPixel) binaryCode |= 32;
+        if (grayscale[centerIndex + width - 1] >= centerPixel) binaryCode |= 64;
+        if (grayscale[centerIndex - 1] >= centerPixel) binaryCode |= 128;
+        const outIndex = (y * width + x) * 4;
+        lbpData[outIndex] = binaryCode;
+        lbpData[outIndex + 1] = binaryCode;
+        lbpData[outIndex + 2] = binaryCode;
+        lbpData[outIndex + 3] = 255;
+      }
+    }
+    ctx.putImageData(new ImageData(lbpData, width, height), 0, 0);
+  };
+
+  await applyFilterWithFallback(ctx, 'lbp', {} as any, originalFn, applyLbpOpenCV as any);
+};
+
+export const applyLbpOpenCVFallback = async (ctx: CanvasRenderingContext2D) => {
+  const originalFn = (ctx: CanvasRenderingContext2D) => { applyLbp(ctx as any); };
+  await applyFilterWithFallback(ctx, 'lbp', {} as any, originalFn, applyLbpOpenCV as any);
 };
 
 // --- Guided Filter ---
@@ -1462,74 +1474,77 @@ export const LAWS_KERNEL_TYPES = [
   'L5E5', 'E5L5', 'L5R5', 'R5L5', 'E5S5', 'S5E5', 'S5S5', 'R5R5', 'L5S5', 'S5L5', 'E5E5', 'E5W5', 'W5E5', 'S5W5', 'W5S5'
 ];
 
-export const applyLawsTextureEnergy = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const { lawsKernelType, kernelSize: energyWindowSize } = params;
-  const [vec1_name, vec2_name] = lawsKernelType.match(/.{1,2}/g)!;
+export const applyLawsTextureEnergy = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const { lawsKernelType, kernelSize: energyWindowSize } = params;
+    const [vec1_name, vec2_name] = lawsKernelType.match(/.{1,2}/g)!;
 
-  const lawsKernel = createLawsKernel(vec1_name, vec2_name);
+    const lawsKernel = createLawsKernel(vec1_name, vec2_name);
 
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
 
-  // 1. Convert to grayscale
-  const grayscale = new Float32Array(width * height);
-  for (let i = 0; i < data.length; i += 4) {
-    grayscale[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-  }
+    const grayscale = new Float32Array(width * height);
+    for (let i = 0; i < data.length; i += 4) {
+      grayscale[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    }
 
-  // 2. Convolve with the selected Laws' kernel
-  const convolved = new Float32Array(width * height);
-  const halfKernel = 2; // 5x5 kernel
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let sum = 0;
-      for (let ky = 0; ky < 5; ky++) {
-        for (let kx = 0; kx < 5; kx++) {
-          const sy = y + ky - halfKernel;
-          const sx = x + kx - halfKernel;
-          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
-            sum += grayscale[sy * width + sx] * lawsKernel[ky][kx];
+    const convolved = new Float32Array(width * height);
+    const halfKernel = 2;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let sum = 0;
+        for (let ky = 0; ky < 5; ky++) {
+          for (let kx = 0; kx < 5; kx++) {
+            const sy = y + ky - halfKernel;
+            const sx = x + kx - halfKernel;
+            if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+              sum += grayscale[sy * width + sx] * lawsKernel[ky][kx];
+            }
           }
         }
+        convolved[y * width + x] = sum;
       }
-      convolved[y * width + x] = sum;
     }
-  }
 
-  // 3. Calculate texture energy (sum of absolute values in a window)
-  const energy = new Float32Array(width * height);
-  const halfWindow = Math.floor(energyWindowSize / 2);
-  let maxEnergy = 0;
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let sum = 0;
-      for (let wy = -halfWindow; wy <= halfWindow; wy++) {
-        for (let wx = -halfWindow; wx <= halfWindow; wx++) {
-          const sy = y + wy;
-          const sx = x + wx;
-          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
-            sum += Math.abs(convolved[sy * width + sx]);
+    const energy = new Float32Array(width * height);
+    const halfWindow = Math.floor(energyWindowSize / 2);
+    let maxEnergy = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let sum = 0;
+        for (let wy = -halfWindow; wy <= halfWindow; wy++) {
+          for (let wx = -halfWindow; wx <= halfWindow; wx++) {
+            const sy = y + wy;
+            const sx = x + wx;
+            if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+              sum += Math.abs(convolved[sy * width + sx]);
+            }
           }
         }
-      }
-      const energyValue = sum / (energyWindowSize * energyWindowSize);
-      energy[y * width + x] = energyValue;
-      if (energyValue > maxEnergy) {
-        maxEnergy = energyValue;
+        const energyValue = sum / (energyWindowSize * energyWindowSize);
+        energy[y * width + x] = energyValue;
+        if (energyValue > maxEnergy) {
+          maxEnergy = energyValue;
+        }
       }
     }
-  }
 
-  // 4. Normalize and draw the energy map
-  if (maxEnergy === 0) maxEnergy = 1; // Avoid division by zero
-  for (let i = 0; i < data.length; i += 4) {
-    const normalizedValue = (energy[i / 4] / maxEnergy) * 255;
-    data[i] = normalizedValue;
-    data[i + 1] = normalizedValue;
-    data[i + 2] = normalizedValue;
-    data[i + 3] = 255;
-  }
+    if (maxEnergy === 0) maxEnergy = 1;
+    for (let i = 0; i < data.length; i += 4) {
+      const normalizedValue = (energy[i / 4] / maxEnergy) * 255;
+      data[i] = normalizedValue;
+      data[i + 1] = normalizedValue;
+      data[i + 2] = normalizedValue;
+      data[i + 3] = 255;
+    }
+    ctx.putImageData(imageData, 0, 0);
+  };
 
-  ctx.putImageData(imageData, 0, 0);
+  await applyFilterWithFallback(ctx, 'lawsTextureEnergy', params, originalFn, applyLawsTextureEnergyOpenCV as any);
+};
+
+export const applyLawsTextureEnergyOpenCVFallback = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => { applyLawsTextureEnergy(ctx as any, params); };
+  await applyFilterWithFallback(ctx, 'lawsTextureEnergy', params, originalFn, applyLawsTextureEnergyOpenCV as any);
 };

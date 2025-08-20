@@ -41,7 +41,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     pinpointMouseMode, setPinpointScale, 
     pinpointGlobalScale, showMinimap, showGrid, gridColor,
     pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator,
-    activeCanvasKey, compareRotation, minimapWidth, minimapPosition
+    compareRotation, minimapWidth, minimapPosition,
+    setViewerImageSize, setAnalysisImageSize
   } = useStore();
 
   // Effect to load the source image from file
@@ -54,7 +55,14 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const cacheKey = `${label}-${file.name}`;
     const cachedImage = cache.get(cacheKey);
     if (cachedImage) { 
-      setSourceImage(cachedImage); 
+      setSourceImage(cachedImage);
+      // Also record its size for performance estimates
+      const size = { width: cachedImage.width as number, height: cachedImage.height as number };
+      if (typeof folderKey === 'string') {
+        useStore.getState().setViewerImageSize(folderKey as FolderKey, size);
+      } else {
+        useStore.getState().setAnalysisImageSize(folderKey as number, size);
+      }
       return; 
     }
     (async () => {
@@ -71,6 +79,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         if (!revoked) {
           cache.set(cacheKey, newImage);
           setSourceImage(newImage);
+          // Record size immediately
+          const size = { width: (newImage as any).width as number, height: (newImage as any).height as number };
+          if (typeof folderKey === 'string') {
+            useStore.getState().setViewerImageSize(folderKey as FolderKey, size);
+          } else {
+            useStore.getState().setAnalysisImageSize(folderKey as number, size);
+          }
         }
       } catch (err) {
         console.error('Error loading image:', err);
@@ -92,6 +107,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       }
 
       if (filter === 'none') {
+        // Ensure size is recorded even when no filtering
+        const size = { width: sourceImage.width as number, height: sourceImage.height as number };
+        if (typeof folderKey === 'string') {
+          setViewerImageSize(folderKey as FolderKey, size);
+        } else {
+          setAnalysisImageSize(folderKey as number, size);
+        }
         setProcessedImage(sourceImage);
         return;
       }
@@ -114,6 +136,14 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const ctx = offscreenCanvas.getContext('2d');
       if (!ctx) return;
 
+      // Store actual image size for performance estimation
+      const size = { width: offscreenCanvas.width, height: offscreenCanvas.height };
+      if (typeof folderKey === 'string') {
+        setViewerImageSize(folderKey as FolderKey, size);
+      } else {
+        setAnalysisImageSize(folderKey as number, size);
+      }
+
       const cssFilters: Partial<Record<FilterType, string>> = {
         'grayscale': 'grayscale(100%)', 'invert': 'invert(100%)', 'sepia': 'sepia(100%)',
       };
@@ -127,46 +157,44 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       }
 
       switch (filter) {
-        case 'linearstretch': Filters.applyLinearStretch(ctx); break;
-        case 'histogramequalization': Filters.applyHistogramEqualization(ctx); break;
-        case 'laplacian': Filters.applyLaplacian(ctx); break;
+        case 'linearstretch': await Filters.applyLinearStretch(ctx); break;
+        case 'histogramequalization': await Filters.applyHistogramEqualization(ctx); break;
+        case 'laplacian': if (params) await Filters.applyLaplacian(ctx, params); break;
         case 'highpass': Filters.applyHighpass(ctx); break;
-        case 'prewitt': Filters.applyPrewitt(ctx); break;
-        case 'scharr': Filters.applyScharr(ctx); break;
-        case 'sobel': Filters.applySobel(ctx); break;
-        case 'robertscross': Filters.applyRobertsCross(ctx); break;
-        case 'log': if (params) Filters.applyLoG(ctx, params); break;
-        case 'dog': if (params) Filters.applyDoG(ctx, params); break;
-        case 'marrhildreth': if (params) Filters.applyMarrHildreth(ctx, params); break;
+        case 'prewitt': if (params) await Filters.applyPrewitt(ctx, params); break;
+        case 'scharr': if (params) await Filters.applyScharr(ctx, params); break;
+        case 'sobel': if (params) await Filters.applySobel(ctx, params); break;
+        case 'robertscross': if (params) await Filters.applyRobertsCross(ctx, params); break;
+        case 'log': if (params) await Filters.applyLoG(ctx, params); break;
+        case 'dog': if (params) await Filters.applyDoG(ctx, params); break;
+        case 'marrhildreth': if (params) await Filters.applyMarrHildreth(ctx, params); break;
         case 'gaussianblur': if (params) Filters.applyGaussianBlur(ctx, params); break;
         case 'boxblur': if (params) Filters.applyBoxBlur(ctx, params); break;
         case 'median': if (params) Filters.applyMedian(ctx, params); break;
         case 'weightedmedian': if (params) Filters.applyWeightedMedian(ctx, params); break;
         case 'alphatrimmedmean': if (params) Filters.applyAlphaTrimmedMean(ctx, params); break;
-        case 'localhistogramequalization': if (params) Filters.applyLocalHistogramEqualization(ctx, params); break;
+        case 'localhistogramequalization': if (params) await Filters.applyLocalHistogramEqualization(ctx, params); break;
         case 'adaptivehistogramequalization': if (params) Filters.applyAdaptiveHistogramEqualization(ctx, params); break;
         case 'sharpen': if (params) Filters.applySharpen(ctx, params); break;
-        case 'canny': if (params) Filters.applyCanny(ctx, params); break;
-        case 'clahe': if (params) Filters.applyClahe(ctx, params); break;
-        case 'gammacorrection': if (params) Filters.applyGammaCorrection(ctx, params); break;
-        case 'bilateral': if (params) Filters.applyBilateralFilter(ctx, params); break;
-        case 'nonlocalmeans': if (params) Filters.applyNonLocalMeans(ctx, params); break;
+        case 'canny': if (params) await Filters.applyCanny(ctx, params); break;
+        case 'clahe': if (params) await Filters.applyClahe(ctx, params); break;
+        case 'gammacorrection': if (params) await Filters.applyGammaCorrection(ctx, params); break;
         case 'anisotropicdiffusion': if (params) Filters.applyAnisotropicDiffusion(ctx, params); break;
-        case 'unsharpmask': if (params) Filters.applyUnsharpMask(ctx, params); break;
-        case 'gabor': if (params) Filters.applyGabor(ctx, params); break;
-        case 'lawstextureenergy': if (params) Filters.applyLawsTextureEnergy(ctx, params); break;
-        case 'lbp': Filters.applyLbp(ctx); break;
+        case 'unsharpmask': if (params) await Filters.applyUnsharpMask(ctx, params); break;
+        case 'gabor': if (params) await Filters.applyGabor(ctx, params); break;
+        case 'lawstextureenergy': if (params) await Filters.applyLawsTextureEnergy(ctx, params); break;
+        case 'lbp': await Filters.applyLbp(ctx); break;
         case 'guided': if (params) Filters.applyGuidedFilter(ctx, params); break;
         case 'edgepreserving': if (params) Filters.applyEdgePreserving(ctx, params); break;
         case 'dft': Filters.applyDft(ctx); break;
         case 'dct': Filters.applyDct(ctx); break;
         case 'wavelet': Filters.applyWavelet(ctx); break;
-        case 'morph_open': if (params) Filters.applyMorphOpen(ctx, params); break;
-        case 'morph_close': if (params) Filters.applyMorphClose(ctx, params); break;
-        case 'morph_tophat': if (params) Filters.applyMorphTopHat(ctx, params); break;
-        case 'morph_blackhat': if (params) Filters.applyMorphBlackHat(ctx, params); break;
-        case 'morph_gradient': if (params) Filters.applyMorphGradient(ctx, params); break;
-        case 'distancetransform': if (params) Filters.applyDistanceTransform(ctx, params); break;
+        case 'morph_open': if (params) await Filters.applyMorphOpen(ctx, params); break;
+        case 'morph_close': if (params) await Filters.applyMorphClose(ctx, params); break;
+        case 'morph_tophat': if (params) await Filters.applyMorphTopHat(ctx, params); break;
+        case 'morph_blackhat': if (params) await Filters.applyMorphBlackHat(ctx, params); break;
+        case 'morph_gradient': if (params) await Filters.applyMorphGradient(ctx, params); break;
+        case 'distancetransform': if (params) await Filters.applyDistanceTransform(ctx, params); break;
       }
 
       const finalImage = await createImageBitmap(offscreenCanvas);
@@ -199,23 +227,37 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const refScreenY = viewport.refScreenY ?? (height / 2);
       const refImgX = currentRefPoint.x * currentImage.width;
       const refImgY = currentRefPoint.y * currentImage.height;
-      x = Math.round(refScreenX - (refImgX * scale));
-      y = Math.round(refScreenY - (refImgY * scale));
       const localAngle = pinpointRotations[folderKey] || 0;
       const globalAngle = pinpointGlobalRotation || 0;
       const totalAngle = localAngle + globalAngle;
-      centerX = x + drawW / 2;
-      centerY = y + drawH / 2;
+      const theta = (totalAngle * Math.PI) / 180;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+
+      // Solve translation so that rotated ref pixel stays under refScreen
+      // S = center offset of the scaled image
+      const Sx = drawW / 2;
+      const Sy = drawH / 2;
+      const ux = refImgX * scale;
+      const uy = refImgY * scale;
+      // x = rx - Sx - [cos*(ux - Sx) - sin*(uy - Sy)]
+      // y = ry - Sy - [sin*(ux - Sx) + cos*(uy - Sy)]
+      x = refScreenX - Sx - (cos * (ux - Sx) - sin * (uy - Sy));
+      y = refScreenY - Sy - (sin * (ux - Sx) + cos * (uy - Sy));
+
+      centerX = x + Sx;
+      centerY = y + Sy;
       if (totalAngle !== 0) {
         ctx.translate(centerX, centerY);
-        ctx.rotate(totalAngle * Math.PI / 180);
+        ctx.rotate(theta);
         ctx.translate(-centerX, -centerY);
       }
     } else {
       const cx = (viewport.cx || 0.5) * currentImage.width;
       const cy = (viewport.cy || 0.5) * currentImage.height;
-      x = Math.round((width / 2) - (cx * scale));
-      y = Math.round((height / 2) - (cy * scale));
+      // Avoid rounding to keep pivot identical to inverse mapping
+      x = (width / 2) - (cx * scale);
+      y = (height / 2) - (cy * scale);
       const angle = appMode === 'analysis' ? (rotation || 0) : (appMode === 'compare' ? (compareRotation || 0) : 0);
       if (angle !== 0) {
         centerX = x + drawW / 2;
@@ -536,27 +578,32 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const refScreenY = viewport.refScreenY || (height / 2);
       const refImgX = currentRefPoint.x * sourceImage.width;
       const refImgY = currentRefPoint.y * sourceImage.height;
-      const drawX = refScreenX - (refImgX * scale);
-      const drawY = refScreenY - (refImgY * scale);
-      // Account for rotation: map the click back by inverse rotation around the image center
+
+      // Recompute actual draw translation used for current frame so inverse mapping matches
       const localAngle = useStore.getState().pinpointRotations[folderKey] || 0;
       const globalAngle = useStore.getState().pinpointGlobalRotation || 0;
-      const totalAngle = (localAngle + globalAngle) * Math.PI / 180;
-      let mappedX = canvasX;
-      let mappedY = canvasY;
-      if (totalAngle !== 0) {
-        const centerX = drawX + (sourceImage.width * scale) / 2;
-        const centerY = drawY + (sourceImage.height * scale) / 2;
-        const dx = canvasX - centerX;
-        const dy = canvasY - centerY;
-        const cos = Math.cos(totalAngle);
-        const sin = Math.sin(totalAngle);
-        // inverse rotation by -totalAngle
-        mappedX = centerX + dx * cos + dy * sin;
-        mappedY = centerY - dx * sin + dy * cos;
-      }
-      const imgX = (mappedX - drawX) / scale;
-      const imgY = (mappedY - drawY) / scale;
+      const totalAngleDeg = (localAngle + globalAngle);
+      const theta = (totalAngleDeg * Math.PI) / 180;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+      const drawW = sourceImage.width * scale;
+      const drawH = sourceImage.height * scale;
+      const Sx = drawW / 2;
+      const Sy = drawH / 2;
+      const ux = refImgX * scale;
+      const uy = refImgY * scale;
+      const drawX = refScreenX - Sx - (cos * (ux - Sx) - sin * (uy - Sy));
+      const drawY = refScreenY - Sy - (sin * (ux - Sx) + cos * (uy - Sy));
+
+      // Inverse rotation about center to map screen -> unrotated local image coords
+      const centerX = drawX + Sx;
+      const centerY = drawY + Sy;
+      const dx = canvasX - centerX;
+      const dy = canvasY - centerY;
+      const unrotX = centerX + dx * Math.cos(-theta) - dy * Math.sin(-theta);
+      const unrotY = centerY + dx * Math.sin(-theta) + dy * Math.cos(-theta);
+      const imgX = (unrotX - drawX) / scale;
+      const imgY = (unrotY - drawY) / scale;
       if (imgX >= 0 && imgX <= sourceImage.width && imgY >= 0 && imgY <= sourceImage.height) {
         onSetRefPoint(folderKey, { x: imgX / sourceImage.width, y: imgY / sourceImage.height }, { x: canvasX, y: canvasY });
       }
@@ -594,15 +641,10 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const mx = e.clientX - left;
       const my = e.clientY - top;
       const { viewport: currentViewport, pinpointGlobalScale: currentGlobalScale, setPinpointGlobalScale } = useStore.getState();
-      // Calculate dynamic zoom step - cap at 50% increase per wheel step
-      const currentScale = appMode === 'pinpoint' ? 
-        ((overrideScale ?? currentViewport.scale) * currentGlobalScale) : 
-        currentViewport.scale;
-      
-      // Cap per-event zoom change to at most 20%
-      const MAX_WHEEL_FACTOR = 1.2;
-      const step = Math.min(WHEEL_ZOOM_STEP, MAX_WHEEL_FACTOR);
-      const delta = e.deltaY < 0 ? step : (1 / step);
+      // Zoom step: start with multiplicative step (e.g., 1.1x),
+      // but cap the visible percent change to at most +/- 50 points per event.
+      const MAX_PERCENT_STEP = 50; // percentage points
+      const step = WHEEL_ZOOM_STEP;
       if (appMode === 'pinpoint') {
         // Zoom the canvas under the cursor; also mark it active for consistency
         if (typeof folderKey === 'string') {
@@ -610,10 +652,16 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           setActiveCanvasKey(folderKey);
         }
         const preScale = (overrideScale ?? currentViewport.scale) * currentGlobalScale;
-        const desiredNextScale = preScale * delta;
-        const maxIn = preScale * MAX_WHEEL_FACTOR;
-        const minOut = preScale / MAX_WHEEL_FACTOR;
-        const nextScale = e.deltaY < 0 ? Math.min(desiredNextScale, maxIn) : Math.max(desiredNextScale, minOut);
+        const prePct = preScale * 100;
+        const desiredScale = preScale * (e.deltaY < 0 ? step : (1 / step));
+        let desiredPct = desiredScale * 100;
+        // Cap absolute percent change to +/- MAX_PERCENT_STEP
+        const maxPct = prePct + MAX_PERCENT_STEP;
+        const minPct = prePct - MAX_PERCENT_STEP;
+        desiredPct = Math.max(minPct, Math.min(maxPct, desiredPct));
+        // Clamp to global min/max zoom
+        const clampedPct = Math.max(MIN_ZOOM * 100, Math.min(MAX_ZOOM * 100, desiredPct));
+        const nextScale = clampedPct / 100;
         const nextGlobalScale = nextScale / (overrideScale ?? currentViewport.scale);
         if (nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
         setPinpointGlobalScale(nextGlobalScale);
@@ -624,12 +672,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
       } else {
         const preScale = currentViewport.scale;
-        // Desired next scale from step
-        const desiredNextScale = preScale * delta;
-        // Clamp to at most 20% per event
-        const maxIn = preScale * MAX_WHEEL_FACTOR;
-        const minOut = preScale / MAX_WHEEL_FACTOR;
-        let nextScale = e.deltaY < 0 ? Math.min(desiredNextScale, maxIn) : Math.max(desiredNextScale, minOut);
+        const prePct = preScale * 100;
+        const desiredScale = preScale * (e.deltaY < 0 ? step : (1 / step));
+        let desiredPct = desiredScale * 100;
+        const maxPct = prePct + MAX_PERCENT_STEP;
+        const minPct = prePct - MAX_PERCENT_STEP;
+        desiredPct = Math.max(minPct, Math.min(maxPct, desiredPct));
+        let nextScale = Math.max(MIN_ZOOM * 100, Math.min(MAX_ZOOM * 100, desiredPct)) / 100;
         nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextScale));
         if (nextScale === preScale) return;
         let { cx, cy } = currentViewport;
@@ -791,8 +840,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         const scale = viewport.scale;
         
         // 이미지가 화면에 그려지는 위치 계산
-        const scaledImageWidth = imageWidth * scale;
-        const scaledImageHeight = imageHeight * scale;
+        // const _scaledImageWidth = imageWidth * scale;
+        // const _scaledImageHeight = imageHeight * scale;
         const imageX = (canvasWidth / 2) - ((viewport.cx || 0.5) * imageWidth * scale);
         const imageY = (canvasHeight / 2) - ((viewport.cy || 0.5) * imageHeight * scale);
         

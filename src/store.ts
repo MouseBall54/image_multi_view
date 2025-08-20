@@ -23,6 +23,22 @@ export interface FilterParams {
   gaborSigma: number; // Bandwidth
   lambda: number; // Wavelength
   psi: number; // Phase offset
+  // Additional filter params
+  sigma2?: number;
+  threshold?: number;
+  alpha?: number;
+  sigmaColor?: number;
+  sigmaSpace?: number;
+  patchSize?: number;
+  searchWindowSize?: number;
+  h?: number;
+  iterations?: number;
+  kappa?: number;
+  epsilon?: number;
+  lawsKernelType?: string;
+  // Morphology params
+  morphShape?: string; // 'rect', 'ellipse', 'cross'
+  morphIterations?: number;
 }
 
 const defaultFilterParams: FilterParams = {
@@ -40,6 +56,22 @@ const defaultFilterParams: FilterParams = {
   gaborSigma: 1.5,
   lambda: 10.0,
   psi: 0,
+  // Additional defaults
+  sigma2: 2.0,
+  threshold: 10,
+  alpha: 0.1,
+  sigmaColor: 25,
+  sigmaSpace: 25,
+  patchSize: 7,
+  searchWindowSize: 21,
+  h: 10,
+  iterations: 5,
+  kappa: 30,
+  epsilon: 0.04,
+  lawsKernelType: 'L5E5',
+  // Morphology defaults
+  morphShape: 'ellipse',
+  morphIterations: 1,
 };
 
 interface State {
@@ -66,6 +98,9 @@ interface State {
   current: MatchedItem | null;
   indicator: { cx: number, cy: number, key: number } | null;
   folders: Partial<Record<FolderKey, FolderState>>;
+  // Image sizes used for performance estimation
+  viewerImageSizes: Partial<Record<FolderKey, { width: number; height: number }>>;
+  analysisImageSizes: Partial<Record<number, { width: number; height: number }>>;
   
   // Filter states
   viewerFilters: Partial<Record<FolderKey, FilterType>>;
@@ -117,6 +152,8 @@ interface State {
   setFolder: (key: FolderKey, folderState: FolderState) => void;
   updateFolderAlias: (key: FolderKey, alias: string) => void;
   clearFolder: (key: FolderKey) => void;
+  setViewerImageSize: (key: FolderKey, size: { width: number; height: number }) => void;
+  setAnalysisImageSize: (index: number, size: { width: number; height: number }) => void;
 
   // Analysis Mode Actions
   setAnalysisFile: (file: File | null, source?: string) => void;
@@ -163,6 +200,8 @@ export const useStore = create<State>((set) => ({
   current: null,
   indicator: null,
   folders: {},
+  viewerImageSizes: {},
+  analysisImageSizes: {},
   
   // Filter states
   viewerFilters: {},
@@ -239,6 +278,12 @@ export const useStore = create<State>((set) => ({
       viewerFilterParams: remainingFilterParams
     };
   }),
+  setViewerImageSize: (key, size) => set(state => ({
+    viewerImageSizes: { ...state.viewerImageSizes, [key]: size }
+  })),
+  setAnalysisImageSize: (index, size) => set(state => ({
+    analysisImageSizes: { ...state.analysisImageSizes, [index]: size }
+  })),
 
   // Analysis Mode Actions
   setAnalysisFile: (file, source) => set({ 
