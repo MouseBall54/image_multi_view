@@ -88,21 +88,23 @@ export const FilterControls: React.FC = () => {
     let estimatedHeight = 1080; // Default HD height
     
     // Enhanced logic: try to get actual dimensions from current image
-    if (current && typeof current === 'string') {
+    if (current && current.filename) {
       // Extract resolution hints from filename if available
-      const resolutionMatch = current.match(/(\d{3,4})[x×](\d{3,4})/i);
+      const filename = current.filename;
+      const resolutionMatch = filename.match(/(\d{3,4})[x×](\d{3,4})/i);
       if (resolutionMatch) {
         estimatedWidth = parseInt(resolutionMatch[1]);
         estimatedHeight = parseInt(resolutionMatch[2]);
       } else {
         // Common resolution indicators in filenames
-        if (current.toLowerCase().includes('4k') || current.toLowerCase().includes('uhd')) {
+        const filenameLower = filename.toLowerCase();
+        if (filenameLower.includes('4k') || filenameLower.includes('uhd')) {
           estimatedWidth = 3840; estimatedHeight = 2160;
-        } else if (current.toLowerCase().includes('2k') || current.toLowerCase().includes('qhd')) {
+        } else if (filenameLower.includes('2k') || filenameLower.includes('qhd')) {
           estimatedWidth = 2560; estimatedHeight = 1440;
-        } else if (current.toLowerCase().includes('fullhd') || current.toLowerCase().includes('1080p')) {
+        } else if (filenameLower.includes('fullhd') || filenameLower.includes('1080p')) {
           estimatedWidth = 1920; estimatedHeight = 1080;
-        } else if (current.toLowerCase().includes('hd') || current.toLowerCase().includes('720p')) {
+        } else if (filenameLower.includes('hd') || filenameLower.includes('720p')) {
           estimatedWidth = 1280; estimatedHeight = 720;
         }
       }

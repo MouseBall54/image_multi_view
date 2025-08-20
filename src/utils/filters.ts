@@ -226,7 +226,7 @@ export const applyGabor = (ctx: CanvasRenderingContext2D, params: FilterParams) 
 };
 
 export const applyLaplacian = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, _params: FilterParams) => {
     convolve(ctx, laplacianKernel);
   };
   
@@ -244,7 +244,7 @@ export const applyPrewitt = async (ctx: CanvasRenderingContext2D, params: Filter
 };
 
 export const applyScharr = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, _params: FilterParams) => {
     applyEdgeFilter(ctx, scharrKernelX, scharrKernelY);
   };
   
@@ -252,7 +252,7 @@ export const applyScharr = async (ctx: CanvasRenderingContext2D, params: FilterP
 };
 
 export const applySobel = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, _params: FilterParams) => {
     applyEdgeFilter(ctx, sobelKernelX, sobelKernelY);
   };
   
@@ -448,9 +448,10 @@ export const applyCanny = async (ctx: CanvasRenderingContext2D, params: FilterPa
   await applyFilterWithFallback(ctx, 'canny', params, originalFn, applyCannyOpenCV);
 };
 
-// Edge-preserving (approximate using bilateral filter)
-export const applyEdgePreserving = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  applyBilateralFilter(ctx, params);
+// Edge-preserving (placeholder - bilateral filter removed)
+export const applyEdgePreserving = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  // Placeholder: apply a mild Gaussian blur as fallback
+  await applyGaussianBlur(ctx, { ...params, sigma: 0.8 });
 };
 
 // --- Frequency domain placeholders ---

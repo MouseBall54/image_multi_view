@@ -41,7 +41,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     pinpointMouseMode, setPinpointScale, 
     pinpointGlobalScale, showMinimap, showGrid, gridColor,
     pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator,
-    activeCanvasKey, compareRotation, minimapWidth, minimapPosition
+    compareRotation, minimapWidth, minimapPosition
   } = useStore();
 
   // Effect to load the source image from file
@@ -129,11 +129,11 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       switch (filter) {
         case 'linearstretch': Filters.applyLinearStretch(ctx); break;
         case 'histogramequalization': Filters.applyHistogramEqualization(ctx); break;
-        case 'laplacian': Filters.applyLaplacian(ctx); break;
+        case 'laplacian': if (params) await Filters.applyLaplacian(ctx, params); break;
         case 'highpass': Filters.applyHighpass(ctx); break;
         case 'prewitt': if (params) await Filters.applyPrewitt(ctx, params); break;
-        case 'scharr': Filters.applyScharr(ctx); break;
-        case 'sobel': Filters.applySobel(ctx); break;
+        case 'scharr': if (params) await Filters.applyScharr(ctx, params); break;
+        case 'sobel': if (params) await Filters.applySobel(ctx, params); break;
         case 'robertscross': if (params) await Filters.applyRobertsCross(ctx, params); break;
         case 'log': if (params) await Filters.applyLoG(ctx, params); break;
         case 'dog': if (params) await Filters.applyDoG(ctx, params); break;
@@ -146,11 +146,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         case 'localhistogramequalization': if (params) Filters.applyLocalHistogramEqualization(ctx, params); break;
         case 'adaptivehistogramequalization': if (params) Filters.applyAdaptiveHistogramEqualization(ctx, params); break;
         case 'sharpen': if (params) Filters.applySharpen(ctx, params); break;
-        case 'canny': if (params) Filters.applyCanny(ctx, params); break;
+        case 'canny': if (params) await Filters.applyCanny(ctx, params); break;
         case 'clahe': if (params) Filters.applyClahe(ctx, params); break;
         case 'gammacorrection': if (params) Filters.applyGammaCorrection(ctx, params); break;
-        case 'bilateral': if (params) Filters.applyBilateralFilter(ctx, params); break;
-        case 'nonlocalmeans': if (params) Filters.applyNonLocalMeans(ctx, params); break;
         case 'anisotropicdiffusion': if (params) Filters.applyAnisotropicDiffusion(ctx, params); break;
         case 'unsharpmask': if (params) Filters.applyUnsharpMask(ctx, params); break;
         case 'gabor': if (params) Filters.applyGabor(ctx, params); break;
@@ -595,9 +593,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const my = e.clientY - top;
       const { viewport: currentViewport, pinpointGlobalScale: currentGlobalScale, setPinpointGlobalScale } = useStore.getState();
       // Calculate dynamic zoom step - cap at 50% increase per wheel step
-      const currentScale = appMode === 'pinpoint' ? 
-        ((overrideScale ?? currentViewport.scale) * currentGlobalScale) : 
-        currentViewport.scale;
+      // const _currentScale = appMode === 'pinpoint' ? 
+      //   ((overrideScale ?? currentViewport.scale) * currentGlobalScale) : 
+      //   currentViewport.scale;
       
       // Cap per-event zoom change to at most 20%
       const MAX_WHEEL_FACTOR = 1.2;
@@ -791,8 +789,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         const scale = viewport.scale;
         
         // 이미지가 화면에 그려지는 위치 계산
-        const scaledImageWidth = imageWidth * scale;
-        const scaledImageHeight = imageHeight * scale;
+        // const _scaledImageWidth = imageWidth * scale;
+        // const _scaledImageHeight = imageHeight * scale;
         const imageX = (canvasWidth / 2) - ((viewport.cx || 0.5) * imageWidth * scale);
         const imageY = (canvasHeight / 2) - ((viewport.cy || 0.5) * imageHeight * scale);
         

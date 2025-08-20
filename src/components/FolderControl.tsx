@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { FolderKey } from '../types';
-import { useStore, FolderState } from '../store';
+import { FolderState } from '../store';
 
 interface FolderControlProps {
   folderKey: FolderKey;
