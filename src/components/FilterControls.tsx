@@ -2,6 +2,11 @@ import React from 'react';
 import { useStore } from '../store';
 import type { FilterType } from '../types';
 import { LAWS_KERNEL_TYPES } from '../utils/filters';
+import { 
+  calculatePerformanceMetrics, 
+  formatPerformanceEstimate, 
+  getComplexityColor 
+} from '../utils/opencvFilters';
 
 export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   { name: 'None', type: 'none', group: 'General' },
@@ -61,6 +66,7 @@ export const FilterControls: React.FC = () => {
     setTempFilterType,
     setTempFilterParams,
     applyTempFilterSettings,
+    current,
   } = useStore();
 
   if (activeFilterEditor === null) return null;
@@ -75,6 +81,108 @@ export const FilterControls: React.FC = () => {
   const handleStringParamChange = (param: string, value: string) => {
     setTempFilterParams({ [param]: value });
   };
+
+  // Calculate performance metrics for current filter and image
+  const getPerformanceMetrics = () => {
+    if (!current) return null;
+    
+    // Try to get actual image dimensions from current file
+    let estimatedWidth = 1920; // Default HD width
+    let estimatedHeight = 1080; // Default HD height
+    
+    // Enhanced logic: try to get actual dimensions from current image
+    if (current && typeof current === 'string') {
+      // Extract resolution hints from filename if available
+      const resolutionMatch = current.match(/(\d{3,4})[x×](\d{3,4})/i);
+      if (resolutionMatch) {
+        estimatedWidth = parseInt(resolutionMatch[1]);
+        estimatedHeight = parseInt(resolutionMatch[2]);
+      } else {
+        // Common resolution indicators in filenames
+        if (current.toLowerCase().includes('4k') || current.toLowerCase().includes('uhd')) {
+          estimatedWidth = 3840; estimatedHeight = 2160;
+        } else if (current.toLowerCase().includes('2k') || current.toLowerCase().includes('qhd')) {
+          estimatedWidth = 2560; estimatedHeight = 1440;
+        } else if (current.toLowerCase().includes('fullhd') || current.toLowerCase().includes('1080p')) {
+          estimatedWidth = 1920; estimatedHeight = 1080;
+        } else if (current.toLowerCase().includes('hd') || current.toLowerCase().includes('720p')) {
+          estimatedWidth = 1280; estimatedHeight = 720;
+        }
+      }
+    }
+    
+    // Map filter types to performance calculation types
+    const filterMap: Record<string, string> = {
+      // Basic filters
+      'none': 'grayscale', // No processing
+      'grayscale': 'grayscale',
+      'invert': 'invert',
+      'sepia': 'sepia',
+      
+      // Contrast enhancement
+      'linearstretch': 'linearStretch',
+      'histogramequalization': 'histogramEqualization',
+      'localhistogramequalization': 'localHistogramEqualization',
+      'adaptivehistogramequalization': 'adaptiveHistogramEqualization',
+      'clahe': 'clahe',
+      'gammacorrection': 'gammaCorrection',
+      
+      // Blurring filters
+      'boxblur': 'boxBlur',
+      'gaussianblur': 'gaussianBlur',
+      'median': 'medianBlur',
+      'weightedmedian': 'weightedMedian',
+      'alphatrimmedmean': 'alphaTrimmedMean',
+      
+      // Sharpening filters
+      'sharpen': 'sharpen',
+      'unsharpmask': 'unsharpMask',
+      'highpass': 'highpass',
+      'laplacian': 'laplacian',
+      
+      // Edge detection filters
+      'sobel': 'sobel',
+      'prewitt': 'prewitt',
+      'scharr': 'scharr',
+      'canny': 'canny',
+      'robertscross': 'robertsCross',
+      'log': 'log',
+      'dog': 'dog',
+      'marrhildreth': 'marrHildreth',
+      
+      // Advanced denoising filters
+      'bilateral': 'bilateralFilter',
+      'nonlocalmeans': 'nonLocalMeans',
+      'anisotropicdiffusion': 'anisotropicDiffusion',
+      
+      // Texture analysis filters
+      'gabor': 'gabor',
+      'lawstextureenergy': 'lawsTextureEnergy',
+      'lbp': 'lbp',
+      
+      // Edge-preserving filters
+      'guided': 'guidedFilter',
+      'edgepreserving': 'edgePreserving',
+      
+      // Frequency domain filters
+      'dft': 'dft',
+      'dct': 'dct',
+      'wavelet': 'wavelet',
+      
+      // Morphology filters
+      'morph_open': 'morphology',
+      'morph_close': 'morphology',
+      'morph_tophat': 'morphology',
+      'morph_blackhat': 'morphology',
+      'morph_gradient': 'morphology',
+      'distancetransform': 'distanceTransform',
+    };
+    
+    const performanceType = filterMap[tempViewerFilter] || 'default';
+    return calculatePerformanceMetrics(estimatedWidth, estimatedHeight, performanceType, tempViewerFilterParams);
+  };
+
+  const performanceMetrics = getPerformanceMetrics();
 
   const renderParams = () => {
     switch (tempViewerFilter) {
@@ -676,9 +784,80 @@ export const FilterControls: React.FC = () => {
           <div className="params-container">
             {renderParams()}
           </div>
+          
+          {performanceMetrics && (
+            <div className="performance-metrics">
+              <div className="performance-header">
+                <span className="performance-label">Performance Estimate</span>
+                <span 
+                  className="performance-badge"
+                  style={{ 
+                    backgroundColor: getComplexityColor(performanceMetrics.complexity),
+                    color: 'white',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {formatPerformanceEstimate(performanceMetrics)}
+                </span>
+              </div>
+              <div className="performance-details">
+                <span className="detail-item">
+                  Complexity: <strong>{performanceMetrics.complexity.replace('_', ' ')}</strong>
+                </span>
+                <span className="detail-item">
+                  Memory: <strong>~{performanceMetrics.memoryUsageMB}MB</strong>
+                </span>
+              </div>
+              <div className="performance-info">
+                <small>Estimated for 1920×1080 resolution</small>
+              </div>
+              {performanceMetrics.estimatedTimeMs > 1000 && (
+                <div className="performance-warning">
+                  ⚠️ This filter may take a while with high-resolution images
+                </div>
+              )}
+              {performanceMetrics.estimatedTimeMs > 5000 && (
+                <div className="performance-critical">
+                  🔥 Very intensive operation - consider reducing parameters
+                </div>
+              )}
+              {/* Performance tips for specific filters */}
+              {(['weightedmedian', 'alphatrimmedmean'].includes(tempViewerFilter)) && (
+                <div className="performance-tip">
+                  💡 Tip: Smaller kernel sizes will significantly improve performance
+                </div>
+              )}
+              {tempViewerFilter === 'nonlocalmeans' && (
+                <div className="performance-tip">
+                  💡 Tip: Reduce patch size and search window for faster processing
+                </div>
+              )}
+              {tempViewerFilter === 'anisotropicdiffusion' && (
+                <div className="performance-tip">
+                  💡 Tip: Fewer iterations = faster processing
+                </div>
+              )}
+              {tempViewerFilter === 'localhistogramequalization' && (
+                <div className="performance-tip">
+                  💡 Tip: Smaller kernel size reduces computation time significantly
+                </div>
+              )}
+              {tempViewerFilter === 'clahe' && (
+                <div className="performance-tip">
+                  💡 Tip: Larger grid size = better performance
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div className="panel-footer">
-          <button onClick={applyTempFilterSettings} className="apply-btn">Apply Filter</button>
+          <button onClick={applyTempFilterSettings} className="apply-btn">
+            Apply Filter
+            {performanceMetrics && ` (${formatPerformanceEstimate(performanceMetrics)})`}
+          </button>
         </div>
       </div>
     </div>

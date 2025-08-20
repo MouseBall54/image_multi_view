@@ -1,4 +1,10 @@
 import type { FilterParams } from '../store';
+import { 
+  applyFilterWithFallback, 
+  applyGaussianBlurOpenCV, 
+  applyBoxBlurOpenCV, 
+  applyMedianBlurOpenCV 
+} from './opencvFilters';
 
 // Helper function to create a Gaussian kernel
 function createGaussianKernel(sigma: number, size: number): number[][] {
@@ -176,14 +182,22 @@ function applyEdgeFilter(ctx: CanvasRenderingContext2D, kernelX: Kernel, kernelY
 }
 
 // --- Exported Filter Functions ---
-export const applyBoxBlur = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const kernel = createBoxBlurKernel(params.kernelSize);
-  convolve(ctx, kernel);
+export const applyBoxBlur = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const kernel = createBoxBlurKernel(params.kernelSize);
+    convolve(ctx, kernel);
+  };
+  
+  await applyFilterWithFallback(ctx, 'boxBlur', params, originalFn, applyBoxBlurOpenCV);
 };
 
-export const applyGaussianBlur = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const kernel = createGaussianKernel(params.sigma, params.kernelSize);
-  convolve(ctx, kernel);
+export const applyGaussianBlur = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const kernel = createGaussianKernel(params.sigma, params.kernelSize);
+    convolve(ctx, kernel);
+  };
+  
+  await applyFilterWithFallback(ctx, 'gaussianBlur', params, originalFn, applyGaussianBlurOpenCV);
 };
 
 export const applySharpen = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
@@ -735,41 +749,45 @@ export const applyGammaCorrection = (ctx: CanvasRenderingContext2D, params: Filt
   ctx.putImageData(imageData, 0, 0);
 };
 
-export const applyMedian = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { data, width, height } = imageData;
-  const src = new Uint8ClampedArray(data);
-  const { kernelSize } = params;
-  const half = Math.floor(kernelSize / 2);
+export const applyMedian = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const { data, width, height } = imageData;
+    const src = new Uint8ClampedArray(data);
+    const { kernelSize } = params;
+    const half = Math.floor(kernelSize / 2);
 
-  // Convert to grayscale first
-  const grayscale = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < src.length; i += 4) {
-    const gray = src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114;
-    grayscale[i / 4] = gray;
-  }
+    // Convert to grayscale first
+    const grayscale = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < src.length; i += 4) {
+      const gray = src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114;
+      grayscale[i / 4] = gray;
+    }
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const window: number[] = [];
-      for (let ky = -half; ky <= half; ky++) {
-        for (let kx = -half; kx <= half; kx++) {
-          const sy = y + ky;
-          const sx = x + kx;
-          if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
-            window.push(grayscale[sy * width + sx]);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const window: number[] = [];
+        for (let ky = -half; ky <= half; ky++) {
+          for (let kx = -half; kx <= half; kx++) {
+            const sy = y + ky;
+            const sx = x + kx;
+            if (sy >= 0 && sy < height && sx >= 0 && sx < width) {
+              window.push(grayscale[sy * width + sx]);
+            }
           }
         }
+        window.sort((a, b) => a - b);
+        const median = window[Math.floor(window.length / 2)];
+        const outIndex = (y * width + x) * 4;
+        data[outIndex] = median;
+        data[outIndex + 1] = median;
+        data[outIndex + 2] = median;
       }
-      window.sort((a, b) => a - b);
-      const median = window[Math.floor(window.length / 2)];
-      const outIndex = (y * width + x) * 4;
-      data[outIndex] = median;
-      data[outIndex + 1] = median;
-      data[outIndex + 2] = median;
     }
-  }
-  ctx.putImageData(imageData, 0, 0);
+    ctx.putImageData(imageData, 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'medianBlur', params, originalFn, applyMedianBlurOpenCV);
 };
 
 

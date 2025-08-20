@@ -1463,6 +1463,93 @@ main {
   justify-content: flex-end;
 }
 
+/* Performance metrics styles */
+.performance-metrics {
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 16px;
+}
+
+.performance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.performance-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.performance-badge {
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 12px;
+  color: white;
+}
+
+.performance-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.performance-info {
+  text-align: center;
+  margin-top: 4px;
+}
+
+.performance-info small {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.performance-warning {
+  margin-top: 8px;
+  padding: 6px 8px;
+  background-color: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 4px;
+  color: #fbbf24;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.performance-critical {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 4px;
+  color: #f87171;
+  font-size: 0.8rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.performance-tip {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+  color: #60a5fa;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
 .apply-btn {
   background-color: var(--accent-primary);
   color: white;

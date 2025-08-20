@@ -23,6 +23,19 @@ export interface FilterParams {
   gaborSigma: number; // Bandwidth
   lambda: number; // Wavelength
   psi: number; // Phase offset
+  // Additional filter params
+  sigma2?: number;
+  threshold?: number;
+  alpha?: number;
+  sigmaColor?: number;
+  sigmaSpace?: number;
+  patchSize?: number;
+  searchWindowSize?: number;
+  h?: number;
+  iterations?: number;
+  kappa?: number;
+  epsilon?: number;
+  lawsKernelType?: string;
 }
 
 const defaultFilterParams: FilterParams = {
@@ -40,6 +53,19 @@ const defaultFilterParams: FilterParams = {
   gaborSigma: 1.5,
   lambda: 10.0,
   psi: 0,
+  // Additional defaults
+  sigma2: 2.0,
+  threshold: 10,
+  alpha: 0.1,
+  sigmaColor: 25,
+  sigmaSpace: 25,
+  patchSize: 7,
+  searchWindowSize: 21,
+  h: 10,
+  iterations: 5,
+  kappa: 30,
+  epsilon: 0.04,
+  lawsKernelType: 'L5E5',
 };
 
 interface State {
