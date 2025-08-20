@@ -3,7 +3,11 @@ import {
   applyFilterWithFallback, 
   applyGaussianBlurOpenCV, 
   applyBoxBlurOpenCV, 
-  applyMedianBlurOpenCV 
+  applyMedianBlurOpenCV,
+  applySobelOpenCV,
+  applyScharrOpenCV,
+  applyCannyOpenCV,
+  applyLaplacianOpenCV
 } from './opencvFilters';
 
 // Helper function to create a Gaussian kernel
@@ -210,11 +214,34 @@ export const applyGabor = (ctx: CanvasRenderingContext2D, params: FilterParams) 
   convolve(ctx, kernel);
 };
 
-export const applyLaplacian = (ctx: CanvasRenderingContext2D) => convolve(ctx, laplacianKernel);
+export const applyLaplacian = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    convolve(ctx, laplacianKernel);
+  };
+  
+  await applyFilterWithFallback(ctx, 'laplacian', params, originalFn, applyLaplacianOpenCV);
+};
+
 export const applyHighpass = (ctx: CanvasRenderingContext2D) => convolve(ctx, highpassKernel);
+
 export const applyPrewitt = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, prewittKernelX, prewittKernelY);
-export const applyScharr = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, scharrKernelX, scharrKernelY);
-export const applySobel = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, sobelKernelX, sobelKernelY);
+
+export const applyScharr = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    applyEdgeFilter(ctx, scharrKernelX, scharrKernelY);
+  };
+  
+  await applyFilterWithFallback(ctx, 'scharr', params, originalFn, applyScharrOpenCV);
+};
+
+export const applySobel = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    applyEdgeFilter(ctx, sobelKernelX, sobelKernelY);
+  };
+  
+  await applyFilterWithFallback(ctx, 'sobel', params, originalFn, applySobelOpenCV);
+};
+
 export const applyRobertsCross = (ctx: CanvasRenderingContext2D) => applyEdgeFilter(ctx, robertsKernelX, robertsKernelY);
 export const applyLoG = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
   const kernel = createLoGKernel(params.sigma, params.kernelSize);
@@ -357,14 +384,13 @@ export const applyMarrHildreth = (ctx: CanvasRenderingContext2D, params: FilterP
   ctx.putImageData(new ImageData(edgeData, width, height), 0, 0);
 };
 
-// Basic Canny implementation - for simplicity, this is a placeholder.
-// A full Canny implementation is much more complex involving non-maximum suppression and hysteresis thresholding.
-export const applyCanny = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+export const applyCanny = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    // Simplified Canny implementation as fallback
     const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
     const { data, width, height } = imageData;
     
-    // This is a simplified version. A true Canny filter is more involved.
-    // We will just apply a threshold to a Sobel result for demonstration.
+    // Apply Sobel edge detection as base
     applyEdgeFilter(ctx, sobelKernelX, sobelKernelY);
     
     const edgeData = ctx.getImageData(0, 0, width, height);
@@ -382,6 +408,9 @@ export const applyCanny = (ctx: CanvasRenderingContext2D, params: FilterParams) 
         }
     }
     ctx.putImageData(edgeData, 0, 0);
+  };
+  
+  await applyFilterWithFallback(ctx, 'canny', params, originalFn, applyCannyOpenCV);
 };
 
 // Edge-preserving (approximate using bilateral filter)

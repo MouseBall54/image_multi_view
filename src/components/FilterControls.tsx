@@ -27,8 +27,8 @@ export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = 
   { name: 'Sharpen', type: 'sharpen', group: 'Sharpening' },
   { name: 'Unsharp Masking', type: 'unsharpmask', group: 'Sharpening' },
   { name: 'High-pass Filter', type: 'highpass', group: 'Sharpening' },
-  { name: 'Laplacian', type: 'laplacian', group: 'Sharpening' },
   { name: 'Sobel', type: 'sobel', group: 'Edge Detection' },
+  { name: 'Laplacian', type: 'laplacian', group: 'Edge Detection' },
   { name: 'Prewitt', type: 'prewitt', group: 'Edge Detection' },
   { name: 'Scharr', type: 'scharr', group: 'Edge Detection' },
   { name: 'Canny', type: 'canny', group: 'Edge Detection' },
@@ -428,6 +428,23 @@ export const FilterControls: React.FC = () => {
             <span>{(tempViewerFilterParams.sharpenAmount ?? 1.0).toFixed(1)}</span>
           </div>
         );
+      case 'laplacian':
+        return (
+          <>
+            <div className="control-row">
+              <label>Kernel Size</label>
+              <select
+                value={tempViewerFilterParams.kernelSize ?? 3}
+                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
+              >
+                <option value={1}>1 (3x3 optimized)</option>
+                <option value={3}>3 (3x3 standard)</option>
+                <option value={5}>5 (5x5)</option>
+                <option value={7}>7 (7x7)</option>
+              </select>
+            </div>
+          </>
+        );
       case 'canny':
         return (
           <>
@@ -813,6 +830,11 @@ export const FilterControls: React.FC = () => {
               </div>
               <div className="performance-info">
                 <small>Estimated for 1920×1080 resolution</small>
+                {['gaussianblur', 'boxblur', 'median', 'sobel', 'scharr', 'canny', 'laplacian'].includes(tempViewerFilter) && (
+                  <div className="opencv-badge">
+                    <small>🚀 OpenCV Accelerated</small>
+                  </div>
+                )}
               </div>
               {performanceMetrics.estimatedTimeMs > 1000 && (
                 <div className="performance-warning">
@@ -848,6 +870,21 @@ export const FilterControls: React.FC = () => {
               {tempViewerFilter === 'clahe' && (
                 <div className="performance-tip">
                   💡 Tip: Larger grid size = better performance
+                </div>
+              )}
+              {tempViewerFilter === 'canny' && (
+                <div className="performance-tip">
+                  💡 Tip: OpenCV Canny includes automatic Gaussian blur and non-maximum suppression
+                </div>
+              )}
+              {['sobel', 'scharr'].includes(tempViewerFilter) && (
+                <div className="performance-tip">
+                  💡 Tip: OpenCV version combines X & Y gradients automatically
+                </div>
+              )}
+              {tempViewerFilter === 'laplacian' && (
+                <div className="performance-tip">
+                  💡 Tip: Kernel size 1 is fastest (optimized 3×3), size 7 provides finest details
                 </div>
               )}
             </div>

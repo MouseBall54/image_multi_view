@@ -104,33 +104,40 @@ export function calculatePerformanceMetrics(
 
     // Edge detection filters
     case 'sobel':
-      baseTimeMs = megapixels * 12;
+      baseTimeMs = megapixels * 8; // OpenCV optimized (was 12)
       complexity = 'low';
       break;
 
     case 'prewitt':
-      baseTimeMs = megapixels * 14;
+      baseTimeMs = megapixels * 14; // No OpenCV optimization
       complexity = 'low';
       break;
 
     case 'scharr':
-      baseTimeMs = megapixels * 13;
+      baseTimeMs = megapixels * 9; // OpenCV optimized (was 13)
       complexity = 'low';
       break;
 
     case 'robertsCross':
-      baseTimeMs = megapixels * 10;
+      baseTimeMs = megapixels * 10; // No OpenCV optimization
       complexity = 'low';
       break;
 
     case 'canny':
-      baseTimeMs = megapixels * 20;
+      baseTimeMs = megapixels * 12; // OpenCV optimized (was 20)
       complexity = 'medium';
       break;
 
     case 'laplacian':
-      baseTimeMs = megapixels * 11;
+      baseTimeMs = megapixels * 7; // OpenCV optimized (was 11)
       complexity = 'low';
+      // Kernel size affects performance slightly
+      const laplacianKernel = params.kernelSize || 3;
+      if (laplacianKernel === 1) {
+        baseTimeMs *= 0.8; // ksize=1 is optimized 3x3
+      } else if (laplacianKernel >= 5) {
+        baseTimeMs *= 1.3; // Larger kernels are slightly slower
+      }
       break;
 
     case 'log':
@@ -404,6 +411,160 @@ export function applyMedianBlurOpenCV(ctx: CanvasRenderingContext2D, params: Fil
     matToCanvas(ctx, dst);
   } finally {
     src.delete();
+    dst.delete();
+  }
+}
+
+// Edge Detection Filters
+
+export function applySobelOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const gradX = new cv.Mat();
+  const gradY = new cv.Mat();
+  const absGradX = new cv.Mat();
+  const absGradY = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Apply Sobel in X and Y directions
+    const ksize = 3; // Sobel kernel size (3, 5, 7, etc.)
+    const scale = 1;
+    const delta = 0;
+    
+    cv.Sobel(gray, gradX, cv.CV_16S, 1, 0, ksize, scale, delta, cv.BORDER_DEFAULT);
+    cv.Sobel(gray, gradY, cv.CV_16S, 0, 1, ksize, scale, delta, cv.BORDER_DEFAULT);
+    
+    // Convert to absolute values
+    cv.convertScaleAbs(gradX, absGradX);
+    cv.convertScaleAbs(gradY, absGradY);
+    
+    // Combine X and Y gradients
+    cv.addWeighted(absGradX, 0.5, absGradY, 0.5, 0, dst);
+    
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    gradX.delete();
+    gradY.delete();
+    absGradX.delete();
+    absGradY.delete();
+    dst.delete();
+  }
+}
+
+export function applyScharrOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const gradX = new cv.Mat();
+  const gradY = new cv.Mat();
+  const absGradX = new cv.Mat();
+  const absGradY = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Apply Scharr in X and Y directions
+    const scale = 1;
+    const delta = 0;
+    
+    cv.Scharr(gray, gradX, cv.CV_16S, 1, 0, scale, delta, cv.BORDER_DEFAULT);
+    cv.Scharr(gray, gradY, cv.CV_16S, 0, 1, scale, delta, cv.BORDER_DEFAULT);
+    
+    // Convert to absolute values
+    cv.convertScaleAbs(gradX, absGradX);
+    cv.convertScaleAbs(gradY, absGradY);
+    
+    // Combine X and Y gradients
+    cv.addWeighted(absGradX, 0.5, absGradY, 0.5, 0, dst);
+    
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    gradX.delete();
+    gradY.delete();
+    absGradX.delete();
+    absGradY.delete();
+    dst.delete();
+  }
+}
+
+export function applyCannyOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Apply Canny edge detection
+    const lowThreshold = params.lowThreshold || 50;
+    const highThreshold = params.highThreshold || 100;
+    const apertureSize = 3; // Sobel kernel size
+    const L2gradient = false; // Use L1 norm
+    
+    cv.Canny(gray, dst, lowThreshold, highThreshold, apertureSize, L2gradient);
+    
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    dst.delete();
+  }
+}
+
+export function applyLaplacianOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const laplacian = new cv.Mat();
+  const dst = new cv.Mat();
+  
+  try {
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Apply Laplacian
+    // OpenCV supports kernel sizes: 1 (optimized 3x3), 3, 5, 7, etc.
+    let ksize = params.kernelSize || 3;
+    
+    // Ensure valid kernel size for OpenCV Laplacian
+    if (![1, 3, 5, 7].includes(ksize)) {
+      ksize = 3; // Default to 3 if invalid
+    }
+    
+    const scale = 1;
+    const delta = 0;
+    
+    cv.Laplacian(gray, laplacian, cv.CV_16S, ksize, scale, delta, cv.BORDER_DEFAULT);
+    
+    // Convert to 8-bit with proper scaling
+    cv.convertScaleAbs(laplacian, dst);
+    
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    laplacian.delete();
     dst.delete();
   }
 }

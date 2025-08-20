@@ -1516,6 +1516,19 @@ main {
   font-size: 0.75rem;
 }
 
+.opencv-badge {
+  margin-top: 2px;
+}
+
+.opencv-badge small {
+  background: linear-gradient(90deg, #10b981, #059669);
+  color: white;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
 .performance-warning {
   margin-top: 8px;
   padding: 6px 8px;
