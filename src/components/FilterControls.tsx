@@ -9,50 +9,80 @@ import {
 } from '../utils/opencvFilters';
 
 export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
-  { name: 'None', type: 'none', group: 'General' },
-  { name: 'Grayscale', type: 'grayscale', group: 'General' },
-  { name: 'Invert', type: 'invert', group: 'General' },
-  { name: 'Sepia', type: 'sepia', group: 'General' },
-  { name: 'Linear Contrast Stretching', type: 'linearstretch', group: 'Contrast' },
-  { name: 'Histogram Equalization', type: 'histogramequalization', group: 'Contrast' },
-  { name: 'Local Histogram Equalization', type: 'localhistogramequalization', group: 'Contrast' },
-  { name: 'Adaptive Histogram Equalization', type: 'adaptivehistogramequalization', group: 'Contrast' },
-  { name: 'CLAHE', type: 'clahe', group: 'Contrast' },
-  { name: 'Gamma Correction', type: 'gammacorrection', group: 'Contrast' },
-  { name: 'Box Blur', type: 'boxblur', group: 'Blurring' },
-  { name: 'Gaussian Blur', type: 'gaussianblur', group: 'Blurring' },
-  { name: 'Median', type: 'median', group: 'Blurring' },
-  { name: 'Weighted Median', type: 'weightedmedian', group: 'Blurring' },
-  { name: 'Alpha-trimmed Mean', type: 'alphatrimmedmean', group: 'Blurring' },
+  // Tone & Basics
+  { name: 'None', type: 'none', group: 'Tone & Basics' },
+  { name: 'Grayscale', type: 'grayscale', group: 'Tone & Basics' },
+  { name: 'Invert', type: 'invert', group: 'Tone & Basics' },
+  { name: 'Sepia', type: 'sepia', group: 'Tone & Basics' },
+  { name: 'Linear Contrast Stretching', type: 'linearstretch', group: 'Tone & Basics' },
+  { name: 'Gamma Correction', type: 'gammacorrection', group: 'Tone & Basics' },
+
+  // Contrast Enhancement
+  { name: 'Histogram Equalization', type: 'histogramequalization', group: 'Contrast Enhancement' },
+  { name: 'CLAHE (Contrast Limited Adaptive Histogram Equalization)', type: 'clahe', group: 'Contrast Enhancement' },
+  { name: 'Local Histogram Equalization', type: 'localhistogramequalization', group: 'Contrast Enhancement' },
+  { name: 'Adaptive Histogram Equalization (AHE)', type: 'adaptivehistogramequalization', group: 'Contrast Enhancement' },
+
+  // Noise Reduction & Blurring
+  { name: 'Box Blur', type: 'boxblur', group: 'Noise Reduction & Blurring' },
+  { name: 'Gaussian Blur', type: 'gaussianblur', group: 'Noise Reduction & Blurring' },
+  { name: 'Median Blur', type: 'median', group: 'Noise Reduction & Blurring' },
+  { name: 'Weighted Median', type: 'weightedmedian', group: 'Noise Reduction & Blurring' },
+  { name: 'Alpha-trimmed Mean', type: 'alphatrimmedmean', group: 'Noise Reduction & Blurring' },
+
+  // Edge-Preserving Smoothing
+  { name: 'Guided Filter', type: 'guided', group: 'Edge-Preserving Smoothing' },
+  { name: 'Edge-preserving (Approx.)', type: 'edgepreserving', group: 'Edge-Preserving Smoothing' },
+
+  // Sharpening
   { name: 'Sharpen', type: 'sharpen', group: 'Sharpening' },
   { name: 'Unsharp Masking', type: 'unsharpmask', group: 'Sharpening' },
   { name: 'High-pass Filter', type: 'highpass', group: 'Sharpening' },
-  { name: 'Sobel', type: 'sobel', group: 'Basic Edge Detection' },
-  { name: 'Scharr', type: 'scharr', group: 'Basic Edge Detection' },
-  { name: 'Canny', type: 'canny', group: 'Basic Edge Detection' },
-  { name: 'Laplacian', type: 'laplacian', group: 'Basic Edge Detection' },
-  { name: 'Prewitt', type: 'prewitt', group: 'Advanced Edge Detection' },
-  { name: 'Roberts Cross', type: 'robertscross', group: 'Advanced Edge Detection' },
-  { name: 'LoG', type: 'log', group: 'Advanced Edge Detection' },
-  { name: 'DoG', type: 'dog', group: 'Advanced Edge Detection' },
-  { name: 'Marr-Hildreth', type: 'marrhildreth', group: 'Advanced Edge Detection' },
+
+  // Edge Detection - Basic
+  { name: 'Sobel', type: 'sobel', group: 'Edge Detection - Basic' },
+  { name: 'Scharr', type: 'scharr', group: 'Edge Detection - Basic' },
+  { name: 'Laplacian', type: 'laplacian', group: 'Edge Detection - Basic' },
+
+  // Edge Detection - Advanced
+  { name: 'Canny', type: 'canny', group: 'Edge Detection - Advanced' },
+  { name: 'LoG (Laplacian of Gaussian)', type: 'log', group: 'Edge Detection - Advanced' },
+  { name: 'DoG (Difference of Gaussians)', type: 'dog', group: 'Edge Detection - Advanced' },
+  { name: 'Marr-Hildreth', type: 'marrhildreth', group: 'Edge Detection - Advanced' },
+  { name: 'Prewitt', type: 'prewitt', group: 'Edge Detection - Advanced' },
+  { name: 'Roberts Cross', type: 'robertscross', group: 'Edge Detection - Advanced' },
+
+  // Texture Analysis
   { name: 'Gabor Filter', type: 'gabor', group: 'Texture Analysis' },
   { name: 'Laws Texture Energy', type: 'lawstextureenergy', group: 'Texture Analysis' },
-  { name: 'Local Binary Patterns', type: 'lbp', group: 'Texture Analysis' },
-  { name: 'Guided Filter', type: 'guided', group: 'Edge-preserving Filter' },
-  { name: 'Edge-preserving (Approx.)', type: 'edgepreserving', group: 'Edge-preserving Filter' },
-  { name: 'Discrete Fourier Transform (DFT)', type: 'dft', group: 'Frequency Domain' },
-  { name: 'Discrete Cosine Transform (DCT)', type: 'dct', group: 'Frequency Domain' },
-  { name: 'Wavelet Transform', type: 'wavelet', group: 'Frequency Domain' },
-  { name: 'Morphology - Opening', type: 'morph_open', group: 'Morphology' },
-  { name: 'Morphology - Closing', type: 'morph_close', group: 'Morphology' },
-  { name: 'Morphology - Top-hat', type: 'morph_tophat', group: 'Morphology' },
-  { name: 'Morphology - Black-hat', type: 'morph_blackhat', group: 'Morphology' },
-  { name: 'Morphology - Gradient', type: 'morph_gradient', group: 'Morphology' },
-  { name: 'Distance Transform', type: 'distancetransform', group: 'Morphology' },
+  { name: 'Local Binary Patterns (LBP)', type: 'lbp', group: 'Texture Analysis' },
+
+  // Morphology & Distance
+  { name: 'Morphology - Opening', type: 'morph_open', group: 'Morphology & Distance' },
+  { name: 'Morphology - Closing', type: 'morph_close', group: 'Morphology & Distance' },
+  { name: 'Morphology - Top-hat', type: 'morph_tophat', group: 'Morphology & Distance' },
+  { name: 'Morphology - Black-hat', type: 'morph_blackhat', group: 'Morphology & Distance' },
+  { name: 'Morphology - Gradient', type: 'morph_gradient', group: 'Morphology & Distance' },
+  { name: 'Distance Transform', type: 'distancetransform', group: 'Morphology & Distance' },
+
+  // Frequency Domain (Experimental)
+  { name: 'Discrete Fourier Transform (DFT)', type: 'dft', group: 'Frequency Domain (Experimental)' },
+  { name: 'Discrete Cosine Transform (DCT)', type: 'dct', group: 'Frequency Domain (Experimental)' },
+  { name: 'Wavelet Transform', type: 'wavelet', group: 'Frequency Domain (Experimental)' },
 ];
 
-const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Basic Edge Detection', 'Advanced Edge Detection', 'Texture Analysis', 'Edge-preserving Filter', 'Frequency Domain', 'Morphology'];
+const filterGroups = [
+  'Tone & Basics',
+  'Contrast Enhancement',
+  'Noise Reduction & Blurring',
+  'Edge-Preserving Smoothing',
+  'Sharpening',
+  'Edge Detection - Basic',
+  'Edge Detection - Advanced',
+  'Texture Analysis',
+  'Morphology & Distance',
+  'Frequency Domain (Experimental)'
+];
 
 export const FilterControls: React.FC = () => {
   const {
