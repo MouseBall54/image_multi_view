@@ -2233,3 +2233,37 @@ main {
   cursor: not-allowed;
   background: var(--bg-secondary);
 }
+.inline-number-wrap {
+  display: inline-block;
+  width: 72px; /* fixed to avoid layout shift */
+  margin-left: 8px;
+}
+.inline-number {
+  display: inline-block;
+  width: 100%;
+  text-align: right;
+  cursor: text;
+}
+.inline-number-input {
+  width: 100%;
+  text-align: right;
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.3);
+  background: transparent;
+  color: inherit;
+  outline: none;
+  font: inherit;
+  padding: 0 0 1px 0;
+}
+.inline-number-input:focus {
+  border-bottom-color: #60a5fa; /* theme accent (tailwind sky-400-ish) */
+}
+/* Remove native number spin buttons */
+.inline-number-input::-webkit-outer-spin-button,
+.inline-number-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.inline-number-input[type=number] {
+  -moz-appearance: textfield;
+}

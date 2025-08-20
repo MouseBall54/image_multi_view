@@ -7,6 +7,65 @@ import {
   formatPerformanceEstimate
 } from '../utils/opencvFilters';
 
+// Inline editable number: click value to edit, blur/Enter to commit, Esc to cancel
+const InlineNumber: React.FC<{
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onCommit: (v: number) => void;
+}> = ({ value, min, max, step, onCommit }) => {
+  const [editing, setEditing] = React.useState(false);
+  const [text, setText] = React.useState(String(value));
+
+  React.useEffect(() => {
+    if (!editing) setText(String(value));
+  }, [value, editing]);
+
+  // Format up to 2 decimal places, trimming trailing zeros
+  const fmt = (v: number) => {
+    const rounded = Number.isFinite(v) ? Number(v.toFixed(2)) : v;
+    const s = rounded.toFixed(2);
+    return s.replace(/\.?0+$/, '');
+  };
+
+  return (
+    <span className="inline-number-wrap">
+      {editing ? (
+        <input
+          className="inline-number-input"
+          type="number"
+          value={text}
+          min={min}
+          max={max}
+          step={step}
+          autoFocus
+          onChange={(e) => setText(e.target.value)}
+          onBlur={() => {
+            const num = parseFloat(text);
+            if (!isNaN(num)) onCommit(Number(num.toFixed(2)));
+            setEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const num = parseFloat(text);
+              if (!isNaN(num)) onCommit(Number(num.toFixed(2)));
+              setEditing(false);
+            } else if (e.key === 'Escape') {
+              setText(String(value));
+              setEditing(false);
+            }
+          }}
+        />
+      ) : (
+        <span className="inline-number" onClick={() => setEditing(true)}>
+          {fmt(value)}
+        </span>
+      )}
+    </span>
+  );
+};
+
 export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   // Tone & Basics
   { name: 'None', type: 'none', group: 'Tone & Basics' },
@@ -112,7 +171,6 @@ export const FilterControls: React.FC = () => {
 
   // Calculate performance metrics for current filter and image
   const getPerformanceMetrics = () => {
-    if (!current) return null;
     
     // Try to get actual image dimensions from current file
     let estimatedWidth = 1920; // Default HD width
@@ -327,7 +385,13 @@ export const FilterControls: React.FC = () => {
                 value={tempViewerFilterParams.sigma ?? 1.0}
                 onChange={(e) => handleParamChange('sigma', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+              <InlineNumber
+                value={tempViewerFilterParams.sigma ?? 1.0}
+                min={0.1}
+                max={10}
+                step={0.01}
+                onCommit={(v)=> setTempFilterParams({ sigma: v })}
+              />
             </div>
           </>
         );
@@ -356,7 +420,13 @@ export const FilterControls: React.FC = () => {
                 value={tempViewerFilterParams.sigma ?? 1.0}
                 onChange={(e) => handleParamChange('sigma', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+              <InlineNumber
+                value={tempViewerFilterParams.sigma ?? 1.0}
+                min={0.1}
+                max={10}
+                step={0.01}
+                onCommit={(v)=> setTempFilterParams({ sigma: v })}
+              />
             </div>
           </>
         );
@@ -491,15 +561,15 @@ export const FilterControls: React.FC = () => {
           <>
             <div className="control-row">
               <label>Kernel Size</label>
-              <select
+              <input
+                type="range"
+                min="1"
+                max="7"
+                step="2"
                 value={tempViewerFilterParams.kernelSize ?? 3}
                 onChange={(e) => handleParamChange('kernelSize', e.target.value)}
-              >
-                <option value={1}>1 (3x3 optimized)</option>
-                <option value={3}>3 (3x3 standard)</option>
-                <option value={5}>5 (5x5)</option>
-                <option value={7}>7 (7x7)</option>
-              </select>
+              />
+              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
             </div>
           </>
         );
@@ -558,7 +628,13 @@ export const FilterControls: React.FC = () => {
                 value={tempViewerFilterParams.clipLimit ?? 2.0}
                 onChange={(e) => handleParamChange('clipLimit', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.clipLimit ?? 2.0).toFixed(1)}</span>
+              <InlineNumber
+                value={tempViewerFilterParams.clipLimit ?? 2.0}
+                min={1}
+                max={10}
+                step={0.01}
+                onCommit={(v)=> setTempFilterParams({ clipLimit: v })}
+              />
             </div>
             <div className="control-row">
               <label>Grid Size</label>
@@ -586,7 +662,13 @@ export const FilterControls: React.FC = () => {
               value={tempViewerFilterParams.gamma ?? 1.0}
               onChange={(e) => handleParamChange('gamma', e.target.value)}
             />
-            <span>{(tempViewerFilterParams.gamma ?? 1.0).toFixed(1)}</span>
+            <InlineNumber
+              value={tempViewerFilterParams.gamma ?? 1.0}
+              min={0.2}
+              max={2.2}
+              step={0.01}
+              onCommit={(v)=> setTempFilterParams({ gamma: v })}
+            />
           </div>
         );
       case 'unsharpmask':
@@ -614,7 +696,13 @@ export const FilterControls: React.FC = () => {
                 value={tempViewerFilterParams.sigma ?? 1.0}
                 onChange={(e) => handleParamChange('sigma', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+              <InlineNumber
+                value={tempViewerFilterParams.sigma ?? 1.0}
+                min={0.1}
+                max={10}
+                step={0.01}
+                onCommit={(v)=> setTempFilterParams({ sigma: v })}
+              />
             </div>
             <div className="control-row">
               <label>Amount</label>
@@ -626,7 +714,13 @@ export const FilterControls: React.FC = () => {
                 value={tempViewerFilterParams.sharpenAmount ?? 1.0}
                 onChange={(e) => handleParamChange('sharpenAmount', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.sharpenAmount ?? 1.0).toFixed(1)}</span>
+              <InlineNumber
+                value={tempViewerFilterParams.sharpenAmount ?? 1.0}
+                min={0.1}
+                max={5}
+                step={0.01}
+                onCommit={(v)=> setTempFilterParams({ sharpenAmount: v })}
+              />
             </div>
           </>
         );
@@ -641,27 +735,27 @@ export const FilterControls: React.FC = () => {
             <div className="control-row">
               <label>Theta (θ)</label>
               <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.theta ?? 0} onChange={(e) => handleParamChange('theta', e.target.value)} />
-              <span>{(tempViewerFilterParams.theta ?? 0).toFixed(2)}</span>
+              <InlineNumber value={tempViewerFilterParams.theta ?? 0} min={0} max={3.14} step={0.01} onCommit={(v)=> setTempFilterParams({ theta: v })} />
             </div>
             <div className="control-row">
               <label>Sigma (σ)</label>
               <input type="range" min="1" max="10" step="0.5" value={tempViewerFilterParams.sigma ?? 4.0} onChange={(e) => handleParamChange('sigma', e.target.value)} />
-              <span>{(tempViewerFilterParams.sigma ?? 4.0).toFixed(1)}</span>
+              <InlineNumber value={tempViewerFilterParams.sigma ?? 4.0} min={1} max={10} step={0.01} onCommit={(v)=> setTempFilterParams({ sigma: v })} />
             </div>
             <div className="control-row">
               <label>Lambda (λ)</label>
               <input type="range" min="3" max="20" step="1" value={tempViewerFilterParams.lambda ?? 10.0} onChange={(e) => handleParamChange('lambda', e.target.value)} />
-              <span>{(tempViewerFilterParams.lambda ?? 10.0).toFixed(1)}</span>
+              <InlineNumber value={tempViewerFilterParams.lambda ?? 10.0} min={3} max={20} step={0.01} onCommit={(v)=> setTempFilterParams({ lambda: v })} />
             </div>
             <div className="control-row">
               <label>Gamma (γ)</label>
               <input type="range" min="0.2" max="1" step="0.1" value={tempViewerFilterParams.gamma ?? 0.5} onChange={(e) => handleParamChange('gamma', e.target.value)} />
-              <span>{(tempViewerFilterParams.gamma ?? 0.5).toFixed(1)}</span>
+              <InlineNumber value={tempViewerFilterParams.gamma ?? 0.5} min={0.2} max={1} step={0.01} onCommit={(v)=> setTempFilterParams({ gamma: v })} />
             </div>
             <div className="control-row">
               <label>Psi (ψ)</label>
               <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.psi ?? 0} onChange={(e) => handleParamChange('psi', e.target.value)} />
-              <span>{(tempViewerFilterParams.psi ?? 0).toFixed(2)}</span>
+              <InlineNumber value={tempViewerFilterParams.psi ?? 0} min={0} max={3.14} step={0.01} onCommit={(v)=> setTempFilterParams({ psi: v })} />
             </div>
           </>
         );
@@ -716,7 +810,7 @@ export const FilterControls: React.FC = () => {
                 value={tempViewerFilterParams.epsilon ?? 0.04}
                 onChange={(e) => handleParamChange('epsilon', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.epsilon ?? 0.04).toFixed(2)}</span>
+              <InlineNumber value={tempViewerFilterParams.epsilon ?? 0.04} min={0.01} max={0.2} step={0.01} onCommit={(v)=> setTempFilterParams({ epsilon: v })} />
             </div>
           </>
         );
