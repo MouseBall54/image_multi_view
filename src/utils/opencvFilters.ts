@@ -157,31 +157,6 @@ export function calculatePerformanceMetrics(
       memoryMultiplier = 2.5;
       break;
 
-    // Advanced denoising filters
-    case 'bilateralFilter':
-      baseTimeMs = megapixels * 40;
-      complexity = 'high';
-      memoryMultiplier = 2;
-      break;
-
-    case 'nonLocalMeans':
-      baseTimeMs = megapixels * 150; // Very expensive algorithm
-      complexity = 'very_high';
-      // Patch and search window size greatly affect performance
-      const patchComplexity = Math.pow(params.patchSize || 7, 2);
-      const searchComplexity = Math.pow(params.searchWindowSize || 21, 2);
-      baseTimeMs *= (patchComplexity * searchComplexity) / (7 * 7 * 21 * 21);
-      memoryMultiplier = 3;
-      break;
-
-    case 'anisotropicDiffusion':
-      baseTimeMs = megapixels * 60; // Iterative algorithm
-      complexity = 'high';
-      const iterations = params.iterations || 5;
-      baseTimeMs *= iterations / 5;
-      if (iterations > 10) complexity = 'very_high';
-      memoryMultiplier = 2;
-      break;
 
     // Texture analysis
     case 'gabor':

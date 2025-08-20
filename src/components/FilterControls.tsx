@@ -36,9 +36,6 @@ export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = 
   { name: 'LoG', type: 'log', group: 'Edge Detection' },
   { name: 'DoG', type: 'dog', group: 'Edge Detection' },
   { name: 'Marr-Hildreth', type: 'marrhildreth', group: 'Edge Detection' },
-  { name: 'Bilateral Filter', type: 'bilateral', group: 'Advanced Denoising' },
-  { name: 'Non-local Means', type: 'nonlocalmeans', group: 'Advanced Denoising' },
-  { name: 'Anisotropic Diffusion', type: 'anisotropicdiffusion', group: 'Advanced Denoising' },
   { name: 'Gabor Filter', type: 'gabor', group: 'Texture Analysis' },
   { name: 'Laws Texture Energy', type: 'lawstextureenergy', group: 'Texture Analysis' },
   { name: 'Local Binary Patterns', type: 'lbp', group: 'Texture Analysis' },
@@ -55,7 +52,7 @@ export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = 
   { name: 'Distance Transform', type: 'distancetransform', group: 'Morphology' },
 ];
 
-const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Advanced Denoising', 'Texture Analysis', 'Edge-preserving Filter', 'Frequency Domain', 'Morphology'];
+const filterGroups = ['General', 'Contrast', 'Blurring', 'Sharpening', 'Edge Detection', 'Texture Analysis', 'Edge-preserving Filter', 'Frequency Domain', 'Morphology'];
 
 export const FilterControls: React.FC = () => {
   const {
@@ -150,10 +147,6 @@ export const FilterControls: React.FC = () => {
       'dog': 'dog',
       'marrhildreth': 'marrHildreth',
       
-      // Advanced denoising filters
-      'bilateral': 'bilateralFilter',
-      'nonlocalmeans': 'nonLocalMeans',
-      'anisotropicdiffusion': 'anisotropicDiffusion',
       
       // Texture analysis filters
       'gabor': 'gabor',
@@ -531,117 +524,6 @@ export const FilterControls: React.FC = () => {
             <span>{(tempViewerFilterParams.gamma ?? 1.0).toFixed(1)}</span>
           </div>
         );
-      case 'bilateral':
-        return (
-          <>
-            <div className="control-row">
-              <label>Kernel Size</label>
-              <input
-                type="range"
-                min="3"
-                max="21"
-                step="2"
-                value={tempViewerFilterParams.kernelSize ?? 3}
-                onChange={(e) => handleParamChange('kernelSize', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
-            </div>
-            <div className="control-row">
-              <label>Sigma Color</label>
-              <input
-                type="range"
-                min="1"
-                max="100"
-                step="1"
-                value={tempViewerFilterParams.sigmaColor ?? 20}
-                onChange={(e) => handleParamChange('sigmaColor', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.sigmaColor ?? 20}</span>
-            </div>
-            <div className="control-row">
-              <label>Sigma Space</label>
-              <input
-                type="range"
-                min="1"
-                max="100"
-                step="1"
-                value={tempViewerFilterParams.sigmaSpace ?? 20}
-                onChange={(e) => handleParamChange('sigmaSpace', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.sigmaSpace ?? 20}</span>
-            </div>
-          </>
-        );
-      case 'nonlocalmeans':
-        return (
-          <>
-            <div className="control-row">
-              <label>Patch Size</label>
-              <input
-                type="range"
-                min="3"
-                max="9"
-                step="2"
-                value={tempViewerFilterParams.patchSize ?? 5}
-                onChange={(e) => handleParamChange('patchSize', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.patchSize ?? 5}</span>
-            </div>
-            <div className="control-row">
-              <label>Search Window</label>
-              <input
-                type="range"
-                min="5"
-                max="21"
-                step="2"
-                value={tempViewerFilterParams.searchWindowSize ?? 11}
-                onChange={(e) => handleParamChange('searchWindowSize', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.searchWindowSize ?? 11}</span>
-            </div>
-            <div className="control-row">
-              <label>H (Smoothing)</label>
-              <input
-                type="range"
-                min="1"
-                max="50"
-                step="1"
-                value={tempViewerFilterParams.h ?? 10}
-                onChange={(e) => handleParamChange('h', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.h ?? 10}</span>
-            </div>
-          </>
-        );
-      case 'anisotropicdiffusion':
-        return (
-          <>
-            <div className="control-row">
-              <label>Iterations</label>
-              <input
-                type="range"
-                min="1"
-                max="100"
-                step="1"
-                value={tempViewerFilterParams.iterations ?? 10}
-                onChange={(e) => handleParamChange('iterations', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.iterations ?? 10}</span>
-            </div>
-            <div className="control-row">
-              <label>Kappa</label>
-              <input
-                type="range"
-                min="1"
-                max="100"
-                step="1"
-                value={tempViewerFilterParams.kappa ?? 20}
-                onChange={(e) => handleParamChange('kappa', e.target.value)}
-              />
-              <span>{tempViewerFilterParams.kappa ?? 20}</span>
-            </div>
-          </>
-        );
       case 'unsharpmask':
         return (
           <>
@@ -850,16 +732,6 @@ export const FilterControls: React.FC = () => {
               {(['weightedmedian', 'alphatrimmedmean'].includes(tempViewerFilter)) && (
                 <div className="performance-tip">
                   💡 Tip: Smaller kernel sizes will significantly improve performance
-                </div>
-              )}
-              {tempViewerFilter === 'nonlocalmeans' && (
-                <div className="performance-tip">
-                  💡 Tip: Reduce patch size and search window for faster processing
-                </div>
-              )}
-              {tempViewerFilter === 'anisotropicdiffusion' && (
-                <div className="performance-tip">
-                  💡 Tip: Fewer iterations = faster processing
                 </div>
               )}
               {tempViewerFilter === 'localhistogramequalization' && (
