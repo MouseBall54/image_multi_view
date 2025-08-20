@@ -622,15 +622,10 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const mx = e.clientX - left;
       const my = e.clientY - top;
       const { viewport: currentViewport, pinpointGlobalScale: currentGlobalScale, setPinpointGlobalScale } = useStore.getState();
-      // Calculate dynamic zoom step - cap at 50% increase per wheel step
-      // const _currentScale = appMode === 'pinpoint' ? 
-      //   ((overrideScale ?? currentViewport.scale) * currentGlobalScale) : 
-      //   currentViewport.scale;
-      
-      // Cap per-event zoom change to at most 20%
-      const MAX_WHEEL_FACTOR = 1.2;
-      const step = Math.min(WHEEL_ZOOM_STEP, MAX_WHEEL_FACTOR);
-      const delta = e.deltaY < 0 ? step : (1 / step);
+      // Zoom step: start with multiplicative step (e.g., 1.1x),
+      // but cap the visible percent change to at most +/- 50 points per event.
+      const MAX_PERCENT_STEP = 50; // percentage points
+      const step = WHEEL_ZOOM_STEP;
       if (appMode === 'pinpoint') {
         // Zoom the canvas under the cursor; also mark it active for consistency
         if (typeof folderKey === 'string') {
@@ -638,10 +633,16 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           setActiveCanvasKey(folderKey);
         }
         const preScale = (overrideScale ?? currentViewport.scale) * currentGlobalScale;
-        const desiredNextScale = preScale * delta;
-        const maxIn = preScale * MAX_WHEEL_FACTOR;
-        const minOut = preScale / MAX_WHEEL_FACTOR;
-        const nextScale = e.deltaY < 0 ? Math.min(desiredNextScale, maxIn) : Math.max(desiredNextScale, minOut);
+        const prePct = preScale * 100;
+        const desiredScale = preScale * (e.deltaY < 0 ? step : (1 / step));
+        let desiredPct = desiredScale * 100;
+        // Cap absolute percent change to +/- MAX_PERCENT_STEP
+        const maxPct = prePct + MAX_PERCENT_STEP;
+        const minPct = prePct - MAX_PERCENT_STEP;
+        desiredPct = Math.max(minPct, Math.min(maxPct, desiredPct));
+        // Clamp to global min/max zoom
+        const clampedPct = Math.max(MIN_ZOOM * 100, Math.min(MAX_ZOOM * 100, desiredPct));
+        const nextScale = clampedPct / 100;
         const nextGlobalScale = nextScale / (overrideScale ?? currentViewport.scale);
         if (nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
         setPinpointGlobalScale(nextGlobalScale);
@@ -652,12 +653,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
       } else {
         const preScale = currentViewport.scale;
-        // Desired next scale from step
-        const desiredNextScale = preScale * delta;
-        // Clamp to at most 20% per event
-        const maxIn = preScale * MAX_WHEEL_FACTOR;
-        const minOut = preScale / MAX_WHEEL_FACTOR;
-        let nextScale = e.deltaY < 0 ? Math.min(desiredNextScale, maxIn) : Math.max(desiredNextScale, minOut);
+        const prePct = preScale * 100;
+        const desiredScale = preScale * (e.deltaY < 0 ? step : (1 / step));
+        let desiredPct = desiredScale * 100;
+        const maxPct = prePct + MAX_PERCENT_STEP;
+        const minPct = prePct - MAX_PERCENT_STEP;
+        desiredPct = Math.max(minPct, Math.min(maxPct, desiredPct));
+        let nextScale = Math.max(MIN_ZOOM * 100, Math.min(MAX_ZOOM * 100, desiredPct)) / 100;
         nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextScale));
         if (nextScale === preScale) return;
         let { cx, cy } = currentViewport;
