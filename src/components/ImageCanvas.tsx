@@ -227,23 +227,37 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const refScreenY = viewport.refScreenY ?? (height / 2);
       const refImgX = currentRefPoint.x * currentImage.width;
       const refImgY = currentRefPoint.y * currentImage.height;
-      x = Math.round(refScreenX - (refImgX * scale));
-      y = Math.round(refScreenY - (refImgY * scale));
       const localAngle = pinpointRotations[folderKey] || 0;
       const globalAngle = pinpointGlobalRotation || 0;
       const totalAngle = localAngle + globalAngle;
-      centerX = x + drawW / 2;
-      centerY = y + drawH / 2;
+      const theta = (totalAngle * Math.PI) / 180;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+
+      // Solve translation so that rotated ref pixel stays under refScreen
+      // S = center offset of the scaled image
+      const Sx = drawW / 2;
+      const Sy = drawH / 2;
+      const ux = refImgX * scale;
+      const uy = refImgY * scale;
+      // x = rx - Sx - [cos*(ux - Sx) - sin*(uy - Sy)]
+      // y = ry - Sy - [sin*(ux - Sx) + cos*(uy - Sy)]
+      x = refScreenX - Sx - (cos * (ux - Sx) - sin * (uy - Sy));
+      y = refScreenY - Sy - (sin * (ux - Sx) + cos * (uy - Sy));
+
+      centerX = x + Sx;
+      centerY = y + Sy;
       if (totalAngle !== 0) {
         ctx.translate(centerX, centerY);
-        ctx.rotate(totalAngle * Math.PI / 180);
+        ctx.rotate(theta);
         ctx.translate(-centerX, -centerY);
       }
     } else {
       const cx = (viewport.cx || 0.5) * currentImage.width;
       const cy = (viewport.cy || 0.5) * currentImage.height;
-      x = Math.round((width / 2) - (cx * scale));
-      y = Math.round((height / 2) - (cy * scale));
+      // Avoid rounding to keep pivot identical to inverse mapping
+      x = (width / 2) - (cx * scale);
+      y = (height / 2) - (cy * scale);
       const angle = appMode === 'analysis' ? (rotation || 0) : (appMode === 'compare' ? (compareRotation || 0) : 0);
       if (angle !== 0) {
         centerX = x + drawW / 2;
@@ -564,27 +578,32 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const refScreenY = viewport.refScreenY || (height / 2);
       const refImgX = currentRefPoint.x * sourceImage.width;
       const refImgY = currentRefPoint.y * sourceImage.height;
-      const drawX = refScreenX - (refImgX * scale);
-      const drawY = refScreenY - (refImgY * scale);
-      // Account for rotation: map the click back by inverse rotation around the image center
+
+      // Recompute actual draw translation used for current frame so inverse mapping matches
       const localAngle = useStore.getState().pinpointRotations[folderKey] || 0;
       const globalAngle = useStore.getState().pinpointGlobalRotation || 0;
-      const totalAngle = (localAngle + globalAngle) * Math.PI / 180;
-      let mappedX = canvasX;
-      let mappedY = canvasY;
-      if (totalAngle !== 0) {
-        const centerX = drawX + (sourceImage.width * scale) / 2;
-        const centerY = drawY + (sourceImage.height * scale) / 2;
-        const dx = canvasX - centerX;
-        const dy = canvasY - centerY;
-        const cos = Math.cos(totalAngle);
-        const sin = Math.sin(totalAngle);
-        // inverse rotation by -totalAngle
-        mappedX = centerX + dx * cos + dy * sin;
-        mappedY = centerY - dx * sin + dy * cos;
-      }
-      const imgX = (mappedX - drawX) / scale;
-      const imgY = (mappedY - drawY) / scale;
+      const totalAngleDeg = (localAngle + globalAngle);
+      const theta = (totalAngleDeg * Math.PI) / 180;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+      const drawW = sourceImage.width * scale;
+      const drawH = sourceImage.height * scale;
+      const Sx = drawW / 2;
+      const Sy = drawH / 2;
+      const ux = refImgX * scale;
+      const uy = refImgY * scale;
+      const drawX = refScreenX - Sx - (cos * (ux - Sx) - sin * (uy - Sy));
+      const drawY = refScreenY - Sy - (sin * (ux - Sx) + cos * (uy - Sy));
+
+      // Inverse rotation about center to map screen -> unrotated local image coords
+      const centerX = drawX + Sx;
+      const centerY = drawY + Sy;
+      const dx = canvasX - centerX;
+      const dy = canvasY - centerY;
+      const unrotX = centerX + dx * Math.cos(-theta) - dy * Math.sin(-theta);
+      const unrotY = centerY + dx * Math.sin(-theta) + dy * Math.cos(-theta);
+      const imgX = (unrotX - drawX) / scale;
+      const imgY = (unrotY - drawY) / scale;
       if (imgX >= 0 && imgX <= sourceImage.width && imgY >= 0 && imgY <= sourceImage.height) {
         onSetRefPoint(folderKey, { x: imgX / sourceImage.width, y: imgY / sourceImage.height }, { x: canvasX, y: canvasY });
       }
