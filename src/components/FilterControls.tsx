@@ -157,19 +157,50 @@ export const FilterControls: React.FC = () => {
     addToFilterCart,
     setShowFilterCart,
     showFilterCart,
+    openPreviewModal,
+    updatePreviewModal,
+    folders,
+    analysisFile,
   } = useStore();
 
   if (activeFilterEditor === null) return null;
+
+  // Get current image file for preview
+  const getCurrentImageFile = (): File | undefined => {
+    if (typeof activeFilterEditor === 'string') {
+      // Viewer mode - get from folder
+      if (!current) return undefined;
+      const folder = folders[activeFilterEditor];
+      if (folder && folder.data.files) {
+        return folder.data.files.get(current.filename);
+      }
+    } else if (typeof activeFilterEditor === 'number') {
+      // Analysis mode - get from analysisFile
+      return analysisFile || undefined;
+    }
+    
+    return undefined;
+  };
 
   const handleParamChange = (param: string, value: string) => {
     const numValue = parseFloat(value);
     if (!isNaN(numValue)) {
       setTempFilterParams({ [param]: numValue });
+      
+      // Update preview modal if it's open with real-time updates
+      updatePreviewModal({
+        filterParams: { ...tempViewerFilterParams, [param]: numValue }
+      });
     }
   };
 
   const handleStringParamChange = (param: string, value: string) => {
     setTempFilterParams({ [param]: value });
+    
+    // Update preview modal if it's open with real-time updates
+    updatePreviewModal({
+      filterParams: { ...tempViewerFilterParams, [param]: value }
+    });
   };
 
   // Calculate performance metrics for current filter and image
@@ -892,9 +923,29 @@ export const FilterControls: React.FC = () => {
         </div>
         <div className="panel-footer">
           <div className="filter-actions">
+            <button 
+              onClick={() => {
+                const sourceFile = getCurrentImageFile();
+                if (sourceFile && tempViewerFilter !== 'none') {
+                  openPreviewModal({
+                    mode: 'single',
+                    filterType: tempViewerFilter,
+                    filterParams: tempViewerFilterParams,
+                    title: `Filter Preview: ${ALL_FILTERS.find(f => f.type === tempViewerFilter)?.name || tempViewerFilter}`,
+                    sourceFile,
+                    realTimeUpdate: true,
+                    position: 'sidebar'
+                  });
+                }
+              }}
+              className="btn btn-icon btn-accent"
+              disabled={tempViewerFilter === 'none' || !getCurrentImageFile()}
+              title="Open filter preview with real-time updates"
+            >
+              👁️
+            </button>
             <button onClick={applyTempFilterSettings} className="apply-btn">
               Apply Filter
-              {performanceMetrics && ` (${formatPerformanceEstimate(performanceMetrics)})`}
             </button>
             <button 
               onClick={() => {
@@ -903,20 +954,21 @@ export const FilterControls: React.FC = () => {
                   setShowFilterCart(true);
                 }
               }} 
-              className="add-to-cart-btn"
+              className="btn btn-icon btn-success"
               disabled={tempViewerFilter === 'none'}
               title="Add current filter to chain"
             >
-              Add to Chain
+              🛒
             </button>
           </div>
           {!showFilterCart && (
             <button 
               onClick={() => setShowFilterCart(true)}
-              className="btn btn-secondary"
+              className="btn btn-icon btn-secondary"
               style={{ marginTop: '8px', width: '100%' }}
+              title="Show filter chain panel"
             >
-              Show Filter Chain
+              📋 Chain
             </button>
           )}
         </div>

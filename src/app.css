@@ -2593,27 +2593,216 @@ main {
   justify-content: flex-end;
 }
 
-/* Add to Cart Button in Filter Controls */
-.add-to-cart-btn {
-  background: var(--success-color);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
+
+/* Filter Preview Modal */
+.preview-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  padding: 20px;
+}
+
+.preview-modal {
+  background: var(--bg-med);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.preview-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-light);
+  border-radius: 12px 12px 0 0;
+}
+
+.preview-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.preview-modal-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  color: var(--text-secondary);
   font-size: 12px;
+}
+
+.preview-dimensions {
+  font-family: monospace;
+  color: var(--accent-primary);
   font-weight: 500;
-  transition: background-color 0.2s;
-  margin-left: 8px;
 }
 
-.add-to-cart-btn:hover {
-  background: #218838;
+.preview-filename {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.add-to-cart-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.preview-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-modal-close:hover {
+  background: var(--bg-dark);
+  color: var(--text-primary);
+}
+
+.preview-modal-body {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  position: relative;
+}
+
+.preview-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.preview-canvas {
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: opacity 0.3s ease;
+}
+
+.preview-canvas.processing {
+  opacity: 0.7;
+}
+
+.preview-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.8);
+  padding: 20px;
+  border-radius: 8px;
+  z-index: 10;
+}
+
+.preview-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border-color);
+  border-top: 3px solid var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.preview-modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-light);
+  border-radius: 0 0 12px 12px;
+}
+
+.preview-controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* Filter Preview Sidebar */
+.preview-sidebar {
+  position: fixed;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2500;
+  pointer-events: none; /* Allow clicks to pass through empty space */
+}
+
+.preview-sidebar-panel {
+  background: var(--bg-med);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  width: 450px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  pointer-events: auto; /* Re-enable clicks on the panel itself */
+}
+
+.preview-sidebar-panel .preview-modal-header {
+  padding: 12px 16px;
+}
+
+.preview-sidebar-panel .preview-modal-header h3 {
+  font-size: 14px;
+  margin: 0;
+}
+
+.preview-sidebar-panel .preview-modal-info {
+  font-size: 11px;
+}
+
+.preview-sidebar-panel .preview-modal-body {
+  min-height: 300px;
+  max-height: 500px;
+  padding: 16px;
+}
+
+.preview-sidebar-panel .preview-modal-footer {
+  padding: 12px 16px;
+}
+
+.preview-sidebar-panel .preview-canvas {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Ensure sidebar doesn't interfere with other UI */
+.preview-sidebar-panel .preview-modal-close {
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
 }
 
 /* Filter Actions Layout */
@@ -2638,4 +2827,49 @@ main {
 
 .apply-btn:hover {
   background: var(--accent-hover);
+}
+
+/* Icon Button Styles */
+.btn-icon {
+  min-width: 40px;
+  padding: 10px 8px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.btn-icon.btn-accent {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.btn-icon.btn-accent:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-icon.btn-success {
+  background: var(--success-color);
+  color: white;
+}
+
+.btn-icon.btn-success:hover:not(:disabled) {
+  background: #218838;
+}
+
+.btn-icon.btn-secondary {
+  background: var(--bg-light);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  font-size: 12px;
+}
+
+.btn-icon.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-dark);
+}
+
+.btn-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useStore } from '../store';
+import { useStore, FilterParams } from '../store';
 import { ALL_FILTERS } from './FilterControls';
 import type { FilterChainItem } from '../types';
 
@@ -14,6 +14,9 @@ export const FilterCart: React.FC = () => {
     showFilterCart,
     filterPresets,
     activeFilterEditor,
+    current,
+    folders,
+    analysisFile,
     removeFromFilterCart,
     reorderFilterCart,
     clearFilterCart,
@@ -24,6 +27,7 @@ export const FilterCart: React.FC = () => {
     deleteFilterPreset,
     setShowFilterCart,
     applyFilterChain,
+    openPreviewModal,
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
@@ -33,6 +37,23 @@ export const FilterCart: React.FC = () => {
   const [showPresetDialog, setShowPresetDialog] = useState(false);
 
   if (!showFilterCart) return null;
+
+  // Get current image file for preview
+  const getCurrentImageFile = (): File | undefined => {
+    if (typeof activeFilterEditor === 'string') {
+      // Viewer mode - get from folder
+      if (!current) return undefined;
+      const folder = folders[activeFilterEditor];
+      if (folder && folder.data.files) {
+        return folder.data.files.get(current.filename);
+      }
+    } else if (typeof activeFilterEditor === 'number') {
+      // Analysis mode - get from analysisFile
+      return analysisFile || undefined;
+    }
+    
+    return undefined;
+  };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number, item: FilterChainItem) => {
     setDraggedItem({ index, id: item.id });
@@ -62,7 +83,7 @@ export const FilterCart: React.FC = () => {
     if (entries.length === 0) return '';
     
     const formatted = entries
-      .filter(([key, value]) => value !== undefined && value !== null)
+      .filter(([_, value]) => value !== undefined && value !== null)
       .map(([key, value]) => {
         if (typeof value === 'number') {
           return `${key}: ${Number.isInteger(value) ? value : value.toFixed(2)}`;
@@ -129,34 +150,32 @@ export const FilterCart: React.FC = () => {
                       <button
                         className="preview-btn"
                         onClick={(e) => {
-                          if (activeFilterEditor !== null) {
-                            if (e.shiftKey) {
-                              // Shift+Click: Preview only this single filter
-                              const singleFilterChain = {
-                                id: 'single-preview',
-                                name: 'Single Filter Preview',
-                                items: [item],
-                                createdAt: Date.now(),
-                                modifiedAt: Date.now()
-                              };
-                              applyFilterChain(singleFilterChain, activeFilterEditor);
-                            } else {
-                              // Normal click: Apply filters up to this point in the chain
-                              const filtersUpToThis = filterCart.slice(0, index + 1).filter(f => f.enabled);
-                              if (filtersUpToThis.length > 0) {
-                                const previewChain = {
-                                  id: 'preview',
-                                  name: 'Preview Chain',
-                                  items: filtersUpToThis,
-                                  createdAt: Date.now(),
-                                  modifiedAt: Date.now()
-                                };
-                                applyFilterChain(previewChain, activeFilterEditor);
-                              }
+                          const sourceFile = getCurrentImageFile();
+                          if (!sourceFile || !item.enabled) return;
+
+                          if (e.shiftKey) {
+                            // Shift+Click: Preview only this single filter
+                            openPreviewModal({
+                              mode: 'single',
+                              filterType: item.filterType,
+                              filterParams: item.params as FilterParams,
+                              title: `Single Filter: ${getFilterDisplayName(item.filterType)}`,
+                              sourceFile,
+                            });
+                          } else {
+                            // Normal click: Preview chain up to this point
+                            const filtersUpToThis = filterCart.slice(0, index + 1).filter(f => f.enabled);
+                            if (filtersUpToThis.length > 0) {
+                              openPreviewModal({
+                                mode: 'chain',
+                                chainItems: filtersUpToThis,
+                                title: `Filter Chain (Steps 1-${index + 1})`,
+                                sourceFile,
+                              });
                             }
                           }
                         }}
-                        disabled={activeFilterEditor === null || !item.enabled}
+                        disabled={activeFilterEditor === null || !item.enabled || !getCurrentImageFile()}
                         title={`Preview chain up to step ${index + 1}\nShift+Click: Preview only this filter`}
                       >
                         👁️
@@ -188,7 +207,7 @@ export const FilterCart: React.FC = () => {
             <div className="filter-cart-actions">
               <div className="cart-action-row">
                 <button 
-                  className="btn btn-secondary"
+                  className="btn btn-icon btn-secondary"
                   onClick={() => {
                     if (activeFilterEditor !== null) {
                       // Apply no filter (reset to original)
@@ -210,7 +229,7 @@ export const FilterCart: React.FC = () => {
                   disabled={activeFilterEditor === null}
                   title="Reset to original image"
                 >
-                  Reset
+                  🔄
                 </button>
                 <button 
                   className="btn btn-primary"
@@ -235,28 +254,28 @@ export const FilterCart: React.FC = () => {
               
               <div className="cart-action-row">
                 <button 
-                  className="btn btn-secondary"
+                  className="btn btn-icon btn-secondary"
                   onClick={clearFilterCart}
                   disabled={filterCart.length === 0}
+                  title="Clear all filters from chain"
                 >
-                  Clear All
+                  🗑️
                 </button>
                 <button 
-                  className="btn btn-accent"
+                  className="btn btn-icon btn-accent"
                   onClick={() => setShowChainDialog(true)}
                   disabled={filterCart.length === 0}
+                  title="Save as chain"
                 >
-                  Save as Chain
+                  💾
                 </button>
-              </div>
-              
-              <div className="cart-action-row">
                 <button 
-                  className="btn btn-accent"
+                  className="btn btn-icon btn-success"
                   onClick={() => setShowPresetDialog(true)}
                   disabled={filterCart.length === 0}
+                  title="Save as preset"
                 >
-                  Save as Preset
+                  ⭐
                 </button>
               </div>
             </div>

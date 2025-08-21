@@ -7,6 +7,7 @@ import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterControls } from "./components/FilterControls";
 import { FilterCart } from "./components/FilterCart";
+import { FilterPreviewModal } from "./components/FilterPreviewModal";
 import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
 import { CompareRotationControl } from "./components/CompareRotationControl";
 import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
@@ -70,7 +71,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal } = useStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -471,6 +472,19 @@ export default function App() {
 
       <FilterControls />
       <FilterCart />
+      
+      <FilterPreviewModal
+        isOpen={previewModal.isOpen}
+        onClose={closePreviewModal}
+        sourceFile={previewModal.sourceFile}
+        previewMode={previewModal.mode}
+        filterType={previewModal.filterType}
+        filterParams={previewModal.filterParams}
+        chainItems={previewModal.chainItems}
+        title={previewModal.title}
+        realTimeUpdate={previewModal.realTimeUpdate}
+        position={previewModal.position}
+      />
     </div>
   );
 }

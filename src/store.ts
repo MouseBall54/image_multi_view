@@ -136,6 +136,19 @@ interface State {
   filterCart: FilterChainItem[];
   filterPresets: FilterPreset[];
   showFilterCart: boolean;
+  
+  // Preview Modal states
+  previewModal: {
+    isOpen: boolean;
+    mode: 'single' | 'chain';
+    filterType?: FilterType;
+    filterParams?: FilterParams;
+    chainItems?: FilterChainItem[];
+    title?: string;
+    sourceFile?: File;
+    realTimeUpdate?: boolean;
+    position?: 'modal' | 'sidebar';
+  };
 
 
   setAppMode: (m: AppMode) => void;
@@ -208,6 +221,30 @@ interface State {
   
   // UI controls
   setShowFilterCart: (show: boolean) => void;
+  
+  // Preview Modal actions
+  openPreviewModal: (config: {
+    mode: 'single' | 'chain';
+    filterType?: FilterType;
+    filterParams?: FilterParams;
+    chainItems?: FilterChainItem[];
+    title?: string;
+    sourceFile?: File;
+    realTimeUpdate?: boolean;
+    position?: 'modal' | 'sidebar';
+  }) => void;
+  closePreviewModal: () => void;
+  updatePreviewModal: (updates: Partial<{
+    isOpen: boolean;
+    mode: 'single' | 'chain';
+    filterType?: FilterType;
+    filterParams?: FilterParams;
+    chainItems?: FilterChainItem[];
+    title?: string;
+    sourceFile?: File;
+    realTimeUpdate?: boolean;
+    position?: 'modal' | 'sidebar';
+  }>) => void;
 
 }
 
@@ -264,6 +301,12 @@ export const useStore = create<State>((set) => ({
   filterCart: [],
   filterPresets: [],
   showFilterCart: false,
+  
+  // Preview Modal states
+  previewModal: {
+    isOpen: false,
+    mode: 'single',
+  },
 
 
   setAppMode: (m) => set({ appMode: m }),
@@ -503,6 +546,30 @@ export const useStore = create<State>((set) => ({
 
   // UI controls
   setShowFilterCart: (show) => set({ showFilterCart: show }),
+  
+  // Preview Modal actions
+  openPreviewModal: (config) => set(state => ({
+    previewModal: {
+      ...state.previewModal,
+      isOpen: true,
+      ...config
+    }
+  })),
+  
+  closePreviewModal: () => set(state => ({
+    previewModal: {
+      ...state.previewModal,
+      isOpen: false,
+      realTimeUpdate: false
+    }
+  })),
+  
+  updatePreviewModal: (updates) => set(state => ({
+    previewModal: {
+      ...state.previewModal,
+      ...updates
+    }
+  })),
 
 }));
 
