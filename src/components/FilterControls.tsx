@@ -154,6 +154,9 @@ export const FilterControls: React.FC = () => {
     current,
     viewerImageSizes,
     analysisImageSizes,
+    addToFilterCart,
+    setShowFilterCart,
+    showFilterCart,
   } = useStore();
 
   if (activeFilterEditor === null) return null;
@@ -888,10 +891,34 @@ export const FilterControls: React.FC = () => {
           )}
         </div>
         <div className="panel-footer">
-          <button onClick={applyTempFilterSettings} className="apply-btn">
-            Apply Filter
-            {performanceMetrics && ` (${formatPerformanceEstimate(performanceMetrics)})`}
-          </button>
+          <div className="filter-actions">
+            <button onClick={applyTempFilterSettings} className="apply-btn">
+              Apply Filter
+              {performanceMetrics && ` (${formatPerformanceEstimate(performanceMetrics)})`}
+            </button>
+            <button 
+              onClick={() => {
+                addToFilterCart();
+                if (!showFilterCart) {
+                  setShowFilterCart(true);
+                }
+              }} 
+              className="add-to-cart-btn"
+              disabled={tempViewerFilter === 'none'}
+              title="Add current filter to chain"
+            >
+              Add to Chain
+            </button>
+          </div>
+          {!showFilterCart && (
+            <button 
+              onClick={() => setShowFilterCart(true)}
+              className="btn btn-secondary"
+              style={{ marginTop: '8px', width: '100%' }}
+            >
+              Show Filter Chain
+            </button>
+          )}
         </div>
       </div>
     </div>

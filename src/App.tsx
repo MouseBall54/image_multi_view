@@ -6,6 +6,7 @@ import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterControls } from "./components/FilterControls";
+import { FilterCart } from "./components/FilterCart";
 import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
 import { CompareRotationControl } from "./components/CompareRotationControl";
 import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
@@ -469,6 +470,7 @@ export default function App() {
       )}
 
       <FilterControls />
+      <FilterCart />
     </div>
   );
 }

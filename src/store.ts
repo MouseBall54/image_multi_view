@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Viewport, AppMode, FolderKey, Pinpoint, PinpointMouseMode, MatchedItem, FilterType, GridColor } from "./types";
+import type { Viewport, AppMode, FolderKey, Pinpoint, PinpointMouseMode, MatchedItem, FilterType, GridColor, FilterChain, FilterChainItem, FilterPreset } from "./types";
 import { DEFAULT_VIEWPORT } from "./config";
 import { FolderData } from "./utils/folder";
 
@@ -39,6 +39,10 @@ export interface FilterParams {
   // Morphology params
   morphShape?: string; // 'rect', 'ellipse', 'cross'
   morphIterations?: number;
+  // Filter Chain params
+  filterChain?: FilterChainItem[];
+  chainId?: string;
+  chainName?: string;
 }
 
 const defaultFilterParams: FilterParams = {
@@ -126,6 +130,13 @@ interface State {
   toggleModalOpen: boolean;
   toggleCurrentIndex: number;
 
+  // Filter Chain states
+  filterChains: FilterChain[];
+  activeFilterChain: FilterChain | null;
+  filterCart: FilterChainItem[];
+  filterPresets: FilterPreset[];
+  showFilterCart: boolean;
+
 
   setAppMode: (m: AppMode) => void;
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
@@ -175,6 +186,29 @@ interface State {
   setTempFilterParams: (params: Partial<FilterParams>) => void;
   applyTempFilterSettings: () => void;
 
+  // Filter Chain actions
+  addToFilterCart: () => void;
+  removeFromFilterCart: (itemId: string) => void;
+  reorderFilterCart: (fromIndex: number, toIndex: number) => void;
+  clearFilterCart: () => void;
+  toggleFilterCartItem: (itemId: string) => void;
+  updateFilterCartItem: (itemId: string, updates: Partial<FilterChainItem>) => void;
+  
+  // Filter Chain management
+  createFilterChain: (name: string) => void;
+  updateFilterChain: (chainId: string, updates: Partial<FilterChain>) => void;
+  deleteFilterChain: (chainId: string) => void;
+  setActiveFilterChain: (chain: FilterChain | null) => void;
+  applyFilterChain: (chain: FilterChain, viewerKey: FolderKey | number) => void;
+  
+  // Filter Preset management  
+  saveFilterPreset: (name: string, description?: string, tags?: string[]) => void;
+  loadFilterPreset: (presetId: string) => void;
+  deleteFilterPreset: (presetId: string) => void;
+  
+  // UI controls
+  setShowFilterCart: (show: boolean) => void;
+
 }
 
 export const useStore = create<State>((set) => ({
@@ -223,6 +257,13 @@ export const useStore = create<State>((set) => ({
   selectedViewers: [],
   toggleModalOpen: false,
   toggleCurrentIndex: 0,
+
+  // Filter Chain states
+  filterChains: [],
+  activeFilterChain: null,
+  filterCart: [],
+  filterPresets: [],
+  showFilterCart: false,
 
 
   setAppMode: (m) => set({ appMode: m }),
@@ -341,6 +382,127 @@ export const useStore = create<State>((set) => ({
       }
     }
   }),
+
+  // Filter Chain actions
+  addToFilterCart: () => set(state => {
+    const newItem: FilterChainItem = {
+      id: `filter-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      filterType: state.tempViewerFilter,
+      params: { ...state.tempViewerFilterParams },
+      enabled: true,
+    };
+    return { filterCart: [...state.filterCart, newItem] };
+  }),
+
+  removeFromFilterCart: (itemId) => set(state => ({
+    filterCart: state.filterCart.filter(item => item.id !== itemId)
+  })),
+
+  reorderFilterCart: (fromIndex, toIndex) => set(state => {
+    const newCart = [...state.filterCart];
+    const [movedItem] = newCart.splice(fromIndex, 1);
+    newCart.splice(toIndex, 0, movedItem);
+    return { filterCart: newCart };
+  }),
+
+  clearFilterCart: () => set({ filterCart: [] }),
+
+  toggleFilterCartItem: (itemId) => set(state => ({
+    filterCart: state.filterCart.map(item => 
+      item.id === itemId ? { ...item, enabled: !item.enabled } : item
+    )
+  })),
+
+  updateFilterCartItem: (itemId, updates) => set(state => ({
+    filterCart: state.filterCart.map(item =>
+      item.id === itemId ? { ...item, ...updates } : item
+    )
+  })),
+
+  // Filter Chain management
+  createFilterChain: (name) => set(state => {
+    const newChain: FilterChain = {
+      id: `chain-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name,
+      items: [...state.filterCart],
+      createdAt: Date.now(),
+      modifiedAt: Date.now(),
+    };
+    return { 
+      filterChains: [...state.filterChains, newChain],
+      activeFilterChain: newChain
+    };
+  }),
+
+  updateFilterChain: (chainId, updates) => set(state => ({
+    filterChains: state.filterChains.map(chain =>
+      chain.id === chainId ? { ...chain, ...updates, modifiedAt: Date.now() } : chain
+    ),
+    activeFilterChain: state.activeFilterChain?.id === chainId 
+      ? { ...state.activeFilterChain, ...updates, modifiedAt: Date.now() }
+      : state.activeFilterChain
+  })),
+
+  deleteFilterChain: (chainId) => set(state => ({
+    filterChains: state.filterChains.filter(chain => chain.id !== chainId),
+    activeFilterChain: state.activeFilterChain?.id === chainId ? null : state.activeFilterChain
+  })),
+
+  setActiveFilterChain: (chain) => set({ activeFilterChain: chain }),
+
+  applyFilterChain: (chain, viewerKey) => set(state => {
+    // For now, we'll store the chain directly and let the ImageCanvas handle the sequential processing
+    // This approach allows for more sophisticated caching and progress reporting
+    const enabledItems = chain.items.filter(item => item.enabled);
+    if (enabledItems.length === 0) return {};
+
+    // Store the filter chain as a special filter type with chain data in params
+    const chainFilter: FilterType = 'filterchain';
+    const chainParams: FilterParams = { 
+      ...defaultFilterParams,
+      filterChain: enabledItems,
+      chainId: chain.id,
+      chainName: chain.name 
+    };
+
+    if (typeof viewerKey === 'number') { // Analysis Mode
+      return {
+        analysisFilters: { ...state.analysisFilters, [viewerKey]: chainFilter },
+        analysisFilterParams: { ...state.analysisFilterParams, [viewerKey]: chainParams },
+      };
+    } else { // Folder-based modes
+      return {
+        viewerFilters: { ...state.viewerFilters, [viewerKey]: chainFilter },
+        viewerFilterParams: { ...state.viewerFilterParams, [viewerKey]: chainParams },
+      };
+    }
+  }),
+
+  // Filter Preset management
+  saveFilterPreset: (name, description = '', tags = []) => set(state => {
+    const newPreset: FilterPreset = {
+      id: `preset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name,
+      chain: [...state.filterCart],
+      tags,
+      description,
+      createdAt: Date.now(),
+    };
+    return { filterPresets: [...state.filterPresets, newPreset] };
+  }),
+
+  loadFilterPreset: (presetId) => set(state => {
+    const preset = state.filterPresets.find(p => p.id === presetId);
+    if (!preset) return {};
+    return { filterCart: [...preset.chain] };
+  }),
+
+  deleteFilterPreset: (presetId) => set(state => ({
+    filterPresets: state.filterPresets.filter(preset => preset.id !== presetId)
+  })),
+
+  // UI controls
+  setShowFilterCart: (show) => set({ showFilterCart: show }),
 
 }));
 
