@@ -863,7 +863,40 @@ export const FilterControls: React.FC = () => {
         <div className="panel-body">
           <div className="control-row">
             <label>Filter Type</label>
-            <select value={tempViewerFilter} onChange={(e) => setTempFilterType(e.target.value as FilterType)}>
+            <select value={tempViewerFilter} onChange={(e) => {
+              const newFilterType = e.target.value as FilterType;
+              setTempFilterType(newFilterType);
+              
+              // Reset parameters to defaults for the new filter type
+              const defaultParams = {
+                kernelSize: 3,
+                sigma: 1.0,
+                sigma2: 2.0,
+                clipLimit: 2.0,
+                gridSize: 8,
+                gamma: 1.0,
+                sharpenAmount: 1.0,
+                lowThreshold: 20,
+                highThreshold: 50,
+                threshold: 128,
+                alpha: 0.0,
+                sigmaColor: 25,
+                sigmaSpace: 25,
+                epsilon: 0.04,
+                theta: 0,
+                lambda: 10.0,
+                psi: 0,
+                lawsKernelType: 'L5E5'
+              };
+              setTempFilterParams(defaultParams);
+              
+              // Update preview modal if it's open with new filter type and default params
+              updatePreviewModal({
+                filterType: newFilterType,
+                filterParams: defaultParams,
+                title: `Filter Preview: ${ALL_FILTERS.find(f => f.type === newFilterType)?.name || newFilterType}`
+              });
+            }}>
               {filterGroups.map(group => (
                 <optgroup label={group} key={group}>
                   {ALL_FILTERS.filter(f => f.group === group).map(f => (
@@ -938,14 +971,14 @@ export const FilterControls: React.FC = () => {
                   });
                 }
               }}
-              className="btn btn-icon btn-accent"
+              className="btn btn-icon btn-theme-primary"
               disabled={tempViewerFilter === 'none' || !getCurrentImageFile()}
               title="Open filter preview with real-time updates"
             >
-              👁️
-            </button>
-            <button onClick={applyTempFilterSettings} className="apply-btn">
-              Apply Filter
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
             </button>
             <button 
               onClick={() => {
@@ -954,23 +987,38 @@ export const FilterControls: React.FC = () => {
                   setShowFilterCart(true);
                 }
               }} 
-              className="btn btn-icon btn-success"
+              className="btn btn-icon btn-theme-success"
               disabled={tempViewerFilter === 'none'}
               title="Add current filter to chain"
             >
-              🛒
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="8" cy="21" r="1"/>
+                <circle cx="19" cy="21" r="1"/>
+                <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57L23 6H6"/>
+                <path d="M12 13V7"/>
+                <path d="M15 10L12 7L9 10"/>
+              </svg>
             </button>
+            {!showFilterCart && (
+              <button 
+                onClick={() => setShowFilterCart(true)}
+                className="btn btn-icon btn-theme-secondary"
+                title="Show filter chain panel"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                  <path d="M9 14h6"/>
+                  <path d="M9 18h3"/>
+                </svg>
+              </button>
+            )}
           </div>
-          {!showFilterCart && (
-            <button 
-              onClick={() => setShowFilterCart(true)}
-              className="btn btn-icon btn-secondary"
-              style={{ marginTop: '8px', width: '100%' }}
-              title="Show filter chain panel"
-            >
-              📋 Chain
-            </button>
-          )}
+          <button onClick={applyTempFilterSettings} className="btn btn-icon btn-theme-accent">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20,6 9,17 4,12"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
