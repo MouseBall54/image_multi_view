@@ -178,21 +178,38 @@ export const FilterCart: React.FC = () => {
                         disabled={activeFilterEditor === null || !item.enabled || !getCurrentImageFile()}
                         title={`Preview chain up to step ${index + 1}\nShift+Click: Preview only this filter`}
                       >
-                        👁️
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="11" cy="11" r="8"/>
+                          <path d="m21 21-4.35-4.35"/>
+                        </svg>
                       </button>
                       <button
                         className={`toggle-btn ${item.enabled ? 'enabled' : 'disabled'}`}
                         onClick={() => toggleFilterCartItem(item.id)}
                         title={item.enabled ? 'Disable filter' : 'Enable filter'}
                       >
-                        {item.enabled ? '✓' : '✗'}
+                        {item.enabled ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20,6 9,17 4,12"/>
+                          </svg>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                          </svg>
+                        )}
                       </button>
                       <button
                         className="remove-btn"
                         onClick={() => removeFromFilterCart(item.id)}
                         title="Remove filter"
                       >
-                        🗑️
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3,6 5,6 21,6"/>
+                          <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
+                          <line x1="10" y1="11" x2="10" y2="17"/>
+                          <line x1="14" y1="11" x2="14" y2="17"/>
+                        </svg>
                       </button>
                     </div>
                   </div>
@@ -207,7 +224,7 @@ export const FilterCart: React.FC = () => {
             <div className="filter-cart-actions">
               <div className="cart-action-row">
                 <button 
-                  className="btn btn-icon btn-secondary"
+                  className="btn btn-icon btn-theme-secondary"
                   onClick={() => {
                     if (activeFilterEditor !== null) {
                       // Apply no filter (reset to original)
@@ -229,10 +246,15 @@ export const FilterCart: React.FC = () => {
                   disabled={activeFilterEditor === null}
                   title="Reset to original image"
                 >
-                  🔄
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="23,4 23,10 17,10"/>
+                    <polyline points="1,20 1,14 7,14"/>
+                    <path d="M20.49,9A9,9,0,0,0,5.64,5.64L1,10"/>
+                    <path d="M3.51,15a9,9,0,0,0,14.85,3.36L23,14"/>
+                  </svg>
                 </button>
                 <button 
-                  className="btn btn-primary"
+                  className="btn btn-icon btn-theme-accent"
                   onClick={() => {
                     if (activeFilterEditor !== null && filterCart.length > 0) {
                       const tempChain = {
@@ -248,34 +270,47 @@ export const FilterCart: React.FC = () => {
                   disabled={filterCart.length === 0 || activeFilterEditor === null}
                   title="Apply current chain to active viewer"
                 >
-                  Apply Chain
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20,6 9,17 4,12"/>
+                  </svg>
                 </button>
               </div>
               
               <div className="cart-action-row">
                 <button 
-                  className="btn btn-icon btn-secondary"
+                  className="btn btn-icon btn-theme-secondary"
                   onClick={clearFilterCart}
                   disabled={filterCart.length === 0}
                   title="Clear all filters from chain"
                 >
-                  🗑️
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3,6 5,6 21,6"/>
+                    <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/>
+                    <line x1="14" y1="11" x2="14" y2="17"/>
+                  </svg>
                 </button>
                 <button 
-                  className="btn btn-icon btn-accent"
+                  className="btn btn-icon btn-theme-primary"
                   onClick={() => setShowChainDialog(true)}
                   disabled={filterCart.length === 0}
                   title="Save as chain"
                 >
-                  💾
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19,21H5a2,2,0,0,1-2-2V5a2,2,0,0,1,2-2H12l7,7v9A2,2,0,0,1,19,21Z"/>
+                    <polyline points="17,21 17,13 7,13 7,21"/>
+                    <polyline points="7,3 7,8 15,8"/>
+                  </svg>
                 </button>
                 <button 
-                  className="btn btn-icon btn-success"
+                  className="btn btn-icon btn-theme-success"
                   onClick={() => setShowPresetDialog(true)}
                   disabled={filterCart.length === 0}
                   title="Save as preset"
                 >
-                  ⭐
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+                  </svg>
                 </button>
               </div>
             </div>
