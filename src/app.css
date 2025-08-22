@@ -1365,7 +1365,8 @@ main {
   background-color: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start; /* Place editor panel toward the left */
+  padding-left: 20px; /* Left margin from viewport edge */
   z-index: 1000;
   backdrop-filter: blur(4px);
 }
@@ -2307,9 +2308,10 @@ main {
 /* Keep filter cart panel fixed but allow relative positioning for children */
 .preview-active .filter-cart-panel {
   position: fixed; /* Keep fixed positioning */
-  right: 20px; /* Maintain right position */
-  top: 50%; /* Maintain center position */
-  transform: translateY(-50%); /* Maintain center transform */
+  left: 50%; /* Center horizontally relative to viewport */
+  right: auto; /* Override right pin */
+  top: 50%; /* Vertically center */
+  transform: translate(-50%, -50%); /* True center based on active preview width */
 }
 
 /* Embedded preview within filter cart */
