@@ -158,7 +158,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   
   const getFilterName = (type: FilterType | undefined) => {
     if (!type || type === 'none') return null;
-    return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown Filter';
+    if (type === 'filterchain') return 'custom filter';
+    return ALL_FILTERS.find(f => f.type === type)?.name || 'custom filter';
   };
 
   // Viewer selection for toggle functionality
@@ -239,10 +240,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               <li key={`${source}-${file.name}`}
                   className={analysisFile?.name === file.name ? "active": ""}
                   onClick={()=> handleFileSelect(file, source)}>
-                <div className="file-info">
-                  <span className="file-name">{file.name}</span>
-                  <span className="file-source">from {source}</span>
-                </div>
+                {file.name}
               </li>
             ))}
           </ul>

@@ -82,7 +82,33 @@ export type FilterType =
   | "morph_tophat"
   | "morph_blackhat"
   | "morph_gradient"
-  | "distancetransform";
+  | "distancetransform"
+  | "filterchain";
 
 export type DrawableImage = ImageBitmap | HTMLImageElement;
+
+// Filter Chain Types
+export interface FilterChainItem {
+  id: string;
+  filterType: FilterType;
+  params: Record<string, any>;
+  enabled: boolean;
+}
+
+export interface FilterChain {
+  id: string;
+  name: string;
+  items: FilterChainItem[];
+  createdAt: number;
+  modifiedAt: number;
+}
+
+export interface FilterPreset {
+  id: string;
+  name: string;
+  chain: FilterChainItem[];
+  tags: string[];
+  description?: string;
+  createdAt: number;
+}
 

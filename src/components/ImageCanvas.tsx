@@ -1,10 +1,11 @@
-import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef, useCallback } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, forwardRef, useCallback } from "react";
 import { useStore } from "../store";
 import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, RESPECT_EXIF, WHEEL_ZOOM_STEP, SHOW_FOLDER_LABEL, UTIF_OPTIONS } from "../config";
 import { Minimap } from "./Minimap";
 import { AppMode, FolderKey, FilterType, DrawableImage } from "../types";
 import { decodeTiffWithUTIF } from '../utils/utif';
 import * as Filters from "../utils/filters";
+import { applyFilterChain } from "../utils/filterChain";
 import { FilterParams } from "../store";
 
 type Props = {
@@ -195,6 +196,33 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         case 'morph_blackhat': if (params) await Filters.applyMorphBlackHat(ctx, params); break;
         case 'morph_gradient': if (params) await Filters.applyMorphGradient(ctx, params); break;
         case 'distancetransform': if (params) await Filters.applyDistanceTransform(ctx, params); break;
+        
+        case 'filterchain': {
+          if (params && params.filterChain) {
+            try {
+              // Apply the filter chain using the specialized utility
+              const chainResult = await applyFilterChain(offscreenCanvas, params.filterChain);
+              
+              // Copy the result back to the offscreen canvas
+              offscreenCanvas.width = chainResult.width;
+              offscreenCanvas.height = chainResult.height;
+              ctx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+              ctx.drawImage(chainResult, 0, 0);
+              
+              // Clean up the intermediate canvas
+              const chainCtx = chainResult.getContext('2d');
+              if (chainCtx) {
+                chainCtx.clearRect(0, 0, chainResult.width, chainResult.height);
+              }
+            } catch (error) {
+              console.error('Error applying filter chain:', error);
+              // Fallback: just draw the original image
+              ctx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+              ctx.drawImage(sourceImage, 0, 0);
+            }
+          }
+          break;
+        }
       }
 
       const finalImage = await createImageBitmap(offscreenCanvas);

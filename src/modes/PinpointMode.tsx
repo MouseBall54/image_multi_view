@@ -47,7 +47,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
   const getFilterName = (type: FilterType | undefined) => {
     if (!type || type === 'none') return null;
-    return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown';
+    if (type === 'filterchain') return 'custom filter';
+    return ALL_FILTERS.find(f => f.type === type)?.name || 'custom filter';
   };
 
   // Viewer selection for toggle functionality
@@ -231,7 +232,31 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       return;
     }
 
-    setCurrent(null); 
+    // Update global 'current' so previews resolve the selected file across modes
+    try {
+      const filename = file.name;
+      const base = filename.replace(/\.[^/.]+$/, '');
+      const has: any = {};
+      for (const k of Object.keys(allFolders)) {
+        const folderState = allFolders[k as FolderKey];
+        const files: Map<string, File> | undefined = folderState?.data?.files;
+        let present = false;
+        if (files) {
+          present = files.has(filename);
+          if (!present) {
+            for (const name of files.keys()) {
+              const nb = name.replace(/\.[^/.]+$/, '');
+              if (nb === base) { present = true; break; }
+            }
+          }
+        }
+        has[k] = present;
+      }
+      setCurrent({ filename, has });
+    } catch (e) {
+      // Fallback: clear current if any issue occurs
+      setCurrent(null);
+    }
 
     const oldPinpointImage = pinpointImages[activeCanvasKey];
     const refPoint = (oldPinpointImage && oldPinpointImage.file?.name === file.name)
@@ -301,10 +326,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                 <li key={`${folderKey}-${file.webkitRelativePath || file.name}-${file.lastModified}`}
                     className={isFileActive ? "active" : ""}
                     onClick={() => handleFileListItemClick(file, folderKey)}>
-                  <div className="file-info">
-                    <span className="file-name">{file.name}</span>
-                    <span className="file-source">from {source}</span>
-                  </div>
+                  {file.name}
                 </li>
               );
             })}

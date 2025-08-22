@@ -570,7 +570,7 @@ export function applyLaplacianOpenCV(ctx: CanvasRenderingContext2D, params: Filt
     
     // Apply Laplacian
     // OpenCV supports kernel sizes: 1 (optimized 3x3), 3, 5, 7, etc.
-    let ksize = params.kernelSize || 3;
+    let ksize = (params && typeof params.kernelSize === 'number') ? params.kernelSize : 3;
     
     // Ensure valid kernel size for OpenCV Laplacian
     if (![1, 3, 5, 7].includes(ksize)) {
@@ -839,15 +839,17 @@ export function applyDistanceTransformOpenCV(ctx: CanvasRenderingContext2D, para
     const threshold = params.lowThreshold || 128;
     cv.threshold(gray, binary, threshold, 255, cv.THRESH_BINARY);
     
-    // Apply distance transform
+    // Apply distance transform (32F single-channel)
     cv.distanceTransform(binary, dst, cv.DIST_L2, cv.DIST_MASK_PRECISE);
     
-    // Normalize to 0-255 range
+    // Convert to 8-bit for display in all cases to satisfy ImageData length
     const minMax = cv.minMaxLoc(dst);
     const maxVal = minMax.maxVal;
-    
     if (maxVal > 0) {
       cv.convertScaleAbs(dst, dst, 255.0 / maxVal, 0);
+    } else {
+      // Even if all zeros, ensure 8U type
+      cv.convertScaleAbs(dst, dst);
     }
     
     matToCanvas(ctx, dst);
@@ -879,10 +881,15 @@ export function applyHistogramEqualizationOpenCV(ctx: CanvasRenderingContext2D):
     cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
     cv.cvtColor(rgb, ycrcb, cv.COLOR_RGB2YCrCb);
 
-    // Equalize only the luminance (channel 0)
-    cv.extractChannel(ycrcb, y, 0);
-    cv.equalizeHist(y, yEq);
-    cv.insertChannel(yEq, ycrcb, 0);
+    // Equalize only the luminance (channel 0) using split/merge (extractChannel may be unavailable)
+    const mvEq = new cv.MatVector();
+    cv.split(ycrcb, mvEq);
+    const yMatEq = mvEq.get(0);
+    cv.equalizeHist(yMatEq, yEq);
+    mvEq.set(0, yEq);
+    cv.merge(mvEq, ycrcb);
+    yMatEq.delete();
+    mvEq.delete();
 
     // Convert YCrCb -> RGB -> RGBA
     cv.cvtColor(ycrcb, rgbOut, cv.COLOR_YCrCb2RGB);
@@ -920,22 +927,27 @@ export function applyClaheOpenCV(ctx: CanvasRenderingContext2D, params: FilterPa
     // Convert to YCrCb luminance
     cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
     cv.cvtColor(rgb, ycrcb, cv.COLOR_RGB2YCrCb);
-    cv.extractChannel(ycrcb, y, 0);
+    // Split to get luminance channel (avoid extractChannel)
+    const mvClahe = new cv.MatVector();
+    cv.split(ycrcb, mvClahe);
+    const yMatC = mvClahe.get(0);
 
     // OpenCV.js exposes CLAHE via createCLAHE
     const tileSize = new cv.Size(grid, grid);
     const clahe = (cv as any).createCLAHE ? (cv as any).createCLAHE(clipLimit, tileSize) : new (cv as any).CLAHE(clipLimit, tileSize);
-    clahe.apply(y, yClahe);
+    clahe.apply(yMatC, yClahe);
 
-    cv.insertChannel(yClahe, ycrcb, 0);
+    mvClahe.set(0, yClahe);
+    cv.merge(mvClahe, ycrcb);
     cv.cvtColor(ycrcb, rgbOut, cv.COLOR_YCrCb2RGB);
     cv.cvtColor(rgbOut, dst, cv.COLOR_RGB2RGBA);
 
     matToCanvas(ctx, dst);
 
-    y.delete();
+    yMatC.delete();
     yClahe.delete();
     clahe.delete();
+    mvClahe.delete();
   } finally {
     src.delete();
     rgb.delete();
@@ -1016,14 +1028,8 @@ export function applyLinearStretchOpenCV(ctx: CanvasRenderingContext2D): void {
     const alpha = 255.0 / range; // scale
     const beta = -minVal * alpha; // shift
 
-    // Apply to each channel using extract/insert to avoid MatVector typing
-    for (let c = 0; c < 3; c++) {
-      const ch = new cv.Mat();
-      cv.extractChannel(rgb, ch, c);
-      (cv as any).convertScaleAbs(ch, ch, alpha, beta);
-      cv.insertChannel(ch, rgb, c);
-      ch.delete();
-    }
+    // Apply linear scaling to all channels at once (avoid extract/insert)
+    (cv as any).convertScaleAbs(rgb, rgb, alpha, beta);
 
     cv.cvtColor(rgb, dst, cv.COLOR_RGB2RGBA);
     matToCanvas(ctx, dst);
@@ -1088,13 +1094,33 @@ export function applyGaborOpenCV(ctx: CanvasRenderingContext2D, params: FilterPa
 
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
     const getter = (cv as any).getGaborKernel;
-    if (typeof getter !== 'function') {
-      throw new Error('OpenCV Gabor kernel not available');
+
+    if (typeof getter === 'function') {
+      // Native OpenCV kernel generation when available
+      const ksizeObj = new cv.Size(ksize, ksize);
+      const k = getter(ksizeObj, sigma, theta, lambda, gamma, psi, cv.CV_32F);
+      k.copyTo(kernel);
+      k.delete();
+    } else {
+      // Hybrid path: generate kernel in JS, apply via OpenCV filter2D
+      const half = Math.floor(ksize / 2);
+      const sigmaX = sigma;
+      const sigmaY = sigma / gamma;
+      const data = new Float32Array(ksize * ksize);
+      let idx = 0;
+      for (let y = 0; y < ksize; y++) {
+        for (let x = 0; x < ksize; x++) {
+          const xr = (x - half) * Math.cos(theta) + (y - half) * Math.sin(theta);
+          const yr = -(x - half) * Math.sin(theta) + (y - half) * Math.cos(theta);
+          const gaussian = Math.exp(-0.5 * ((xr * xr) / (sigmaX * sigmaX) + (yr * yr) / (sigmaY * sigmaY)));
+          const sinusoidal = Math.cos((2 * Math.PI * xr) / lambda + psi);
+          data[idx++] = gaussian * sinusoidal;
+        }
+      }
+      const mat = (cv as any).matFromArray(ksize, ksize, cv.CV_32F, data);
+      mat.copyTo(kernel);
+      mat.delete();
     }
-    const ksizeObj = new cv.Size(ksize, ksize);
-    const k = getter(ksizeObj, sigma, theta, lambda, gamma, psi, cv.CV_32F);
-    k.copyTo(kernel);
-    k.delete();
 
     cv.filter2D(gray, resp, cv.CV_32F, kernel);
     cv.convertScaleAbs(resp, dst);

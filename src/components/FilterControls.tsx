@@ -154,19 +154,129 @@ export const FilterControls: React.FC = () => {
     current,
     viewerImageSizes,
     analysisImageSizes,
+    addToFilterCart,
+    setShowFilterCart,
+    showFilterCart,
+    openPreviewModal,
+    updatePreviewModal,
+    folders,
+    analysisFile,
   } = useStore();
 
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const [panelPos, setPanelPos] = React.useState<{ left: number; top: number } | null>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const dragOffsetRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const onHeaderMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!panelRef.current) return;
+    const rect = panelRef.current.getBoundingClientRect();
+    dragOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    setIsDragging(true);
+
+    const onMove = (ev: MouseEvent) => {
+      if (!panelRef.current) return;
+      const width = panelRef.current.offsetWidth || 400;
+      const height = panelRef.current.offsetHeight || 500;
+      const maxLeft = window.innerWidth - width;
+      const maxTop = window.innerHeight - height;
+      const left = Math.min(Math.max(0, ev.clientX - dragOffsetRef.current.x), Math.max(0, maxLeft));
+      const top = Math.min(Math.max(0, ev.clientY - dragOffsetRef.current.y), Math.max(0, maxTop));
+      setPanelPos({ left, top });
+    };
+
+    const onUp = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  // Keep preview modal's source file in sync while editor is open and preview sidebar is visible
+  React.useEffect(() => {
+    const sourceFile = (() => {
+      if (typeof activeFilterEditor === 'string') {
+        if (!current) return undefined;
+        const folder = folders[activeFilterEditor];
+        if (!folder || !folder.data || !folder.data.files) return undefined;
+        const files: Map<string, File> = folder.data.files;
+        let f = files.get(current.filename);
+        if (f) return f;
+        const base = current.filename.replace(/\.[^/.]+$/, '');
+        for (const [name, file] of files) {
+          if (name === current.filename) return file;
+          const nb = name.replace(/\.[^/.]+$/, '');
+          if (nb === current.filename || nb === base) return file;
+        }
+        return undefined;
+      } else if (typeof activeFilterEditor === 'number') {
+        return analysisFile || undefined;
+      }
+      return undefined;
+    })();
+
+    // Update preview modal if open
+    if (sourceFile) {
+      updatePreviewModal({ sourceFile });
+    }
+  }, [current?.filename, analysisFile, activeFilterEditor, folders]);
+
   if (activeFilterEditor === null) return null;
+
+  // Get current image file for preview
+  const getCurrentImageFile = (): File | undefined => {
+    const findFileInFolder = (folder: any, filename: string | undefined): File | undefined => {
+      if (!folder || !folder.data || !folder.data.files || !filename) return undefined;
+      const files: Map<string, File> = folder.data.files;
+      let f = files.get(filename);
+      if (f) return f;
+      const base = filename.replace(/\.[^/.]+$/, '');
+      for (const [name, file] of files) {
+        if (name === filename) return file;
+        const nb = name.replace(/\.[^/.]+$/, '');
+        if (nb === filename || nb === base) return file;
+      }
+      return undefined;
+    };
+
+    if (typeof activeFilterEditor === 'string') {
+      // Viewer mode - get from folder
+      if (!current) return undefined;
+      const folder = folders[activeFilterEditor];
+      if (folder && folder.data.files) {
+        return findFileInFolder(folder, current.filename);
+      }
+    } else if (typeof activeFilterEditor === 'number') {
+      // Analysis mode - get from analysisFile
+      return analysisFile || undefined;
+    }
+    
+    return undefined;
+  };
 
   const handleParamChange = (param: string, value: string) => {
     const numValue = parseFloat(value);
     if (!isNaN(numValue)) {
       setTempFilterParams({ [param]: numValue });
+      
+      // Update preview modal if it's open with real-time updates
+      updatePreviewModal({
+        filterParams: { ...tempViewerFilterParams, [param]: numValue }
+      });
     }
   };
 
   const handleStringParamChange = (param: string, value: string) => {
     setTempFilterParams({ [param]: value });
+    
+    // Update preview modal if it's open with real-time updates
+    updatePreviewModal({
+      filterParams: { ...tempViewerFilterParams, [param]: value }
+    });
   };
 
   // Calculate performance metrics for current filter and image
@@ -819,17 +929,54 @@ export const FilterControls: React.FC = () => {
     }
   };
 
+  const panelStyle: React.CSSProperties = panelPos ? { position: 'fixed', left: panelPos.left, top: panelPos.top, transform: 'none', cursor: isDragging ? 'grabbing' as const : undefined } : {};
+
   return (
     <div className="filter-controls-overlay">
-      <div className="filter-controls-panel">
-        <div className="panel-header">
+      <div className="filter-controls-panel" ref={panelRef} style={panelStyle}>
+        <div className="panel-header" onMouseDown={onHeaderMouseDown} style={{ cursor: 'grab' }}>
           <h3>Filter Editor (View {activeFilterEditor})</h3>
           <button onClick={closeFilterEditor} className="close-btn">&times;</button>
         </div>
         <div className="panel-body">
           <div className="control-row">
             <label>Filter Type</label>
-            <select value={tempViewerFilter} onChange={(e) => setTempFilterType(e.target.value as FilterType)}>
+            <select value={tempViewerFilter} onChange={(e) => {
+              const newFilterType = e.target.value as FilterType;
+              setTempFilterType(newFilterType);
+              
+              // Reset parameters to defaults for the new filter type
+              const defaultParams = {
+                kernelSize: 3,
+                sigma: 1.0,
+                sigma2: 2.0,
+                clipLimit: 2.0,
+                gridSize: 8,
+                gamma: 1.0,
+                sharpenAmount: 1.0,
+                lowThreshold: 20,
+                highThreshold: 50,
+                threshold: 128,
+                alpha: 0.0,
+                sigmaColor: 25,
+                sigmaSpace: 25,
+                epsilon: 0.04,
+                theta: 0,
+                lambda: 10.0,
+                psi: 0,
+                lawsKernelType: 'L5E5',
+                cutoff: 30,
+                gaborSigma: 1.5
+              };
+              setTempFilterParams(defaultParams);
+              
+              // Update preview modal if it's open with new filter type and default params
+              updatePreviewModal({
+                filterType: newFilterType,
+                filterParams: defaultParams,
+                title: `Filter Preview: ${ALL_FILTERS.find(f => f.type === newFilterType)?.name || newFilterType}`
+              });
+            }}>
               {filterGroups.map(group => (
                 <optgroup label={group} key={group}>
                   {ALL_FILTERS.filter(f => f.group === group).map(f => (
@@ -888,9 +1035,69 @@ export const FilterControls: React.FC = () => {
           )}
         </div>
         <div className="panel-footer">
-          <button onClick={applyTempFilterSettings} className="apply-btn">
-            Apply Filter
-            {performanceMetrics && ` (${formatPerformanceEstimate(performanceMetrics)})`}
+          <div className="filter-actions">
+            <button 
+              onClick={() => {
+                const sourceFile = getCurrentImageFile();
+                if (sourceFile && tempViewerFilter !== 'none') {
+                  openPreviewModal({
+                    mode: 'single',
+                    filterType: tempViewerFilter,
+                    filterParams: tempViewerFilterParams,
+                    title: `Filter Preview: ${ALL_FILTERS.find(f => f.type === tempViewerFilter)?.name || tempViewerFilter}`,
+                    sourceFile,
+                    realTimeUpdate: true,
+                    position: 'sidebar'
+                  });
+                }
+              }}
+              className="btn btn-icon btn-theme-primary"
+              disabled={tempViewerFilter === 'none' || !getCurrentImageFile()}
+              title="Open filter preview with real-time updates"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+            </button>
+            <button 
+              onClick={() => {
+                addToFilterCart();
+                if (!showFilterCart) {
+                  setShowFilterCart(true);
+                }
+              }} 
+              className="btn btn-icon btn-theme-success"
+              disabled={tempViewerFilter === 'none'}
+              title="Add current filter to chain"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="8" cy="21" r="1"/>
+                <circle cx="19" cy="21" r="1"/>
+                <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57L23 6H6"/>
+                <path d="M12 13V7"/>
+                <path d="M15 10L12 7L9 10"/>
+              </svg>
+            </button>
+            {!showFilterCart && (
+              <button 
+                onClick={() => setShowFilterCart(true)}
+                className="btn btn-icon btn-theme-secondary"
+                title="Show filter chain panel"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                  <path d="M9 14h6"/>
+                  <path d="M9 18h3"/>
+                </svg>
+              </button>
+            )}
+          </div>
+          <button onClick={applyTempFilterSettings} className="btn btn-icon btn-theme-accent">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20,6 9,17 4,12"/>
+            </svg>
           </button>
         </div>
       </div>

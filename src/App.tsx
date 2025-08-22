@@ -6,6 +6,8 @@ import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterControls } from "./components/FilterControls";
+import { FilterCart } from "./components/FilterCart";
+import { FilterPreviewModal } from "./components/FilterPreviewModal";
 import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
 import { CompareRotationControl } from "./components/CompareRotationControl";
 import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
@@ -69,7 +71,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart } = useStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -179,6 +181,22 @@ export default function App() {
 
       const key = e.key.toLowerCase();
 
+      // Disable mode switching (1/2/3) when any modal/overlay is active
+      // Use both state flags and DOM presence as a safety net to avoid stale state issues
+      const overlayPresent = !!(
+        document.querySelector('.filter-controls-overlay') ||
+        document.querySelector('.preview-modal-overlay') ||
+        document.querySelector('.toggle-modal-overlay') ||
+        document.querySelector('.dialog-overlay') ||
+        document.querySelector('.capture-modal')
+      );
+      const previewBlocks = !!(state.previewModal?.isOpen && state.previewModal?.position !== 'sidebar');
+      const modalActive = state.toggleModalOpen || previewBlocks || state.activeFilterEditor !== null || isCaptureModalOpen || overlayPresent;
+      if (modalActive && (key === '1' || key === '2' || key === '3')) {
+        e.preventDefault();
+        return;
+      }
+
       if (appMode === 'pinpoint' && activeCanvasKey && (key === '=' || key === '+' || key === '-')) {
         e.preventDefault();
         const individualScale = pinpointScales[activeCanvasKey] ?? viewport.scale;
@@ -209,7 +227,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setViewport, resetView, imageDimensions, setAppMode]);
+  }, [setViewport, resetView, imageDimensions, setAppMode, isCaptureModalOpen]);
 
   const renderCurrentMode = () => {
     const setPrimaryFile = (file: File | null) => {
@@ -229,7 +247,7 @@ export default function App() {
   };
 
   return (
-    <div className="app">
+    <div className={`app ${showFilterCart ? 'filter-cart-open' : ''} ${previewModal.isOpen && previewModal.position === 'sidebar' ? 'preview-active' : ''}`}>
       <header>
         <div className="title-container">
           <h1
@@ -469,6 +487,26 @@ export default function App() {
       )}
 
       <FilterControls />
+      <FilterCart />
+      
+      {/* Only render FilterPreviewModal for modal mode, sidebar mode is rendered within FilterCart */}
+      {previewModal.position !== 'sidebar' && (
+        <FilterPreviewModal
+          isOpen={previewModal.isOpen}
+          onClose={closePreviewModal}
+          sourceFile={previewModal.sourceFile}
+          previewMode={previewModal.mode}
+          filterType={previewModal.filterType}
+          filterParams={previewModal.filterParams}
+          chainItems={previewModal.chainItems}
+          title={previewModal.title}
+          realTimeUpdate={previewModal.realTimeUpdate}
+          position={previewModal.position}
+          editMode={previewModal.editMode}
+          onParameterChange={previewModal.onParameterChange}
+          stepIndex={previewModal.stepIndex}
+        />
+      )}
     </div>
   );
 }
