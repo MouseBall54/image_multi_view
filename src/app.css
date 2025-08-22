@@ -3057,6 +3057,7 @@ main {
   justify-content: center;
   min-height: 400px;
   position: relative;
+  overflow: hidden; /* Ensure canvas never spills outside body */
 }
 
 .preview-container {
@@ -3270,6 +3271,24 @@ main {
   min-height: 300px;
   max-height: 500px;
   padding: 16px;
+}
+
+/* Double the body size when preview size is L */
+.preview-sidebar-panel[data-size="L"] .preview-modal-body {
+  min-height: 600px;
+  max-height: 1000px;
+}
+
+/* Compact body for S size to match fixed preview size */
+.preview-sidebar-panel[data-size="S"] .preview-modal-body {
+  min-height: 220px;
+  max-height: 350px;
+}
+
+/* Ensure M size remains the mid-range */
+.preview-sidebar-panel[data-size="M"] .preview-modal-body {
+  min-height: 300px;
+  max-height: 500px;
 }
 
 .preview-sidebar-panel .preview-modal-footer {

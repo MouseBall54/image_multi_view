@@ -196,6 +196,25 @@ export const FilterControls: React.FC = () => {
     document.addEventListener('mouseup', onUp);
   };
 
+  // Keep preview modal's source file in sync while editor is open and preview sidebar is visible
+  React.useEffect(() => {
+    const sourceFile = (() => {
+      if (typeof activeFilterEditor === 'string') {
+        if (!current) return undefined;
+        const folder = folders[activeFilterEditor];
+        return folder && folder.data.files ? folder.data.files.get(current.filename) : undefined;
+      } else if (typeof activeFilterEditor === 'number') {
+        return analysisFile || undefined;
+      }
+      return undefined;
+    })();
+
+    // Update preview modal if open
+    if (sourceFile) {
+      updatePreviewModal({ sourceFile });
+    }
+  }, [current?.filename, analysisFile]);
+
   if (activeFilterEditor === null) return null;
 
   // Get current image file for preview

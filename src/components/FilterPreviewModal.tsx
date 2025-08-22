@@ -4,6 +4,8 @@ import { applyFilterChain } from '../utils/filterChain';
 import type { FilterChainItem, FilterType } from '../types';
 import type { FilterParams } from '../store';
 import { FilterParameterControls } from './FilterParameterControls';
+import { decodeTiffWithUTIF } from '../utils/utif';
+import { UTIF_OPTIONS } from '../config';
 
 interface FilterPreviewModalProps {
   isOpen: boolean;
@@ -37,6 +39,7 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
 }) => {
   const { previewSize, setPreviewSize } = useStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [sourceImage, setSourceImage] = useState<HTMLImageElement | null>(null);
   const [previewDimensions, setPreviewDimensions] = useState({ width: 0, height: 0 });
@@ -55,43 +58,83 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
   };
   
   const currentSizeConfig = getSizeConfig(previewSize);
-  const MAX_PREVIEW_SIZE = position === 'sidebar' ? currentSizeConfig.maxSize : 800;
+  // Predetermined maximum size (per S/M/L in sidebar; fixed cap in modal)
+  const maxPreviewSize = position === 'sidebar' ? currentSizeConfig.maxSize : 800;
 
-  // Load source image
+  // Load source image (only when opening or source file changes)
   useEffect(() => {
     if (!isOpen || !sourceFile) return;
 
-    const img = new Image();
-    img.onload = () => {
-      // Calculate preview dimensions while maintaining aspect ratio
+    // Determine file extension to handle TIFF via UTIF
+    const name = (sourceFile as any).name as string | undefined;
+    const ext = name ? name.split('.').pop()?.toLowerCase() : undefined;
+
+    let objectUrl: string | null = null;
+
+    const handleLoaded = (img: HTMLImageElement) => {
       const aspectRatio = img.width / img.height;
       let previewWidth = img.width;
       let previewHeight = img.height;
-
-      if (img.width > MAX_PREVIEW_SIZE || img.height > MAX_PREVIEW_SIZE) {
+      const cap = maxPreviewSize;
+      if (img.width > cap || img.height > cap) {
         if (img.width > img.height) {
-          previewWidth = MAX_PREVIEW_SIZE;
-          previewHeight = MAX_PREVIEW_SIZE / aspectRatio;
+          previewWidth = cap;
+          previewHeight = cap / aspectRatio;
         } else {
-          previewHeight = MAX_PREVIEW_SIZE;
-          previewWidth = MAX_PREVIEW_SIZE * aspectRatio;
+          previewHeight = cap;
+          previewWidth = cap * aspectRatio;
         }
       }
-
       setPreviewDimensions({ width: previewWidth, height: previewHeight });
       setSourceImage(img);
     };
 
-    img.onerror = () => {
-      console.error('Failed to load image for preview');
-    };
+    if (ext === 'tif' || ext === 'tiff') {
+      // Decode TIFF using UTIF utilities
+      decodeTiffWithUTIF(sourceFile, UTIF_OPTIONS)
+        .then(handleLoaded)
+        .catch((err) => {
+          console.error('Failed to decode TIFF for preview:', err);
+        });
+      return;
+    }
 
-    img.src = URL.createObjectURL(sourceFile);
+    // Default path: use object URL for standard image types
+    const img = new Image();
+    img.onload = () => handleLoaded(img);
+    img.onerror = (e) => {
+      console.error('Failed to load image for preview', e);
+    };
+    objectUrl = URL.createObjectURL(sourceFile);
+    img.src = objectUrl;
 
     return () => {
-      if (img.src) URL.revokeObjectURL(img.src);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [isOpen, sourceFile, MAX_PREVIEW_SIZE]); // Only reload when sourceFile changes or size config changes
+  }, [isOpen, sourceFile]); // Load once per file/modal open; sizing handled separately
+
+  // Recompute preview dimensions if container limits change after image loaded
+  useEffect(() => {
+    if (!sourceImage) return;
+    const img = sourceImage;
+    const aspectRatio = img.width / img.height;
+    let previewWidth = img.width;
+    let previewHeight = img.height;
+    const cap = maxPreviewSize;
+    if (img.width > cap || img.height > cap) {
+      if (img.width > img.height) {
+        previewWidth = cap;
+        previewHeight = cap / aspectRatio;
+      } else {
+        previewHeight = cap;
+        previewWidth = cap * aspectRatio;
+      }
+    }
+    // Only update state if changed to avoid loops
+    if (Math.round(previewWidth) !== Math.round(previewDimensions.width) || Math.round(previewHeight) !== Math.round(previewDimensions.height)) {
+      setPreviewDimensions({ width: previewWidth, height: previewHeight });
+    }
+  }, [maxPreviewSize, sourceImage]);
 
   // Apply filters to preview
   const applyPreview = useCallback(async () => {
@@ -213,11 +256,11 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
                   className={`size-btn ${previewSize === size ? 'active' : ''} ${sizeTransitioning ? 'transitioning' : ''}`}
                   onClick={() => {
                     if (size !== previewSize) {
+                      // Apply size immediately for snappier response
                       setSizeTransitioning(true);
-                      setTimeout(() => {
-                        setPreviewSize(size);
-                        setTimeout(() => setSizeTransitioning(false), 400);
-                      }, 50);
+                      setPreviewSize(size);
+                      // End transition state after short duration for CSS animations
+                      setTimeout(() => setSizeTransitioning(false), 200);
                     }
                   }}
                   title={`Size ${size}: ${getSizeConfig(size).maxSize}px`}
@@ -233,7 +276,7 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
           </button>
         </div>
 
-        <div className="preview-modal-body">
+        <div className="preview-modal-body" ref={bodyRef}>
           <div className="preview-container">
             {isProcessing && (
               <div className="preview-loading">

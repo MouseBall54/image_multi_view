@@ -315,6 +315,15 @@ export const FilterCart: React.FC = () => {
     cursor: isDragging ? 'grabbing' as const : undefined,
   };
 
+  // Keep preview modal's source file in sync with current selection
+  React.useEffect(() => {
+    if (!previewModal.isOpen || previewModal.position !== 'sidebar') return;
+    const newFile = getCurrentImageFile();
+    if (newFile && previewModal.sourceFile !== newFile) {
+      updatePreviewModal({ sourceFile: newFile });
+    }
+  }, [previewModal.isOpen, previewModal.position, current?.filename, analysisFile, activeFilterEditor]);
+
   return (
     <div 
       ref={panelRef}
