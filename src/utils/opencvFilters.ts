@@ -879,10 +879,15 @@ export function applyHistogramEqualizationOpenCV(ctx: CanvasRenderingContext2D):
     cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
     cv.cvtColor(rgb, ycrcb, cv.COLOR_RGB2YCrCb);
 
-    // Equalize only the luminance (channel 0)
-    cv.extractChannel(ycrcb, y, 0);
-    cv.equalizeHist(y, yEq);
-    cv.insertChannel(yEq, ycrcb, 0);
+    // Equalize only the luminance (channel 0) using split/merge (extractChannel may be unavailable)
+    const mvEq = new cv.MatVector();
+    cv.split(ycrcb, mvEq);
+    const yMatEq = mvEq.get(0);
+    cv.equalizeHist(yMatEq, yEq);
+    mvEq.set(0, yEq);
+    cv.merge(mvEq, ycrcb);
+    yMatEq.delete();
+    mvEq.delete();
 
     // Convert YCrCb -> RGB -> RGBA
     cv.cvtColor(ycrcb, rgbOut, cv.COLOR_YCrCb2RGB);
@@ -920,22 +925,27 @@ export function applyClaheOpenCV(ctx: CanvasRenderingContext2D, params: FilterPa
     // Convert to YCrCb luminance
     cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
     cv.cvtColor(rgb, ycrcb, cv.COLOR_RGB2YCrCb);
-    cv.extractChannel(ycrcb, y, 0);
+    // Split to get luminance channel (avoid extractChannel)
+    const mvClahe = new cv.MatVector();
+    cv.split(ycrcb, mvClahe);
+    const yMatC = mvClahe.get(0);
 
     // OpenCV.js exposes CLAHE via createCLAHE
     const tileSize = new cv.Size(grid, grid);
     const clahe = (cv as any).createCLAHE ? (cv as any).createCLAHE(clipLimit, tileSize) : new (cv as any).CLAHE(clipLimit, tileSize);
-    clahe.apply(y, yClahe);
+    clahe.apply(yMatC, yClahe);
 
-    cv.insertChannel(yClahe, ycrcb, 0);
+    mvClahe.set(0, yClahe);
+    cv.merge(mvClahe, ycrcb);
     cv.cvtColor(ycrcb, rgbOut, cv.COLOR_YCrCb2RGB);
     cv.cvtColor(rgbOut, dst, cv.COLOR_RGB2RGBA);
 
     matToCanvas(ctx, dst);
 
-    y.delete();
+    yMatC.delete();
     yClahe.delete();
     clahe.delete();
+    mvClahe.delete();
   } finally {
     src.delete();
     rgb.delete();
@@ -1016,14 +1026,8 @@ export function applyLinearStretchOpenCV(ctx: CanvasRenderingContext2D): void {
     const alpha = 255.0 / range; // scale
     const beta = -minVal * alpha; // shift
 
-    // Apply to each channel using extract/insert to avoid MatVector typing
-    for (let c = 0; c < 3; c++) {
-      const ch = new cv.Mat();
-      cv.extractChannel(rgb, ch, c);
-      (cv as any).convertScaleAbs(ch, ch, alpha, beta);
-      cv.insertChannel(ch, rgb, c);
-      ch.delete();
-    }
+    // Apply linear scaling to all channels at once (avoid extract/insert)
+    (cv as any).convertScaleAbs(rgb, rgb, alpha, beta);
 
     cv.cvtColor(rgb, dst, cv.COLOR_RGB2RGBA);
     matToCanvas(ctx, dst);
