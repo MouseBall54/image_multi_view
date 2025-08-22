@@ -1088,13 +1088,33 @@ export function applyGaborOpenCV(ctx: CanvasRenderingContext2D, params: FilterPa
 
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
     const getter = (cv as any).getGaborKernel;
-    if (typeof getter !== 'function') {
-      throw new Error('OpenCV Gabor kernel not available');
+
+    if (typeof getter === 'function') {
+      // Native OpenCV kernel generation when available
+      const ksizeObj = new cv.Size(ksize, ksize);
+      const k = getter(ksizeObj, sigma, theta, lambda, gamma, psi, cv.CV_32F);
+      k.copyTo(kernel);
+      k.delete();
+    } else {
+      // Hybrid path: generate kernel in JS, apply via OpenCV filter2D
+      const half = Math.floor(ksize / 2);
+      const sigmaX = sigma;
+      const sigmaY = sigma / gamma;
+      const data = new Float32Array(ksize * ksize);
+      let idx = 0;
+      for (let y = 0; y < ksize; y++) {
+        for (let x = 0; x < ksize; x++) {
+          const xr = (x - half) * Math.cos(theta) + (y - half) * Math.sin(theta);
+          const yr = -(x - half) * Math.sin(theta) + (y - half) * Math.cos(theta);
+          const gaussian = Math.exp(-0.5 * ((xr * xr) / (sigmaX * sigmaX) + (yr * yr) / (sigmaY * sigmaY)));
+          const sinusoidal = Math.cos((2 * Math.PI * xr) / lambda + psi);
+          data[idx++] = gaussian * sinusoidal;
+        }
+      }
+      const mat = (cv as any).matFromArray(ksize, ksize, cv.CV_32F, data);
+      mat.copyTo(kernel);
+      mat.delete();
     }
-    const ksizeObj = new cv.Size(ksize, ksize);
-    const k = getter(ksizeObj, sigma, theta, lambda, gamma, psi, cv.CV_32F);
-    k.copyTo(kernel);
-    k.delete();
 
     cv.filter2D(gray, resp, cv.CV_32F, kernel);
     cv.convertScaleAbs(resp, dst);
