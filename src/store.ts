@@ -408,12 +408,14 @@ export const useStore = create<State>((set) => ({
         activeFilterEditor: key,
         tempViewerFilter: state.analysisFilters[key] || 'none',
         tempViewerFilterParams: state.analysisFilterParams[key] || defaultFilterParams,
+        showFilterCart: true,
       }
     } else { // Folder-based modes
       return {
         activeFilterEditor: key,
         tempViewerFilter: state.viewerFilters[key] || 'none',
         tempViewerFilterParams: state.viewerFilterParams[key] || defaultFilterParams,
+        showFilterCart: true,
       }
     }
   }),
