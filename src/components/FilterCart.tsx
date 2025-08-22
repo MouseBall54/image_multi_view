@@ -17,6 +17,8 @@ export const FilterCart: React.FC = () => {
     showFilterCart,
     filterPresets,
     activeFilterEditor,
+    activeCanvasKey,
+    appMode,
     current,
     folders,
     analysisFile,
@@ -163,22 +165,80 @@ export const FilterCart: React.FC = () => {
     }
   };
 
+  // Keep preview modal's source file in sync with current selection
+  React.useEffect(() => {
+    if (!previewModal.isOpen || previewModal.position !== 'sidebar') return;
+    const newFile = (() => {
+      // reuse the resolver below without moving hooks; simple inline resolver
+      if (typeof activeFilterEditor === 'string') {
+        if (!current) return undefined;
+        const folder = folders[activeFilterEditor];
+        return folder?.data.files?.get(current.filename);
+      }
+      if (typeof activeFilterEditor === 'number') {
+        return analysisFile || undefined;
+      }
+      if (analysisFile) return analysisFile;
+      if (activeCanvasKey && typeof activeCanvasKey === 'string') {
+        if (!current) return undefined;
+        const folder = folders[activeCanvasKey];
+        const has = current?.has?.[activeCanvasKey as any];
+        if (has && folder?.data.files) {
+          return folder.data.files.get(current.filename);
+        }
+      }
+      if (current) {
+        for (const k in current.has) {
+          if ((current.has as any)[k]) {
+            const folder = folders[k as any];
+            const file = folder?.data.files?.get(current.filename);
+            if (file) return file;
+          }
+        }
+      }
+      return undefined;
+    })();
+    if (newFile && previewModal.sourceFile !== newFile) {
+      updatePreviewModal({ sourceFile: newFile });
+    }
+  }, [previewModal.isOpen, previewModal.position, current?.filename, analysisFile, activeFilterEditor, activeCanvasKey, folders]);
+
   if (!showFilterCart) return null;
 
-  // Get current image file for preview
+  // Resolve a source file for preview irrespective of editor visibility
   const getCurrentImageFile = (): File | undefined => {
+    // 1) If editor has a target (string key), use it
     if (typeof activeFilterEditor === 'string') {
-      // Viewer mode - get from folder
       if (!current) return undefined;
       const folder = folders[activeFilterEditor];
-      if (folder && folder.data.files) {
-        return folder.data.files.get(current.filename);
-      }
-    } else if (typeof activeFilterEditor === 'number') {
-      // Analysis mode - get from analysisFile
+      return folder?.data.files?.get(current.filename);
+    }
+    // 2) If editor targeted analysis index
+    if (typeof activeFilterEditor === 'number') {
       return analysisFile || undefined;
     }
-    
+    // 3) If analysis file exists (analysis mode or not), prefer it
+    if (analysisFile) return analysisFile;
+    // 4) Fallback to active canvas folder key
+    if (activeCanvasKey && typeof activeCanvasKey === 'string') {
+      if (!current) return undefined;
+      const folder = folders[activeCanvasKey];
+      // Ensure this folder has the current filename
+      const has = current?.has?.[activeCanvasKey as any];
+      if (has && folder?.data.files) {
+        return folder.data.files.get(current.filename);
+      }
+    }
+    // 5) Last resort: find any folder that contains current filename
+    if (current) {
+      for (const k in current.has) {
+        if ((current.has as any)[k]) {
+          const folder = folders[k as any];
+          const file = folder?.data.files?.get(current.filename);
+          if (file) return file;
+        }
+      }
+    }
     return undefined;
   };
 
@@ -315,15 +375,6 @@ export const FilterCart: React.FC = () => {
     cursor: isDragging ? 'grabbing' as const : undefined,
   };
 
-  // Keep preview modal's source file in sync with current selection
-  React.useEffect(() => {
-    if (!previewModal.isOpen || previewModal.position !== 'sidebar') return;
-    const newFile = getCurrentImageFile();
-    if (newFile && previewModal.sourceFile !== newFile) {
-      updatePreviewModal({ sourceFile: newFile });
-    }
-  }, [previewModal.isOpen, previewModal.position, current?.filename, analysisFile, activeFilterEditor]);
-
   return (
     <div 
       ref={panelRef}
@@ -438,7 +489,7 @@ export const FilterCart: React.FC = () => {
                             }
                           }
                         }}
-                        disabled={activeFilterEditor === null || !item.enabled || !getCurrentImageFile()}
+                        disabled={!item.enabled || !getCurrentImageFile()}
                         title={`Preview chain up to step ${index + 1}\nShift+Click: Preview only this filter`}
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -497,7 +548,11 @@ export const FilterCart: React.FC = () => {
                 <button 
                   className="btn btn-icon btn-theme-secondary"
                   onClick={() => {
-                    if (activeFilterEditor !== null) {
+                    // Compute a target viewer key (editor target, active canvas, or analysis)
+                    const targetKey = typeof activeFilterEditor !== 'undefined' && activeFilterEditor !== null
+                      ? activeFilterEditor
+                      : (activeCanvasKey ?? (analysisFile ? 0 : null));
+                    if (targetKey !== null && targetKey !== undefined) {
                       // Apply no filter (reset to original)
                       const noFilterChain = {
                         id: 'reset',
@@ -511,10 +566,10 @@ export const FilterCart: React.FC = () => {
                         createdAt: Date.now(),
                         modifiedAt: Date.now()
                       };
-                      applyFilterChain(noFilterChain, activeFilterEditor);
+                      applyFilterChain(noFilterChain, targetKey as any);
                     }
                   }}
-                  disabled={activeFilterEditor === null}
+                  disabled={!getCurrentImageFile()}
                   title="Reset to original image"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -527,7 +582,10 @@ export const FilterCart: React.FC = () => {
                 <button 
                   className="btn btn-icon btn-theme-accent"
                   onClick={() => {
-                    if (activeFilterEditor !== null && filterCart.length > 0) {
+                    const targetKey = typeof activeFilterEditor !== 'undefined' && activeFilterEditor !== null
+                      ? activeFilterEditor
+                      : (activeCanvasKey ?? (analysisFile ? 0 : null));
+                    if (targetKey !== null && targetKey !== undefined && filterCart.length > 0) {
                       const tempChain = {
                         id: 'temp',
                         name: 'Current Chain',
@@ -535,10 +593,10 @@ export const FilterCart: React.FC = () => {
                         createdAt: Date.now(),
                         modifiedAt: Date.now()
                       };
-                      applyFilterChain(tempChain, activeFilterEditor);
+                      applyFilterChain(tempChain, targetKey as any);
                     }
                   }}
-                  disabled={filterCart.length === 0 || activeFilterEditor === null}
+                  disabled={filterCart.length === 0 || !getCurrentImageFile()}
                   title="Apply current chain to active viewer"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
