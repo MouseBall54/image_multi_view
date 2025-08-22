@@ -158,10 +158,10 @@ export const FilterCart: React.FC = () => {
   // Get preview width for CSS custom property
   const getPreviewWidth = () => {
     switch (previewSize) {
-      case 'S': return '320px';
-      case 'M': return '470px';
-      case 'L': return '620px';
-      default: return '320px';
+      case 'S': return '480px';
+      case 'M': return '705px';
+      case 'L': return '930px';
+      default: return '480px';
     }
   };
 

@@ -50,10 +50,10 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
   // Maximum preview size based on size setting
   const getSizeConfig = (size: 'S' | 'M' | 'L') => {
     switch (size) {
-      case 'S': return { maxSize: 300, width: 320 };
-      case 'M': return { maxSize: 450, width: 470 };
-      case 'L': return { maxSize: 600, width: 620 };
-      default: return { maxSize: 450, width: 470 };
+      case 'S': return { maxSize: 450, width: 480 }; // 1.5x
+      case 'M': return { maxSize: 675, width: 705 }; // 1.5x
+      case 'L': return { maxSize: 900, width: 930 }; // 1.5x
+      default: return { maxSize: 675, width: 705 };
     }
   };
   
