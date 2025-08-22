@@ -43,26 +43,42 @@ export const FilterCart: React.FC = () => {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportName, setExportName] = useState('');
   const [exportDescription, setExportDescription] = useState('');
+  const [previewTransitioning, setPreviewTransitioning] = useState(false);
+  const [previewExiting, setPreviewExiting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle preview when editing starts
   React.useEffect(() => {
     if (editingItemId) {
+      setPreviewTransitioning(true);
       const editingItem = filterCart.find(item => item.id === editingItemId);
       const sourceFile = getCurrentImageFile();
       if (editingItem && sourceFile) {
-        openPreviewModal({
-          mode: 'single',
-          filterType: editingItem.filterType,
-          filterParams: editingItem.params as FilterParams,
-          title: `Editing: ${getFilterDisplayName(editingItem.filterType)}`,
-          sourceFile,
-          realTimeUpdate: true,
-          position: 'sidebar'
-        });
+        // Small delay to allow for smooth transition
+        setTimeout(() => {
+          openPreviewModal({
+            mode: 'single',
+            filterType: editingItem.filterType,
+            filterParams: editingItem.params as FilterParams,
+            title: `Editing: ${getFilterDisplayName(editingItem.filterType)}`,
+            sourceFile,
+            realTimeUpdate: true,
+            position: 'sidebar'
+          });
+          setPreviewTransitioning(false);
+        }, 100);
       }
     }
   }, [editingItemId]);
+
+  // Handle smooth preview close
+  const handlePreviewClose = React.useCallback(() => {
+    setPreviewExiting(true);
+    setTimeout(() => {
+      closePreviewModal();
+      setPreviewExiting(false);
+    }, 300);
+  }, [closePreviewModal]);
 
   if (!showFilterCart) return null;
 
@@ -239,10 +255,10 @@ export const FilterCart: React.FC = () => {
       <div className="filter-cart-body">
         {/* Embedded Preview Modal for sidebar mode */}
         {previewModal.isOpen && previewModal.position === 'sidebar' && (
-          <div className="embedded-preview">
+          <div className={`embedded-preview ${previewExiting ? 'exiting' : ''}`}>
             <FilterPreviewModal
               isOpen={true}
-              onClose={closePreviewModal}
+              onClose={handlePreviewClose}
               sourceFile={previewModal.sourceFile}
               previewMode={previewModal.mode}
               filterType={previewModal.filterType}
@@ -314,7 +330,7 @@ export const FilterCart: React.FC = () => {
                         disabled={activeFilterEditor === null || !item.enabled || !getCurrentImageFile()}
                         title={`Preview chain up to step ${index + 1}\nShift+Click: Preview only this filter`}
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="11" cy="11" r="8"/>
                           <path d="m21 21-4.35-4.35"/>
                         </svg>
@@ -324,7 +340,7 @@ export const FilterCart: React.FC = () => {
                         onClick={() => setEditingItemId(item.id)}
                         title="Edit filter parameters"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                         </svg>
@@ -335,11 +351,11 @@ export const FilterCart: React.FC = () => {
                         title={item.enabled ? 'Disable filter' : 'Enable filter'}
                       >
                         {item.enabled ? (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20,6 9,17 4,12"/>
                           </svg>
                         ) : (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="18" y1="6" x2="6" y2="18"/>
                             <line x1="6" y1="6" x2="18" y2="18"/>
                           </svg>
@@ -350,7 +366,7 @@ export const FilterCart: React.FC = () => {
                         onClick={() => removeFromFilterCart(item.id)}
                         title="Remove filter"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="3,6 5,6 21,6"/>
                           <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
                           <line x1="10" y1="11" x2="10" y2="17"/>
@@ -394,7 +410,7 @@ export const FilterCart: React.FC = () => {
                   disabled={activeFilterEditor === null}
                   title="Reset to original image"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="23,4 23,10 17,10"/>
                     <polyline points="1,20 1,14 7,14"/>
                     <path d="M20.49,9A9,9,0,0,0,5.64,5.64L1,10"/>
@@ -418,7 +434,7 @@ export const FilterCart: React.FC = () => {
                   disabled={filterCart.length === 0 || activeFilterEditor === null}
                   title="Apply current chain to active viewer"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20,6 9,17 4,12"/>
                   </svg>
                 </button>
@@ -431,7 +447,7 @@ export const FilterCart: React.FC = () => {
                   disabled={filterCart.length === 0}
                   title="Clear all filters from chain"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="3,6 5,6 21,6"/>
                     <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
                     <line x1="10" y1="11" x2="10" y2="17"/>
@@ -444,7 +460,7 @@ export const FilterCart: React.FC = () => {
                   disabled={filterCart.length === 0}
                   title="Save as preset"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
                   </svg>
                 </button>
@@ -457,7 +473,7 @@ export const FilterCart: React.FC = () => {
                   disabled={filterCart.length === 0}
                   title="Export filter chain as JSON file"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                     <polyline points="7,10 12,15 17,10"/>
                     <line x1="12" y1="15" x2="12" y2="3"/>
@@ -468,7 +484,7 @@ export const FilterCart: React.FC = () => {
                   onClick={handleImportClick}
                   title="Import filter chain from JSON file"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                     <polyline points="17,8 12,3 7,8"/>
                     <line x1="12" y1="3" x2="12" y2="15"/>

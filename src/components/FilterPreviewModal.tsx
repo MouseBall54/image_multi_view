@@ -34,6 +34,7 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [sourceImage, setSourceImage] = useState<HTMLImageElement | null>(null);
   const [previewDimensions, setPreviewDimensions] = useState({ width: 0, height: 0 });
+  const [sizeTransitioning, setSizeTransitioning] = useState(false);
   
   const { current } = useStore();
 
@@ -203,9 +204,18 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
               {(['S', 'M', 'L'] as const).map(size => (
                 <button
                   key={size}
-                  className={`size-btn ${previewSize === size ? 'active' : ''}`}
-                  onClick={() => setPreviewSize(size)}
+                  className={`size-btn ${previewSize === size ? 'active' : ''} ${sizeTransitioning ? 'transitioning' : ''}`}
+                  onClick={() => {
+                    if (size !== previewSize) {
+                      setSizeTransitioning(true);
+                      setTimeout(() => {
+                        setPreviewSize(size);
+                        setTimeout(() => setSizeTransitioning(false), 400);
+                      }, 50);
+                    }
+                  }}
                   title={`Size ${size}: ${getSizeConfig(size).maxSize}px`}
+                  disabled={sizeTransitioning}
                 >
                   {size}
                 </button>
