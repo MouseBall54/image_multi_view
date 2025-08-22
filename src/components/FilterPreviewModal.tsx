@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { applyFilterChain } from '../utils/filterChain';
 import type { FilterChainItem, FilterType } from '../types';
 import type { FilterParams } from '../store';
+import { FilterParameterControls } from './FilterParameterControls';
 
 interface FilterPreviewModalProps {
   isOpen: boolean;
@@ -15,6 +16,9 @@ interface FilterPreviewModalProps {
   title?: string;
   realTimeUpdate?: boolean; // For filter editor real-time updates
   position?: 'modal' | 'sidebar'; // New prop to control positioning
+  editMode?: boolean; // Enable parameter editing
+  onParameterChange?: (params: FilterParams) => void; // Callback for parameter changes
+  stepIndex?: number; // For chain editing, which step to edit
 }
 
 export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
@@ -27,7 +31,9 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
   chainItems,
   title = 'Filter Preview',
   realTimeUpdate = false,
-  position = 'modal'
+  position = 'modal',
+  editMode = false,
+  onParameterChange
 }) => {
   const { previewSize, setPreviewSize } = useStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -246,6 +252,38 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
             />
           </div>
         </div>
+
+        {/* Parameter editing controls when in edit mode */}
+        {editMode && onParameterChange && (
+          <div className="preview-parameter-section">
+            {(() => {
+              // For chain mode, get the last item (the one being edited)
+              if (previewMode === 'chain' && chainItems && chainItems.length > 0) {
+                const editingItem = chainItems[chainItems.length - 1];
+                return (
+                  <FilterParameterControls
+                    filterType={editingItem.filterType}
+                    filterParams={editingItem.params as FilterParams}
+                    onChange={onParameterChange}
+                    compact={true}
+                  />
+                );
+              }
+              // For single mode, use the provided filterType and filterParams
+              else if (previewMode === 'single' && filterType && filterParams) {
+                return (
+                  <FilterParameterControls
+                    filterType={filterType}
+                    filterParams={filterParams}
+                    onChange={onParameterChange}
+                    compact={true}
+                  />
+                );
+              }
+              return null;
+            })()}
+          </div>
+        )}
 
         <div className="preview-modal-footer">
           <div className="preview-controls">

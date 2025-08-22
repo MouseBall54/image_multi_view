@@ -149,6 +149,9 @@ interface State {
     realTimeUpdate?: boolean;
     position?: 'modal' | 'sidebar';
     size?: 'S' | 'M' | 'L';
+    editMode?: boolean;
+    onParameterChange?: (params: FilterParams) => void;
+    stepIndex?: number;
   };
   previewSize: 'S' | 'M' | 'L';
 
