@@ -60,7 +60,7 @@ export const FilterCart: React.FC = () => {
             mode: 'single',
             filterType: editingItem.filterType,
             filterParams: editingItem.params as FilterParams,
-            title: `Editing: ${getFilterDisplayName(editingItem.filterType)}`,
+            title: `Preview: ${getFilterDisplayName(editingItem.filterType)}`,
             sourceFile,
             realTimeUpdate: true,
             position: 'sidebar'
@@ -147,7 +147,7 @@ export const FilterCart: React.FC = () => {
         mode: 'single',
         filterType: filterType,
         filterParams: newParams as FilterParams,
-        title: `Editing: ${getFilterDisplayName(filterType)}`,
+        title: `Preview: ${getFilterDisplayName(filterType)}`,
         sourceFile,
         realTimeUpdate: true,
         position: 'sidebar'
@@ -309,7 +309,7 @@ export const FilterCart: React.FC = () => {
                               mode: 'single',
                               filterType: item.filterType,
                               filterParams: item.params as FilterParams,
-                              title: `Single Filter: ${getFilterDisplayName(item.filterType)}`,
+                              title: `Preview: ${getFilterDisplayName(item.filterType)}`,
                               sourceFile,
                               position: 'sidebar'
                             });
@@ -320,7 +320,7 @@ export const FilterCart: React.FC = () => {
                               openPreviewModal({
                                 mode: 'chain',
                                 chainItems: filtersUpToThis,
-                                title: `Filter Chain (Steps 1-${index + 1})`,
+                                title: `Preview (Steps 1-${index + 1})`,
                                 sourceFile,
                                 position: 'sidebar'
                               });
