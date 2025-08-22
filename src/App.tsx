@@ -181,6 +181,22 @@ export default function App() {
 
       const key = e.key.toLowerCase();
 
+      // Disable mode switching (1/2/3) when any modal/overlay is active
+      // Use both state flags and DOM presence as a safety net to avoid stale state issues
+      const overlayPresent = !!(
+        document.querySelector('.filter-controls-overlay') ||
+        document.querySelector('.preview-modal-overlay') ||
+        document.querySelector('.toggle-modal-overlay') ||
+        document.querySelector('.dialog-overlay') ||
+        document.querySelector('.capture-modal')
+      );
+      const previewBlocks = !!(state.previewModal?.isOpen && state.previewModal?.position !== 'sidebar');
+      const modalActive = state.toggleModalOpen || previewBlocks || state.activeFilterEditor !== null || isCaptureModalOpen || overlayPresent;
+      if (modalActive && (key === '1' || key === '2' || key === '3')) {
+        e.preventDefault();
+        return;
+      }
+
       if (appMode === 'pinpoint' && activeCanvasKey && (key === '=' || key === '+' || key === '-')) {
         e.preventDefault();
         const individualScale = pinpointScales[activeCanvasKey] ?? viewport.scale;
@@ -211,7 +227,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setViewport, resetView, imageDimensions, setAppMode]);
+  }, [setViewport, resetView, imageDimensions, setAppMode, isCaptureModalOpen]);
 
   const renderCurrentMode = () => {
     const setPrimaryFile = (file: File | null) => {
