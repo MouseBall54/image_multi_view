@@ -570,7 +570,7 @@ export function applyLaplacianOpenCV(ctx: CanvasRenderingContext2D, params: Filt
     
     // Apply Laplacian
     // OpenCV supports kernel sizes: 1 (optimized 3x3), 3, 5, 7, etc.
-    let ksize = params.kernelSize || 3;
+    let ksize = (params && typeof params.kernelSize === 'number') ? params.kernelSize : 3;
     
     // Ensure valid kernel size for OpenCV Laplacian
     if (![1, 3, 5, 7].includes(ksize)) {
@@ -839,15 +839,17 @@ export function applyDistanceTransformOpenCV(ctx: CanvasRenderingContext2D, para
     const threshold = params.lowThreshold || 128;
     cv.threshold(gray, binary, threshold, 255, cv.THRESH_BINARY);
     
-    // Apply distance transform
+    // Apply distance transform (32F single-channel)
     cv.distanceTransform(binary, dst, cv.DIST_L2, cv.DIST_MASK_PRECISE);
     
-    // Normalize to 0-255 range
+    // Convert to 8-bit for display in all cases to satisfy ImageData length
     const minMax = cv.minMaxLoc(dst);
     const maxVal = minMax.maxVal;
-    
     if (maxVal > 0) {
       cv.convertScaleAbs(dst, dst, 255.0 / maxVal, 0);
+    } else {
+      // Even if all zeros, ensure 8U type
+      cv.convertScaleAbs(dst, dst);
     }
     
     matToCanvas(ctx, dst);

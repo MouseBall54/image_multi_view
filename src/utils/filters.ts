@@ -472,7 +472,8 @@ export const applyDct = (ctx: CanvasRenderingContext2D) => {
   applySharpen(ctx, { kernelSize: 3, sigma: 1, sharpenAmount: 1, lowThreshold: 0, highThreshold: 0, clipLimit: 2, gridSize: 8, gamma: 1, cutoff: 30, theta: 0, gaborSigma: 1.5, lambda: 10, psi: 0 } as any);
 };
 export const applyWavelet = (ctx: CanvasRenderingContext2D) => {
-  applyLaplacian(ctx);
+  // Provide safe defaults when invoking Laplacian via OpenCV path
+  applyLaplacian(ctx, { kernelSize: 3, sigma: 1, sharpenAmount: 1, lowThreshold: 0, highThreshold: 0, clipLimit: 2, gridSize: 8, gamma: 1, cutoff: 30, theta: 0, gaborSigma: 1.5, lambda: 10, psi: 0 } as any);
 };
 
 // --- Morphology helpers ---
