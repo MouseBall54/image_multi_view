@@ -3502,7 +3502,7 @@ main {
 
 .filter-parameter-controls.compact {
   padding: 8px;
-  font-size: 11px;
+  font-size: 13px; /* Increase base font size for readability */
 }
 
 .param-header {
@@ -3519,7 +3519,7 @@ main {
 }
 
 .filter-parameter-controls.compact .param-title {
-  font-size: 11px;
+  font-size: 12px;
   margin-bottom: 6px;
 }
 
@@ -3544,14 +3544,14 @@ main {
 }
 
 .param-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
   margin: 0;
 }
 
 .filter-parameter-controls.compact .param-label {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .param-value {
@@ -3565,14 +3565,14 @@ main {
   border-radius: 3px;
   padding: 4px 6px;
   color: var(--text-primary);
-  font-size: 11px;
+  font-size: 13px;
   transition: border-color 0.2s ease;
 }
 
 .filter-parameter-controls.compact .param-input,
 .filter-parameter-controls.compact .param-select {
   padding: 2px 4px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .param-input:focus, .param-select:focus {
@@ -3653,7 +3653,7 @@ main {
 }
 
 .no-params-message {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-secondary);
   text-align: center;
   padding: 12px;
@@ -3662,6 +3662,6 @@ main {
 }
 
 .filter-parameter-controls.compact .no-params-message {
-  font-size: 9px;
+  font-size: 11px;
   padding: 8px;
 }

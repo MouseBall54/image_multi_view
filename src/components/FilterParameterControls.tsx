@@ -22,22 +22,71 @@ const RangeInput: React.FC<{
   step?: number;
   onChange: (value: number) => void;
   compact?: boolean;
-}> = ({ label, value, min, max, step = 1, onChange, compact = false }) => (
-  <div className={`param-control ${compact ? 'compact' : ''}`}>
-    <label className="param-label">
-      {label}: <span className="param-value">{value}</span>
-    </label>
-    <input
-      type="range"
-      className="param-range"
-      min={min}
-      max={max}
-      step={step}
-      value={value}
-      onChange={(e) => onChange(parseFloat(e.target.value))}
-    />
-  </div>
-);
+}> = ({ label, value, min, max, step = 1, onChange, compact = false }) => {
+  const [editing, setEditing] = React.useState(false);
+  const [text, setText] = React.useState(String(value));
+
+  React.useEffect(() => {
+    if (!editing) setText(String(value));
+  }, [value, editing]);
+
+  const fmt = (v: number) => {
+    // Show up to 2 decimals without trailing zeros
+    const s = Number.isFinite(v) ? Number(v.toFixed(2)).toString() : String(v);
+    return s;
+  };
+
+  const commit = () => {
+    const num = parseFloat(text);
+    if (!isNaN(num)) {
+      // clamp to [min, max]
+      const clamped = Math.min(max, Math.max(min, num));
+      onChange(clamped);
+    }
+    setEditing(false);
+  };
+
+  return (
+    <div className={`param-control ${compact ? 'compact' : ''}`}>
+      <label className="param-label">
+        {label}: {editing ? (
+          <input
+            className="inline-number-input"
+            type="number"
+            value={text}
+            min={min}
+            max={max}
+            step={step}
+            autoFocus
+            onChange={(e) => setText(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commit();
+              else if (e.key === 'Escape') { setText(String(value)); setEditing(false); }
+            }}
+          />
+        ) : (
+          <span
+            className="param-value"
+            title="Double-click to edit"
+            onDoubleClick={() => setEditing(true)}
+          >
+            {fmt(value)}
+          </span>
+        )}
+      </label>
+      <input
+        type="range"
+        className="param-range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+      />
+    </div>
+  );
+};
 
 export const FilterParameterControls: React.FC<FilterParameterControlsProps> = ({
   filterType,
