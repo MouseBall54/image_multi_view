@@ -2281,6 +2281,7 @@ main {
   transform: translate(-50%, -50%);
   width: 320px;
   max-height: 80vh;
+  overflow: hidden; /* Prevent child overflow from spilling */
   background: var(--bg-med);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -2318,9 +2319,7 @@ main {
 /* Embedded preview within filter cart */
 .embedded-preview {
   flex-shrink: 0; /* Don't shrink the preview */
-  padding: 16px;
-  padding-left: 0; /* No padding on left to sit flush with content */
-  padding-right: 16px; /* Right padding for proper spacing */
+  padding: 12px 0; /* Remove horizontal padding to keep total width exact */
   opacity: 0;
   transform: translateX(20px); /* Slide in from right */
   animation: slideInPreview 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
