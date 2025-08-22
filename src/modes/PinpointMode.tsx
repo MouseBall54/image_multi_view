@@ -47,7 +47,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
   const getFilterName = (type: FilterType | undefined) => {
     if (!type || type === 'none') return null;
-    return ALL_FILTERS.find(f => f.type === type)?.name || 'Unknown';
+    if (type === 'filterchain') return 'custom filter';
+    return ALL_FILTERS.find(f => f.type === type)?.name || 'custom filter';
   };
 
   // Viewer selection for toggle functionality
