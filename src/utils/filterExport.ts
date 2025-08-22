@@ -74,7 +74,7 @@ const FILTER_PARAMETER_MAP: Record<FilterType, string[]> = {
 };
 
 // Function to get only relevant parameters for a filter type
-function getRelevantParams(filterType: FilterType, allParams: any): any {
+export function getRelevantParams(filterType: FilterType, allParams: any): any {
   const relevantParamKeys = FILTER_PARAMETER_MAP[filterType] || [];
   if (relevantParamKeys.length === 0) {
     return {};

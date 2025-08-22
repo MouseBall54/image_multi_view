@@ -3,6 +3,7 @@ import { useStore, FilterParams } from '../store';
 import { ALL_FILTERS } from './FilterControls';
 import type { FilterChainItem } from '../types';
 import { importFilterChain, isValidFilterChainFile } from '../utils/filterExport';
+import { getRelevantParams as getRelevantParamsForType } from '../utils/filterExport';
 import { FilterPreviewModal } from './FilterPreviewModal';
 
 interface DragItem {
@@ -204,10 +205,12 @@ export const FilterCart: React.FC = () => {
     return filter ? filter.name : filterType;
   };
 
-  const formatParams = (params: Record<string, any>) => {
-    const entries = Object.entries(params);
+  const formatParams = (filterType: string, params: Record<string, any>) => {
+    // Only include adjustable params for this filter type
+    const relevant = getRelevantParamsForType(filterType as any, params) as Record<string, any>;
+    const entries = Object.entries(relevant);
     if (entries.length === 0) return '';
-    
+
     const formatted = entries
       .filter(([_, value]) => value !== undefined && value !== null)
       .map(([key, value]) => {
@@ -216,8 +219,8 @@ export const FilterCart: React.FC = () => {
         }
         return `${key}: ${value}`;
       })
-      .slice(0, 3); // Show only first 3 params to keep it compact
-    
+      .slice(0, 3);
+
     return formatted.length > 0 ? `(${formatted.join(', ')})` : '';
   };
 
@@ -395,7 +398,11 @@ export const FilterCart: React.FC = () => {
                               title: `Preview: ${getFilterDisplayName(item.filterType)}`,
                               sourceFile,
                               position: 'sidebar',
-                              editMode: false
+                              editMode: true,
+                              onParameterChange: (newParams: FilterParams) => {
+                                updateFilterCartItem(item.id, { params: newParams });
+                                updatePreviewModal({ filterParams: newParams });
+                              }
                             });
                           } else {
                             // Normal click: Preview chain up to this point
@@ -407,7 +414,17 @@ export const FilterCart: React.FC = () => {
                                 title: `Preview (Steps 1-${index + 1})`,
                                 sourceFile,
                                 position: 'sidebar',
-                                editMode: false
+                                editMode: true,
+                                onParameterChange: (newParams: FilterParams) => {
+                                  // Update the clicked item in the cart
+                                  updateFilterCartItem(item.id, { params: newParams });
+                                  // Recompute the preview chain up to this
+                                  const updated = filterCart
+                                    .slice(0, index + 1)
+                                    .filter(f => f.enabled)
+                                    .map((f) => (f.id === item.id ? { ...f, params: newParams } : f));
+                                  updatePreviewModal({ chainItems: updated });
+                                }
                               });
                             }
                           }
@@ -420,16 +437,7 @@ export const FilterCart: React.FC = () => {
                           <path d="m21 21-4.35-4.35"/>
                         </svg>
                       </button>
-                      <button
-                        className="edit-btn"
-                        onClick={() => setEditingItemId(item.id)}
-                        title="Edit filter parameters"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                      </button>
+                      
                       <button
                         className={`toggle-btn ${item.enabled ? 'enabled' : 'disabled'}`}
                         onClick={() => toggleFilterCartItem(item.id)}
@@ -461,9 +469,14 @@ export const FilterCart: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="chain-item-params">
-                    <small>{formatParams(item.params)}</small>
-                  </div>
+                  {(() => {
+                    const summary = formatParams(item.filterType, item.params);
+                    return summary ? (
+                      <div className="chain-item-params">
+                        <small>{summary}</small>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               ))}
             </div>
