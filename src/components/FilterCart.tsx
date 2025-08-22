@@ -3,6 +3,7 @@ import { useStore, FilterParams } from '../store';
 import { ALL_FILTERS } from './FilterControls';
 import type { FilterChainItem } from '../types';
 import { importFilterChain, isValidFilterChainFile } from '../utils/filterExport';
+import { FilterPreviewModal } from './FilterPreviewModal';
 
 interface DragItem {
   index: number;
@@ -30,6 +31,9 @@ export const FilterCart: React.FC = () => {
     applyFilterChain,
     openPreviewModal,
     exportCurrentCart,
+    previewModal,
+    previewSize,
+    closePreviewModal,
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
@@ -218,7 +222,10 @@ export const FilterCart: React.FC = () => {
   };
 
   return (
-    <div className="filter-cart-panel">
+    <div 
+      className="filter-cart-panel"
+      data-preview-size={previewModal.isOpen && previewModal.position === 'sidebar' ? previewSize : undefined}
+    >
       <div className="filter-cart-header">
         <h3>Filter Chain ({filterCart.length})</h3>
         <button 
@@ -229,13 +236,35 @@ export const FilterCart: React.FC = () => {
         </button>
       </div>
 
-      <div className="filter-cart-content">
-        {filterCart.length === 0 ? (
-          <div className="empty-cart">
-            <p>No filters in chain</p>
-            <p><small>Add filters using the "Add to Chain" button</small></p>
+      <div className="filter-cart-body">
+        {/* Embedded Preview Modal for sidebar mode */}
+        {previewModal.isOpen && previewModal.position === 'sidebar' && (
+          <div className="embedded-preview">
+            <FilterPreviewModal
+              isOpen={true}
+              onClose={closePreviewModal}
+              sourceFile={previewModal.sourceFile}
+              previewMode={previewModal.mode}
+              filterType={previewModal.filterType}
+              filterParams={previewModal.filterParams}
+              chainItems={previewModal.chainItems}
+              title={previewModal.title}
+              realTimeUpdate={previewModal.realTimeUpdate}
+              position="sidebar"
+            />
           </div>
-        ) : (
+        )}
+
+        <div 
+          className="filter-cart-content"
+          data-preview-size={previewModal.isOpen && previewModal.position === 'sidebar' ? previewSize : undefined}
+        >
+          {filterCart.length === 0 ? (
+            <div className="empty-cart">
+              <p>No filters in chain</p>
+              <p><small>Add filters using the "Add to Chain" button</small></p>
+            </div>
+          ) : (
           <div className="filter-chain-list">
             {filterCart.map((item, index) => (
                 <div
@@ -492,6 +521,8 @@ export const FilterCart: React.FC = () => {
         style={{ display: 'none' }}
         onChange={handleFileImport}
       />
+
+      </div> {/* End of filter-cart-body */}
 
       {/* Filter Edit Dialog */}
       {editingItemId && (

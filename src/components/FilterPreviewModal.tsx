@@ -29,6 +29,7 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
   realTimeUpdate = false,
   position = 'modal'
 }) => {
+  const { previewSize, setPreviewSize } = useStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [sourceImage, setSourceImage] = useState<HTMLImageElement | null>(null);
@@ -36,8 +37,18 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
   
   const { current } = useStore();
 
-  // Maximum preview size to keep it responsive
-  const MAX_PREVIEW_SIZE = position === 'sidebar' ? 400 : 800;
+  // Maximum preview size based on size setting
+  const getSizeConfig = (size: 'S' | 'M' | 'L') => {
+    switch (size) {
+      case 'S': return { maxSize: 300, width: 320 };
+      case 'M': return { maxSize: 450, width: 470 };
+      case 'L': return { maxSize: 600, width: 620 };
+      default: return { maxSize: 450, width: 470 };
+    }
+  };
+  
+  const currentSizeConfig = getSizeConfig(previewSize);
+  const MAX_PREVIEW_SIZE = position === 'sidebar' ? currentSizeConfig.maxSize : 800;
 
   // Load source image
   useEffect(() => {
@@ -73,7 +84,7 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
     return () => {
       if (img.src) URL.revokeObjectURL(img.src);
     };
-  }, [isOpen, sourceFile]);
+  }, [isOpen, sourceFile, previewSize]); // Add previewSize to dependencies
 
   // Apply filters to preview
   const applyPreview = useCallback(async () => {
@@ -170,7 +181,11 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
       className={containerClass} 
       onClick={position === 'modal' ? onClose : undefined}
     >
-      <div className={modalClass} onClick={(e) => e.stopPropagation()}>
+      <div 
+        className={modalClass} 
+        data-size={position === 'sidebar' ? previewSize : undefined}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="preview-modal-header">
           <h3>{title}</h3>
           <div className="preview-modal-info">
@@ -183,6 +198,20 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
               </span>
             )}
           </div>
+          {position === 'sidebar' && (
+            <div className="preview-size-controls">
+              {(['S', 'M', 'L'] as const).map(size => (
+                <button
+                  key={size}
+                  className={`size-btn ${previewSize === size ? 'active' : ''}`}
+                  onClick={() => setPreviewSize(size)}
+                  title={`Size ${size}: ${getSizeConfig(size).maxSize}px`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          )}
           <button className="preview-modal-close" onClick={onClose}>
             ×
           </button>

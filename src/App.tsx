@@ -71,7 +71,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart, previewSize } = useStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -231,7 +231,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app ${showFilterCart ? 'filter-cart-open' : ''}`}>
+    <div className={`app ${showFilterCart ? 'filter-cart-open' : ''} ${previewModal.isOpen && previewModal.position === 'sidebar' ? 'preview-active' : ''}`}>
       <header>
         <div className="title-container">
           <h1
@@ -473,18 +473,21 @@ export default function App() {
       <FilterControls />
       <FilterCart />
       
-      <FilterPreviewModal
-        isOpen={previewModal.isOpen}
-        onClose={closePreviewModal}
-        sourceFile={previewModal.sourceFile}
-        previewMode={previewModal.mode}
-        filterType={previewModal.filterType}
-        filterParams={previewModal.filterParams}
-        chainItems={previewModal.chainItems}
-        title={previewModal.title}
-        realTimeUpdate={previewModal.realTimeUpdate}
-        position={previewModal.position}
-      />
+      {/* Only render FilterPreviewModal for modal mode, sidebar mode is rendered within FilterCart */}
+      {previewModal.position !== 'sidebar' && (
+        <FilterPreviewModal
+          isOpen={previewModal.isOpen}
+          onClose={closePreviewModal}
+          sourceFile={previewModal.sourceFile}
+          previewMode={previewModal.mode}
+          filterType={previewModal.filterType}
+          filterParams={previewModal.filterParams}
+          chainItems={previewModal.chainItems}
+          title={previewModal.title}
+          realTimeUpdate={previewModal.realTimeUpdate}
+          position={previewModal.position}
+        />
+      )}
     </div>
   );
 }

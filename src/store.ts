@@ -148,7 +148,9 @@ interface State {
     sourceFile?: File;
     realTimeUpdate?: boolean;
     position?: 'modal' | 'sidebar';
+    size?: 'S' | 'M' | 'L';
   };
+  previewSize: 'S' | 'M' | 'L';
 
 
   setAppMode: (m: AppMode) => void;
@@ -236,7 +238,9 @@ interface State {
     sourceFile?: File;
     realTimeUpdate?: boolean;
     position?: 'modal' | 'sidebar';
+    size?: 'S' | 'M' | 'L';
   }) => void;
+  setPreviewSize: (size: 'S' | 'M' | 'L') => void;
   closePreviewModal: () => void;
   updatePreviewModal: (updates: Partial<{
     isOpen: boolean;
@@ -311,6 +315,7 @@ export const useStore = create<State>((set) => ({
     isOpen: false,
     mode: 'single',
   },
+  previewSize: 'M',
 
 
   setAppMode: (m) => set({ appMode: m }),
@@ -606,9 +611,12 @@ export const useStore = create<State>((set) => ({
     previewModal: {
       ...state.previewModal,
       isOpen: true,
+      size: config.size || state.previewSize,
       ...config
     }
   })),
+
+  setPreviewSize: (size) => set({ previewSize: size }),
   
   closePreviewModal: () => set(state => ({
     previewModal: {
