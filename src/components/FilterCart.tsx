@@ -22,7 +22,6 @@ export const FilterCart: React.FC = () => {
     reorderFilterCart,
     clearFilterCart,
     toggleFilterCartItem,
-    createFilterChain,
     saveFilterPreset,
     loadFilterPreset,
     deleteFilterPreset,
@@ -33,9 +32,7 @@ export const FilterCart: React.FC = () => {
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
-  const [chainName, setChainName] = useState('');
   const [presetName, setPresetName] = useState('');
-  const [showChainDialog, setShowChainDialog] = useState(false);
   const [showPresetDialog, setShowPresetDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportName, setExportName] = useState('');
@@ -101,13 +98,6 @@ export const FilterCart: React.FC = () => {
     return formatted.length > 0 ? `(${formatted.join(', ')})` : '';
   };
 
-  const handleCreateChain = () => {
-    if (chainName.trim() && filterCart.length > 0) {
-      createFilterChain(chainName.trim());
-      setChainName('');
-      setShowChainDialog(false);
-    }
-  };
 
   const handleSavePreset = () => {
     if (presetName.trim() && filterCart.length > 0) {
@@ -372,18 +362,6 @@ export const FilterCart: React.FC = () => {
                   </svg>
                 </button>
                 <button 
-                  className="btn btn-icon btn-theme-primary"
-                  onClick={() => setShowChainDialog(true)}
-                  disabled={filterCart.length === 0}
-                  title="Save as chain"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M19,21H5a2,2,0,0,1-2-2V5a2,2,0,0,1,2-2H12l7,7v9A2,2,0,0,1,19,21Z"/>
-                    <polyline points="17,21 17,13 7,13 7,21"/>
-                    <polyline points="7,3 7,8 15,8"/>
-                  </svg>
-                </button>
-                <button 
                   className="btn btn-icon btn-theme-success"
                   onClick={() => setShowPresetDialog(true)}
                   disabled={filterCart.length === 0}
@@ -467,37 +445,6 @@ export const FilterCart: React.FC = () => {
         onChange={handleFileImport}
       />
 
-      {/* Chain Dialog */}
-      {showChainDialog && (
-        <div className="dialog-overlay" onClick={() => setShowChainDialog(false)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>Save Filter Chain</h3>
-            <input
-              type="text"
-              placeholder="Enter chain name..."
-              value={chainName}
-              onChange={(e) => setChainName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleCreateChain()}
-              autoFocus
-            />
-            <div className="dialog-actions">
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setShowChainDialog(false)}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn btn-primary"
-                onClick={handleCreateChain}
-                disabled={!chainName.trim()}
-              >
-                Save Chain
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Preset Dialog */}
       {showPresetDialog && (
