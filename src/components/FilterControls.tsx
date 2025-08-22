@@ -163,6 +163,39 @@ export const FilterControls: React.FC = () => {
     analysisFile,
   } = useStore();
 
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const [panelPos, setPanelPos] = React.useState<{ left: number; top: number } | null>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const dragOffsetRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const onHeaderMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!panelRef.current) return;
+    const rect = panelRef.current.getBoundingClientRect();
+    dragOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    setIsDragging(true);
+
+    const onMove = (ev: MouseEvent) => {
+      if (!panelRef.current) return;
+      const width = panelRef.current.offsetWidth || 400;
+      const height = panelRef.current.offsetHeight || 500;
+      const maxLeft = window.innerWidth - width;
+      const maxTop = window.innerHeight - height;
+      const left = Math.min(Math.max(0, ev.clientX - dragOffsetRef.current.x), Math.max(0, maxLeft));
+      const top = Math.min(Math.max(0, ev.clientY - dragOffsetRef.current.y), Math.max(0, maxTop));
+      setPanelPos({ left, top });
+    };
+
+    const onUp = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
   if (activeFilterEditor === null) return null;
 
   // Get current image file for preview
@@ -853,10 +886,12 @@ export const FilterControls: React.FC = () => {
     }
   };
 
+  const panelStyle: React.CSSProperties = panelPos ? { position: 'fixed', left: panelPos.left, top: panelPos.top, transform: 'none', cursor: isDragging ? 'grabbing' as const : undefined } : {};
+
   return (
     <div className="filter-controls-overlay">
-      <div className="filter-controls-panel">
-        <div className="panel-header">
+      <div className="filter-controls-panel" ref={panelRef} style={panelStyle}>
+        <div className="panel-header" onMouseDown={onHeaderMouseDown} style={{ cursor: 'grab' }}>
           <h3>Filter Editor (View {activeFilterEditor})</h3>
           <button onClick={closeFilterEditor} className="close-btn">&times;</button>
         </div>

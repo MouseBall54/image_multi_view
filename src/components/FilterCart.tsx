@@ -47,6 +47,39 @@ export const FilterCart: React.FC = () => {
   const [previewExiting, setPreviewExiting] = useState(false);
   const [previewClosing, setPreviewClosing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
+
+  // Drag handlers (drag by header)
+  const onHeaderMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!panelRef.current) return;
+    const rect = panelRef.current.getBoundingClientRect();
+    dragOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    setIsDragging(true);
+
+    const onMove = (ev: MouseEvent) => {
+      if (!panelRef.current) return;
+      const width = panelRef.current.offsetWidth || 320;
+      const height = panelRef.current.offsetHeight || 480;
+      const maxLeft = window.innerWidth - width;
+      const maxTop = window.innerHeight - height;
+      const left = Math.min(Math.max(0, ev.clientX - dragOffsetRef.current.x), Math.max(0, maxLeft));
+      const top = Math.min(Math.max(0, ev.clientY - dragOffsetRef.current.y), Math.max(0, maxTop));
+      setPanelPos({ left, top });
+    };
+
+    const onUp = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
 
   // Handle preview when editing starts
   React.useEffect(() => {
@@ -272,13 +305,21 @@ export const FilterCart: React.FC = () => {
     }
   };
 
+  const panelStyle: React.CSSProperties = {
+    ...(previewClosing ? ({ '--closing-preview-width': getPreviewWidth() } as React.CSSProperties) : {}),
+    ...(panelPos ? { left: panelPos.left, top: panelPos.top, transform: 'none' } : {}),
+    ...(panelPos ? { position: 'fixed' } : {}),
+    cursor: isDragging ? 'grabbing' as const : undefined,
+  };
+
   return (
     <div 
+      ref={panelRef}
       className={`filter-cart-panel ${previewClosing ? 'preview-closing' : ''}`}
       data-preview-size={previewModal.isOpen && previewModal.position === 'sidebar' ? previewSize : undefined}
-      style={previewClosing ? { '--closing-preview-width': getPreviewWidth() } as React.CSSProperties : undefined}
+      style={panelStyle}
     >
-      <div className="filter-cart-header">
+      <div className="filter-cart-header" onMouseDown={onHeaderMouseDown} style={{ cursor: 'grab' }}>
         <h3>Filter Chain ({filterCart.length})</h3>
         <button 
           className="close-btn"

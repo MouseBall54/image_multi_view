@@ -1387,6 +1387,7 @@ main {
   align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
+  cursor: move; /* Draggable via header */
 }
 
 .panel-header h3 {
@@ -2275,9 +2276,9 @@ main {
 /* Filter Chain Styles */
 .filter-cart-panel {
   position: fixed;
-  right: 20px;
+  left: 50%; /* Center horizontally regardless of preview state */
   top: 50%;
-  transform: translateY(-50%);
+  transform: translate(-50%, -50%);
   width: 320px;
   max-height: 80vh;
   background: var(--bg-med);
@@ -2571,6 +2572,7 @@ main {
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-light);
   border-radius: 8px 8px 0 0;
+  cursor: move; /* Draggable via header */
 }
 
 .filter-cart-header h3 {
