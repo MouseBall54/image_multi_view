@@ -240,10 +240,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               <li key={`${source}-${file.name}`}
                   className={analysisFile?.name === file.name ? "active": ""}
                   onClick={()=> handleFileSelect(file, source)}>
-                <div className="file-info">
-                  <span className="file-name">{file.name}</span>
-                  <span className="file-source">from {source}</span>
-                </div>
+                {file.name}
               </li>
             ))}
           </ul>

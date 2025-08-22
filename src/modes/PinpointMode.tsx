@@ -326,10 +326,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                 <li key={`${folderKey}-${file.webkitRelativePath || file.name}-${file.lastModified}`}
                     className={isFileActive ? "active" : ""}
                     onClick={() => handleFileListItemClick(file, folderKey)}>
-                  <div className="file-info">
-                    <span className="file-name">{file.name}</span>
-                    <span className="file-source">from {source}</span>
-                  </div>
+                  {file.name}
                 </li>
               );
             })}
