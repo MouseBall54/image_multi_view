@@ -210,9 +210,8 @@ export const FilterCart: React.FC = () => {
             <p><small>Add filters using the "Add to Chain" button</small></p>
           </div>
         ) : (
-          <>
-            <div className="filter-chain-list">
-              {filterCart.map((item, index) => (
+          <div className="filter-chain-list">
+            {filterCart.map((item, index) => (
                 <div
                   key={item.id}
                   className={`filter-chain-item ${!item.enabled ? 'disabled' : ''}`}
@@ -300,8 +299,10 @@ export const FilterCart: React.FC = () => {
                 </div>
               ))}
             </div>
+        )}
 
-            <div className="filter-cart-actions">
+        {/* Filter Cart Actions - Always visible */}
+        <div className="filter-cart-actions">
               <div className="cart-action-row">
                 <button 
                   className="btn btn-icon btn-theme-secondary"
@@ -419,9 +420,7 @@ export const FilterCart: React.FC = () => {
                   </svg>
                 </button>
               </div>
-            </div>
-          </>
-        )}
+        </div>
 
         {/* Presets Section */}
         {filterPresets.length > 0 && (
