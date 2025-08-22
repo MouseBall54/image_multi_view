@@ -214,6 +214,7 @@ interface State {
   setActiveFilterChain: (chain: FilterChain | null) => void;
   applyFilterChain: (chain: FilterChain, viewerKey: FolderKey | number) => void;
   importFilterChain: (chain: FilterChain) => void;
+  loadFilterChainToCart: (chainId: string) => void;
   exportFilterChain: (chainId: string) => void;
   exportCurrentCart: (name: string, description?: string) => void;
   
@@ -496,9 +497,36 @@ export const useStore = create<State>((set) => ({
 
   setActiveFilterChain: (chain) => set({ activeFilterChain: chain }),
 
-  importFilterChain: (chain) => set(state => ({
-    filterChains: [...state.filterChains, chain]
-  })),
+  importFilterChain: (chain) => set(state => {
+    console.log('🔄 Store: importFilterChain called with:', chain);
+    console.log('📊 Current filterChains count:', state.filterChains.length);
+    
+    // Add to filter chains list
+    const newState = {
+      filterChains: [...state.filterChains, chain],
+      // Set as active chain for immediate visibility
+      activeFilterChain: chain
+    };
+    
+    console.log('📊 New filterChains count:', newState.filterChains.length);
+    console.log('✅ Store: Filter chain imported and activated');
+    return newState;
+  }),
+
+  loadFilterChainToCart: (chainId) => set(state => {
+    console.log('🔄 Loading filter chain to cart:', chainId);
+    const chain = state.filterChains.find(c => c.id === chainId);
+    if (!chain) {
+      console.log('❌ Chain not found:', chainId);
+      return state;
+    }
+    
+    console.log('✅ Loading chain items to cart:', chain.items);
+    return {
+      filterCart: [...chain.items],
+      activeFilterChain: chain
+    };
+  }),
 
   exportFilterChain: (chainId) => {
     const state = useStore.getState();

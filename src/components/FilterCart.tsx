@@ -14,6 +14,8 @@ export const FilterCart: React.FC = () => {
     filterCart,
     showFilterCart,
     filterPresets,
+    filterChains,
+    activeFilterChain,
     activeFilterEditor,
     current,
     folders,
@@ -31,6 +33,7 @@ export const FilterCart: React.FC = () => {
     openPreviewModal,
     exportCurrentCart,
     importFilterChain: importChain,
+    loadFilterChainToCart,
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
@@ -132,19 +135,41 @@ export const FilterCart: React.FC = () => {
   };
 
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('🔍 handleFileImport called');
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log('❌ No file selected');
+      return;
+    }
+    console.log('📁 File selected:', file.name, file.type);
 
     if (!isValidFilterChainFile(file)) {
+      console.log('❌ Invalid file type');
       alert('Please select a valid JSON filter chain file');
       return;
     }
+    console.log('✅ File validation passed');
 
     try {
+      console.log('🔄 Starting import process...');
       const importedChain = await importFilterChain(file);
+      console.log('✅ Filter chain imported:', importedChain);
+      
+      console.log('🔄 Adding to store...');
       importChain(importedChain);
-      alert(`Successfully imported filter chain: ${importedChain.name}`);
+      console.log('✅ Chain added to store');
+      
+      // Show detailed success message
+      const itemCount = importedChain.items.length;
+      const filterNames = importedChain.items.map(item => 
+        ALL_FILTERS.find(f => f.type === item.filterType)?.name || item.filterType
+      ).join(', ');
+      
+      alert(`Successfully imported filter chain: "${importedChain.name}"\n\n` +
+            `${itemCount} filter${itemCount > 1 ? 's' : ''}: ${filterNames}\n\n` +
+            `The chain has been added to your list and set as active.`);
     } catch (error) {
+      console.error('❌ Import failed:', error);
       alert(`Failed to import filter chain: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       // Reset file input
@@ -167,6 +192,39 @@ export const FilterCart: React.FC = () => {
       </div>
 
       <div className="filter-cart-content">
+        {/* Debug: Show imported filter chains */}
+        {filterChains.length > 0 && (
+          <div className="imported-chains-debug" style={{ 
+            background: '#f0f0f0', 
+            padding: '10px', 
+            margin: '10px 0', 
+            border: '1px solid #ccc',
+            borderRadius: '4px'
+          }}>
+            <h4>📥 Imported Chains ({filterChains.length})</h4>
+            {filterChains.map(chain => (
+              <div key={chain.id} style={{ 
+                background: activeFilterChain?.id === chain.id ? '#e6f3ff' : '#fff',
+                padding: '5px',
+                margin: '2px 0',
+                border: '1px solid #ddd',
+                borderRadius: '2px',
+                cursor: 'pointer'
+              }}
+              onClick={() => {
+                console.log('🔄 Loading chain to cart:', chain.name);
+                loadFilterChainToCart(chain.id);
+              }}
+              title="Click to load this chain to filter cart"
+              >
+                <strong>{chain.name}</strong> ({chain.items.length} filters)
+                {activeFilterChain?.id === chain.id && <span> ⭐ Active</span>}
+                <small style={{ display: 'block', color: '#666' }}>Click to load to cart</small>
+              </div>
+            ))}
+          </div>
+        )}
+        
         {filterCart.length === 0 ? (
           <div className="empty-cart">
             <p>No filters in chain</p>
