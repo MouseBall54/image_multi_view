@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useStore, FilterParams } from '../store';
 import { ALL_FILTERS } from './FilterControls';
 import type { FilterChainItem } from '../types';
+import { importFilterChain, isValidFilterChainFile } from '../utils/filterExport';
 
 interface DragItem {
   index: number;
@@ -28,6 +29,8 @@ export const FilterCart: React.FC = () => {
     setShowFilterCart,
     applyFilterChain,
     openPreviewModal,
+    exportCurrentCart,
+    importFilterChain: importChain,
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
@@ -35,6 +38,10 @@ export const FilterCart: React.FC = () => {
   const [presetName, setPresetName] = useState('');
   const [showChainDialog, setShowChainDialog] = useState(false);
   const [showPresetDialog, setShowPresetDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportName, setExportName] = useState('');
+  const [exportDescription, setExportDescription] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!showFilterCart) return null;
 
@@ -108,6 +115,42 @@ export const FilterCart: React.FC = () => {
       saveFilterPreset(presetName.trim());
       setPresetName('');
       setShowPresetDialog(false);
+    }
+  };
+
+  const handleExportCart = () => {
+    if (exportName.trim() && filterCart.length > 0) {
+      exportCurrentCart(exportName.trim(), exportDescription.trim() || undefined);
+      setExportName('');
+      setExportDescription('');
+      setShowExportDialog(false);
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!isValidFilterChainFile(file)) {
+      alert('Please select a valid JSON filter chain file');
+      return;
+    }
+
+    try {
+      const importedChain = await importFilterChain(file);
+      importChain(importedChain);
+      alert(`Successfully imported filter chain: ${importedChain.name}`);
+    } catch (error) {
+      alert(`Failed to import filter chain: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -313,6 +356,32 @@ export const FilterCart: React.FC = () => {
                   </svg>
                 </button>
               </div>
+              
+              <div className="cart-action-row">
+                <button 
+                  className="btn btn-icon btn-theme-primary"
+                  onClick={() => setShowExportDialog(true)}
+                  disabled={filterCart.length === 0}
+                  title="Export filter chain as JSON file"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7,10 12,15 17,10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
+                <button 
+                  className="btn btn-icon btn-theme-accent"
+                  onClick={handleImportClick}
+                  title="Import filter chain from JSON file"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17,8 12,3 7,8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </>
         )}
@@ -352,6 +421,15 @@ export const FilterCart: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Hidden file input for import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        style={{ display: 'none' }}
+        onChange={handleFileImport}
+      />
 
       {/* Chain Dialog */}
       {showChainDialog && (
@@ -411,6 +489,56 @@ export const FilterCart: React.FC = () => {
                 disabled={!presetName.trim()}
               >
                 Save Preset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Dialog */}
+      {showExportDialog && (
+        <div className="dialog-overlay" onClick={() => setShowExportDialog(false)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>Export Filter Chain</h3>
+            <div className="export-form">
+              <div className="form-field">
+                <label>Chain Name</label>
+                <input
+                  type="text"
+                  placeholder="Enter chain name..."
+                  value={exportName}
+                  onChange={(e) => setExportName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="form-field">
+                <label>Description (Optional)</label>
+                <textarea
+                  placeholder="Enter description..."
+                  value={exportDescription}
+                  onChange={(e) => setExportDescription(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              <div className="export-info">
+                <small>
+                  <strong>Chain contains:</strong> {filterCart.length} filter{filterCart.length !== 1 ? 's' : ''}
+                </small>
+              </div>
+            </div>
+            <div className="dialog-actions">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowExportDialog(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary"
+                onClick={handleExportCart}
+                disabled={!exportName.trim()}
+              >
+                Export to File
               </button>
             </div>
           </div>

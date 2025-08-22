@@ -886,7 +886,9 @@ export const FilterControls: React.FC = () => {
                 theta: 0,
                 lambda: 10.0,
                 psi: 0,
-                lawsKernelType: 'L5E5'
+                lawsKernelType: 'L5E5',
+                cutoff: 30,
+                gaborSigma: 1.5
               };
               setTempFilterParams(defaultParams);
               

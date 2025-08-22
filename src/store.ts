@@ -213,6 +213,9 @@ interface State {
   deleteFilterChain: (chainId: string) => void;
   setActiveFilterChain: (chain: FilterChain | null) => void;
   applyFilterChain: (chain: FilterChain, viewerKey: FolderKey | number) => void;
+  importFilterChain: (chain: FilterChain) => void;
+  exportFilterChain: (chainId: string) => void;
+  exportCurrentCart: (name: string, description?: string) => void;
   
   // Filter Preset management  
   saveFilterPreset: (name: string, description?: string, tags?: string[]) => void;
@@ -492,6 +495,29 @@ export const useStore = create<State>((set) => ({
   })),
 
   setActiveFilterChain: (chain) => set({ activeFilterChain: chain }),
+
+  importFilterChain: (chain) => set(state => ({
+    filterChains: [...state.filterChains, chain]
+  })),
+
+  exportFilterChain: (chainId) => {
+    const state = useStore.getState();
+    const chain = state.filterChains.find((c: any) => c.id === chainId);
+    if (chain) {
+      import('./utils/filterExport').then(({ exportFilterChain }) => {
+        exportFilterChain(chain);
+      });
+    }
+  },
+
+  exportCurrentCart: (name, description) => {
+    const state = useStore.getState();
+    if (state.filterCart.length > 0) {
+      import('./utils/filterExport').then(({ exportFilterCart }) => {
+        exportFilterCart(state.filterCart, name, description);
+      });
+    }
+  },
 
   applyFilterChain: (chain, viewerKey) => set(state => {
     // For now, we'll store the chain directly and let the ImageCanvas handle the sequential processing
