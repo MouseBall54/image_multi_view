@@ -43,14 +43,13 @@ export const FilterCart: React.FC = () => {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportName, setExportName] = useState('');
   const [exportDescription, setExportDescription] = useState('');
-  const [previewTransitioning, setPreviewTransitioning] = useState(false);
   const [previewExiting, setPreviewExiting] = useState(false);
+  const [previewClosing, setPreviewClosing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle preview when editing starts
   React.useEffect(() => {
     if (editingItemId) {
-      setPreviewTransitioning(true);
       const editingItem = filterCart.find(item => item.id === editingItemId);
       const sourceFile = getCurrentImageFile();
       if (editingItem && sourceFile) {
@@ -65,7 +64,6 @@ export const FilterCart: React.FC = () => {
             realTimeUpdate: true,
             position: 'sidebar'
           });
-          setPreviewTransitioning(false);
         }, 100);
       }
     }
@@ -74,11 +72,26 @@ export const FilterCart: React.FC = () => {
   // Handle smooth preview close
   const handlePreviewClose = React.useCallback(() => {
     setPreviewExiting(true);
+    setPreviewClosing(true);
     setTimeout(() => {
       closePreviewModal();
       setPreviewExiting(false);
+      // Keep closing state for panel width transition duration
+      setTimeout(() => {
+        setPreviewClosing(false);
+      }, 400); // Match panel width transition duration
     }, 300);
-  }, [closePreviewModal]);
+  }, [closePreviewModal, previewSize]);
+
+  // Get preview width for CSS custom property
+  const getPreviewWidth = () => {
+    switch (previewSize) {
+      case 'S': return '320px';
+      case 'M': return '470px';
+      case 'L': return '620px';
+      default: return '320px';
+    }
+  };
 
   if (!showFilterCart) return null;
 
@@ -239,8 +252,9 @@ export const FilterCart: React.FC = () => {
 
   return (
     <div 
-      className="filter-cart-panel"
+      className={`filter-cart-panel ${previewClosing ? 'preview-closing' : ''}`}
       data-preview-size={previewModal.isOpen && previewModal.position === 'sidebar' ? previewSize : undefined}
+      style={previewClosing ? { '--closing-preview-width': getPreviewWidth() } as React.CSSProperties : undefined}
     >
       <div className="filter-cart-header">
         <h3>Filter Chain ({filterCart.length})</h3>

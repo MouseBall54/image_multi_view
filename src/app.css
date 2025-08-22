@@ -2581,6 +2581,31 @@ main {
   max-height: calc(80vh - 60px);
   overflow: hidden; /* Hide overflow on container */
   box-sizing: border-box; /* Include padding in width calculation */
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* During preview close, maintain panel layout until width transition completes */
+.preview-closing .filter-cart-body {
+  /* Keep flexbox layout during closing to prevent content jump */
+  position: relative;
+}
+
+.preview-closing .filter-cart-content {
+  /* Maintain content position during close animation */
+  position: relative;
+  left: 0;
+  transition: none; /* Disable transitions during closing to prevent jumping */
+}
+
+/* Create invisible spacer to maintain layout during close */
+.preview-closing .filter-cart-body::after {
+  content: '';
+  flex-shrink: 0;
+  /* Match the preview width being closed */
+  width: var(--closing-preview-width, 320px);
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Filter chain list maintains fixed width */

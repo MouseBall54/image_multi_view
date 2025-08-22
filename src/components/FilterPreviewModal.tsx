@@ -85,7 +85,7 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
     return () => {
       if (img.src) URL.revokeObjectURL(img.src);
     };
-  }, [isOpen, sourceFile, previewSize]); // Add previewSize to dependencies
+  }, [isOpen, sourceFile, MAX_PREVIEW_SIZE]); // Only reload when sourceFile changes or size config changes
 
   // Apply filters to preview
   const applyPreview = useCallback(async () => {
