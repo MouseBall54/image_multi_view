@@ -22,6 +22,7 @@ export const FilterCart: React.FC = () => {
     reorderFilterCart,
     clearFilterCart,
     toggleFilterCartItem,
+    updateFilterCartItem,
     saveFilterPreset,
     loadFilterPreset,
     deleteFilterPreset,
@@ -34,10 +35,30 @@ export const FilterCart: React.FC = () => {
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
   const [presetName, setPresetName] = useState('');
   const [showPresetDialog, setShowPresetDialog] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportName, setExportName] = useState('');
   const [exportDescription, setExportDescription] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle preview when editing starts
+  React.useEffect(() => {
+    if (editingItemId) {
+      const editingItem = filterCart.find(item => item.id === editingItemId);
+      const sourceFile = getCurrentImageFile();
+      if (editingItem && sourceFile) {
+        openPreviewModal({
+          mode: 'single',
+          filterType: editingItem.filterType,
+          filterParams: editingItem.params as FilterParams,
+          title: `Editing: ${getFilterDisplayName(editingItem.filterType)}`,
+          sourceFile,
+          realTimeUpdate: true,
+          position: 'sidebar'
+        });
+      }
+    }
+  }, [editingItemId]);
 
   if (!showFilterCart) return null;
 
@@ -98,6 +119,21 @@ export const FilterCart: React.FC = () => {
     return formatted.length > 0 ? `(${formatted.join(', ')})` : '';
   };
 
+  // Helper function to update preview when parameters change
+  const updatePreview = (filterType: any, newParams: any) => {
+    const sourceFile = getCurrentImageFile();
+    if (sourceFile) {
+      openPreviewModal({
+        mode: 'single',
+        filterType: filterType,
+        filterParams: newParams as FilterParams,
+        title: `Editing: ${getFilterDisplayName(filterType)}`,
+        sourceFile,
+        realTimeUpdate: true,
+        position: 'sidebar'
+      });
+    }
+  };
 
   const handleSavePreset = () => {
     if (presetName.trim() && filterCart.length > 0) {
@@ -230,6 +266,7 @@ export const FilterCart: React.FC = () => {
                               filterParams: item.params as FilterParams,
                               title: `Single Filter: ${getFilterDisplayName(item.filterType)}`,
                               sourceFile,
+                              position: 'sidebar'
                             });
                           } else {
                             // Normal click: Preview chain up to this point
@@ -240,6 +277,7 @@ export const FilterCart: React.FC = () => {
                                 chainItems: filtersUpToThis,
                                 title: `Filter Chain (Steps 1-${index + 1})`,
                                 sourceFile,
+                                position: 'sidebar'
                               });
                             }
                           }
@@ -250,6 +288,16 @@ export const FilterCart: React.FC = () => {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="11" cy="11" r="8"/>
                           <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                      </button>
+                      <button
+                        className="edit-btn"
+                        onClick={() => setEditingItemId(item.id)}
+                        title="Edit filter parameters"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                         </svg>
                       </button>
                       <button
@@ -445,6 +493,128 @@ export const FilterCart: React.FC = () => {
         onChange={handleFileImport}
       />
 
+      {/* Filter Edit Dialog */}
+      {editingItemId && (
+        <div className="dialog-overlay" onClick={() => setEditingItemId(null)}>
+          <div className="dialog dialog-large" onClick={(e) => e.stopPropagation()}>
+            <h3>Edit Filter Parameters</h3>
+            {(() => {
+              const editingItem = filterCart.find(item => item.id === editingItemId);
+              if (!editingItem) return null;
+              
+              return (
+                <div>
+                  <h4>{getFilterDisplayName(editingItem.filterType)}</h4>
+                  <div className="filter-params-edit">
+                    {/* Simple parameter editing for common filters */}
+                    {editingItem.filterType === 'gaussianblur' && (
+                      <>
+                        <div className="param-row">
+                          <label>Kernel Size</label>
+                          <input
+                            type="range"
+                            min="3"
+                            max="21"
+                            step="2"
+                            value={editingItem.params.kernelSize ?? 3}
+                            onChange={(e) => {
+                              const newParams = { ...editingItem.params, kernelSize: parseInt(e.target.value) };
+                              updateFilterCartItem(editingItemId, { params: newParams });
+                              updatePreview(editingItem.filterType, newParams);
+                            }}
+                          />
+                          <span>{editingItem.params.kernelSize ?? 3}</span>
+                        </div>
+                        <div className="param-row">
+                          <label>Sigma</label>
+                          <input
+                            type="range"
+                            min="0.1"
+                            max="10"
+                            step="0.1"
+                            value={editingItem.params.sigma ?? 1.0}
+                            onChange={(e) => {
+                              const newParams = { ...editingItem.params, sigma: parseFloat(e.target.value) };
+                              updateFilterCartItem(editingItemId, { params: newParams });
+                              updatePreview(editingItem.filterType, newParams);
+                            }}
+                          />
+                          <span>{(editingItem.params.sigma ?? 1.0).toFixed(1)}</span>
+                        </div>
+                      </>
+                    )}
+                    {editingItem.filterType === 'localhistogramequalization' && (
+                      <div className="param-row">
+                        <label>Kernel Size</label>
+                        <input
+                          type="range"
+                          min="3"
+                          max="21"
+                          step="2"
+                          value={editingItem.params.kernelSize ?? 3}
+                          onChange={(e) => {
+                            const newParams = { ...editingItem.params, kernelSize: parseInt(e.target.value) };
+                            updateFilterCartItem(editingItemId, { params: newParams });
+                            updatePreview(editingItem.filterType, newParams);
+                          }}
+                        />
+                        <span>{editingItem.params.kernelSize ?? 3}</span>
+                      </div>
+                    )}
+                    {editingItem.filterType === 'canny' && (
+                      <>
+                        <div className="param-row">
+                          <label>Low Threshold</label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="255"
+                            step="1"
+                            value={editingItem.params.lowThreshold ?? 20}
+                            onChange={(e) => {
+                              const newParams = { ...editingItem.params, lowThreshold: parseInt(e.target.value) };
+                              updateFilterCartItem(editingItemId, { params: newParams });
+                              updatePreview(editingItem.filterType, newParams);
+                            }}
+                          />
+                          <span>{editingItem.params.lowThreshold ?? 20}</span>
+                        </div>
+                        <div className="param-row">
+                          <label>High Threshold</label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="255"
+                            step="1"
+                            value={editingItem.params.highThreshold ?? 50}
+                            onChange={(e) => {
+                              const newParams = { ...editingItem.params, highThreshold: parseInt(e.target.value) };
+                              updateFilterCartItem(editingItemId, { params: newParams });
+                              updatePreview(editingItem.filterType, newParams);
+                            }}
+                          />
+                          <span>{editingItem.params.highThreshold ?? 50}</span>
+                        </div>
+                      </>
+                    )}
+                    {!['gaussianblur', 'localhistogramequalization', 'canny'].includes(editingItem.filterType) && (
+                      <p><small>This filter has no adjustable parameters or parameter editing is not yet implemented for this filter type.</small></p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="dialog-actions">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setEditingItemId(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Preset Dialog */}
       {showPresetDialog && (

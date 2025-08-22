@@ -2752,11 +2752,17 @@ main {
 /* Filter Preview Sidebar */
 .preview-sidebar {
   position: fixed;
-  left: 20px;
+  left: 20px; /* Default position */
   top: 50%;
   transform: translateY(-50%);
   z-index: 2500;
   pointer-events: none; /* Allow clicks to pass through empty space */
+}
+
+/* When filter cart is open, position sidebar to its left */
+.filter-cart-open .preview-sidebar {
+  right: 420px; /* Position to the left of filter cart (400px width + 20px margin) */
+  left: auto;
 }
 
 .preview-sidebar-panel {
