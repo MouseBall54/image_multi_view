@@ -14,8 +14,6 @@ export const FilterCart: React.FC = () => {
     filterCart,
     showFilterCart,
     filterPresets,
-    filterChains,
-    activeFilterChain,
     activeFilterEditor,
     current,
     folders,
@@ -32,8 +30,6 @@ export const FilterCart: React.FC = () => {
     applyFilterChain,
     openPreviewModal,
     exportCurrentCart,
-    importFilterChain: importChain,
-    loadFilterChainToCart,
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
@@ -155,9 +151,25 @@ export const FilterCart: React.FC = () => {
       const importedChain = await importFilterChain(file);
       console.log('✅ Filter chain imported:', importedChain);
       
-      console.log('🔄 Adding to store...');
-      importChain(importedChain);
-      console.log('✅ Chain added to store');
+      console.log('🔄 Creating filter preset...');
+      // Create a filter preset from the imported chain
+      const newPreset = {
+        id: `preset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: importedChain.name,
+        description: `Imported filter chain: ${importedChain.name}`,
+        chain: importedChain.items,
+        tags: ['imported'],
+        createdAt: Date.now(),
+        modifiedAt: Date.now()
+      };
+      
+      // Add directly to filterPresets instead of filterChains
+      const currentState = useStore.getState();
+      useStore.setState({
+        filterPresets: [...currentState.filterPresets, newPreset]
+      });
+      
+      console.log('✅ Preset created and added to Saved Presets');
       
       // Show detailed success message
       const itemCount = importedChain.items.length;
@@ -167,7 +179,7 @@ export const FilterCart: React.FC = () => {
       
       alert(`Successfully imported filter chain: "${importedChain.name}"\n\n` +
             `${itemCount} filter${itemCount > 1 ? 's' : ''}: ${filterNames}\n\n` +
-            `The chain has been added to your list and set as active.`);
+            `Added to Saved Presets - you can now load it from the presets list.`);
     } catch (error) {
       console.error('❌ Import failed:', error);
       alert(`Failed to import filter chain: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -192,39 +204,6 @@ export const FilterCart: React.FC = () => {
       </div>
 
       <div className="filter-cart-content">
-        {/* Debug: Show imported filter chains */}
-        {filterChains.length > 0 && (
-          <div className="imported-chains-debug" style={{ 
-            background: '#f0f0f0', 
-            padding: '10px', 
-            margin: '10px 0', 
-            border: '1px solid #ccc',
-            borderRadius: '4px'
-          }}>
-            <h4>📥 Imported Chains ({filterChains.length})</h4>
-            {filterChains.map(chain => (
-              <div key={chain.id} style={{ 
-                background: activeFilterChain?.id === chain.id ? '#e6f3ff' : '#fff',
-                padding: '5px',
-                margin: '2px 0',
-                border: '1px solid #ddd',
-                borderRadius: '2px',
-                cursor: 'pointer'
-              }}
-              onClick={() => {
-                console.log('🔄 Loading chain to cart:', chain.name);
-                loadFilterChainToCart(chain.id);
-              }}
-              title="Click to load this chain to filter cart"
-              >
-                <strong>{chain.name}</strong> ({chain.items.length} filters)
-                {activeFilterChain?.id === chain.id && <span> ⭐ Active</span>}
-                <small style={{ display: 'block', color: '#666' }}>Click to load to cart</small>
-              </div>
-            ))}
-          </div>
-        )}
-        
         {filterCart.length === 0 ? (
           <div className="empty-cart">
             <p>No filters in chain</p>
