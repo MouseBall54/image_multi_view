@@ -411,11 +411,27 @@ export const useStore = create<State>((set) => ({
         showFilterCart: true,
       }
     } else { // Folder-based modes
+      // Ensure a current item exists so previews can resolve a source file
+      let nextCurrent = state.current;
+      const folder = state.folders[key];
+      if (!nextCurrent && folder && folder.data && folder.data.files && folder.data.files.size > 0) {
+        const firstFilename = folder.data.files.keys().next().value as string | undefined;
+        if (firstFilename) {
+          // Build a has-map across folders for this filename
+          const has: any = {};
+          for (const k in state.folders) {
+            const f = state.folders[k as any];
+            has[k] = !!(f && f.data && f.data.files && f.data.files.has(firstFilename));
+          }
+          nextCurrent = { filename: firstFilename, has } as any;
+        }
+      }
       return {
         activeFilterEditor: key,
         tempViewerFilter: state.viewerFilters[key] || 'none',
         tempViewerFilterParams: state.viewerFilterParams[key] || defaultFilterParams,
         showFilterCart: true,
+        current: nextCurrent || state.current,
       }
     }
   }),

@@ -231,7 +231,31 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       return;
     }
 
-    setCurrent(null); 
+    // Update global 'current' so previews resolve the selected file across modes
+    try {
+      const filename = file.name;
+      const base = filename.replace(/\.[^/.]+$/, '');
+      const has: any = {};
+      for (const k of Object.keys(allFolders)) {
+        const folderState = allFolders[k as FolderKey];
+        const files: Map<string, File> | undefined = folderState?.data?.files;
+        let present = false;
+        if (files) {
+          present = files.has(filename);
+          if (!present) {
+            for (const name of files.keys()) {
+              const nb = name.replace(/\.[^/.]+$/, '');
+              if (nb === base) { present = true; break; }
+            }
+          }
+        }
+        has[k] = present;
+      }
+      setCurrent({ filename, has });
+    } catch (e) {
+      // Fallback: clear current if any issue occurs
+      setCurrent(null);
+    }
 
     const oldPinpointImage = pinpointImages[activeCanvasKey];
     const refPoint = (oldPinpointImage && oldPinpointImage.file?.name === file.name)

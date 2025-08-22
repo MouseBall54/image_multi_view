@@ -202,7 +202,17 @@ export const FilterControls: React.FC = () => {
       if (typeof activeFilterEditor === 'string') {
         if (!current) return undefined;
         const folder = folders[activeFilterEditor];
-        return folder && folder.data.files ? folder.data.files.get(current.filename) : undefined;
+        if (!folder || !folder.data || !folder.data.files) return undefined;
+        const files: Map<string, File> = folder.data.files;
+        let f = files.get(current.filename);
+        if (f) return f;
+        const base = current.filename.replace(/\.[^/.]+$/, '');
+        for (const [name, file] of files) {
+          if (name === current.filename) return file;
+          const nb = name.replace(/\.[^/.]+$/, '');
+          if (nb === current.filename || nb === base) return file;
+        }
+        return undefined;
       } else if (typeof activeFilterEditor === 'number') {
         return analysisFile || undefined;
       }
@@ -213,18 +223,32 @@ export const FilterControls: React.FC = () => {
     if (sourceFile) {
       updatePreviewModal({ sourceFile });
     }
-  }, [current?.filename, analysisFile]);
+  }, [current?.filename, analysisFile, activeFilterEditor, folders]);
 
   if (activeFilterEditor === null) return null;
 
   // Get current image file for preview
   const getCurrentImageFile = (): File | undefined => {
+    const findFileInFolder = (folder: any, filename: string | undefined): File | undefined => {
+      if (!folder || !folder.data || !folder.data.files || !filename) return undefined;
+      const files: Map<string, File> = folder.data.files;
+      let f = files.get(filename);
+      if (f) return f;
+      const base = filename.replace(/\.[^/.]+$/, '');
+      for (const [name, file] of files) {
+        if (name === filename) return file;
+        const nb = name.replace(/\.[^/.]+$/, '');
+        if (nb === filename || nb === base) return file;
+      }
+      return undefined;
+    };
+
     if (typeof activeFilterEditor === 'string') {
       // Viewer mode - get from folder
       if (!current) return undefined;
       const folder = folders[activeFilterEditor];
       if (folder && folder.data.files) {
-        return folder.data.files.get(current.filename);
+        return findFileInFolder(folder, current.filename);
       }
     } else if (typeof activeFilterEditor === 'number') {
       // Analysis mode - get from analysisFile

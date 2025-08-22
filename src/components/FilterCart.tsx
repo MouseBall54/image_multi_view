@@ -173,7 +173,17 @@ export const FilterCart: React.FC = () => {
       if (typeof activeFilterEditor === 'string') {
         if (!current) return undefined;
         const folder = folders[activeFilterEditor];
-        return folder?.data.files?.get(current.filename);
+        if (!folder || !folder.data || !folder.data.files) return undefined;
+        const files: Map<string, File> = folder.data.files;
+        let f = files.get(current.filename);
+        if (f) return f;
+        const base = current.filename.replace(/\.[^/.]+$/, '');
+        for (const [name, file] of files) {
+          if (name === current.filename) return file;
+          const nb = name.replace(/\.[^/.]+$/, '');
+          if (nb === current.filename || nb === base) return file;
+        }
+        return undefined;
       }
       if (typeof activeFilterEditor === 'number') {
         return analysisFile || undefined;
@@ -184,15 +194,33 @@ export const FilterCart: React.FC = () => {
         const folder = folders[activeCanvasKey];
         const has = current?.has?.[activeCanvasKey as any];
         if (has && folder?.data.files) {
-          return folder.data.files.get(current.filename);
+          const files: Map<string, File> = folder.data.files;
+          let f = files.get(current.filename);
+          if (f) return f;
+          const base = current.filename.replace(/\.[^/.]+$/, '');
+          for (const [name, file] of files) {
+            if (name === current.filename) return file;
+            const nb = name.replace(/\.[^/.]+$/, '');
+            if (nb === current.filename || nb === base) return file;
+          }
+          return undefined;
         }
       }
       if (current) {
         for (const k in current.has) {
           if ((current.has as any)[k]) {
             const folder = folders[k as any];
-            const file = folder?.data.files?.get(current.filename);
-            if (file) return file;
+            if (folder && folder.data && folder.data.files) {
+              const files: Map<string, File> = folder.data.files;
+              let f = files.get(current.filename);
+              if (f) return f;
+              const base = current.filename.replace(/\.[^/.]+$/, '');
+              for (const [name, file] of files) {
+                if (name === current.filename) return file;
+                const nb = name.replace(/\.[^/.]+$/, '');
+                if (nb === current.filename || nb === base) return file;
+              }
+            }
           }
         }
       }
@@ -205,13 +233,30 @@ export const FilterCart: React.FC = () => {
 
   if (!showFilterCart) return null;
 
+  // Helper to locate a file in a folder by exact name or base name (without extension)
+  const findFileInFolder = (folder: any, filename: string | undefined): File | undefined => {
+    if (!folder || !folder.data || !folder.data.files || !filename) return undefined;
+    const files: Map<string, File> = folder.data.files;
+    // Exact match
+    const direct = files.get(filename);
+    if (direct) return direct;
+    // Base-name match
+    const base = filename.replace(/\.[^/.]+$/, '');
+    for (const [name, file] of files) {
+      if (name === filename) return file;
+      const nb = name.replace(/\.[^/.]+$/, '');
+      if (nb === filename || nb === base) return file;
+    }
+    return undefined;
+  };
+
   // Resolve a source file for preview irrespective of editor visibility
   const getCurrentImageFile = (): File | undefined => {
     // 1) If editor has a target (string key), use it
     if (typeof activeFilterEditor === 'string') {
       if (!current) return undefined;
       const folder = folders[activeFilterEditor];
-      return folder?.data.files?.get(current.filename);
+      return findFileInFolder(folder, current.filename);
     }
     // 2) If editor targeted analysis index
     if (typeof activeFilterEditor === 'number') {
@@ -226,7 +271,7 @@ export const FilterCart: React.FC = () => {
       // Ensure this folder has the current filename
       const has = current?.has?.[activeCanvasKey as any];
       if (has && folder?.data.files) {
-        return folder.data.files.get(current.filename);
+        return findFileInFolder(folder, current.filename);
       }
     }
     // 5) Last resort: find any folder that contains current filename
@@ -234,7 +279,7 @@ export const FilterCart: React.FC = () => {
       for (const k in current.has) {
         if ((current.has as any)[k]) {
           const folder = folders[k as any];
-          const file = folder?.data.files?.get(current.filename);
+          const file = findFileInFolder(folder, current.filename);
           if (file) return file;
         }
       }
