@@ -5,7 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](#)
 [![React](https://img.shields.io/badge/React-18-blue)](#)
 
-**CompareX** is a powerful, browser-based image comparison and analysis application designed for professionals who need to compare, analyze, and process multiple images simultaneously. Built with React and TypeScript, it offers three specialized viewing modes with advanced filtering capabilities and complete privacy through client-side processing.
+**CompareX** is a powerful, browser-based image comparison and analysis application designed for professionals who need to compare, analyze, and process multiple images simultaneously. Built with React and TypeScript, it offers four specialized viewing modes with advanced filtering capabilities and complete privacy through client-side processing.
 
 ## 🌐 Live Demo
 
@@ -20,10 +20,11 @@ No installation required - all processing happens locally in your browser!
 - **Complete Privacy** - Your images never leave your device
 - **No Server Required** - Pure web application with offline capability
 
-### 🎯 Three Specialized Viewing Modes
-1. **Compare Mode** - Side-by-side comparison of multiple folders
-2. **Pinpoint Mode** - Precision alignment with reference points and rotation
-3. **Analysis Mode** - Advanced filter application and comparison
+### 🎯 Four Specialized Viewing Modes
+1. **Single Mode** - Focused single-view with unified file list
+2. **Compare Mode** - Side-by-side comparison of multiple folders
+3. **Pinpoint Mode** - Precision alignment with reference points and rotation
+4. **Analysis Mode** - Advanced filter application and comparison
 
 ### 🖼️ Advanced Image Support
 - **Standard Formats**: JPEG, PNG, WebP, GIF, BMP
@@ -59,7 +60,7 @@ No installation required - all processing happens locally in your browser!
 
 ### Quick Start
 1. Visit the [live demo](https://mouseball54.github.io/image_multi_view/)
-2. Select your desired viewing mode (Compare/Pinpoint/Analysis)
+2. Select your desired viewing mode (Single/Compare/Pinpoint/Analysis)
 3. Click folder buttons to load your images
 4. Start comparing and analyzing!
 
@@ -85,6 +86,19 @@ npm run deploy
 ```
 
 ## 🎛️ Viewing Modes
+
+### 0. Single Mode 🎥
+**Perfect for: Focused inspection, quick filtering, distraction-free viewing**
+
+- **Unified File List**: Aggregated list across loaded folders (no filename matching or extension stripping)
+- **One Viewer**: Clean 1×1 layout that fills the viewer area
+- **Compare-Class Features**: Filters, minimap, grid, capture, and preview system
+- **Drag & Drop**: Quickly create a temporary folder or load the first image if no slot is available
+
+#### Key Features:
+- Aggregated file list with folder filter and search
+- Per-folder filter settings and preview
+- Capture with label overlays
 
 ### 1. Compare Mode 🔍
 **Perfect for: Multi-folder comparisons, file matching, side-by-side analysis**
@@ -227,17 +241,23 @@ npm run deploy
 
 ### File Management
 - **Multi-Format Support**: JPEG, PNG, TIFF, WebP, GIF, BMP
-- **Drag & Drop**: Easy file loading
-- **Folder Organization**: Alphabetical folder assignment (A-Z)
+- **Folder Organization**: Alphabetical folder assignment (A–Z)
 - **Search & Filter**: Find files quickly across all folders
 - **Batch Operations**: Process multiple files simultaneously
+
+#### Drag & Drop Details
+- **Single**: Drop images to create a temporary folder in the first empty slot. If none available, the first image is selected for viewing.
+- **Compare**: Drop images to create a temporary folder in the first empty slot; compare via matched filenames across folders.
+- **Pinpoint**: Drop images to create a temporary folder in the first empty slot; select any image into any viewer.
+- **Analysis**: Drop images to create a temporary folder and auto-load the first image for analysis (others are available in the list).
 
 ## ⌨️ Keyboard Shortcuts
 
 ### Mode Switching
-- **1** - Switch to Compare Mode
-- **2** - Switch to Pinpoint Mode  
-- **3** - Switch to Analysis Mode
+- **1** - Switch to Single Mode
+- **2** - Switch to Compare Mode
+- **3** - Switch to Pinpoint Mode  
+- **4** - Switch to Analysis Mode
 
 ### Navigation
 - **Arrow Keys** - Pan view (when image is loaded)
@@ -296,6 +316,7 @@ src/
 │   ├── FolderControl.tsx   # File browser
 │   └── ...
 ├── modes/              # Application modes
+│   ├── SingleMode.tsx      # Focused single-view
 │   ├── CompareMode.tsx     # Multi-folder comparison
 │   ├── PinpointMode.tsx    # Reference-based alignment
 │   └── AnalysisMode.tsx    # Single-image analysis

@@ -18,7 +18,6 @@ export const FilterCart: React.FC = () => {
     filterPresets,
     activeFilterEditor,
     activeCanvasKey,
-    appMode,
     current,
     folders,
     analysisFile,
@@ -38,6 +37,7 @@ export const FilterCart: React.FC = () => {
     previewModal,
     previewSize,
     closePreviewModal,
+    addToast,
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
@@ -54,6 +54,16 @@ export const FilterCart: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
+  
+  // Drag and drop states for JSON file import
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dragOverCounter, setDragOverCounter] = useState(0);
+  const [draggedFileCount, setDraggedFileCount] = useState(0);
+  
+  // Use dragOverCounter to prevent linting error
+  React.useEffect(() => {
+    // Drag counter tracking for proper leave detection
+  }, [dragOverCounter]);
 
   // Drag handlers (drag by header)
   const onHeaderMouseDown = (e: React.MouseEvent) => {
@@ -292,7 +302,7 @@ export const FilterCart: React.FC = () => {
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleFilterDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
@@ -352,28 +362,22 @@ export const FilterCart: React.FC = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('🔍 handleFileImport called');
-    const file = event.target.files?.[0];
-    if (!file) {
-      console.log('❌ No file selected');
-      return;
-    }
-    console.log('📁 File selected:', file.name, file.type);
-
+  // Shared import logic for both file input and drag & drop
+  const processImportedFile = async (file: File) => {
     if (!isValidFilterChainFile(file)) {
-      console.log('❌ Invalid file type');
-      alert('Please select a valid JSON filter chain file');
+      addToast({
+        type: 'error',
+        title: 'Invalid File Format',
+        message: `Unable to process "${file.name}"`,
+        details: ['This file does not appear to be a JSON file', 'Please select a valid JSON file containing filter chain data'],
+        duration: 6000
+      });
       return;
     }
-    console.log('✅ File validation passed');
 
     try {
-      console.log('🔄 Starting import process...');
       const importedChain = await importFilterChain(file);
-      console.log('✅ Filter chain imported:', importedChain);
       
-      console.log('🔄 Creating filter preset...');
       // Create a filter preset from the imported chain
       const newPreset = {
         id: `preset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -391,25 +395,237 @@ export const FilterCart: React.FC = () => {
         filterPresets: [...currentState.filterPresets, newPreset]
       });
       
-      console.log('✅ Preset created and added to Saved Presets');
-      
       // Show detailed success message
       const itemCount = importedChain.items.length;
       const filterNames = importedChain.items.map(item => 
         ALL_FILTERS.find(f => f.type === item.filterType)?.name || item.filterType
       ).join(', ');
       
-      alert(`Successfully imported filter chain: "${importedChain.name}"\n\n` +
-            `${itemCount} filter${itemCount > 1 ? 's' : ''}: ${filterNames}\n\n` +
-            `Added to Saved Presets - you can now load it from the presets list.`);
+      addToast({
+        type: 'success',
+        title: 'Import Successful',
+        message: `"${importedChain.name}" has been imported`,
+        details: [
+          `${itemCount} filter${itemCount > 1 ? 's' : ''}: ${filterNames}`,
+          'Added to Saved Presets - you can now load it from the presets list',
+          'Note: When exporting, files use the format: [name]-compareX-filter-[yyyy-mm-dd].json'
+        ],
+        duration: 8000
+      });
     } catch (error) {
-      console.error('❌ Import failed:', error);
-      alert(`Failed to import filter chain: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      addToast({
+        type: 'error',
+        title: 'Import Failed',
+        message: `Failed to import "${file.name}"`,
+        details: [errorMessage, 'Please verify that this JSON file contains valid filter chain data'],
+        duration: 8000
+      });
+    }
+  };
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    if (files.length === 1) {
+      await processImportedFile(files[0]);
+    } else {
+      await processMultipleImportedFiles(files);
+    }
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Process multiple imported files with batch processing
+  const processMultipleImportedFiles = async (files: File[]) => {
+    const results = {
+      successful: [] as string[],
+      failed: [] as { filename: string; error: string }[],
+      total: files.length
+    };
+
+    // Process files sequentially to avoid overwhelming the UI
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      try {
+        if (!isValidFilterChainFile(file)) {
+          results.failed.push({
+            filename: file.name,
+            error: 'Not a JSON file'
+          });
+          continue;
+        }
+
+        const importedChain = await importFilterChain(file);
+        
+        // Create a filter preset from the imported chain
+        const newPreset = {
+          id: `preset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: importedChain.name,
+          description: `Imported filter chain: ${importedChain.name}`,
+          chain: importedChain.items,
+          tags: ['imported'],
+          createdAt: Date.now(),
+          modifiedAt: Date.now()
+        };
+        
+        // Add directly to filterPresets
+        const currentState = useStore.getState();
+        useStore.setState({
+          filterPresets: [...currentState.filterPresets, newPreset]
+        });
+        
+        results.successful.push(importedChain.name);
+        
+        // Small delay to prevent UI freezing
+        if (i < files.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+      } catch (error) {
+        results.failed.push({
+          filename: file.name,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
       }
+    }
+
+    // Show summary results
+    showBatchImportResults(results);
+  };
+
+  const showBatchImportResults = (results: {
+    successful: string[];
+    failed: { filename: string; error: string }[];
+    total: number;
+  }) => {
+    const { successful, failed, total } = results;
+    
+    const details: string[] = [];
+    
+    if (successful.length > 0) {
+      details.push(`✅ Successfully imported ${successful.length} filter chain${successful.length > 1 ? 's' : ''}:`);
+      successful.forEach(name => {
+        details.push(`  • ${name}`);
+      });
+    }
+    
+    if (failed.length > 0) {
+      if (successful.length > 0) details.push(''); // Add spacing
+      details.push(`❌ Failed to import ${failed.length} file${failed.length > 1 ? 's' : ''}:`);
+      failed.forEach(({ filename, error }) => {
+        details.push(`  • ${filename}: ${error}`);
+      });
+    }
+    
+    if (successful.length > 0) {
+      details.push('');
+      details.push('All successful imports have been added to Saved Presets');
+      details.push('Files are now saved with format: [name]-compareX-filter-[yyyy-mm-dd].json');
+    }
+
+    // Determine toast type based on results
+    let toastType: 'success' | 'warning' | 'error' = 'success';
+    if (failed.length > 0 && successful.length === 0) {
+      toastType = 'error';
+    } else if (failed.length > 0) {
+      toastType = 'warning';
+    }
+    
+    addToast({
+      type: toastType,
+      title: 'Batch Import Complete',
+      message: `${total} files processed: ${successful.length} successful, ${failed.length} failed`,
+      details,
+      duration: 10000
+    });
+  };
+
+  // Drag and drop handlers for JSON file import
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCounter(prev => prev + 1);
+    
+    // Count JSON files and show drag over state if we have any
+    if (e.dataTransfer.items) {
+      let jsonFileCount = 0;
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        const item = e.dataTransfer.items[i];
+        if (item.kind === 'file' && (item.type === 'application/json' || item.type === '')) {
+          jsonFileCount++;
+        }
+      }
+      if (jsonFileCount > 0) {
+        setIsDragOver(true);
+        setDraggedFileCount(jsonFileCount);
+      }
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCounter(prev => {
+      const newCount = prev - 1;
+      if (newCount <= 0) {
+        setIsDragOver(false);
+        setDraggedFileCount(0);
+        return 0;
+      }
+      return newCount;
+    });
+  };
+
+  const handleFileDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Set the drag effect to copy for JSON files
+    if (e.dataTransfer.items) {
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        const item = e.dataTransfer.items[i];
+        if (item.kind === 'file' && (item.type === 'application/json' || item.type === '')) {
+          e.dataTransfer.dropEffect = 'copy';
+          return;
+        }
+      }
+    }
+    e.dataTransfer.dropEffect = 'none';
+  };
+
+  const handleFileDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDragOver(false);
+    setDragOverCounter(0);
+    setDraggedFileCount(0);
+
+    const files = Array.from(e.dataTransfer.files);
+    const jsonFiles = files.filter(file => isValidFilterChainFile(file));
+
+    if (jsonFiles.length === 0) {
+      addToast({
+        type: 'warning',
+        title: 'No Valid Files',
+        message: 'No valid JSON files found in the dropped items',
+        details: ['Please drop JSON files that may contain filter chain data'],
+        duration: 5000
+      });
+      return;
+    }
+
+    // Process single or multiple files
+    if (jsonFiles.length === 1) {
+      await processImportedFile(jsonFiles[0]);
+    } else {
+      await processMultipleImportedFiles(jsonFiles);
     }
   };
 
@@ -423,10 +639,39 @@ export const FilterCart: React.FC = () => {
   return (
     <div 
       ref={panelRef}
-      className={`filter-cart-panel ${previewClosing ? 'preview-closing' : ''}`}
+      className={`filter-cart-panel ${previewClosing ? 'preview-closing' : ''} ${isDragOver ? 'drag-over' : ''}`}
       data-preview-size={previewModal.isOpen && previewModal.position === 'sidebar' ? previewSize : undefined}
       style={panelStyle}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleFileDragOver}
+      onDrop={handleFileDrop}
     >
+      {/* Drag and Drop Overlay */}
+      {isDragOver && (
+        <div className="drag-overlay">
+          <div className="drag-overlay-content">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17,8 12,3 7,8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <h3>
+              {draggedFileCount > 1 
+                ? `Drop ${draggedFileCount} JSON Filter Chains`
+                : 'Drop JSON Filter Chain'
+              }
+            </h3>
+            <p>
+              {draggedFileCount > 1 
+                ? `Release to import ${draggedFileCount} filter chain files`
+                : 'Release to import filter chain file'
+              }
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="filter-cart-header" onMouseDown={onHeaderMouseDown} style={{ cursor: 'grab' }}>
         <h3>Filter Chain ({filterCart.length})</h3>
         <button 
@@ -476,7 +721,7 @@ export const FilterCart: React.FC = () => {
                   className={`filter-chain-item ${!item.enabled ? 'disabled' : ''}`}
                   draggable
                   onDragStart={(e) => handleDragStart(e, index, item)}
-                  onDragOver={handleDragOver}
+                  onDragOver={handleFilterDragOver}
                   onDrop={(e) => handleDrop(e, index)}
                 >
                   <div className="chain-item-header">
@@ -692,7 +937,7 @@ export const FilterCart: React.FC = () => {
                 <button 
                   className="btn btn-icon btn-theme-accent"
                   onClick={handleImportClick}
-                  title="Import filter chain from JSON file"
+                  title="Import filter chain(s) from JSON file(s) - supports multiple files (or drag & drop JSON files here)"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -744,6 +989,7 @@ export const FilterCart: React.FC = () => {
         ref={fileInputRef}
         type="file"
         accept=".json,application/json"
+        multiple
         style={{ display: 'none' }}
         onChange={handleFileImport}
       />
