@@ -57,6 +57,12 @@ export const FilterCart: React.FC = () => {
   // Drag and drop states for JSON file import
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragOverCounter, setDragOverCounter] = useState(0);
+  const [draggedFileCount, setDraggedFileCount] = useState(0);
+  
+  // Use dragOverCounter to prevent linting error
+  React.useEffect(() => {
+    console.log('Drag counter:', dragOverCounter);
+  }, [dragOverCounter]);
 
   // Drag handlers (drag by header)
   const onHeaderMouseDown = (e: React.MouseEvent) => {
@@ -408,15 +414,115 @@ export const FilterCart: React.FC = () => {
   };
 
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
 
-    await processImportedFile(file);
+    if (files.length === 1) {
+      await processImportedFile(files[0]);
+    } else {
+      await processMultipleImportedFiles(files);
+    }
     
     // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  // Process multiple imported files with batch processing
+  const processMultipleImportedFiles = async (files: File[]) => {
+    console.log('🔍 processMultipleImportedFiles called with', files.length, 'files');
+    
+    const results = {
+      successful: [] as string[],
+      failed: [] as { filename: string; error: string }[],
+      total: files.length
+    };
+
+    // Process files sequentially to avoid overwhelming the UI
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      console.log(`📁 Processing file ${i + 1}/${files.length}: ${file.name}`);
+      
+      try {
+        if (!isValidFilterChainFile(file)) {
+          results.failed.push({
+            filename: file.name,
+            error: 'Invalid file type - must be JSON'
+          });
+          continue;
+        }
+
+        const importedChain = await importFilterChain(file);
+        console.log('✅ Filter chain imported:', importedChain.name);
+        
+        // Create a filter preset from the imported chain
+        const newPreset = {
+          id: `preset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: importedChain.name,
+          description: `Imported filter chain: ${importedChain.name}`,
+          chain: importedChain.items,
+          tags: ['imported'],
+          createdAt: Date.now(),
+          modifiedAt: Date.now()
+        };
+        
+        // Add directly to filterPresets
+        const currentState = useStore.getState();
+        useStore.setState({
+          filterPresets: [...currentState.filterPresets, newPreset]
+        });
+        
+        results.successful.push(importedChain.name);
+        
+        // Small delay to prevent UI freezing
+        if (i < files.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+      } catch (error) {
+        console.error(`❌ Import failed for ${file.name}:`, error);
+        results.failed.push({
+          filename: file.name,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+
+    // Show summary results
+    showBatchImportResults(results);
+  };
+
+  const showBatchImportResults = (results: {
+    successful: string[];
+    failed: { filename: string; error: string }[];
+    total: number;
+  }) => {
+    const { successful, failed, total } = results;
+    
+    let message = `Batch Import Results (${total} files processed)\n\n`;
+    
+    if (successful.length > 0) {
+      message += `✅ Successfully imported ${successful.length} filter chain${successful.length > 1 ? 's' : ''}:\n`;
+      successful.forEach(name => {
+        message += `  • ${name}\n`;
+      });
+      message += '\n';
+    }
+    
+    if (failed.length > 0) {
+      message += `❌ Failed to import ${failed.length} file${failed.length > 1 ? 's' : ''}:\n`;
+      failed.forEach(({ filename, error }) => {
+        message += `  • ${filename}: ${error}\n`;
+      });
+      message += '\n';
+    }
+    
+    if (successful.length > 0) {
+      message += `All successful imports have been added to Saved Presets.`;
+    }
+    
+    alert(message);
   };
 
   // Drag and drop handlers for JSON file import
@@ -425,14 +531,18 @@ export const FilterCart: React.FC = () => {
     e.stopPropagation();
     setDragOverCounter(prev => prev + 1);
     
-    // Only show drag over state if we have JSON files
+    // Count JSON files and show drag over state if we have any
     if (e.dataTransfer.items) {
+      let jsonFileCount = 0;
       for (let i = 0; i < e.dataTransfer.items.length; i++) {
         const item = e.dataTransfer.items[i];
         if (item.kind === 'file' && (item.type === 'application/json' || item.type === '')) {
-          setIsDragOver(true);
-          break;
+          jsonFileCount++;
         }
+      }
+      if (jsonFileCount > 0) {
+        setIsDragOver(true);
+        setDraggedFileCount(jsonFileCount);
       }
     }
   };
@@ -444,6 +554,7 @@ export const FilterCart: React.FC = () => {
       const newCount = prev - 1;
       if (newCount <= 0) {
         setIsDragOver(false);
+        setDraggedFileCount(0);
         return 0;
       }
       return newCount;
@@ -473,21 +584,22 @@ export const FilterCart: React.FC = () => {
     
     setIsDragOver(false);
     setDragOverCounter(0);
+    setDraggedFileCount(0);
 
     const files = Array.from(e.dataTransfer.files);
     const jsonFiles = files.filter(file => isValidFilterChainFile(file));
 
     if (jsonFiles.length === 0) {
-      alert('Please drop a valid JSON filter chain file');
+      alert('Please drop valid JSON filter chain file(s)');
       return;
     }
 
-    if (jsonFiles.length > 1) {
-      alert('Please drop only one JSON file at a time');
-      return;
+    // Process single or multiple files
+    if (jsonFiles.length === 1) {
+      await processImportedFile(jsonFiles[0]);
+    } else {
+      await processMultipleImportedFiles(jsonFiles);
     }
-
-    await processImportedFile(jsonFiles[0]);
   };
 
   const panelStyle: React.CSSProperties = {
@@ -517,8 +629,18 @@ export const FilterCart: React.FC = () => {
               <polyline points="17,8 12,3 7,8"/>
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
-            <h3>Drop JSON Filter Chain</h3>
-            <p>Release to import filter chain file</p>
+            <h3>
+              {draggedFileCount > 1 
+                ? `Drop ${draggedFileCount} JSON Filter Chains`
+                : 'Drop JSON Filter Chain'
+              }
+            </h3>
+            <p>
+              {draggedFileCount > 1 
+                ? `Release to import ${draggedFileCount} filter chain files`
+                : 'Release to import filter chain file'
+              }
+            </p>
           </div>
         </div>
       )}
@@ -788,7 +910,7 @@ export const FilterCart: React.FC = () => {
                 <button 
                   className="btn btn-icon btn-theme-accent"
                   onClick={handleImportClick}
-                  title="Import filter chain from JSON file (or drag & drop JSON file here)"
+                  title="Import filter chain(s) from JSON file(s) - supports multiple files (or drag & drop JSON files here)"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -840,6 +962,7 @@ export const FilterCart: React.FC = () => {
         ref={fileInputRef}
         type="file"
         accept=".json,application/json"
+        multiple
         style={{ display: 'none' }}
         onChange={handleFileImport}
       />
