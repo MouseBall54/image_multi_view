@@ -1,8 +1,10 @@
 {
-  "name": "image-compare-viewer",
+  "name": "compareX",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "version": "1.0.0",
+  "description": "Advanced image comparison and analysis tool",
+  "author": "CompareX Team",
+  "main": "electron.js",
   "homepage": "https://mouseball54.github.io/image_multi_view/",
   "scripts": {
     "dev": "vite",
@@ -10,7 +12,11 @@
     "lint": "tsc",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist -b gh-pages"
+    "deploy": "gh-pages -d dist -b gh-pages",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "electron:pack": "cross-env ELECTRON=1 npm run build && electron-builder --publish=never",
+    "electron:pack:win": "cross-env ELECTRON=1 npm run build && electron-builder --win --publish=never",
+    "electron:dist": "npm run build && electron-builder --publish=always"
   },
   "dependencies": {
     "opencv-ts": "^1.3.6",
@@ -24,8 +30,54 @@
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^9.2.0",
+    "cross-env": "^10.0.0",
+    "electron": "^37.3.1",
+    "electron-builder": "^26.0.12",
     "gh-pages": "^6.3.0",
+    "sharp": "^0.34.3",
+    "svg2img": "^1.0.0-beta.2",
     "typescript": "^5.2.2",
-    "vite": "^5.2.0"
+    "vite": "^5.2.0",
+    "wait-on": "^8.0.4"
+  },
+  "build": {
+    "appId": "com.example.compareX",
+    "productName": "CompareX",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "${productName}-${version}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "CompareX"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png",
+      "category": "Graphics"
+    },
+    "mac": {
+      "icon": "assets/icon.png",
+      "category": "public.app-category.graphics-design"
+    }
   }
 }
