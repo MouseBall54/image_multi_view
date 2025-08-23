@@ -421,6 +421,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Made with ❤️ by [MouseBall54](https://github.com/MouseBall54)**
-
 *CompareX - Where image analysis meets professional workflow*
