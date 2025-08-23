@@ -271,7 +271,7 @@ interface State {
 }
 
 export const useStore = create<State>((set) => ({
-  appMode: "compare",
+  appMode: "single",
   pinpointMouseMode: "pin",
   stripExt: true,
   numViewers: 2,

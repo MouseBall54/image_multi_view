@@ -4,6 +4,7 @@ import type { AppMode } from "./types";
 import { CompareMode, CompareModeHandle } from './modes/CompareMode';
 import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
+import { SingleMode, SingleModeHandle } from "./modes/SingleMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterControls } from "./components/FilterControls";
 import { FilterCart } from "./components/FilterCart";
@@ -84,6 +85,7 @@ export default function App() {
   const compareModeRef = useRef<CompareModeHandle>(null);
   const pinpointModeRef = useRef<PinpointModeHandle>(null);
   const analysisModeRef = useRef<AnalysisModeHandle>(null);
+  const singleModeRef = useRef<SingleModeHandle>(null);
 
   const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -102,6 +104,8 @@ export default function App() {
       dataUrl = await pinpointModeRef.current.capture(opts);
     } else if (appMode === 'analysis' && analysisModeRef.current) {
       dataUrl = await analysisModeRef.current.capture(opts);
+    } else if (appMode === 'single' && singleModeRef.current) {
+      dataUrl = await singleModeRef.current.capture(opts);
     }
     if (dataUrl) {
       setCapturedImage(dataUrl);
@@ -193,7 +197,7 @@ export default function App() {
       );
       const previewBlocks = !!(state.previewModal?.isOpen && state.previewModal?.position !== 'sidebar');
       const modalActive = state.toggleModalOpen || previewBlocks || state.activeFilterEditor !== null || isCaptureModalOpen || overlayPresent;
-      if (modalActive && (key === '1' || key === '2' || key === '3')) {
+      if (modalActive && (key === '1' || key === '2' || key === '3' || key === '4')) {
         e.preventDefault();
         return;
       }
@@ -213,9 +217,10 @@ export default function App() {
       }
 
       switch (key) {
-        case '1': setAppMode('compare'); break;
-        case '2': setAppMode('pinpoint'); break;
-        case '3': setAppMode('analysis'); break;
+        case '1': setAppMode('single'); break;
+        case '2': setAppMode('compare'); break;
+        case '3': setAppMode('pinpoint'); break;
+        case '4': setAppMode('analysis'); break;
         case 'r': resetView(); break;
         case 'i': setShowInfoPanel((prev: boolean) => !prev); break;
         case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
@@ -242,13 +247,15 @@ export default function App() {
         return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       case 'analysis':
         return <AnalysisMode ref={analysisModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
+      case 'single':
+        return <SingleMode ref={singleModeRef} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       default:
         return null;
     }
   };
 
   return (
-    <div className={`app ${showFilterCart ? 'filter-cart-open' : ''} ${previewModal.isOpen && previewModal.position === 'sidebar' ? 'preview-active' : ''}`}>
+    <div className={`app ${appMode === 'single' ? 'single-mode' : ''} ${showFilterCart ? 'filter-cart-open' : ''} ${previewModal.isOpen && previewModal.position === 'sidebar' ? 'preview-active' : ''}`}>
       <header>
         <div className="title-container">
           <h1
@@ -267,6 +274,7 @@ export default function App() {
           <div className="controls-main">
             <label><span>Mode:</span>
               <select value={appMode} onChange={e => setAppMode(e.target.value as AppMode)}>
+                <option value="single">Single</option>
                 <option value="compare">Compare</option>
                 <option value="pinpoint">Pinpoint</option>
                 <option value="analysis">Analysis</option>
@@ -322,7 +330,11 @@ export default function App() {
               className={"toggle-main-btn"}
               onClick={() => openToggleModal()}
               title={"Toggle Mode (Space)"}
-              disabled={selectedViewers.length === 0 || (appMode === 'compare' && !current) || (appMode === 'analysis' && !analysisFile)}
+              disabled={
+                selectedViewers.length === 0 ||
+                ((appMode === 'compare' || appMode === 'single') && !current) ||
+                (appMode === 'analysis' && !analysisFile)
+              }
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
               Toggle ({selectedViewers.length})
@@ -369,7 +381,7 @@ export default function App() {
             </div>
           </div>
           <div className="controls-right">
-            {appMode === 'compare' && <CompareRotationControl />}
+            {(appMode === 'compare' || appMode === 'single') && <CompareRotationControl />}
             {appMode === 'analysis' && <AnalysisRotationControl />}
             {appMode === 'pinpoint' && <PinpointGlobalRotationControl />}
             {appMode === 'pinpoint' && (
