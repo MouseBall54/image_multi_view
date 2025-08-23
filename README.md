@@ -108,6 +108,115 @@ npm run preview
 npm run deploy
 ```
 
+## Windows Desktop App Build
+
+CompareX can be built as a native Windows desktop application using Electron.
+
+### Prerequisites
+
+- Node.js (v18 or later)
+- Windows operating system (for proper ICO icon generation)
+- Git (for cloning the repository)
+
+### Setup
+
+1. **Clone and install dependencies:**
+   ```bash
+   git clone <repository-url>
+   cd image_multi_view_win
+   npm install
+   ```
+
+2. **Verify icon assets:**
+   Ensure the following icon files exist in the `assets/` folder:
+   - `icon.png` - Main source icon (any size, preferably 512x512 or larger)
+   - `icon-16.png` through `icon-256.png` - Generated icon sizes
+   - `icon.ico` - Windows ICO file containing multiple sizes
+
+### Build Commands
+
+- **Development mode:**
+  ```bash
+  npm run electron:dev
+  ```
+  Runs the Electron app in development mode with hot reload.
+
+- **Build Windows installer:**
+  ```bash
+  npm run electron:pack:win
+  ```
+  Creates a Windows installer (.exe) in the `dist-electron/` folder.
+
+- **Build all platforms:**
+  ```bash
+  npm run electron:pack
+  ```
+  Builds for all configured platforms.
+
+### Build Output
+
+After running `npm run electron:pack:win`, you'll find:
+
+- `CompareX Setup 1.0.0.exe` - Windows installer
+- `win-unpacked/CompareX.exe` - Standalone executable
+- `latest.yml` - Auto-updater metadata
+
+### Icon Configuration
+
+The Windows build uses a custom icon system with multiple sizes:
+
+- **Source**: `assets/icon.png` (X_4.png design with 4 different X styles)
+- **Sizes**: 16×16, 32×32, 48×48, 64×64, 128×128, 256×256 pixels
+- **Format**: ICO file containing all sizes for optimal Windows compatibility
+- **Usage**: App icon, taskbar, desktop shortcut, installer
+
+### Build Configuration
+
+The Windows build is configured in `package.json`:
+
+```json
+"build": {
+  "win": {
+    "target": "nsis",
+    "icon": "assets/icon.ico",
+    "requestedExecutionLevel": "asInvoker",
+    "artifactName": "${productName}-${version}-setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "installerIcon": "assets/icon.ico",
+    "uninstallerIcon": "assets/icon.ico"
+  }
+}
+```
+
+### Troubleshooting
+
+**ICO file errors:**
+- Ensure `assets/icon.ico` contains proper Windows ICO format with multiple sizes
+- The ICO must include at least a 256×256 pixel image
+- Use proper ICO generation tools if regeneration is needed
+
+**Build failures:**
+- Verify Node.js version (v18+)
+- Clear `node_modules` and reinstall: `rm -rf node_modules && npm install`
+- Check that all required PNG sizes exist in `assets/` folder
+
+**Missing dependencies:**
+- Run `npm install` to ensure all dev dependencies are installed
+- Sharp and electron-builder packages are required for the build process
+
+### Distribution
+
+The generated installer (`CompareX Setup 1.0.0.exe`) can be distributed to users. It includes:
+- NSIS-based installer with custom CompareX icon
+- Desktop and Start Menu shortcuts
+- Uninstaller with proper cleanup
+- No admin privileges required for installation
+
 ## Stack & Structure
 
 - React 18 + TypeScript + Vite

@@ -7,7 +7,13 @@
       "Bash(npm install)",
       "Bash(npx tsc:*)",
       "Bash(npm install:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npm run electron:dev:*)",
+      "Bash(npm run electron:pack:*)",
+      "Bash(sudo dpkg:*)",
+      "Bash(npx electron-builder:*)",
+      "Bash(node:*)",
+      "Bash(cp:*)"
     ],
     "deny": [],
     "ask": []
