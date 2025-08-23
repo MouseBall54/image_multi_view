@@ -37,6 +37,7 @@ export const FilterCart: React.FC = () => {
     previewModal,
     previewSize,
     closePreviewModal,
+    addToast,
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
@@ -61,7 +62,7 @@ export const FilterCart: React.FC = () => {
   
   // Use dragOverCounter to prevent linting error
   React.useEffect(() => {
-    console.log('Drag counter:', dragOverCounter);
+    // Drag counter tracking for proper leave detection
   }, [dragOverCounter]);
 
   // Drag handlers (drag by header)
@@ -363,22 +364,20 @@ export const FilterCart: React.FC = () => {
 
   // Shared import logic for both file input and drag & drop
   const processImportedFile = async (file: File) => {
-    console.log('🔍 processImportedFile called');
-    console.log('📁 File:', file.name, file.type);
-
     if (!isValidFilterChainFile(file)) {
-      console.log('❌ Invalid file type');
-      alert('Please select a valid JSON filter chain file');
+      addToast({
+        type: 'error',
+        title: 'Invalid File Format',
+        message: `Unable to process "${file.name}"`,
+        details: ['This file does not appear to be a JSON file', 'Please select a valid JSON file containing filter chain data'],
+        duration: 6000
+      });
       return;
     }
-    console.log('✅ File validation passed');
 
     try {
-      console.log('🔄 Starting import process...');
       const importedChain = await importFilterChain(file);
-      console.log('✅ Filter chain imported:', importedChain);
       
-      console.log('🔄 Creating filter preset...');
       // Create a filter preset from the imported chain
       const newPreset = {
         id: `preset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -396,20 +395,32 @@ export const FilterCart: React.FC = () => {
         filterPresets: [...currentState.filterPresets, newPreset]
       });
       
-      console.log('✅ Preset created and added to Saved Presets');
-      
       // Show detailed success message
       const itemCount = importedChain.items.length;
       const filterNames = importedChain.items.map(item => 
         ALL_FILTERS.find(f => f.type === item.filterType)?.name || item.filterType
       ).join(', ');
       
-      alert(`Successfully imported filter chain: "${importedChain.name}"\n\n` +
-            `${itemCount} filter${itemCount > 1 ? 's' : ''}: ${filterNames}\n\n` +
-            `Added to Saved Presets - you can now load it from the presets list.`);
+      addToast({
+        type: 'success',
+        title: 'Import Successful',
+        message: `"${importedChain.name}" has been imported`,
+        details: [
+          `${itemCount} filter${itemCount > 1 ? 's' : ''}: ${filterNames}`,
+          'Added to Saved Presets - you can now load it from the presets list',
+          'Note: When exporting, files use the format: [name]-compareX-filter-[yyyy-mm-dd].json'
+        ],
+        duration: 8000
+      });
     } catch (error) {
-      console.error('❌ Import failed:', error);
-      alert(`Failed to import filter chain: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      addToast({
+        type: 'error',
+        title: 'Import Failed',
+        message: `Failed to import "${file.name}"`,
+        details: [errorMessage, 'Please verify that this JSON file contains valid filter chain data'],
+        duration: 8000
+      });
     }
   };
 
@@ -431,8 +442,6 @@ export const FilterCart: React.FC = () => {
 
   // Process multiple imported files with batch processing
   const processMultipleImportedFiles = async (files: File[]) => {
-    console.log('🔍 processMultipleImportedFiles called with', files.length, 'files');
-    
     const results = {
       successful: [] as string[],
       failed: [] as { filename: string; error: string }[],
@@ -442,19 +451,17 @@ export const FilterCart: React.FC = () => {
     // Process files sequentially to avoid overwhelming the UI
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      console.log(`📁 Processing file ${i + 1}/${files.length}: ${file.name}`);
       
       try {
         if (!isValidFilterChainFile(file)) {
           results.failed.push({
             filename: file.name,
-            error: 'Invalid file type - must be JSON'
+            error: 'Not a JSON file'
           });
           continue;
         }
 
         const importedChain = await importFilterChain(file);
-        console.log('✅ Filter chain imported:', importedChain.name);
         
         // Create a filter preset from the imported chain
         const newPreset = {
@@ -481,7 +488,6 @@ export const FilterCart: React.FC = () => {
         }
         
       } catch (error) {
-        console.error(`❌ Import failed for ${file.name}:`, error);
         results.failed.push({
           filename: file.name,
           error: error instanceof Error ? error.message : 'Unknown error'
@@ -500,29 +506,44 @@ export const FilterCart: React.FC = () => {
   }) => {
     const { successful, failed, total } = results;
     
-    let message = `Batch Import Results (${total} files processed)\n\n`;
+    const details: string[] = [];
     
     if (successful.length > 0) {
-      message += `✅ Successfully imported ${successful.length} filter chain${successful.length > 1 ? 's' : ''}:\n`;
+      details.push(`✅ Successfully imported ${successful.length} filter chain${successful.length > 1 ? 's' : ''}:`);
       successful.forEach(name => {
-        message += `  • ${name}\n`;
+        details.push(`  • ${name}`);
       });
-      message += '\n';
     }
     
     if (failed.length > 0) {
-      message += `❌ Failed to import ${failed.length} file${failed.length > 1 ? 's' : ''}:\n`;
+      if (successful.length > 0) details.push(''); // Add spacing
+      details.push(`❌ Failed to import ${failed.length} file${failed.length > 1 ? 's' : ''}:`);
       failed.forEach(({ filename, error }) => {
-        message += `  • ${filename}: ${error}\n`;
+        details.push(`  • ${filename}: ${error}`);
       });
-      message += '\n';
     }
     
     if (successful.length > 0) {
-      message += `All successful imports have been added to Saved Presets.`;
+      details.push('');
+      details.push('All successful imports have been added to Saved Presets');
+      details.push('Files are now saved with format: [name]-compareX-filter-[yyyy-mm-dd].json');
+    }
+
+    // Determine toast type based on results
+    let toastType: 'success' | 'warning' | 'error' = 'success';
+    if (failed.length > 0 && successful.length === 0) {
+      toastType = 'error';
+    } else if (failed.length > 0) {
+      toastType = 'warning';
     }
     
-    alert(message);
+    addToast({
+      type: toastType,
+      title: 'Batch Import Complete',
+      message: `${total} files processed: ${successful.length} successful, ${failed.length} failed`,
+      details,
+      duration: 10000
+    });
   };
 
   // Drag and drop handlers for JSON file import
@@ -590,7 +611,13 @@ export const FilterCart: React.FC = () => {
     const jsonFiles = files.filter(file => isValidFilterChainFile(file));
 
     if (jsonFiles.length === 0) {
-      alert('Please drop valid JSON filter chain file(s)');
+      addToast({
+        type: 'warning',
+        title: 'No Valid Files',
+        message: 'No valid JSON files found in the dropped items',
+        details: ['Please drop JSON files that may contain filter chain data'],
+        duration: 5000
+      });
       return;
     }
 

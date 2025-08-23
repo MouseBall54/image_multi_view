@@ -8,6 +8,7 @@ import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterControls } from "./components/FilterControls";
 import { FilterCart } from "./components/FilterCart";
 import { FilterPreviewModal } from "./components/FilterPreviewModal";
+import ToastContainer from "./components/ToastContainer";
 import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
 import { CompareRotationControl } from "./components/CompareRotationControl";
 import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
@@ -507,6 +508,8 @@ export default function App() {
           stepIndex={previewModal.stepIndex}
         />
       )}
+      
+      <ToastContainer />
     </div>
   );
 }

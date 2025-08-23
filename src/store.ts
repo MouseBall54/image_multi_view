@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Viewport, AppMode, FolderKey, Pinpoint, PinpointMouseMode, MatchedItem, FilterType, GridColor, FilterChain, FilterChainItem, FilterPreset } from "./types";
 import { DEFAULT_VIEWPORT } from "./config";
 import { FolderData } from "./utils/folder";
+import type { ToastMessage } from "./components/Toast";
 
 export interface FolderState {
   data: FolderData;
@@ -155,6 +156,8 @@ interface State {
   };
   previewSize: 'S' | 'M' | 'L';
 
+  // Toast notification states
+  toasts: ToastMessage[];
 
   setAppMode: (m: AppMode) => void;
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
@@ -260,6 +263,11 @@ interface State {
     position?: 'modal' | 'sidebar';
   }>) => void;
 
+  // Toast notification actions
+  addToast: (toast: Omit<ToastMessage, 'id'>) => void;
+  removeToast: (id: string) => void;
+  clearAllToasts: () => void;
+
 }
 
 export const useStore = create<State>((set) => ({
@@ -322,6 +330,9 @@ export const useStore = create<State>((set) => ({
     mode: 'single',
   },
   previewSize: 'M',
+  
+  // Toast notification states
+  toasts: [],
 
 
   setAppMode: (m) => set({ appMode: m }),
@@ -656,6 +667,20 @@ export const useStore = create<State>((set) => ({
       ...updates
     }
   })),
+
+  // Toast notification actions
+  addToast: (toast) => set(state => ({
+    toasts: [...state.toasts, {
+      ...toast,
+      id: `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }]
+  })),
+
+  removeToast: (id) => set(state => ({
+    toasts: state.toasts.filter(toast => toast.id !== id)
+  })),
+
+  clearAllToasts: () => set({ toasts: [] }),
 
 }));
 

@@ -40,16 +40,16 @@ const FILTER_PARAMETER_MAP: Record<FilterType, string[]> = {
   'histogramequalization': [],
   'clahe': ['clipLimit', 'gridSize'],
   'localhistogramequalization': ['kernelSize'],
+  'adaptivehistogramequalization': ['clipLimit', 'gridSize'],
   'bilateral': ['kernelSize', 'sigmaColor', 'sigmaSpace'],
   'nonlocalmeans': ['patchSize', 'searchWindowSize', 'h'],
-  'edgepreserving': ['kernelSize', 'sigmaColor', 'sigmaSpace'],
   'boxblur': ['kernelSize'],
   'gaussianblur': ['kernelSize', 'sigma'],
   'median': ['kernelSize'],
   'weightedmedian': ['kernelSize'],
   'alphatrimmedmean': ['kernelSize', 'alpha'],
   'sharpen': ['sharpenAmount'],
-  'unsharp': ['kernelSize', 'sigma', 'sharpenAmount'],
+  'unsharpmask': ['kernelSize', 'sigma', 'sharpenAmount'],
   'sobel': [],
   'scharr': [],
   'prewitt': [],
@@ -60,17 +60,22 @@ const FILTER_PARAMETER_MAP: Record<FilterType, string[]> = {
   'dog': ['kernelSize', 'sigma', 'sigma2'],
   'marrhildreth': ['kernelSize', 'sigma', 'lowThreshold', 'highThreshold'],
   'gabor': ['kernelSize', 'sigma', 'theta', 'lambda', 'gamma', 'psi'],
-  'laws': ['lawsKernelType'],
+  'lawstextureenergy': ['lawsKernelType'],
   'morph_open': ['kernelSize', 'morphShape', 'morphIterations'],
   'morph_close': ['kernelSize', 'morphShape', 'morphIterations'],
   'morph_tophat': ['kernelSize', 'morphShape', 'morphIterations'],
   'morph_blackhat': ['kernelSize', 'morphShape', 'morphIterations'],
   'morph_gradient': ['kernelSize', 'morphShape', 'morphIterations'],
   'distancetransform': ['threshold'],
-  'fft': [],
-  'hpf': ['cutoff'],
-  'lpf': ['cutoff'],
-  'watershed': ['iterations', 'kappa', 'epsilon']
+  'dft': [],
+  'dct': [],
+  'wavelet': [],
+  'highpass': ['cutoff'],
+  'guided': ['kernelSize', 'epsilon'],
+  'edgepreserving': ['kernelSize', 'sigmaColor', 'sigmaSpace'],
+  'anisotropicdiffusion': ['iterations', 'kappa', 'epsilon'],
+  'lbp': ['radius', 'neighbors'],
+  'filterchain': []
 };
 
 // Function to get only relevant parameters for a filter type
@@ -117,7 +122,7 @@ export const exportFilterChain = (chain: FilterChain, description?: string): voi
   
   const link = document.createElement('a');
   link.href = url;
-  link.download = `filter-chain-${chain.name.replace(/[^a-zA-Z0-9]/g, '_')}-${new Date().toISOString().split('T')[0]}.json`;
+  link.download = `${chain.name.replace(/[^a-zA-Z0-9]/g, '_')}-compareX-filter-${new Date().toISOString().split('T')[0]}.json`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -145,28 +150,71 @@ export const importFilterChain = (file: File): Promise<FilterChain> => {
     reader.onload = (event) => {
       try {
         const jsonString = event.target?.result as string;
-        const importData = JSON.parse(jsonString) as ExportedFilterChain;
+        const data = JSON.parse(jsonString);
         
-        // Validate file format
-        if (!importData.version || !importData.chain) {
-          throw new Error('Invalid filter chain file format');
+        // Try to extract filter chain from different possible formats
+        let chainData = null;
+        
+        // Format 1: Exported filter chain format (with version and chain wrapper)
+        if (data.version && data.chain) {
+          chainData = data.chain;
+        }
+        // Format 2: Direct filter chain format
+        else if (data.name && Array.isArray(data.items)) {
+          chainData = data;
+        }
+        // Format 3: Filter preset format
+        else if (data.preset && data.preset.name && Array.isArray(data.preset.chain)) {
+          chainData = {
+            name: data.preset.name,
+            items: data.preset.chain,
+            id: data.preset.id || `preset-${Date.now()}`,
+            createdAt: data.preset.createdAt || Date.now(),
+            modifiedAt: data.preset.modifiedAt || Date.now()
+          };
+        }
+        
+        if (!chainData) {
+          throw new Error('This JSON file does not appear to be a filter chain. Please check if the file contains valid filter chain data with "name" and "items" properties.');
         }
         
         // Validate chain structure
-        if (!importData.chain.name || !Array.isArray(importData.chain.items)) {
-          throw new Error('Invalid filter chain structure');
+        if (!chainData.name || typeof chainData.name !== 'string') {
+          throw new Error('Invalid filter chain: missing or invalid "name" property. Please verify this is a valid filter chain file.');
+        }
+        
+        if (!Array.isArray(chainData.items)) {
+          throw new Error('Invalid filter chain: "items" property must be an array of filters. Please check if this is a valid filter chain file.');
         }
         
         // Validate filter items
-        for (const item of importData.chain.items) {
-          if (!item.id || !item.filterType || !item.params || typeof item.enabled !== 'boolean') {
-            throw new Error('Invalid filter item structure');
+        for (let i = 0; i < chainData.items.length; i++) {
+          const item = chainData.items[i];
+          if (!item || typeof item !== 'object') {
+            throw new Error(`Invalid filter item at position ${i + 1}. Each filter must be an object with id, filterType, params, and enabled properties.`);
+          }
+          
+          if (!item.id || typeof item.id !== 'string') {
+            throw new Error(`Filter item at position ${i + 1} is missing a valid "id" property.`);
+          }
+          
+          if (!item.filterType || typeof item.filterType !== 'string') {
+            throw new Error(`Filter item at position ${i + 1} is missing a valid "filterType" property.`);
+          }
+          
+          if (!item.hasOwnProperty('params') || typeof item.params !== 'object') {
+            throw new Error(`Filter item at position ${i + 1} is missing valid "params" property.`);
+          }
+          
+          if (typeof item.enabled !== 'boolean') {
+            throw new Error(`Filter item at position ${i + 1} is missing valid "enabled" property (must be true or false).`);
           }
         }
         
         // Create new chain with updated timestamps and ID
         const importedChain: FilterChain = {
-          ...importData.chain,
+          name: chainData.name,
+          items: chainData.items,
           id: `imported-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           createdAt: Date.now(),
           modifiedAt: Date.now(),
@@ -174,7 +222,11 @@ export const importFilterChain = (file: File): Promise<FilterChain> => {
         
         resolve(importedChain);
       } catch (error) {
-        reject(new Error(`Failed to parse filter chain file: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        if (error instanceof SyntaxError) {
+          reject(new Error('Invalid JSON file format. Please ensure the file contains valid JSON data.'));
+        } else {
+          reject(error);
+        }
       }
     };
     
@@ -186,7 +238,7 @@ export const importFilterChain = (file: File): Promise<FilterChain> => {
   });
 };
 
-// Validate file extension
+// Validate file extension - accepts any JSON file
 export const isValidFilterChainFile = (file: File): boolean => {
   return file.type === 'application/json' || file.name.toLowerCase().endsWith('.json');
 };
