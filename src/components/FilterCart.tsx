@@ -18,7 +18,6 @@ export const FilterCart: React.FC = () => {
     filterPresets,
     activeFilterEditor,
     activeCanvasKey,
-    appMode,
     current,
     folders,
     analysisFile,
@@ -54,6 +53,10 @@ export const FilterCart: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
+  
+  // Drag and drop states for JSON file import
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dragOverCounter, setDragOverCounter] = useState(0);
 
   // Drag handlers (drag by header)
   const onHeaderMouseDown = (e: React.MouseEvent) => {
@@ -292,7 +295,7 @@ export const FilterCart: React.FC = () => {
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleFilterDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
@@ -352,14 +355,10 @@ export const FilterCart: React.FC = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('🔍 handleFileImport called');
-    const file = event.target.files?.[0];
-    if (!file) {
-      console.log('❌ No file selected');
-      return;
-    }
-    console.log('📁 File selected:', file.name, file.type);
+  // Shared import logic for both file input and drag & drop
+  const processImportedFile = async (file: File) => {
+    console.log('🔍 processImportedFile called');
+    console.log('📁 File:', file.name, file.type);
 
     if (!isValidFilterChainFile(file)) {
       console.log('❌ Invalid file type');
@@ -405,12 +404,90 @@ export const FilterCart: React.FC = () => {
     } catch (error) {
       console.error('❌ Import failed:', error);
       alert(`Failed to import filter chain: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    await processImportedFile(file);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Drag and drop handlers for JSON file import
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCounter(prev => prev + 1);
+    
+    // Only show drag over state if we have JSON files
+    if (e.dataTransfer.items) {
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        const item = e.dataTransfer.items[i];
+        if (item.kind === 'file' && (item.type === 'application/json' || item.type === '')) {
+          setIsDragOver(true);
+          break;
+        }
       }
     }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCounter(prev => {
+      const newCount = prev - 1;
+      if (newCount <= 0) {
+        setIsDragOver(false);
+        return 0;
+      }
+      return newCount;
+    });
+  };
+
+  const handleFileDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Set the drag effect to copy for JSON files
+    if (e.dataTransfer.items) {
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        const item = e.dataTransfer.items[i];
+        if (item.kind === 'file' && (item.type === 'application/json' || item.type === '')) {
+          e.dataTransfer.dropEffect = 'copy';
+          return;
+        }
+      }
+    }
+    e.dataTransfer.dropEffect = 'none';
+  };
+
+  const handleFileDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDragOver(false);
+    setDragOverCounter(0);
+
+    const files = Array.from(e.dataTransfer.files);
+    const jsonFiles = files.filter(file => isValidFilterChainFile(file));
+
+    if (jsonFiles.length === 0) {
+      alert('Please drop a valid JSON filter chain file');
+      return;
+    }
+
+    if (jsonFiles.length > 1) {
+      alert('Please drop only one JSON file at a time');
+      return;
+    }
+
+    await processImportedFile(jsonFiles[0]);
   };
 
   const panelStyle: React.CSSProperties = {
@@ -423,10 +500,29 @@ export const FilterCart: React.FC = () => {
   return (
     <div 
       ref={panelRef}
-      className={`filter-cart-panel ${previewClosing ? 'preview-closing' : ''}`}
+      className={`filter-cart-panel ${previewClosing ? 'preview-closing' : ''} ${isDragOver ? 'drag-over' : ''}`}
       data-preview-size={previewModal.isOpen && previewModal.position === 'sidebar' ? previewSize : undefined}
       style={panelStyle}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleFileDragOver}
+      onDrop={handleFileDrop}
     >
+      {/* Drag and Drop Overlay */}
+      {isDragOver && (
+        <div className="drag-overlay">
+          <div className="drag-overlay-content">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17,8 12,3 7,8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <h3>Drop JSON Filter Chain</h3>
+            <p>Release to import filter chain file</p>
+          </div>
+        </div>
+      )}
+
       <div className="filter-cart-header" onMouseDown={onHeaderMouseDown} style={{ cursor: 'grab' }}>
         <h3>Filter Chain ({filterCart.length})</h3>
         <button 
@@ -476,7 +572,7 @@ export const FilterCart: React.FC = () => {
                   className={`filter-chain-item ${!item.enabled ? 'disabled' : ''}`}
                   draggable
                   onDragStart={(e) => handleDragStart(e, index, item)}
-                  onDragOver={handleDragOver}
+                  onDragOver={handleFilterDragOver}
                   onDrop={(e) => handleDrop(e, index)}
                 >
                   <div className="chain-item-header">
@@ -692,7 +788,7 @@ export const FilterCart: React.FC = () => {
                 <button 
                   className="btn btn-icon btn-theme-accent"
                   onClick={handleImportClick}
-                  title="Import filter chain from JSON file"
+                  title="Import filter chain from JSON file (or drag & drop JSON file here)"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>

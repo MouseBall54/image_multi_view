@@ -40,7 +40,7 @@ const FILTER_PARAMETER_MAP: Record<FilterType, string[]> = {
   'histogramequalization': [],
   'clahe': ['clipLimit', 'gridSize'],
   'localhistogramequalization': ['kernelSize'],
-  'bilateralfilter': ['kernelSize', 'sigmaColor', 'sigmaSpace'],
+  'bilateral': ['kernelSize', 'sigmaColor', 'sigmaSpace'],
   'nonlocalmeans': ['patchSize', 'searchWindowSize', 'h'],
   'edgepreserving': ['kernelSize', 'sigmaColor', 'sigmaSpace'],
   'boxblur': ['kernelSize'],
