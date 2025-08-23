@@ -5,7 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](#)
 [![React](https://img.shields.io/badge/React-18-blue)](#)
 
-**CompareX**는 여러 이미지를 동시에 비교, 분석, 처리해야 하는 전문가를 위해 설계된 강력한 브라우저 기반 이미지 비교 및 분석 애플리케이션입니다. React와 TypeScript로 구축되어 고급 Filter 기능을 갖춘 세 가지 전문 viewing mode를 제공하며, 클라이언트 사이드 처리를 통해 완전한 프라이버시를 보장합니다.
+**CompareX**는 여러 이미지를 동시에 비교, 분석, 처리해야 하는 전문가를 위해 설계된 강력한 브라우저 기반 이미지 비교 및 분석 애플리케이션입니다. React와 TypeScript로 구축되어 고급 Filter 기능을 갖춘 네 가지 전문 viewing mode를 제공하며, 클라이언트 사이드 처리를 통해 완전한 프라이버시를 보장합니다.
 
 ## 🌐 Live Demo
 
@@ -20,10 +20,11 @@
 - **완전한 Privacy** - 이미지가 절대 기기를 벗어나지 않음
 - **서버 불필요** - offline 기능을 갖춘 순수 web application
 
-### 🎯 3가지 전문 Viewing Mode
-1. **Compare Mode** - 여러 folder의 side-by-side 비교
-2. **Pinpoint Mode** - reference point와 rotation을 이용한 정밀 alignment
-3. **Analysis Mode** - 고급 filter 적용 및 비교
+### 🎯 4가지 전문 Viewing Mode
+1. **Single Mode** - 통합 파일 리스트 기반의 집중 단일 뷰
+2. **Compare Mode** - 여러 folder의 side-by-side 비교
+3. **Pinpoint Mode** - reference point와 rotation을 이용한 정밀 alignment
+4. **Analysis Mode** - 고급 filter 적용 및 비교
 
 ### 🖼️ 고급 이미지 지원
 - **표준 Format**: JPEG, PNG, WebP, GIF, BMP
@@ -59,7 +60,7 @@
 
 ### 빠른 시작
 1. [live demo](https://mouseball54.github.io/image_multi_view/)에 접속
-2. 원하는 viewing mode 선택 (Compare/Pinpoint/Analysis)
+2. 원하는 viewing mode 선택 (Single/Compare/Pinpoint/Analysis)
 3. folder button을 클릭하여 이미지 로드
 4. 비교 및 분석 시작!
 
@@ -85,6 +86,19 @@ npm run deploy
 ```
 
 ## 🎛️ Viewing Mode
+
+### 0. Single Mode 🎥
+**적합한 용도: 집중 뷰, 빠른 필터링, 방해 요소 없는 관찰**
+
+- **통합 파일 리스트**: 로드된 폴더 전반의 파일을 통합해 보여줌 (파일 매칭/확장자 무시 옵션 없음)
+- **단일 뷰어**: 뷰어 영역을 가득 채우는 1×1 레이아웃
+- **Compare급 기능**: 필터, 미니맵, 그리드, 캡처, 프리뷰 시스템 그대로 사용
+- **드래그 앤 드롭**: 비어있는 폴더가 있으면 임시 폴더 생성, 없으면 첫 이미지를 즉시 표시
+
+#### 주요 기능:
+- 폴더 필터 + 검색이 가능한 통합 파일 리스트
+- 폴더별 필터 설정 및 프리뷰
+- 라벨 오버레이 포함 캡처
 
 ### 1. Compare Mode 🔍
 **적합한 용도: Multi-folder 비교, 파일 matching, side-by-side 분석**
@@ -227,17 +241,23 @@ npm run deploy
 
 ### 파일 관리
 - **Multi-Format 지원**: JPEG, PNG, TIFF, WebP, GIF, BMP
-- **Drag & Drop**: 쉬운 파일 로딩
-- **Folder 조직**: 알파벳순 folder 할당 (A-Z)
+- **Folder 조직**: 알파벳순 folder 할당 (A–Z)
 - **검색 및 Filter**: 모든 folder에서 파일 빠르게 찾기
 - **Batch 작업**: 여러 파일 동시 처리
+
+#### 드래그 앤 드롭 상세
+- **Single**: 이미지를 드롭하면 첫 빈 폴더에 임시 폴더 생성. 빈 폴더가 없으면 첫 이미지를 즉시 선택하여 표시.
+- **Compare**: 이미지를 드롭하면 첫 빈 폴더에 임시 폴더 생성, 폴더 간 파일명으로 매칭하여 비교.
+- **Pinpoint**: 이미지를 드롭하면 첫 빈 폴더에 임시 폴더 생성, 어느 뷰어에도 임의 이미지 로드 가능.
+- **Analysis**: 이미지를 드롭하면 임시 폴더 생성 후 첫 이미지를 자동 로드(나머지는 리스트에서 선택 가능).
 
 ## ⌨️ Keyboard Shortcut
 
 ### Mode 전환
-- **1** - Compare Mode로 전환
-- **2** - Pinpoint Mode로 전환  
-- **3** - Analysis Mode로 전환
+- **1** - Single Mode로 전환
+- **2** - Compare Mode로 전환
+- **3** - Pinpoint Mode로 전환  
+- **4** - Analysis Mode로 전환
 
 ### Navigation
 - **화살표 키** - view pan (이미지 로드 시)
@@ -296,6 +316,7 @@ src/
 │   ├── FolderControl.tsx   # 파일 browser
 │   └── ...
 ├── modes/              # Application mode
+│   ├── SingleMode.tsx      # 집중 단일 뷰
 │   ├── CompareMode.tsx     # Multi-folder 비교
 │   ├── PinpointMode.tsx    # Reference 기반 alignment
 │   └── AnalysisMode.tsx    # Single 이미지 분석
@@ -419,8 +440,5 @@ npm run deploy   # GitHub Pages에 deploy
 - **Discussion** - [GitHub Discussions](https://github.com/MouseBall54/image_multi_view/discussions)
 - **Wiki** - [Project Wiki](https://github.com/MouseBall54/image_multi_view/wiki)
 
----
-
-**[MouseBall54](https://github.com/MouseBall54)이 ❤️로 제작**
 
 *CompareX - 이미지 분석과 전문 workflow의 만남*
