@@ -223,6 +223,7 @@ main {
   display: flex; 
   flex-direction: column;
   background-color: var(--bg-med);
+  position: relative; /* Added for drag overlay positioning */
 }
 
 .filelist-header { 
@@ -2295,7 +2296,8 @@ main {
 }
 
 /* Drag and drop states */
-.filter-cart-panel.drag-over {
+.filter-cart-panel.drag-over,
+.filelist.drag-over {
   border-color: var(--accent-primary);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 123, 255, 0.3);
   background: var(--bg-light);
@@ -2349,6 +2351,38 @@ main {
   margin: 0;
   font-size: 0.9rem;
   opacity: 0.9;
+}
+
+/* Empty state styles for filelist */
+.filelist .empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
+.filelist .empty-state:hover {
+  background: transparent;
+}
+
+.filelist .empty-state-content {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 20px;
+}
+
+.filelist .empty-state-content p {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.filelist .empty-state-content small {
+  font-size: 0.85rem;
+  opacity: 0.7;
 }
 
 @keyframes bounce {

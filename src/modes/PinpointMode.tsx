@@ -8,6 +8,15 @@ import { MAX_ZOOM, MIN_ZOOM } from '../config';
 import { FolderControl } from '../components/FolderControl';
 import { ALL_FILTERS } from '../components/FilterControls';
 
+// Helper function to check if a file is a valid image
+const isValidImageFile = (file: File): boolean => {
+  const validTypes = [
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+    'image/bmp', 'image/svg+xml', 'image/tiff', 'image/tif'
+  ];
+  return validTypes.includes(file.type) || /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|tif)$/i.test(file.name);
+};
+
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
 interface PinpointImage {
@@ -39,11 +48,161 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     pinpointScales, setPinpointScale,
     activeCanvasKey, setActiveCanvasKey, clearFolder,
     openFilterEditor, viewerFilters, viewerFilterParams, viewerRows, viewerCols,
-    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, closeToggleModal
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [folderFilter, setFolderFilter] = useState<FolderKey | 'all'>('all');
+  
+  // Drag and drop states for image import
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dragOverCounter, setDragOverCounter] = useState(0);
+  const [draggedFileCount, setDraggedFileCount] = useState(0);
+
+  // Use dragOverCounter to prevent linting error
+  React.useEffect(() => {
+    // Drag counter tracking for proper leave detection
+  }, [dragOverCounter]);
+
+  // Helper function to find the first empty folder
+  const findEmptyFolder = (): FolderKey | null => {
+    for (const key of FOLDER_KEYS) {
+      if (!allFolders[key]) return key;
+    }
+    return null;
+  };
+
+  // Helper function to create a temporary folder with images
+  const createTemporaryFolder = async (folderKey: FolderKey, imageFiles: File[]): Promise<void> => {
+    try {
+      const fileMap = new Map<string, File>();
+      imageFiles.forEach(file => {
+        fileMap.set(file.name, file);
+      });
+
+      // Create folder data manually since FolderData is not directly available
+      const folderData = { 
+        name: `Temporary ${folderKey}`,
+        files: fileMap,
+        path: '' // temporary folder doesn't have real path
+      };
+      const folderState = {
+        data: folderData,
+        alias: `Temp ${folderKey} (${imageFiles.length})`
+      };
+
+      setFolder(folderKey, folderState);
+
+      // Show success message
+      if (addToast) {
+        addToast({
+          type: 'success',
+          title: 'Images Added',
+          message: `Created temporary folder ${folderKey}`,
+          details: [
+            `Added ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''}`,
+            `Files: ${imageFiles.map(f => f.name).join(', ')}`
+          ],
+          duration: 5000
+        });
+      }
+    } catch (error) {
+      if (addToast) {
+        addToast({
+          type: 'error',
+          title: 'Failed to Create Temporary Folder',
+          message: `Could not create folder ${folderKey}`,
+          details: [error instanceof Error ? error.message : 'Unknown error'],
+          duration: 5000
+        });
+      }
+    }
+  };
+
+  // Drag and drop handlers for image import
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCounter(prev => prev + 1);
+    
+    // Count image files and show drag over state if we have any
+    if (e.dataTransfer.items) {
+      let imageFileCount = 0;
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        const item = e.dataTransfer.items[i];
+        if (item.kind === 'file') {
+          imageFileCount++;
+        }
+      }
+      if (imageFileCount > 0) {
+        setIsDragOver(true);
+        setDraggedFileCount(imageFileCount);
+      }
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCounter(prev => {
+      const newCount = prev - 1;
+      if (newCount <= 0) {
+        setIsDragOver(false);
+        setDraggedFileCount(0);
+        return 0;
+      }
+      return newCount;
+    });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDragOver(false);
+    setDragOverCounter(0);
+    setDraggedFileCount(0);
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFiles = files.filter(file => isValidImageFile(file));
+
+    if (imageFiles.length === 0) {
+      if (addToast) {
+        addToast({
+          type: 'warning',
+          title: 'No Valid Images',
+          message: 'No valid image files found in the dropped items',
+          details: ['Please drop image files (JPG, PNG, GIF, WebP, BMP, SVG, TIFF)'],
+          duration: 5000
+        });
+      }
+      return;
+    }
+
+    // Find first empty folder
+    const emptyFolder = findEmptyFolder();
+    if (!emptyFolder) {
+      if (addToast) {
+        addToast({
+          type: 'error',
+          title: 'No Empty Folders',
+          message: 'All folders are already in use',
+          details: ['Please clear a folder first or use fewer folders'],
+          duration: 5000
+        });
+      }
+      return;
+    }
+
+    // Create temporary folder with the images
+    await createTemporaryFolder(emptyFolder, imageFiles);
+  };
 
   const getFilterName = (type: FilterType | undefined) => {
     if (!type || type === 'none') return null;
@@ -297,7 +456,40 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         ))}
       </div>}
       <main className="pinpoint-mode-main">
-        <aside className="filelist">
+        <aside 
+          className={`filelist ${isDragOver ? 'drag-over' : ''}`}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Drag and Drop Overlay */}
+          {isDragOver && (
+            <div className="drag-overlay">
+              <div className="drag-overlay-content">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21,15 16,10 5,21"/>
+                </svg>
+                <h3>
+                  {draggedFileCount > 1 
+                    ? `Drop ${draggedFileCount} Images`
+                    : 'Drop Image'
+                  }
+                </h3>
+                <p>
+                  {(() => {
+                    const emptyFolder = findEmptyFolder();
+                    return emptyFolder 
+                      ? `Create temporary folder ${emptyFolder} with ${draggedFileCount} image${draggedFileCount > 1 ? 's' : ''}`
+                      : 'No empty folders available';
+                  })()}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="filelist-header">
             <input
               type="text"
@@ -317,19 +509,28 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             </div>
           </div>
           <ul>
-            {filteredFileList.map(({ file, source, folderKey }) => {
-              const isFileActive = Object.values(pinpointImages).some(img => 
-                img?.file === file && img.sourceKey === folderKey
-              );
-              
-              return (
-                <li key={`${folderKey}-${file.webkitRelativePath || file.name}-${file.lastModified}`}
-                    className={isFileActive ? "active" : ""}
-                    onClick={() => handleFileListItemClick(file, folderKey)}>
-                  {file.name}
-                </li>
-              );
-            })}
+            {filteredFileList.length === 0 && !isDragOver ? (
+              <li className="empty-state">
+                <div className="empty-state-content">
+                  <p>No files to align</p>
+                  <small>Drop images here or select folders to align</small>
+                </div>
+              </li>
+            ) : (
+              filteredFileList.map(({ file, source, folderKey }) => {
+                const isFileActive = Object.values(pinpointImages).some(img => 
+                  img?.file === file && img.sourceKey === folderKey
+                );
+                
+                return (
+                  <li key={`${folderKey}-${file.webkitRelativePath || file.name}-${file.lastModified}`}
+                      className={isFileActive ? "active" : ""}
+                      onClick={() => handleFileListItemClick(file, folderKey)}>
+                    {file.name}
+                  </li>
+                );
+              })
+            )}
           </ul>
         </aside>
         <section 

@@ -1,13 +1,20 @@
 import React, { useState, useMemo, useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { useStore } from '../store';
 import { useFolderPickers } from '../hooks/useFolderPickers';
-import { matchFilenames } from '../utils/match';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { ToggleModal } from '../components/ToggleModal';
 import { ALL_FILTERS } from '../components/FilterControls';
-import { AnalysisRotationControl } from '../components/AnalysisRotationControl';
 import { FolderControl } from '../components/FolderControl';
-import type { DrawableImage, FolderKey, MatchedItem, FilterType } from '../types';
+import type { DrawableImage, FolderKey, FilterType } from '../types';
+
+// Helper function to check if a file is a valid image
+const isValidImageFile = (file: File): boolean => {
+  const validTypes = [
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+    'image/bmp', 'image/svg+xml', 'image/tiff', 'image/tif'
+  ];
+  return validTypes.includes(file.type) || /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|tif)$/i.test(file.name);
+};
 
 type Props = {
   numViewers: number;
@@ -28,14 +35,172 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     analysisFilters, analysisFilterParams, 
     analysisRotation, openFilterEditor,
     viewerRows, viewerCols,
-    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, closeToggleModal
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder
   } = useStore();
-  const { pick, inputRefs, onInput, allFolders, updateAlias, clearFolder } = useFolderPickers();
+  const { pick, inputRefs, onInput, allFolders, updateAlias } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
   const [folderFilter, setFolderFilter] = useState<FolderKey | 'all'>('all');
+  
+  // Drag and drop states for image import
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dragOverCounter, setDragOverCounter] = useState(0);
+  const [draggedFileCount, setDraggedFileCount] = useState(0);
+
+  // Use dragOverCounter to prevent linting error
+  React.useEffect(() => {
+    // Drag counter tracking for proper leave detection
+  }, [dragOverCounter]);
 
   const activeKeys = useMemo(() => FOLDER_KEYS.slice(0, numViewers), [numViewers]);
+
+  // Helper function to find the first empty folder for temporary storage
+  const findEmptyFolder = (): FolderKey | null => {
+    for (const key of FOLDER_KEYS) {
+      if (!allFolders[key]) return key;
+    }
+    return null;
+  };
+
+  // Helper function to create a temporary folder and set the first image for analysis
+  const createTemporaryFolderAndSetImage = async (imageFiles: File[]): Promise<void> => {
+    try {
+      const emptyFolder = findEmptyFolder();
+      if (!emptyFolder) {
+        // If no empty folder, directly set the first image
+        if (imageFiles.length > 0) {
+          setAnalysisFile(imageFiles[0], 'Dropped Image');
+          if (addToast) {
+            addToast({
+              type: 'success',
+              title: 'Image Loaded',
+              message: `Loaded "${imageFiles[0].name}" for analysis`,
+              details: imageFiles.length > 1 
+                ? [`Note: Only the first image was loaded. ${imageFiles.length - 1} other image${imageFiles.length > 2 ? 's were' : ' was'} ignored.`]
+                : [],
+              duration: 5000
+            });
+          }
+        }
+        return;
+      }
+
+      // Create temporary folder with all images
+      const fileMap = new Map<string, File>();
+      imageFiles.forEach(file => {
+        fileMap.set(file.name, file);
+      });
+
+      const folderData = { 
+        name: `Temporary ${emptyFolder}`,
+        files: fileMap,
+        path: '' // temporary folder doesn't have real path
+      };
+      const folderState = {
+        data: folderData,
+        alias: `Temp ${emptyFolder} (${imageFiles.length})`
+      };
+
+      setFolder(emptyFolder, folderState);
+
+      // Set the first image for analysis
+      setAnalysisFile(imageFiles[0], folderState.alias);
+
+      // Show success message
+      if (addToast) {
+        addToast({
+          type: 'success',
+          title: 'Images Added',
+          message: `Created temporary folder ${emptyFolder} and loaded "${imageFiles[0].name}" for analysis`,
+          details: [
+            `Added ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} to folder`,
+            imageFiles.length > 1 ? 'You can select other images from the file list' : ''
+          ].filter(Boolean),
+          duration: 6000
+        });
+      }
+    } catch (error) {
+      if (addToast) {
+        addToast({
+          type: 'error',
+          title: 'Failed to Load Images',
+          message: 'Could not process the dropped images',
+          details: [error instanceof Error ? error.message : 'Unknown error'],
+          duration: 5000
+        });
+      }
+    }
+  };
+
+  // Drag and drop handlers for image import
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCounter(prev => prev + 1);
+    
+    // Count image files and show drag over state if we have any
+    if (e.dataTransfer.items) {
+      let imageFileCount = 0;
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        const item = e.dataTransfer.items[i];
+        if (item.kind === 'file') {
+          imageFileCount++;
+        }
+      }
+      if (imageFileCount > 0) {
+        setIsDragOver(true);
+        setDraggedFileCount(imageFileCount);
+      }
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCounter(prev => {
+      const newCount = prev - 1;
+      if (newCount <= 0) {
+        setIsDragOver(false);
+        setDraggedFileCount(0);
+        return 0;
+      }
+      return newCount;
+    });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDragOver(false);
+    setDragOverCounter(0);
+    setDraggedFileCount(0);
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFiles = files.filter(file => isValidImageFile(file));
+
+    if (imageFiles.length === 0) {
+      if (addToast) {
+        addToast({
+          type: 'warning',
+          title: 'No Valid Images',
+          message: 'No valid image files found in the dropped items',
+          details: ['Please drop image files (JPG, PNG, GIF, WebP, BMP, SVG, TIFF)'],
+          duration: 5000
+        });
+      }
+      return;
+    }
+
+    // Create temporary folder and set first image for analysis
+    await createTemporaryFolderAndSetImage(imageFiles);
+  };
 
   useImperativeHandle(ref, () => ({
     capture: async ({ showLabels, showMinimap }) => {
@@ -215,7 +380,44 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
         </div>
       </div>}
       <main className="compare-mode-main">
-        <aside className="filelist">
+        <aside 
+          className={`filelist ${isDragOver ? 'drag-over' : ''}`}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Drag and Drop Overlay */}
+          {isDragOver && (
+            <div className="drag-overlay">
+              <div className="drag-overlay-content">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21,15 16,10 5,21"/>
+                </svg>
+                <h3>
+                  {draggedFileCount > 1 
+                    ? `Drop ${draggedFileCount} Images`
+                    : 'Drop Image'
+                  }
+                </h3>
+                <p>
+                  {(() => {
+                    const emptyFolder = findEmptyFolder();
+                    if (draggedFileCount === 1) {
+                      return 'Load image for analysis';
+                    } else if (emptyFolder) {
+                      return `Create folder ${emptyFolder} and load first image for analysis`;
+                    } else {
+                      return 'Load first image for analysis (others ignored)';
+                    }
+                  })()}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="filelist-header">
             <input
               type="text"
@@ -236,13 +438,22 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
             </div>
           </div>
           <ul>
-            {filteredFileList.map(({ file, source }) => (
-              <li key={`${source}-${file.name}`}
-                  className={analysisFile?.name === file.name ? "active": ""}
-                  onClick={()=> handleFileSelect(file, source)}>
-                {file.name}
+            {filteredFileList.length === 0 && !isDragOver ? (
+              <li className="empty-state">
+                <div className="empty-state-content">
+                  <p>No files to analyze</p>
+                  <small>Drop an image here or select a folder to analyze</small>
+                </div>
               </li>
-            ))}
+            ) : (
+              filteredFileList.map(({ file, source }) => (
+                <li key={`${source}-${file.name}`}
+                    className={analysisFile?.name === file.name ? "active": ""}
+                    onClick={()=> handleFileSelect(file, source)}>
+                  {file.name}
+                </li>
+              ))
+            )}
           </ul>
         </aside>
         <section className="viewers" style={gridStyle}>
