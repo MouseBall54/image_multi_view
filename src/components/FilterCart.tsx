@@ -43,7 +43,6 @@ export const FilterCart: React.FC = () => {
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [presetName, setPresetName] = useState('');
   const [showPresetDialog, setShowPresetDialog] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -67,30 +66,6 @@ export const FilterCart: React.FC = () => {
   React.useEffect(() => {
     // Drag counter tracking for proper leave detection
   }, [dragOverCounter]);
-
-  // Global drag end cleanup - handles cases where drag is cancelled
-  React.useEffect(() => {
-    const handleGlobalDragEnd = () => {
-      setDraggedItem(null);
-      setDragOverIndex(null);
-    };
-
-    const handleGlobalDrop = () => {
-      // Small delay to ensure drop handlers run first
-      setTimeout(() => {
-        setDraggedItem(null);
-        setDragOverIndex(null);
-      }, 100);
-    };
-
-    document.addEventListener('dragend', handleGlobalDragEnd);
-    document.addEventListener('drop', handleGlobalDrop);
-    
-    return () => {
-      document.removeEventListener('dragend', handleGlobalDragEnd);
-      document.removeEventListener('drop', handleGlobalDrop);
-    };
-  }, []);
 
   // Auto-enable preview when filter cart opens
   React.useEffect(() => {
@@ -407,60 +382,26 @@ export const FilterCart: React.FC = () => {
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number, item: FilterChainItem) => {
     console.log('Drag start:', index, item.id);
     setDraggedItem({ index, id: item.id });
-    setDragOverIndex(null); // Clear any existing drag over state
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', item.id);
   };
 
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-    console.log('Drag end');
-    setDraggedItem(null);
-    setDragOverIndex(null);
-  };
-
-  const handleFilterDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+  const handleFilterDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
-    
-    if (draggedItem && draggedItem.index !== index) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const y = e.clientY - rect.top;
-      const height = rect.height;
-      
-      // Determine if we're in the top half (insert before) or bottom half (insert after)
-      const insertIndex = y < height / 2 ? index : index + 1;
-      setDragOverIndex(insertIndex);
-    }
-  };
-
-  const handleFilterDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    // Only clear drag over index if we're leaving the entire chain list
-    const relatedTarget = e.relatedTarget as Element;
-    if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
-      setDragOverIndex(null);
-    }
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Drop at index:', dropIndex, 'Dragged item:', draggedItem, 'Drag over index:', dragOverIndex);
+    console.log('Drop at index:', dropIndex, 'Dragged item:', draggedItem);
     
-    try {
-      if (draggedItem && dragOverIndex !== null && draggedItem.index !== dragOverIndex) {
-        console.log('Reordering from', draggedItem.index, 'to', dragOverIndex);
-        // Adjust drop index based on dragOverIndex calculation
-        const finalDropIndex = dragOverIndex > draggedItem.index ? dragOverIndex - 1 : dragOverIndex;
-        reorderFilterCart(draggedItem.index, finalDropIndex);
-      }
-    } catch (error) {
-      console.error('Error during drop:', error);
-    } finally {
-      // Always clear drag state regardless of success/failure
-      setDraggedItem(null);
-      setDragOverIndex(null);
+    if (draggedItem && draggedItem.index !== dropIndex) {
+      console.log('Reordering from', draggedItem.index, 'to', dropIndex);
+      reorderFilterCart(draggedItem.index, dropIndex);
     }
+    setDraggedItem(null);
   };
 
   const getFilterDisplayName = (filterType: string) => {
@@ -898,22 +839,14 @@ export const FilterCart: React.FC = () => {
             <div className="panel-header">
               <h3>Filter Chain</h3>
             </div>
-            <div 
-              className="filter-chain-list"
-              onDragLeave={handleFilterDragLeave}
-            >
+            <div className="filter-chain-list">
             {filterCart.map((item, index) => (
-              <React.Fragment key={item.id}>
-                {/* Drop indicator before item */}
-                {dragOverIndex === index && (
-                  <div className="drop-indicator" />
-                )}
                 <div
+                  key={item.id}
                   className={`filter-chain-item ${!item.enabled ? 'disabled' : ''} ${draggedItem?.id === item.id ? 'dragging' : ''}`}
                   draggable
                   onDragStart={(e) => handleDragStart(e, index, item)}
-                  onDragEnd={handleDragEnd}
-                  onDragOver={(e) => handleFilterDragOver(e, index)}
+                  onDragOver={handleFilterDragOver}
                   onDrop={(e) => handleDrop(e, index)}
                 >
                   <div className="chain-item-header">
@@ -1020,12 +953,7 @@ export const FilterCart: React.FC = () => {
                     ) : null;
                   })()}
                 </div>
-              </React.Fragment>
               ))}
-              {/* Drop indicator after last item */}
-              {dragOverIndex === filterCart.length && (
-                <div className="drop-indicator" />
-              )}
             </div>
 
             {/* Filter Cart Actions - all buttons in single row */}

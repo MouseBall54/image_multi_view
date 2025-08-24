@@ -2911,44 +2911,6 @@ main {
   background: rgba(0, 123, 255, 0.1);
 }
 
-/* Drop indicator line */
-.drop-indicator {
-  height: 2px;
-  margin: 4px 8px;
-  background: var(--accent-primary);
-  border-radius: 1px;
-  position: relative;
-  opacity: 0.8;
-  animation: dropIndicatorPulse 1s ease-in-out infinite alternate;
-}
-
-.drop-indicator::before {
-  content: '';
-  position: absolute;
-  left: -4px;
-  top: -2px;
-  width: 6px;
-  height: 6px;
-  background: var(--accent-primary);
-  border-radius: 50%;
-}
-
-.drop-indicator::after {
-  content: '';
-  position: absolute;
-  right: -4px;
-  top: -2px;
-  width: 6px;
-  height: 6px;
-  background: var(--accent-primary);
-  border-radius: 50%;
-}
-
-@keyframes dropIndicatorPulse {
-  from { opacity: 0.6; }
-  to { opacity: 1; }
-}
-
 .chain-item-header {
   display: flex;
   align-items: center;
