@@ -733,6 +733,11 @@ useStore.subscribe((state, prevState) => {
       pinpointRotations: {},
       analysisRotation: 0,
       compareRotation: 0,
+      // Reset all applied filters across modes when switching modes
+      viewerFilters: {},
+      viewerFilterParams: {},
+      analysisFilters: {},
+      analysisFilterParams: {},
       // Reset toggle selection when mode changes
       selectedViewers: [],
       toggleModalOpen: false,
