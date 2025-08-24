@@ -16,8 +16,8 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredRows, setHoveredRows] = useState(1);
   const [hoveredCols, setHoveredCols] = useState(1);
-  const [maxRows, setMaxRows] = useState(6); // Start with 6 rows visible
-  const [maxCols, setMaxCols] = useState(6); // Start with 6 cols visible
+  const [maxRows, setMaxRows] = useState(2); // Start with 2 rows visible initially
+  const [maxCols, setMaxCols] = useState(2); // Start with 2 cols visible initially
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -44,14 +44,12 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
   const handleCellHover = (row: number, col: number) => {
     setHoveredRows(row);
     setHoveredCols(col);
-    
-    // Dynamically expand grid if hovering near edges
-    if (row >= maxRows - 1 && maxRows < ABSOLUTE_MAX_ROWS) {
-      setMaxRows(Math.min(row + 2, ABSOLUTE_MAX_ROWS));
-    }
-    if (col >= maxCols - 1 && maxCols < ABSOLUTE_MAX_COLS) {
-      setMaxCols(Math.min(col + 2, ABSOLUTE_MAX_COLS));
-    }
+
+    // Dynamically adjust grid visible size to hover – expand and shrink
+    const nextMaxRows = Math.min(Math.max(row + 1, 2), ABSOLUTE_MAX_ROWS);
+    const nextMaxCols = Math.min(Math.max(col + 1, 2), ABSOLUTE_MAX_COLS);
+    if (nextMaxRows !== maxRows) setMaxRows(nextMaxRows);
+    if (nextMaxCols !== maxCols) setMaxCols(nextMaxCols);
   };
 
   const handleCellClick = (rows: number, cols: number) => {
@@ -65,9 +63,9 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
   const handleToggle = () => {
     setIsOpen(!isOpen);
     if (!isOpen) {
-      // Reset grid size when opening
-      setMaxRows(Math.max(6, currentRows + 1));
-      setMaxCols(Math.max(6, currentCols + 1));
+      // Reset grid size when opening to a compact 2x2, preview current selection
+      setMaxRows(2);
+      setMaxCols(2);
       setHoveredRows(currentRows);
       setHoveredCols(currentCols);
     }
@@ -112,6 +110,15 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
     return getDisplayText();
   };
 
+  // Compute dropdown width based on a baseline of 5 columns, expanding beyond
+  const CELL_SIZE = 24; // px (1.5x larger cells)
+  const GAP = 2; // px (matches .grid-container gap)
+  const BASE_COLS = 5; // baseline width is 5 columns
+  const DROPDOWN_PADDING = 12; // px (matches .grid-selector-dropdown padding)
+  const colsForWidth = Math.max(maxCols, BASE_COLS);
+  const gridWidthPx = colsForWidth * CELL_SIZE + (colsForWidth - 1) * GAP;
+  const dropdownContentWidth = gridWidthPx + DROPDOWN_PADDING * 2; // account for horizontal padding
+
   return (
     <div className={`layout-grid-selector ${className}`} ref={dropdownRef}>
       <button
@@ -139,23 +146,22 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
       </button>
 
       {isOpen && (
-        <div className="grid-selector-dropdown">
+        <div className="grid-selector-dropdown" style={{ width: dropdownContentWidth, minWidth: dropdownContentWidth }}>
           <div className={`grid-preview-text ${hoveredRows * hoveredCols > MAX_VIEWERS ? 'over-limit' : ''}`}>
-            {hoveredRows}×{hoveredCols} ({hoveredRows * hoveredCols} viewers)
+            {hoveredRows}×{hoveredCols} ({hoveredRows * hoveredCols})
           </div>
           <div 
             className="grid-container"
             ref={gridRef}
             style={{ 
-              gridTemplateColumns: `repeat(${maxCols}, 1fr)`,
-              gridTemplateRows: `repeat(${maxRows}, 1fr)`
+              // Use fixed-size tracks so cells stay tight and consistent
+              gridTemplateColumns: `repeat(${maxCols}, ${CELL_SIZE}px)`,
+              gridTemplateRows: `repeat(${maxRows}, ${CELL_SIZE}px)`
             }}
           >
             {renderGrid()}
           </div>
-          <div className="grid-instructions">
-            Hover to preview, click to select • Max <span className={`max-limit ${hoveredRows * hoveredCols > MAX_VIEWERS ? 'highlight' : ''}`}>{MAX_VIEWERS} viewers</span>
-          </div>
+          <div className="grid-instructions">Max <span className={`max-limit ${hoveredRows * hoveredCols > MAX_VIEWERS ? 'highlight' : ''}`}>{MAX_VIEWERS} viewers</span></div>
         </div>
       )}
     </div>

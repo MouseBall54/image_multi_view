@@ -4202,17 +4202,17 @@ main {
 }
 
 .grid-container {
-  display: grid;
+  display: inline-grid; /* shrink-wrap to cells for exact sizing */
   gap: 2px;
   background: var(--border-color);
   border-radius: 4px;
-  padding: 8px;
+  padding: 0; /* match container size to grid/cell size */
   margin-bottom: 8px;
 }
 
 .grid-cell {
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   background: var(--bg-light);
   border-radius: 2px;
   cursor: pointer;
