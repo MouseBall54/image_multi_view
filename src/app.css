@@ -4105,3 +4105,213 @@ main {
     height: 14px;
   }
 }
+
+/* Layout Grid Selector - Microsoft Table Grid Style */
+.layout-grid-selector {
+  position: relative;
+  display: inline-block;
+}
+
+.grid-selector-trigger {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: var(--bg-light);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.grid-selector-trigger:hover {
+  background: var(--bg-med);
+  border-color: var(--accent-primary);
+}
+
+.grid-selector-trigger.open {
+  background: var(--bg-med);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+.selector-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.selector-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.selector-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.selector-icon {
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.selector-icon.rotated {
+  transform: rotate(180deg);
+}
+
+/* Grid Dropdown */
+.grid-selector-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--bg-med);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 12px;
+  z-index: 1000;
+  min-width: 240px;
+  animation: gridDropdownAppear 0.15s ease-out;
+}
+
+@keyframes gridDropdownAppear {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.grid-preview-text {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  margin-bottom: 8px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.grid-container {
+  display: grid;
+  gap: 2px;
+  background: var(--border-color);
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.grid-cell {
+  width: 16px;
+  height: 16px;
+  background: var(--bg-light);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  position: relative;
+}
+
+.grid-cell:hover {
+  transform: scale(1.1);
+  z-index: 1;
+}
+
+.grid-cell.selected {
+  background: var(--accent-primary);
+  box-shadow: 0 0 4px rgba(0, 123, 255, 0.4);
+}
+
+.grid-cell.current {
+  background: var(--warning-color);
+  box-shadow: 0 0 4px rgba(255, 193, 7, 0.6);
+}
+
+.grid-cell.current.selected {
+  background: var(--success-color);
+  box-shadow: 0 0 4px rgba(40, 167, 69, 0.6);
+}
+
+.grid-cell.disabled {
+  background: var(--bg-dark);
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.grid-cell.over-limit {
+  background: var(--danger-color) !important;
+  box-shadow: 0 0 4px rgba(220, 53, 69, 0.6) !important;
+}
+
+.grid-preview-text.over-limit {
+  color: var(--danger-color);
+}
+
+.max-limit {
+  color: var(--text-secondary);
+  transition: color 0.2s ease;
+}
+
+.max-limit.highlight {
+  color: var(--danger-color);
+  font-weight: 600;
+}
+
+.grid-instructions {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+/* Responsive Design for Grid Selector */
+@media (max-width: 768px) {
+  .grid-selector-dropdown {
+    min-width: 200px;
+    padding: 10px;
+  }
+  
+  .grid-container {
+    padding: 6px;
+    gap: 1px;
+  }
+  
+  .grid-cell {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .grid-selector-trigger {
+    min-width: 100px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-selector-dropdown {
+    min-width: 180px;
+    padding: 8px;
+  }
+  
+  .grid-cell {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .grid-preview-text {
+    font-size: 13px;
+  }
+  
+  .selector-label {
+    display: none; /* Hide label on very small screens */
+  }
+}

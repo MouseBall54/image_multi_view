@@ -14,6 +14,7 @@ import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
 import { CompareRotationControl } from "./components/CompareRotationControl";
 import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
 import { ViewToggleControls } from "./components/ViewToggleControls";
+import { LayoutGridSelector } from "./components/LayoutGridSelector";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
 import { decodeTiffWithUTIF } from "./utils/utif";
 import { initializeOpenCV } from "./utils/opencv";
@@ -282,71 +283,11 @@ export default function App() {
               </select>
             </label>
             {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'analysis') && (
-              <label><span>Layout:</span>
-                <select value={`${viewerRows}x${viewerCols}`} onChange={e => {
-                  const [rows, cols] = e.target.value.split('x').map(Number);
-                  setViewerLayout(rows, cols);
-                }}>
-                  {/* 1×N 형식 (가로 배치) */}
-                  <option value="1x2">1×2 (2)</option>
-                  <option value="1x3">1×3 (3)</option>
-                  <option value="1x4">1×4 (4)</option>
-                  <option value="1x5">1×5 (5)</option>
-                  <option value="1x6">1×6 (6)</option>
-                  <option value="1x7">1×7 (7)</option>
-                  <option value="1x8">1×8 (8)</option>
-                  <option value="1x9">1×9 (9)</option>
-                  <option value="1x10">1×10 (10)</option>
-                  <option value="1x12">1×12 (12)</option>
-                  <option value="1x15">1×15 (15)</option>
-                  <option value="1x18">1×18 (18)</option>
-                  <option value="1x20">1×20 (20)</option>
-                  {/* N×1 형식 (세로 배치) */}
-                  <option value="2x1">2×1 (2)</option>
-                  <option value="3x1">3×1 (3)</option>
-                  <option value="4x1">4×1 (4)</option>
-                  <option value="5x1">5×1 (5)</option>
-                  <option value="6x1">6×1 (6)</option>
-                  <option value="7x1">7×1 (7)</option>
-                  <option value="8x1">8×1 (8)</option>
-                  <option value="9x1">9×1 (9)</option>
-                  <option value="10x1">10×1 (10)</option>
-                  <option value="12x1">12×1 (12)</option>
-                  <option value="15x1">15×1 (15)</option>
-                  <option value="18x1">18×1 (18)</option>
-                  <option value="20x1">20×1 (20)</option>
-                  {/* 2×N 형식 */}
-                  <option value="2x2">2×2 (4)</option>
-                  <option value="2x3">2×3 (6)</option>
-                  <option value="2x4">2×4 (8)</option>
-                  <option value="2x5">2×5 (10)</option>
-                  <option value="2x6">2×6 (12)</option>
-                  <option value="2x8">2×8 (16)</option>
-                  <option value="2x9">2×9 (18)</option>
-                  <option value="2x10">2×10 (20)</option>
-                  {/* 3×N 형식 */}
-                  <option value="3x2">3×2 (6)</option>
-                  <option value="3x3">3×3 (9)</option>
-                  <option value="3x4">3×4 (12)</option>
-                  <option value="3x5">3×5 (15)</option>
-                  <option value="3x6">3×6 (18)</option>
-                  {/* 4×N 형식 */}
-                  <option value="4x2">4×2 (8)</option>
-                  <option value="4x3">4×3 (12)</option>
-                  <option value="4x4">4×4 (16)</option>
-                  <option value="4x5">4×5 (20)</option>
-                  {/* 5×N 형식 */}
-                  <option value="5x2">5×2 (10)</option>
-                  <option value="5x3">5×3 (15)</option>
-                  <option value="5x4">5×4 (20)</option>
-                  {/* 6×N 형식 */}
-                  <option value="6x3">6×3 (18)</option>
-                  <option value="6x4">6×4 (24)</option>
-                  {/* 기타 */}
-                  <option value="8x3">8×3 (24)</option>
-                  <option value="10x2">10×2 (20)</option>
-                </select>
-              </label>
+              <LayoutGridSelector
+                currentRows={viewerRows}
+                currentCols={viewerCols}
+                onLayoutChange={(rows, cols) => setViewerLayout(rows, cols)}
+              />
             )}
             <button
               className={"toggle-main-btn"}
