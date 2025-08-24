@@ -35,7 +35,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { 
     current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, clearFolder, viewerRows, viewerCols,
-    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist
   } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -368,14 +368,15 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
           ))}
         </div>
       </div>}
-      <main className="compare-mode-main">
-        <aside 
-          className={`filelist ${isDragOver ? 'drag-over' : ''}`}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
+      <main className={`compare-mode-main ${showFilelist ? '' : 'filelist-hidden'}`}>
+        {showFilelist && (
+          <aside 
+            className={`filelist ${isDragOver ? 'drag-over' : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
           {/* Drag and Drop Overlay */}
           {isDragOver && (
             <div className="drag-overlay">
@@ -437,7 +438,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
               ))
             )}
           </ul>
-        </aside>
+          </aside>
+        )}
         <section className="viewers" style={gridStyle}>
           {FOLDER_KEYS.slice(0, numViewers).map(key => {
             const lines: string[] = [];

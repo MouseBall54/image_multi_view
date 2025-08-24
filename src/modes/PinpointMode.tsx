@@ -48,7 +48,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     pinpointScales, setPinpointScale,
     activeCanvasKey, setActiveCanvasKey, clearFolder,
     openFilterEditor, viewerFilters, viewerFilterParams, viewerRows, viewerCols,
-    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -455,14 +455,15 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
           />
         ))}
       </div>}
-      <main className="pinpoint-mode-main">
-        <aside 
-          className={`filelist ${isDragOver ? 'drag-over' : ''}`}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
+      <main className={`pinpoint-mode-main ${showFilelist ? '' : 'filelist-hidden'}`}>
+        {showFilelist && (
+          <aside 
+            className={`filelist ${isDragOver ? 'drag-over' : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
           {/* Drag and Drop Overlay */}
           {isDragOver && (
             <div className="drag-overlay">
@@ -532,7 +533,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
               })
             )}
           </ul>
-        </aside>
+          </aside>
+        )}
         <section 
           className="viewers" 
           style={gridStyle}

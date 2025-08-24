@@ -3946,3 +3946,69 @@ main {
     max-width: none;
   }
 }
+
+/* Filelist Toggle Component Styles */
+.filelist-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-light);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.filelist-toggle:hover {
+  background: var(--bg-med);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.filelist-toggle svg {
+  flex-shrink: 0;
+  transition: stroke 0.2s ease;
+}
+
+.filelist-toggle:hover svg {
+  stroke: var(--accent-primary);
+}
+
+.filelist-toggle-text {
+  font-weight: 500;
+}
+
+/* Filelist hiding functionality */
+.compare-mode-main.filelist-hidden,
+.pinpoint-mode-main.filelist-hidden {
+  grid-template-columns: 1fr; /* Remove the filelist column */
+}
+
+.compare-mode-main.filelist-hidden .viewers,
+.pinpoint-mode-main.filelist-hidden .viewers {
+  width: 100%; /* Let viewers take full width */
+}
+
+/* Adjust grid layout for different modes when filelist is hidden */
+.compare-mode-main.filelist-hidden .viewers,
+.pinpoint-mode-main.filelist-hidden .viewers,
+.compare-mode-main.filelist-hidden section {
+  grid-column: 1; /* Ensure viewers occupy the full available space */
+}
+
+/* Responsive design improvements */
+@media (max-width: 768px) {
+  .filelist-toggle-text {
+    display: none; /* Hide text on mobile to save space */
+  }
+  
+  .filelist-toggle {
+    padding: 8px;
+    min-width: 40px;
+    justify-content: center;
+  }
+}

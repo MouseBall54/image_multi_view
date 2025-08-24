@@ -30,7 +30,7 @@ const isValidImageFile = (file: File): boolean => {
 export const SingleMode = forwardRef<SingleModeHandle, SingleModeProps>(({ bitmapCache, setPrimaryFile, showControls }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { openFilterEditor, viewerFilters, selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, setCurrent } = useStore();
+  const { openFilterEditor, viewerFilters, selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, setCurrent, showFilelist } = useStore();
 
   // Selected file state for Single mode
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -234,14 +234,15 @@ export const SingleMode = forwardRef<SingleModeHandle, SingleModeProps>(({ bitma
           </div>
         </div>
       )}
-      <main className="compare-mode-main">
-        <aside
-          className={`filelist ${isDragOver ? 'drag-over' : ''}`}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
+      <main className={`compare-mode-main ${showFilelist ? '' : 'filelist-hidden'}`}>
+        {showFilelist && (
+          <aside
+            className={`filelist ${isDragOver ? 'drag-over' : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
           {isDragOver && (
             <div className="drag-overlay">
               <div className="drag-overlay-content">
@@ -292,7 +293,8 @@ export const SingleMode = forwardRef<SingleModeHandle, SingleModeProps>(({ bitma
               ))
             )}
           </ul>
-        </aside>
+          </aside>
+        )}
         <section className="viewers" style={gridStyle}>
           {!selectedFile ? (
             <div className="analysis-mode-placeholder--inline">

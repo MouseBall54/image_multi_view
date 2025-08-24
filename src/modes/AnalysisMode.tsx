@@ -35,7 +35,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     analysisFilters, analysisFilterParams, 
     analysisRotation, openFilterEditor,
     viewerRows, viewerCols,
-    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, showFilelist
   } = useStore();
   const { pick, inputRefs, onInput, allFolders, updateAlias } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
@@ -379,14 +379,15 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
           ))}
         </div>
       </div>}
-      <main className="compare-mode-main">
-        <aside 
-          className={`filelist ${isDragOver ? 'drag-over' : ''}`}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
+      <main className={`compare-mode-main ${showFilelist ? '' : 'filelist-hidden'}`}>
+        {showFilelist && (
+          <aside 
+            className={`filelist ${isDragOver ? 'drag-over' : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
           {/* Drag and Drop Overlay */}
           {isDragOver && (
             <div className="drag-overlay">
@@ -455,7 +456,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               ))
             )}
           </ul>
-        </aside>
+          </aside>
+        )}
         <section className="viewers" style={gridStyle}>
           {!analysisFile ? (
              <div className="analysis-mode-placeholder--inline">
