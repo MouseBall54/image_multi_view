@@ -46,8 +46,10 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
   const handleCellHover = (row: number, col: number) => {
     setHoveredRows(row);
     setHoveredCols(col);
-    // Update live preview overlay in main view
-    setLayoutPreview(row, col);
+    // Update live preview overlay in main view, clamped to MAX_VIEWERS
+    const maxColsForRows = Math.max(1, Math.floor(MAX_VIEWERS / row));
+    const previewCols = Math.min(col, maxColsForRows);
+    setLayoutPreview(row, previewCols);
 
     // Dynamically adjust grid visible size to hover – expand and shrink
     const nextMaxRows = Math.min(Math.max(row + 1, 2), ABSOLUTE_MAX_ROWS);
@@ -68,12 +70,17 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
   const handleToggle = () => {
     setIsOpen(!isOpen);
     if (!isOpen) {
-      // Reset grid size when opening to a compact 2x2, preview current selection
-      setMaxRows(2);
-      setMaxCols(2);
+      // 초기 표시는 최소 2x2를 보장하되, 현재 레이아웃이 더 크면 포함하도록 확장
+      const initRows = Math.max(2, Math.min(currentRows + 1, ABSOLUTE_MAX_ROWS));
+      const initCols = Math.max(2, Math.min(currentCols + 1, ABSOLUTE_MAX_COLS));
+      setMaxRows(initRows);
+      setMaxCols(initCols);
       setHoveredRows(currentRows);
       setHoveredCols(currentCols);
-      setLayoutPreview(currentRows, currentCols);
+      // 프리뷰는 24 한도 내에서 클램프하여 표시
+      const maxColsForRows = Math.max(1, Math.floor(MAX_VIEWERS / currentRows));
+      const previewCols = Math.min(currentCols, maxColsForRows);
+      setLayoutPreview(currentRows, previewCols);
     }
   };
 
@@ -99,7 +106,7 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
         cells.push(
           <div
             key={`${row}-${col}`}
-            className={`grid-cell ${isSelected ? 'selected' : ''} ${isCurrent ? 'current' : ''} ${isOverLimit ? 'disabled' : ''} ${hoveredOverLimit && isSelected ? 'over-limit' : ''} ${hoverGuide ? 'hover-guide' : ''}`}
+            className={`grid-cell ${isSelected ? 'selected' : ''} ${isCurrent ? 'current' : ''} ${isOverLimit ? 'disabled' : ''} ${hoverGuide ? 'hover-guide' : ''}`}
             onMouseEnter={() => handleCellHover(row, col)}
             onClick={() => handleCellClick(row, col)}
             title={isOverLimit ? `Max ${MAX_VIEWERS}` : `${totalViewers}`}
@@ -176,6 +183,36 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
               setHoveredRows(currentRows);
               setHoveredCols(currentCols);
               setLayoutPreview(currentRows, currentCols);
+            }}
+            onMouseMove={(e) => {
+              if (!gridRef.current) return;
+              const rect = gridRef.current.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const y = e.clientY - rect.top;
+              const track = CELL_SIZE + GAP; // cell + gap
+              const approxCol = Math.max(1, Math.min(ABSOLUTE_MAX_COLS, Math.ceil((x + GAP) / track)));
+              const approxRow = Math.max(1, Math.min(ABSOLUTE_MAX_ROWS, Math.ceil((y + GAP) / track)));
+              // Update hover based on pointer position
+              setHoveredRows(approxRow);
+              setHoveredCols(approxCol);
+              // Smoothly expand near edges without requiring exact cell crossing
+              const nearRight = rect.right - e.clientX;
+              const nearBottom = rect.bottom - e.clientY;
+              const EDGE_THRESHOLD = 12; // px
+              let nextRows = maxRows;
+              let nextCols = maxCols;
+              if (nearBottom < EDGE_THRESHOLD && maxRows < ABSOLUTE_MAX_ROWS) {
+                nextRows = Math.min(ABSOLUTE_MAX_ROWS, approxRow + 1);
+              }
+              if (nearRight < EDGE_THRESHOLD && maxCols < ABSOLUTE_MAX_COLS) {
+                nextCols = Math.min(ABSOLUTE_MAX_COLS, approxCol + 1);
+              }
+              if (nextRows !== maxRows) setMaxRows(nextRows);
+              if (nextCols !== maxCols) setMaxCols(nextCols);
+              // Update preview clamped to limit
+              const maxColsForRows = Math.max(1, Math.floor(MAX_VIEWERS / approxRow));
+              const previewCols = Math.min(approxCol, maxColsForRows);
+              setLayoutPreview(approxRow, previewCols);
             }}
           >
             {renderGrid()}
