@@ -2288,7 +2288,7 @@ main {
   left: 50%; /* Center horizontally regardless of preview state */
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 320px;
+  width: 640px; /* Editor + Chain side-by-side */
   max-height: 80vh;
   overflow: hidden; /* Prevent child overflow from spilling */
   background: var(--bg-med);
@@ -2405,17 +2405,17 @@ main {
   }
 }
 
-/* Expand filter cart when preview is active - only add preview space */
+/* Expand filter cart when preview is active - optimized spacing */
 .preview-active .filter-cart-panel[data-preview-size="S"] {
-  width: 800px; /* 320px (content) + 480px (preview S) */
+  width: 1200px; /* 720 (expanded content) + 480 (preview S) */
 }
 
 .preview-active .filter-cart-panel[data-preview-size="M"] {
-  width: 1025px; /* 320px (content) + 705px (preview M) */
+  width: 1425px; /* 720 (expanded content) + 705 (preview M) */
 }
 
 .preview-active .filter-cart-panel[data-preview-size="L"] {
-  width: 1250px; /* 320px (content) + 930px (preview L) */
+  width: 1650px; /* 720 (expanded content) + 930 (preview L) */
 }
 
 /* Keep filter cart panel fixed but allow relative positioning for children */
@@ -2691,6 +2691,27 @@ main {
   cursor: move; /* Draggable via header */
 }
 
+.filter-cart-header .tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.filter-cart-header .tab {
+  background: var(--bg-med);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.filter-cart-header .tab.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #fff;
+}
+
 .filter-cart-header h3 {
   margin: 0;
   font-size: 16px;
@@ -2705,16 +2726,88 @@ main {
 }
 
 .filter-cart-content {
-  width: 320px; /* Fixed width - same as original panel */
+  width: 640px; /* Editor + Chain */
   flex-shrink: 0; /* Don't shrink the content */
   padding: 12px; /* Reduced padding for more space */
   display: flex;
-  flex-direction: column;
-  gap: 12px; /* Reduced gap */
+  flex-direction: row;
+  gap: 12px; /* Space between Editor and Chain */
   max-height: calc(80vh - 60px);
   overflow: hidden; /* Hide overflow on container */
   box-sizing: border-box; /* Include padding in width calculation */
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Expand content width when preview is active to utilize space better */
+.preview-active .filter-cart-content {
+  width: 720px; /* Expanded width for better space utilization */
+}
+
+.filter-cart-content.side-by-side .embedded-editor-wrap {
+  width: 40%;
+  max-width: 40%;
+  min-width: 280px; /* Ensure minimum usable width */
+  overflow: auto;
+  flex-shrink: 0; /* Prevent shrinking below minimum */
+}
+
+/* Adjust proportions when preview is active */
+.preview-active .filter-cart-content.side-by-side .embedded-editor-wrap {
+  width: 50%; /* Increase editor width when preview takes space */
+  max-width: 50%;
+  min-width: 320px; /* Larger minimum for preview mode */
+}
+
+.filter-cart-content.side-by-side .chain-column {
+  width: 60%;
+  max-width: 60%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+/* Adjust chain column when preview is active */
+.preview-active .filter-cart-content.side-by-side .chain-column {
+  width: 50%; /* Reduce chain column width to match editor increase */
+  max-width: 50%;
+}
+
+.filter-cart-content.side-by-side .chain-column .filter-chain-list {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.filter-cart-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.filter-presets-section h4 {
+  margin: 8px 0;
+}
+
+.embedded-editor-wrap {
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.embedded-editor-wrap .filter-controls-embedded {
+  flex: 1;
+  min-height: 0; /* Allow it to shrink */
+}
+
+.filter-controls-embedded .panel-header {
+  padding: 0 0 8px 0;
+}
+
+/* Chain column panel header - match embedded style */
+.chain-column .panel-header {
+  padding: 0 0 8px 0;
 }
 
 /* During preview close, maintain panel layout until width transition completes */
@@ -2805,6 +2898,17 @@ main {
 .filter-chain-item.disabled {
   opacity: 0.6;
   background: var(--bg-med);
+}
+
+.filter-chain-item.dragging {
+  opacity: 0.5;
+  transform: rotate(5deg);
+  z-index: 1000;
+}
+
+.filter-chain-item:dragover {
+  border-color: var(--accent-primary);
+  background: rgba(0, 123, 255, 0.1);
 }
 
 .chain-item-header {
@@ -2905,22 +3009,26 @@ main {
 
 .filter-cart-actions {
   display: flex;
-  flex-direction: column;
-  gap: 6px; /* Reduced gap */
+  flex-direction: row; /* Change to single row */
+  gap: 4px; /* Gap between all buttons */
   margin-top: auto; /* Push to bottom */
   padding-top: 12px; /* Reduced padding */
   border-top: 1px solid var(--border-color);
   flex-shrink: 0; /* Don't shrink the actions */
   background: var(--bg-med); /* Ensure background covers */
+  width: 100%; /* Ensure full width within chain column */
+  box-sizing: border-box; /* Include padding in width calculation */
+  justify-content: stretch; /* Distribute buttons evenly */
+  flex-wrap: nowrap; /* Prevent wrapping */
 }
 
-.cart-action-row {
-  display: flex;
-  gap: 4px; /* Reduced gap between buttons */
+/* Direct children buttons in actions - all buttons in single row */
+.filter-cart-actions > .btn {
+  flex: 1;
+  min-width: 0; /* Allow buttons to shrink when needed */
 }
 
 .btn {
-  flex: 1;
   padding: 6px 8px; /* Reduced padding */
   border: none;
   border-radius: 4px;
@@ -2928,7 +3036,6 @@ main {
   font-size: 11px; /* Smaller font */
   font-weight: 500;
   transition: all 0.2s ease;
-  min-width: 0; /* Allow button to shrink */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2987,6 +3094,46 @@ main {
   border-top: 1px solid var(--border-color);
   flex-shrink: 0; /* Don't shrink the presets section */
   background: var(--bg-med); /* Ensure background covers */
+}
+
+/* Specific styling for presets in embedded-editor-wrap */
+.embedded-editor-wrap .filter-presets-section {
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--bg-light);
+  border-radius: 4px;
+  border-top: 1px solid var(--border-color);
+}
+
+.embedded-editor-wrap .filter-presets-section h4 {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.embedded-editor-wrap .presets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 120px; /* Limit height to prevent overflow */
+  overflow-y: auto;
+}
+
+.embedded-editor-wrap .preset-item {
+  padding: 4px 6px;
+  background: var(--bg-med);
+  border-radius: 3px;
+  border: 1px solid var(--border-color);
+}
+
+.embedded-editor-wrap .preset-name {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.embedded-editor-wrap .preset-filters {
+  font-size: 10px;
+  color: var(--text-secondary);
 }
 
 .filter-presets-section h4 {

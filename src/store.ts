@@ -140,6 +140,7 @@ interface State {
   filterCart: FilterChainItem[];
   filterPresets: FilterPreset[];
   showFilterCart: boolean;
+  filterPanelTab: 'editor' | 'chain';
   
   // Preview Modal states
   previewModal: {
@@ -239,6 +240,7 @@ interface State {
   
   // UI controls
   setShowFilterCart: (show: boolean) => void;
+  setFilterPanelTab: (tab: 'editor' | 'chain') => void;
   
   // Preview Modal actions
   openPreviewModal: (config: {
@@ -331,6 +333,7 @@ export const useStore = create<State>((set) => ({
   filterCart: [],
   filterPresets: [],
   showFilterCart: false,
+  filterPanelTab: 'chain',
   
   // Preview Modal states
   previewModal: {
@@ -431,6 +434,7 @@ export const useStore = create<State>((set) => ({
         tempViewerFilter: state.analysisFilters[key] || 'none',
         tempViewerFilterParams: state.analysisFilterParams[key] || defaultFilterParams,
         showFilterCart: true,
+        filterPanelTab: 'editor',
       }
     } else { // Folder-based modes
       // Ensure a current item exists so previews can resolve a source file
@@ -453,6 +457,7 @@ export const useStore = create<State>((set) => ({
         tempViewerFilter: state.viewerFilters[key] || 'none',
         tempViewerFilterParams: state.viewerFilterParams[key] || defaultFilterParams,
         showFilterCart: true,
+        filterPanelTab: 'editor',
         current: nextCurrent || state.current,
       }
     }
@@ -470,13 +475,19 @@ export const useStore = create<State>((set) => ({
       return {
         analysisFilters: { ...state.analysisFilters, [key]: state.tempViewerFilter },
         analysisFilterParams: { ...state.analysisFilterParams, [key]: state.tempViewerFilterParams },
-        activeFilterEditor: null,
+        // Keep editor open in integrated panel workflow
+        activeFilterEditor: key,
+        filterPanelTab: 'editor',
+        showFilterCart: true,
       }
     } else { // Folder-based modes
       return {
         viewerFilters: { ...state.viewerFilters, [key]: state.tempViewerFilter },
         viewerFilterParams: { ...state.viewerFilterParams, [key]: state.tempViewerFilterParams },
-        activeFilterEditor: null,
+        // Keep editor open in integrated panel workflow
+        activeFilterEditor: key,
+        filterPanelTab: 'editor',
+        showFilterCart: true,
       }
     }
   }),
@@ -651,6 +662,7 @@ export const useStore = create<State>((set) => ({
 
   // UI controls
   setShowFilterCart: (show) => set({ showFilterCart: show }),
+  setFilterPanelTab: (tab) => set({ filterPanelTab: tab }),
   
   // Preview Modal actions
   openPreviewModal: (config) => set(state => ({

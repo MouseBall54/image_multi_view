@@ -271,9 +271,6 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
               ))}
             </div>
           )}
-          <button className="preview-modal-close" onClick={onClose}>
-            ×
-          </button>
         </div>
 
         <div className="preview-modal-body" ref={bodyRef}>
@@ -330,12 +327,7 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
 
         <div className="preview-modal-footer">
           <div className="preview-controls">
-            <button 
-              className="btn btn-secondary"
-              onClick={onClose}
-            >
-              Close
-            </button>
+            {/* Close button removed - can close via overlay click or other interactions */}
           </div>
         </div>
       </div>

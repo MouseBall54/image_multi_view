@@ -6,7 +6,6 @@ import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
 import { SingleMode, SingleModeHandle } from "./modes/SingleMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
-import { FilterControls } from "./components/FilterControls";
 import { FilterCart } from "./components/FilterCart";
 import { FilterPreviewModal } from "./components/FilterPreviewModal";
 import ToastContainer from "./components/ToastContainer";
@@ -462,7 +461,6 @@ export default function App() {
         </div>
       )}
 
-      <FilterControls />
       <FilterCart />
       
       {/* Only render FilterPreviewModal for modal mode, sidebar mode is rendered within FilterCart */}
