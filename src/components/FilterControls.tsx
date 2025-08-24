@@ -144,6 +144,7 @@ const filterGroups = [
 
 export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const {
+    appMode,
     activeFilterEditor,
     tempViewerFilter,
     tempViewerFilterParams,
@@ -219,15 +220,16 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
       return undefined;
     })();
 
-    // Update preview modal if open
-    if (sourceFile) {
+    // Update preview modal if open (unless stickySource is set)
+    const state = useStore.getState();
+    if (sourceFile && !(state.previewModal?.stickySource)) {
       updatePreviewModal({ sourceFile });
     }
   }, [current?.filename, analysisFile, activeFilterEditor, folders]);
 
   if (activeFilterEditor === null) return null;
 
-  // Get current image file for preview
+  // Get current image file for preview (robust across modes)
   const getCurrentImageFile = (): File | undefined => {
     const findFileInFolder = (folder: any, filename: string | undefined): File | undefined => {
       if (!folder || !folder.data || !folder.data.files || !filename) return undefined;
@@ -244,17 +246,29 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     };
 
     if (typeof activeFilterEditor === 'string') {
-      // Viewer mode - get from folder
       if (!current) return undefined;
-      const folder = folders[activeFilterEditor];
-      if (folder && folder.data.files) {
-        return findFileInFolder(folder, current.filename);
+      // Prefer the editor-targeted folder
+      const primary = findFileInFolder(folders[activeFilterEditor], current.filename);
+      if (primary) return primary;
+      // Try active canvas key (Pinpoint)
+      const state = useStore.getState();
+      const ack = state.activeCanvasKey;
+      if (ack && typeof ack === 'string') {
+        const viaCanvas = findFileInFolder(folders[ack], current.filename);
+        if (viaCanvas) return viaCanvas;
       }
-    } else if (typeof activeFilterEditor === 'number') {
-      // Analysis mode - get from analysisFile
+      // Scan any folder that has the current filename
+      for (const k in current.has) {
+        if ((current.has as any)[k]) {
+          const f = findFileInFolder(folders[k as any], current.filename);
+          if (f) return f;
+        }
+      }
+      return undefined;
+    }
+    if (typeof activeFilterEditor === 'number') {
       return analysisFile || undefined;
     }
-    
     return undefined;
   };
 
@@ -1042,7 +1056,8 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                     title: `Filter Preview: ${ALL_FILTERS.find(f => f.type === tempViewerFilter)?.name || tempViewerFilter}`,
                     sourceFile,
                     realTimeUpdate: true,
-                    position: 'sidebar'
+                    position: 'sidebar',
+                    stickySource: appMode === 'pinpoint'
                   });
                 }
               }}

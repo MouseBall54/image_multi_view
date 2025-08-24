@@ -157,6 +157,7 @@ interface State {
     editMode?: boolean;
     onParameterChange?: (params: FilterParams) => void;
     stepIndex?: number;
+    stickySource?: boolean; // When true, don't auto-sync sourceFile
   };
   previewSize: 'S' | 'M' | 'L';
 
@@ -339,6 +340,7 @@ export const useStore = create<State>((set) => ({
   previewModal: {
     isOpen: false,
     mode: 'single',
+    stickySource: false,
   },
   previewSize: 'M',
   
@@ -661,7 +663,13 @@ export const useStore = create<State>((set) => ({
   })),
 
   // UI controls
-  setShowFilterCart: (show) => set({ showFilterCart: show }),
+  setShowFilterCart: (show) => set(state => {
+    if (show) return { showFilterCart: true };
+    return {
+      showFilterCart: false,
+      activeFilterEditor: null,
+    };
+  }),
   setFilterPanelTab: (tab) => set({ filterPanelTab: tab }),
   
   // Preview Modal actions
@@ -670,6 +678,8 @@ export const useStore = create<State>((set) => ({
       ...state.previewModal,
       isOpen: true,
       size: config.size || state.previewSize,
+      // Do not carry stickySource across opens unless explicitly requested
+      stickySource: config.stickySource ?? false,
       ...config
     }
   })),
@@ -680,7 +690,8 @@ export const useStore = create<State>((set) => ({
     previewModal: {
       ...state.previewModal,
       isOpen: false,
-      realTimeUpdate: false
+      realTimeUpdate: false,
+      stickySource: false
     }
   })),
   
@@ -726,6 +737,12 @@ useStore.subscribe((state, prevState) => {
       selectedViewers: [],
       toggleModalOpen: false,
       toggleCurrentIndex: 0,
+      // Clear any sticky preview source when switching modes
+      previewModal: {
+        ...state.previewModal,
+        stickySource: false,
+        sourceFile: undefined,
+      },
     });
 
     // Clear analysis file if leaving analysis mode

@@ -48,6 +48,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     pinpointScales, setPinpointScale,
     activeCanvasKey, setActiveCanvasKey, clearFolder,
     openFilterEditor, viewerFilters, viewerFilterParams, viewerRows, viewerCols,
+    openPreviewModal,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
@@ -591,7 +592,28 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                   <button 
                     className="viewer__filter-button" 
                     title={`Filter Settings for ${allFolders[key]?.alias || key}`}
-                    onClick={() => openFilterEditor(key)}
+                    onClick={() => {
+                      // Ensure active canvas key reflects the clicked viewer for preview resolution
+                      setActiveCanvasKey(key);
+                      openFilterEditor(key);
+                      // Open preview immediately with the exact file for this viewer
+                      const src = pinpointImages[key]?.file || null;
+                      if (src) {
+                        const type = viewerFilters[key] || 'none';
+                        const params = viewerFilterParams[key] || {};
+                        openPreviewModal({
+                          mode: 'single',
+                          filterType: type,
+                          filterParams: params as any,
+                          title: `Filter Preview`,
+                          sourceFile: src,
+                          position: 'sidebar',
+                          realTimeUpdate: true,
+                          editMode: true,
+                          stickySource: true,
+                        });
+                      }
+                    }}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" 
                       viewBox="0 0 24 24" fill="none" stroke="currentColor" 

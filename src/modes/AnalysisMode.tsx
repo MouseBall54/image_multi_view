@@ -35,7 +35,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     analysisFilters, analysisFilterParams, 
     analysisRotation, openFilterEditor,
     viewerRows, viewerCols,
-    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, showFilelist
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, showFilelist,
+    previewLayout,
   } = useStore();
   const { pick, inputRefs, onInput, allFolders, updateAlias } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());

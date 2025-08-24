@@ -13,6 +13,7 @@ interface DragItem {
 
 export const FilterCart: React.FC = () => {
   const {
+    appMode,
     filterCart,
     showFilterCart,
     filterPresets,
@@ -68,8 +69,11 @@ export const FilterCart: React.FC = () => {
   }, [dragOverCounter]);
 
   // Auto-enable preview when filter cart opens (immediately, no delay)
+  const previewInitializedRef = React.useRef(false);
   React.useEffect(() => {
-    if (!showFilterCart || previewModal.isOpen) return;
+    if (!showFilterCart) { previewInitializedRef.current = false; return; }
+    if (previewModal.isOpen) { previewInitializedRef.current = true; return; }
+    if (previewInitializedRef.current) return;
     const sourceFile = getCurrentImageFile();
     if (!sourceFile) return;
 
@@ -83,7 +87,8 @@ export const FilterCart: React.FC = () => {
           title: `Preview Chain (${enabledFilters.length} filters)`,
           sourceFile,
           position: 'sidebar',
-          editMode: false
+          editMode: false,
+          stickySource: false
         });
       } else {
         // Show original image when no enabled filters
@@ -94,7 +99,8 @@ export const FilterCart: React.FC = () => {
           title: 'Original Image',
           sourceFile,
           position: 'sidebar',
-          editMode: false
+          editMode: false,
+          stickySource: false
         });
       }
     } else {
@@ -106,9 +112,11 @@ export const FilterCart: React.FC = () => {
         title: 'Original Image',
         sourceFile,
         position: 'sidebar',
-        editMode: false
+        editMode: false,
+        stickySource: false
       });
     }
+    previewInitializedRef.current = true;
   }, [showFilterCart, previewModal.isOpen, openPreviewModal, filterCart]);
 
   // Drag handlers (drag by header)
@@ -227,6 +235,7 @@ export const FilterCart: React.FC = () => {
         sourceFile,
         position: 'sidebar',
         editMode: true,
+        stickySource: false,
       });
     } else if (tempViewerFilter && tempViewerFilter !== 'none') {
       openPreviewModal({
@@ -238,6 +247,7 @@ export const FilterCart: React.FC = () => {
         position: 'sidebar',
         realTimeUpdate: true,
         editMode: true,
+        stickySource: false,
       });
     }
   }, [showFilterCart]);
@@ -255,6 +265,8 @@ export const FilterCart: React.FC = () => {
   // Keep preview modal's source file in sync with current selection
   React.useEffect(() => {
     if (!previewModal.isOpen || previewModal.position !== 'sidebar') return;
+    // If source is intentionally locked (e.g., opened directly from Pinpoint button), don't override
+    if (previewModal.stickySource) return;
     const newFile = (() => {
       // reuse the resolver below without moving hooks; simple inline resolver
       if (typeof activeFilterEditor === 'string') {
@@ -339,11 +351,29 @@ export const FilterCart: React.FC = () => {
 
   // Resolve a source file for preview irrespective of editor visibility
   const getCurrentImageFile = (): File | undefined => {
-    // 1) If editor has a target (string key), use it
+    // 1) If editor has a target (string key), prefer that folder, then fallbacks
     if (typeof activeFilterEditor === 'string') {
       if (!current) return undefined;
-      const folder = folders[activeFilterEditor];
-      return findFileInFolder(folder, current.filename);
+      const primaryFolder = folders[activeFilterEditor];
+      const primary = findFileInFolder(primaryFolder, current.filename);
+      if (primary) return primary;
+
+      // 1a) Try active canvas folder (useful for Pinpoint mode)
+      if (activeCanvasKey && typeof activeCanvasKey === 'string') {
+        const canvasFolder = folders[activeCanvasKey];
+        const viaCanvas = findFileInFolder(canvasFolder, current.filename);
+        if (viaCanvas) return viaCanvas;
+      }
+
+      // 1b) Last resort: scan any folder that has the current filename
+      for (const k in current.has) {
+        if ((current.has as any)[k]) {
+          const folder = folders[k as any];
+          const f = findFileInFolder(folder, current.filename);
+          if (f) return f;
+        }
+      }
+      return undefined;
     }
     // 2) If editor targeted analysis index
     if (typeof activeFilterEditor === 'number') {
@@ -877,7 +907,12 @@ export const FilterCart: React.FC = () => {
                       <button
                         className="preview-btn"
                         onClick={(e) => {
-                          const sourceFile = getCurrentImageFile();
+                          // Resolve source with sticky preference in Pinpoint mode
+                          const state = useStore.getState();
+                          let sourceFile = getCurrentImageFile();
+                          if (state.previewModal?.stickySource && state.previewModal?.sourceFile) {
+                            sourceFile = state.previewModal.sourceFile;
+                          }
                           if (!sourceFile || !item.enabled) return;
 
                           // Exit edit mode when switching to preview mode
@@ -893,6 +928,7 @@ export const FilterCart: React.FC = () => {
                               sourceFile,
                               position: 'sidebar',
                               editMode: true,
+                              stickySource: state.previewModal?.stickySource || appMode === 'pinpoint',
                               onParameterChange: (newParams: FilterParams) => {
                                 updateFilterCartItem(item.id, { params: newParams });
                                 updatePreviewModal({ filterParams: newParams });
@@ -909,6 +945,7 @@ export const FilterCart: React.FC = () => {
                                 sourceFile,
                                 position: 'sidebar',
                                 editMode: true,
+                                stickySource: state.previewModal?.stickySource || appMode === 'pinpoint',
                                 onParameterChange: (newParams: FilterParams) => {
                                   // Update the clicked item in the cart
                                   updateFilterCartItem(item.id, { params: newParams });
