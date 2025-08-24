@@ -34,13 +34,16 @@
 
 ### 🎨 전문 Filter System
 - **40+ 고급 Filter**: 기본 조정부터 복잡한 OpenCV 작업까지
-- **Filter Chain**: 사용자 정의 sequence에서 여러 filter 조합
+- **Filter Chain**: 순차적 라벨링과 함께 사용자 정의 sequence에서 여러 filter 조합
 - **실시간 Preview**: parameter 조정 시 즉각적인 변화 확인
+- **Filter 미리보기 시스템**: 적용 전 side-by-side 비교로 미리보기
+- **스마트 Filter 라벨**: 동적 filter chain 표시 (예: "Gaussian Blur → Sharpen → Canny")
 - **Export 기능**: filter 설정 저장 및 여러 이미지에 적용
 
 ### ⚡ 고성능 Interface
-- **유연한 Layout**: Auto-grid 및 free positioning mode
+- **유연한 Layout**: 대화형 그리드 선택기로 최대 24개 viewer까지 다양한 배치 구성
 - **동기화된 Navigation**: 모든 viewer에서 pan 및 zoom 동시 적용
+- **스마트 UI 컨트롤**: 폴더, 파일, 필터 라벨 표시/숨기기 토글 버튼
 - **Keyboard Shortcut**: 빠른 workflow를 위한 광범위한 hotkey 지원
 - **Responsive Design**: desktop과 mobile 장치 모두 최적화
 
@@ -150,6 +153,25 @@ npm run deploy
 - Filter chain 생성 및 관리
 - 처리된 결과 export
 
+## 🔍 Filter 미리보기 시스템
+
+### 고급 미리보기 기능
+CompareX는 filter를 적용하기 전에 효과를 확인할 수 있는 포괄적인 filter 미리보기 시스템을 제공합니다:
+
+- **Side-by-Side 비교**: 원본과 필터 적용된 이미지를 동시에 미리보기
+- **실시간 Parameter 조정**: filter parameter를 수정하면서 즉시 변화 확인
+- **Filter Chain 미리보기**: 전체 filter chain 적용 전 미리보기
+- **인터랙티브 미리보기 Modal**: 컨트롤이 포함된 전용 미리보기 인터페이스
+- **Zoom 및 Pan**: 세부사항 검토를 위한 미리보기 이미지 탐색
+- **빠른 적용**: 미리본 filter를 한 번의 클릭으로 적용
+
+### 미리보기 Workflow
+1. **Filter 선택**: 40가지 이상의 사용 가능한 filter 중 선택
+2. **Parameter 조정**: 실시간으로 filter 설정 미세 조정
+3. **결과 미리보기**: 즉시 side-by-side 비교 확인
+4. **세부사항 검토**: zoom 및 pan으로 특정 영역 자세히 검토
+5. **적용 또는 취소**: filter 적용하거나 다른 filter 시도
+
 ## 🎨 Filter System
 
 ### Filter 카테고리
@@ -212,6 +234,9 @@ npm run deploy
 
 ### Filter Chain System
 - **Chain 생성**: 여러 filter를 sequence로 결합
+- **스마트 라벨링**: filter chain을 순차적으로 표시 (예: "Gaussian Blur → Sharpen → Canny")
+- **동적 라벨 관리**: 긴 filter chain의 자동 축약 및 툴팁 지원
+- **라벨 토글**: filter 라벨 표시/숨기기 컨트롤로 깔끔한 UI 유지
 - **Parameter 보존**: filter 구성 저장 및 로드
 - **Preview System**: 전체 chain의 실시간 preview
 - **Export/Import**: filter 구성 공유
@@ -220,10 +245,12 @@ npm run deploy
 ## 🎮 Interface 기능
 
 ### Layout System
-- **Auto Layout**: viewer를 최적 grid로 자동 배치
-- **Free Layout**: panel 위치 및 크기 조정에 완전한 자유도
-- **유연한 Resizing**: edge handle을 드래그하여 개별 viewer 크기 조정
-- **Panel 관리**: header를 드래그하여 panel 이동
+- **Grid Layout Selector**: 대화형 그리드 선택기로 1×1부터 최대 24개 viewer 배치
+- **유연한 Grid 구성**: 다양한 행/열 조합 (1×2, 2×2, 3×3, 4×6 등) 지원
+- **Live Preview**: 레이아웃 선택 중 실시간 미리보기 오버레이
+- **동적 Grid 확장**: 마우스 호버 시 그리드 선택 영역 자동 확장
+- **Viewer 제한**: 최대 24개 viewer까지 지원 (성능 및 사용성 고려)
+- **최적 배치**: 선택된 viewer 수에 따른 자동 행/열 계산
 
 ### Navigation 및 Viewport
 - **동기화된 Zoom**: 모든 viewer가 함께 zoom (Compare/Analysis mode)
@@ -253,27 +280,39 @@ npm run deploy
 
 ## ⌨️ Keyboard Shortcut
 
-### Mode 전환
+### Mode 전환 ✅
 - **1** - Single Mode로 전환
 - **2** - Compare Mode로 전환
 - **3** - Pinpoint Mode로 전환  
 - **4** - Analysis Mode로 전환
 
-### Navigation
+### Navigation ✅
 - **화살표 키** - view pan (이미지 로드 시)
 - **+/=** - zoom in
 - **-** - zoom out
 - **R** - view를 fit으로 reset
 - **I** - 이미지 정보 panel toggle
 
-### Pinpoint Mode 전용
+### Pinpoint Mode 전용 ✅
 - **+/=** - 개별 scale 증가 (viewer 활성 시)
 - **-** - 개별 scale 감소 (viewer 활성 시)
 - **Alt + Drag** - local rotation (개별 viewer에서)
 
-### 일반
-- **Space** - toggle modal 열기 (이미지 선택 시)
+### UI 컨트롤 🔄 *예정*
+- **F** - 폴더 컨트롤 표시/숨기기
+- **L** - 파일 리스트 표시/숨기기
+- **Ctrl+L** - 필터 라벨 표시/숨기기
+- **M** - 미니맵 표시/숨기기
+- **G** - 그리드 오버레이 표시/숨기기
+
+### 일반 🔄 *예정*
+- **Space** - toggle modal 열기 (이미지 선택 시) *참고: 현재 버튼으로만 작동*
 - **Escape** - modal 및 overlay 닫기
+- **Ctrl+Shift+P** - 필터 미리보기 modal 열기
+- **C** - 캡처 modal 열기
+
+### Modal Navigation ✅
+- **Escape** - 활성 modal 및 overlay 닫기 (개별 modal 컴포넌트에서 구현됨)
 
 ## 🔧 기술적 특징
 
@@ -433,6 +472,24 @@ npm run deploy   # GitHub Pages에 deploy
 - **React Community** - Framework 및 ecosystem
 - **TypeScript Team** - Type safety 및 개발자 경험
 - **Vite Team** - Build tool 및 개발 경험
+
+----
+
+## 🆕 최신 기능
+
+### 최근 추가된 기능
+- **스마트 필터 라벨**: 필터 체인의 동적 표시와 순차적 라벨링 (예: "Gaussian Blur → Sharpen → Canny")
+- **필터 미리보기 시스템**: 적용하기 전 필터의 side-by-side 미리보기
+- **향상된 그리드 레이아웃 시스템**: 라이브 미리보기와 동적 확장이 가능한 대화형 그리드 선택기
+- **향상된 UI 토글 시스템**: 폴더, 파일, 필터 라벨의 독립적 제어
+- **개선된 캡처 시스템**: 스크린샷에 표시될 요소의 세밀한 제어
+- **필터 체인 관리**: 복잡한 필터 시퀀스 생성 및 관리를 위한 향상된 인터페이스
+
+### 곧 출시 예정
+- **추가 키보드 단축키**: UI 컨트롤을 위한 전체 키보드 접근성
+- **필터 프리셋**: 자주 사용하는 필터 조합의 저장 및 공유
+- **배치 처리**: 여러 이미지에 동일한 필터 체인 적용
+- **향상된 내보내기**: 더 많은 이미지 형식 및 품질 옵션
 
 ## 📞 지원
 
