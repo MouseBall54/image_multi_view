@@ -92,6 +92,7 @@ interface State {
   showGrid: boolean;
   gridColor: GridColor;
   showFilelist: boolean;
+  showFilterLabels: boolean;
   // Minimap options
   minimapPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
   minimapWidth: number; // in px
@@ -175,6 +176,7 @@ interface State {
   setShowGrid: (show: boolean) => void;
   setGridColor: (color: GridColor) => void;
   setShowFilelist: (show: boolean) => void;
+  setShowFilterLabels: (show: boolean) => void;
   setMinimapPosition: (pos: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => void;
   setMinimapWidth: (w: number) => void;
   setViewport: (vp: Partial<Viewport>) => void;
@@ -291,6 +293,7 @@ export const useStore = create<State>((set) => ({
   showGrid: false,
   gridColor: 'white',
   showFilelist: true,
+  showFilterLabels: true,
   minimapPosition: 'bottom-right',
   minimapWidth: 150,
   viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5, refScreenX: undefined, refScreenY: undefined },
@@ -359,6 +362,7 @@ export const useStore = create<State>((set) => ({
   setShowGrid: (show) => set({ showGrid: show }),
   setGridColor: (color) => set({ gridColor: color }),
   setShowFilelist: (show) => set({ showFilelist: show }),
+  setShowFilterLabels: (show) => set({ showFilterLabels: show }),
   setMinimapPosition: (pos) => set({ minimapPosition: pos }),
   setMinimapWidth: (w) => set({ minimapWidth: w }),
   setViewport: (vp) => set(s => ({ viewport: { ...s.viewport, ...vp } })),

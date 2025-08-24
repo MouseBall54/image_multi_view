@@ -40,7 +40,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   const { 
     viewport, setViewport, setFitScaleFn, 
     pinpointMouseMode, setPinpointScale, 
-    pinpointGlobalScale, showMinimap, showGrid, gridColor,
+    pinpointGlobalScale, showMinimap, showGrid, gridColor, showFilterLabels,
     pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator,
     compareRotation, minimapWidth, minimapPosition,
     setViewerImageSize, setAnalysisImageSize

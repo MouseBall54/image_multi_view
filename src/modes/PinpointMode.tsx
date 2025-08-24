@@ -28,9 +28,10 @@ interface PinpointImage {
 // A new component for individual scale control
 import { PinpointRotationControl } from '../components/PinpointRotationControl';
 import { PinpointScaleControl } from '../components/PinpointScaleControl';
+import { generateFilterChainLabel } from '../utils/filterChainLabel';
 
 export interface PinpointModeHandle {
-  capture: (options: { showLabels: boolean, showCrosshair: boolean, showMinimap: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean, showCrosshair: boolean, showMinimap: boolean, showFilterLabels?: boolean }) => Promise<string | null>;
 }
 
 interface PinpointModeProps {
@@ -49,7 +50,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     activeCanvasKey, setActiveCanvasKey, clearFolder,
     openFilterEditor, viewerFilters, viewerFilterParams, viewerRows, viewerCols,
     openPreviewModal,
-    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -205,9 +206,11 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     await createTemporaryFolder(emptyFolder, imageFiles);
   };
 
-  const getFilterName = (type: FilterType | undefined) => {
+  const getFilterName = (type: FilterType | undefined, params?: FilterParams) => {
     if (!type || type === 'none') return null;
-    if (type === 'filterchain') return 'custom filter';
+    if (type === 'filterchain' && params?.filterChain) {
+      return generateFilterChainLabel(params.filterChain);
+    }
     return ALL_FILTERS.find(f => f.type === type)?.name || 'custom filter';
   };
 
@@ -246,7 +249,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   }, {} as Record<FolderKey, React.RefObject<ImageCanvasHandle>>);
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels, showCrosshair, showMinimap }) => {
+    capture: async ({ showLabels, showCrosshair, showMinimap, showFilterLabels = true }) => {
       const activeKeys = FOLDER_KEYS.slice(0, numViewers);
       const firstCanvas = canvasRefs[activeKeys[0]]?.current?.getCanvas();
       if (!firstCanvas) return null;
@@ -296,7 +299,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
           const key = activeKeys[index];
           const pinpointImage = pinpointImages[key];
           const sourceFolderAlias = pinpointImage?.sourceKey ? (allFolders[pinpointImage.sourceKey]?.alias || pinpointImage.sourceKey) : (allFolders[key]?.alias || key);
-          const filterName = getFilterName(viewerFilters[key]);
+          const filterName = getFilterName(viewerFilters[key], viewerFilterParams[key]);
 
           const lines: string[] = [];
           lines.push(sourceFolderAlias);
@@ -305,7 +308,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             lines.push(pinpointImage.file.name);
           }
           
-          if (filterName) {
+          if (filterName && showFilterLabels) {
             lines.push(`[${filterName}]`);
           }
 
@@ -549,7 +552,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
           {activeKeys.map(key => {
             const pinpointImage = pinpointImages[key];
             const sourceFolderAlias = pinpointImage?.sourceKey ? (allFolders[pinpointImage.sourceKey]?.alias || pinpointImage.sourceKey) : (allFolders[key]?.alias || key);
-            const filterName = getFilterName(viewerFilters[key]);
+            const filterName = getFilterName(viewerFilters[key], viewerFilterParams[key]);
 
             const lines: string[] = [];
             lines.push(sourceFolderAlias);
@@ -558,7 +561,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
               lines.push(pinpointImage.file.name);
             }
 
-            if (filterName) {
+            if (filterName && showFilterLabels) {
               lines.push(`[${filterName}]`);
             }
             const label = lines.join('\n');
