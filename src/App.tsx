@@ -13,7 +13,7 @@ import ToastContainer from "./components/ToastContainer";
 import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
 import { CompareRotationControl } from "./components/CompareRotationControl";
 import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
-import { FilelistToggle } from "./components/FilelistToggle";
+import { ViewToggleControls } from "./components/ViewToggleControls";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
 import { decodeTiffWithUTIF } from "./utils/utif";
 import { initializeOpenCV } from "./utils/opencv";
@@ -266,10 +266,10 @@ export default function App() {
           >
             CompareX
           </h1>
-          <button onClick={() => setShowControls(!showControls)} className="toggle-controls-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.37 3.63a2.12 2.12 0 1 1 3 3L12 16l-4 1 1-4Z"/></svg>
-            <span>{showControls ? 'Hide' : 'Show'} Folderlist</span>
-          </button>
+          <ViewToggleControls 
+            showControls={showControls} 
+            onToggleControls={() => setShowControls(!showControls)} 
+          />
         </div>
         <div className="top-controls-wrapper">
           <div className="controls-main">
@@ -348,7 +348,6 @@ export default function App() {
                 </select>
               </label>
             )}
-            <FilelistToggle />
             <button onClick={handleOpenCaptureModal}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
               Capture
