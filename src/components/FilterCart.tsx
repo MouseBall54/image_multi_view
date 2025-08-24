@@ -380,7 +380,6 @@ export const FilterCart: React.FC = () => {
   };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number, item: FilterChainItem) => {
-    console.log('Drag start:', index, item.id);
     setDraggedItem({ index, id: item.id });
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', item.id);
@@ -395,10 +394,8 @@ export const FilterCart: React.FC = () => {
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Drop at index:', dropIndex, 'Dragged item:', draggedItem);
     
     if (draggedItem && draggedItem.index !== dropIndex) {
-      console.log('Reordering from', draggedItem.index, 'to', dropIndex);
       reorderFilterCart(draggedItem.index, dropIndex);
     }
     setDraggedItem(null);
@@ -801,9 +798,36 @@ export const FilterCart: React.FC = () => {
             <FilterControls embedded />
             
             {/* Presets Section (moved to editor wrap bottom) */}
-            {filterPresets.length > 0 && (
-              <div className="filter-presets-section">
+            <div className="filter-presets-section">
+              <div className="presets-header">
                 <h4>Saved Presets</h4>
+                <div className="presets-actions">
+                  <button 
+                    className="btn btn-small btn-theme-primary"
+                    onClick={() => setShowExportDialog(true)}
+                    disabled={filterCart.length === 0}
+                    title="Export filter chain as JSON file"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7,10 12,15 17,10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                  </button>
+                  <button 
+                    className="btn btn-small btn-theme-accent"
+                    onClick={handleImportClick}
+                    title="Import filter chain(s) from JSON file(s) - supports multiple files (or drag & drop JSON files here)"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17,8 12,3 7,8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              {filterPresets.length > 0 && (
                 <div className="presets-list">
                   {filterPresets.map((preset) => (
                     <div key={preset.id} className="preset-item">
@@ -832,8 +856,8 @@ export const FilterCart: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
           <div className="chain-column">
             <div className="panel-header">
@@ -1037,29 +1061,6 @@ export const FilterCart: React.FC = () => {
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
-                </svg>
-              </button>
-              <button 
-                className="btn btn-icon btn-theme-primary"
-                onClick={() => setShowExportDialog(true)}
-                disabled={filterCart.length === 0}
-                title="Export filter chain as JSON file"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7,10 12,15 17,10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-              </button>
-              <button 
-                className="btn btn-icon btn-theme-accent"
-                onClick={handleImportClick}
-                title="Import filter chain(s) from JSON file(s) - supports multiple files (or drag & drop JSON files here)"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="17,8 12,3 7,8"/>
-                  <line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
               </button>
             </div> {/* End of filter-cart-actions */}

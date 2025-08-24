@@ -3111,6 +3111,22 @@ main {
   color: var(--text-secondary);
 }
 
+.embedded-editor-wrap .presets-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.embedded-editor-wrap .presets-header h4 {
+  margin: 0;
+}
+
+.embedded-editor-wrap .presets-actions {
+  display: flex;
+  gap: 4px;
+}
+
 .embedded-editor-wrap .presets-list {
   display: flex;
   flex-direction: column;
