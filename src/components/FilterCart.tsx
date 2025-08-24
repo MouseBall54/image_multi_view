@@ -67,54 +67,49 @@ export const FilterCart: React.FC = () => {
     // Drag counter tracking for proper leave detection
   }, [dragOverCounter]);
 
-  // Auto-enable preview when filter cart opens
+  // Auto-enable preview when filter cart opens (immediately, no delay)
   React.useEffect(() => {
-    if (showFilterCart && !previewModal.isOpen) {
-      const sourceFile = getCurrentImageFile();
-      if (sourceFile) {
-        // Small delay to allow cart to fully render
-        const timer = setTimeout(() => {
-          if (filterCart.length > 0) {
-            // Preview the entire current chain
-            const enabledFilters = filterCart.filter(f => f.enabled);
-            if (enabledFilters.length > 0) {
-              openPreviewModal({
-                mode: 'chain',
-                chainItems: enabledFilters,
-                title: `Preview Chain (${enabledFilters.length} filters)`,
-                sourceFile,
-                position: 'sidebar',
-                editMode: false
-              });
-            } else {
-              // Show original image when no enabled filters
-              openPreviewModal({
-                mode: 'single',
-                filterType: 'none',
-                filterParams: {},
-                title: 'Original Image',
-                sourceFile,
-                position: 'sidebar',
-                editMode: false
-              });
-            }
-          } else {
-            // Empty cart - show original image
-            openPreviewModal({
-              mode: 'single',
-              filterType: 'none',
-              filterParams: {},
-              title: 'Original Image',
-              sourceFile,
-              position: 'sidebar',
-              editMode: false
-            });
-          }
-        }, 100);
-        return () => clearTimeout(timer);
+    if (!showFilterCart || previewModal.isOpen) return;
+    const sourceFile = getCurrentImageFile();
+    if (!sourceFile) return;
+
+    if (filterCart.length > 0) {
+      // Preview the entire current chain
+      const enabledFilters = filterCart.filter(f => f.enabled);
+      if (enabledFilters.length > 0) {
+        openPreviewModal({
+          mode: 'chain',
+          chainItems: enabledFilters,
+          title: `Preview Chain (${enabledFilters.length} filters)`,
+          sourceFile,
+          position: 'sidebar',
+          editMode: false
+        });
+      } else {
+        // Show original image when no enabled filters
+        openPreviewModal({
+          mode: 'single',
+          filterType: 'none',
+          filterParams: {},
+          title: 'Original Image',
+          sourceFile,
+          position: 'sidebar',
+          editMode: false
+        });
       }
+    } else {
+      // Empty cart - show original image
+      openPreviewModal({
+        mode: 'single',
+        filterType: 'none',
+        filterParams: {},
+        title: 'Original Image',
+        sourceFile,
+        position: 'sidebar',
+        editMode: false
+      });
     }
-  }, [showFilterCart, previewModal.isOpen, openPreviewModal]);
+  }, [showFilterCart, previewModal.isOpen, openPreviewModal, filterCart]);
 
   // Drag handlers (drag by header)
   const onHeaderMouseDown = (e: React.MouseEvent) => {
