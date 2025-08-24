@@ -30,7 +30,7 @@ const isValidImageFile = (file: File): boolean => {
 export const SingleMode = forwardRef<SingleModeHandle, SingleModeProps>(({ bitmapCache, setPrimaryFile, showControls }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { openFilterEditor, viewerFilters, selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, setCurrent, showFilelist } = useStore();
+  const { openFilterEditor, viewerFilters, selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, setCurrent, showFilelist, previewLayout } = useStore();
 
   // Selected file state for Single mode
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -296,6 +296,20 @@ export const SingleMode = forwardRef<SingleModeHandle, SingleModeProps>(({ bitma
           </aside>
         )}
         <section className="viewers" style={gridStyle}>
+          {previewLayout && (
+            <div
+              className="viewers-preview-overlay"
+              aria-hidden
+              style={{
+                gridTemplateColumns: `repeat(${previewLayout.cols}, 1fr)`,
+                gridTemplateRows: `repeat(${previewLayout.rows}, 1fr)`
+              } as React.CSSProperties}
+            >
+              {Array.from({ length: (previewLayout.rows * previewLayout.cols) }).map((_, i) => (
+                <div key={i} className="preview-cell" />
+              ))}
+            </div>
+          )}
           {!selectedFile ? (
             <div className="analysis-mode-placeholder--inline">
               <p>Select a folder and choose an image to begin.</p>

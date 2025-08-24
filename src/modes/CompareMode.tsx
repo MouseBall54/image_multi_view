@@ -349,6 +349,9 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     '--rows': viewerRows,
   } as React.CSSProperties;
 
+  const { previewLayout } = useStore();
+  const showPreview = !!previewLayout;
+
   return (
     <>
       {showControls && <div className="controls">
@@ -441,6 +444,20 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
           </aside>
         )}
         <section className="viewers" style={gridStyle}>
+          {showPreview && (
+            <div
+              className="viewers-preview-overlay"
+              aria-hidden
+              style={{
+                gridTemplateColumns: `repeat(${previewLayout!.cols}, 1fr)`,
+                gridTemplateRows: `repeat(${previewLayout!.rows}, 1fr)`
+              } as React.CSSProperties}
+            >
+              {Array.from({ length: (previewLayout!.rows * previewLayout!.cols) }).map((_, i) => (
+                <div key={i} className="preview-cell" />
+              ))}
+            </div>
+          )}
           {FOLDER_KEYS.slice(0, numViewers).map(key => {
             const lines: string[] = [];
             const folderLabel = allFolders[key]?.alias || key;

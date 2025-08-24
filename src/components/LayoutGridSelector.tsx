@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useStore } from "../store";
 
 interface LayoutGridSelectorProps {
   currentRows: number;
@@ -21,6 +22,7 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const { setLayoutPreview, clearLayoutPreview } = useStore();
 
   // Maximum grid size - 24 viewers limit with various combinations
   const ABSOLUTE_MAX_ROWS = 12;
@@ -44,6 +46,8 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
   const handleCellHover = (row: number, col: number) => {
     setHoveredRows(row);
     setHoveredCols(col);
+    // Update live preview overlay in main view
+    setLayoutPreview(row, col);
 
     // Dynamically adjust grid visible size to hover – expand and shrink
     const nextMaxRows = Math.min(Math.max(row + 1, 2), ABSOLUTE_MAX_ROWS);
@@ -57,6 +61,7 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
     if (totalViewers <= MAX_VIEWERS) {
       onLayoutChange(rows, cols);
       setIsOpen(false);
+      clearLayoutPreview();
     }
   };
 
@@ -68,8 +73,15 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
       setMaxCols(2);
       setHoveredRows(currentRows);
       setHoveredCols(currentCols);
+      setLayoutPreview(currentRows, currentCols);
     }
   };
+
+  // Clear preview when dropdown closes or unmounts
+  useEffect(() => {
+    if (!isOpen) clearLayoutPreview();
+    return () => clearLayoutPreview();
+  }, [isOpen, clearLayoutPreview]);
 
   const renderGrid = () => {
     const cells = [];
@@ -83,13 +95,14 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
         const isOverLimit = totalViewers > MAX_VIEWERS;
         const hoveredOverLimit = hoveredViewers > MAX_VIEWERS;
         
+        const hoverGuide = row === hoveredRows || col === hoveredCols;
         cells.push(
           <div
             key={`${row}-${col}`}
-            className={`grid-cell ${isSelected ? 'selected' : ''} ${isCurrent ? 'current' : ''} ${isOverLimit ? 'disabled' : ''} ${hoveredOverLimit && isSelected ? 'over-limit' : ''}`}
+            className={`grid-cell ${isSelected ? 'selected' : ''} ${isCurrent ? 'current' : ''} ${isOverLimit ? 'disabled' : ''} ${hoveredOverLimit && isSelected ? 'over-limit' : ''} ${hoverGuide ? 'hover-guide' : ''}`}
             onMouseEnter={() => handleCellHover(row, col)}
             onClick={() => handleCellClick(row, col)}
-            title={isOverLimit ? `${totalViewers} viewers (max: ${MAX_VIEWERS})` : `${totalViewers} viewers`}
+            title={isOverLimit ? `Max ${MAX_VIEWERS}` : `${totalViewers}`}
           />
         );
       }
@@ -157,6 +170,12 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
               // Use fixed-size tracks so cells stay tight and consistent
               gridTemplateColumns: `repeat(${maxCols}, ${CELL_SIZE}px)`,
               gridTemplateRows: `repeat(${maxRows}, ${CELL_SIZE}px)`
+            }}
+            onMouseLeave={() => {
+              // When leaving the grid, keep preview to current rows/cols for stability
+              setHoveredRows(currentRows);
+              setHoveredCols(currentCols);
+              setLayoutPreview(currentRows, currentCols);
             }}
           >
             {renderGrid()}

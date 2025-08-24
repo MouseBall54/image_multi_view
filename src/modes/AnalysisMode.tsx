@@ -459,6 +459,20 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
           </aside>
         )}
         <section className="viewers" style={gridStyle}>
+          {previewLayout && (
+            <div
+              className="viewers-preview-overlay"
+              aria-hidden
+              style={{
+                gridTemplateColumns: `repeat(${previewLayout.cols}, 1fr)`,
+                gridTemplateRows: `repeat(${previewLayout.rows}, 1fr)`
+              } as React.CSSProperties}
+            >
+              {Array.from({ length: (previewLayout.rows * previewLayout.cols) }).map((_, i) => (
+                <div key={i} className="preview-cell" />
+              ))}
+            </div>
+          )}
           {!analysisFile ? (
              <div className="analysis-mode-placeholder--inline">
                 <p>Select a folder and then choose an image from the list to begin.</p>

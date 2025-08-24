@@ -507,6 +507,7 @@ main {
   min-width:0; 
   grid-template-columns: repeat(var(--cols, 2), 1fr);
   grid-template-rows: repeat(var(--rows, 1), 1fr);
+  position: relative; /* enable overlay positioning */
 }
 
 .viewer { 
@@ -4233,6 +4234,7 @@ main {
 .grid-cell.current {
   background: var(--warning-color);
   box-shadow: 0 0 4px rgba(255, 193, 7, 0.6);
+  outline: 2px solid var(--warning-color);
 }
 
 .grid-cell.current.selected {
@@ -4249,10 +4251,49 @@ main {
 .grid-cell.over-limit {
   background: var(--danger-color) !important;
   box-shadow: 0 0 4px rgba(220, 53, 69, 0.6) !important;
+  animation: gridShake 0.15s ease-in-out, pulseRed 0.6s ease-out;
 }
 
 .grid-preview-text.over-limit {
   color: var(--danger-color);
+}
+
+/* Hover guidance for row/col under cursor */
+.grid-cell.hover-guide:not(.selected):not(.current) {
+  background: var(--bg-med);
+  outline: 1px solid var(--accent-primary);
+}
+
+/* Live layout preview overlay over the viewers grid */
+.viewers-preview-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0.25;
+  animation: previewFade 0.12s ease-out;
+}
+
+.viewers-preview-overlay .preview-cell {
+  border: 1px dashed var(--accent-primary);
+  background: transparent;
+}
+
+@keyframes previewFade {
+  from { opacity: 0; }
+  to { opacity: 0.25; }
+}
+
+@keyframes gridShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1px); }
+  75% { transform: translateX(1px); }
+}
+
+@keyframes pulseRed {
+  0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.35); }
+  100% { box-shadow: 0 0 0 8px rgba(220, 53, 69, 0); }
 }
 
 .max-limit {

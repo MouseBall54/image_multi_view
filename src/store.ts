@@ -86,6 +86,8 @@ interface State {
   numViewers: number;
   viewerRows: number;
   viewerCols: number;
+  // Layout preview (for ghost overlay when selecting a new layout)
+  previewLayout: { rows: number; cols: number } | null;
   showMinimap: boolean;
   showGrid: boolean;
   gridColor: GridColor;
@@ -165,6 +167,8 @@ interface State {
   setStripExt: (strip: boolean) => void;
   setNumViewers: (n: number) => void;
   setViewerLayout: (rows: number, cols: number) => void;
+  setLayoutPreview: (rows: number, cols: number) => void;
+  clearLayoutPreview: () => void;
   setShowMinimap: (show: boolean) => void;
   setShowGrid: (show: boolean) => void;
   setGridColor: (color: GridColor) => void;
@@ -279,6 +283,7 @@ export const useStore = create<State>((set) => ({
   numViewers: 2,
   viewerRows: 1,
   viewerCols: 2,
+  previewLayout: null,
   showMinimap: false,
   showGrid: false,
   gridColor: 'white',
@@ -343,6 +348,8 @@ export const useStore = create<State>((set) => ({
   setStripExt: (strip) => set({ stripExt: strip }),
   setNumViewers: (n) => set({ numViewers: n }),
   setViewerLayout: (rows, cols) => set({ viewerRows: rows, viewerCols: cols, numViewers: rows * cols }),
+  setLayoutPreview: (rows, cols) => set({ previewLayout: { rows, cols } }),
+  clearLayoutPreview: () => set({ previewLayout: null }),
   setShowMinimap: (show) => set({ showMinimap: show }),
   setShowGrid: (show) => set({ showGrid: show }),
   setGridColor: (color) => set({ gridColor: color }),
