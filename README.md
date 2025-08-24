@@ -34,13 +34,16 @@ No installation required - all processing happens locally in your browser!
 
 ### 🎨 Professional Filter System
 - **40+ Advanced Filters**: From basic adjustments to complex OpenCV operations
-- **Filter Chains**: Combine multiple filters in custom sequences
+- **Filter Chains**: Combine multiple filters in custom sequences with sequential labeling
 - **Real-time Preview**: See changes instantly as you adjust parameters
+- **Filter Preview System**: Preview filters before applying with side-by-side comparison
+- **Smart Filter Labels**: Dynamic filter chain display (e.g., "Gaussian Blur → Sharpen → Canny")
 - **Export Capabilities**: Save filter settings and apply to multiple images
 
 ### ⚡ High-Performance Interface
-- **Flexible Layouts**: Auto-grid and free positioning modes
+- **Flexible Layouts**: Auto-grid and completely free positioning modes with drag & resize
 - **Synchronized Navigation**: Pan and zoom across all viewers simultaneously
+- **Smart UI Controls**: Toggle buttons for folders, files, and filter labels visibility
 - **Keyboard Shortcuts**: Extensive hotkey support for rapid workflow
 - **Responsive Design**: Optimized for both desktop and mobile devices
 
@@ -150,6 +153,25 @@ npm run deploy
 - Filter chain creation and management
 - Export processed results
 
+## 🔍 Filter Preview System
+
+### Advanced Preview Capabilities
+CompareX features a comprehensive filter preview system that allows you to see filter effects before applying them:
+
+- **Side-by-Side Comparison**: Preview original vs filtered images simultaneously
+- **Real-Time Parameter Adjustment**: See changes instantly as you modify filter parameters
+- **Filter Chain Preview**: Preview entire filter chains before applying
+- **Interactive Preview Modal**: Dedicated preview interface with controls
+- **Zoom and Pan**: Navigate preview images to examine details
+- **Quick Apply**: Apply previewed filters with one click
+
+### Preview Workflow
+1. **Select Filter**: Choose from 40+ available filters
+2. **Adjust Parameters**: Fine-tune filter settings in real-time
+3. **Preview Results**: See immediate side-by-side comparison
+4. **Examine Details**: Zoom and pan to inspect specific areas
+5. **Apply or Discard**: Choose to apply the filter or try another
+
 ## 🎨 Filter System
 
 ### Filter Categories
@@ -211,19 +233,25 @@ npm run deploy
 - **Wavelet** - Wavelet transform analysis
 
 ### Filter Chain System
-- **Chain Creation**: Combine multiple filters in sequence
+- **Chain Creation**: Combine multiple filters in sequence with drag-and-drop interface
+- **Sequential Labeling**: Smart display showing filter progression (e.g., "Gaussian Blur → Sharpen → Canny")
+- **Filter Preview System**: Side-by-side preview before applying filters
+  - Preview filters individually or as chains
+  - Compare original vs filtered versions
+  - Real-time parameter adjustment
 - **Parameter Preservation**: Save and load filter configurations
-- **Preview System**: Real-time preview of entire chain
 - **Export/Import**: Share filter configurations
 - **Preset Management**: Create and manage filter presets
 
 ## 🎮 Interface Features
 
 ### Layout System
-- **Auto Layout**: Automatically arrange viewers in optimal grid
-- **Free Layout**: Complete freedom to position and resize panels
-- **Flexible Resizing**: Drag edge handles to resize individual viewers
-- **Panel Management**: Move panels by dragging headers
+- **Grid Layout Selector**: Interactive grid selector for arranging 1×1 up to 24 viewers
+- **Flexible Grid Configurations**: Support for various row/column combinations (1×2, 2×2, 3×3, 4×6, etc.)
+- **Live Preview**: Real-time preview overlay while selecting layout configurations
+- **Dynamic Grid Expansion**: Grid selection area automatically expands on mouse hover
+- **Viewer Limit**: Support up to 24 viewers maximum (performance and usability considerations)
+- **Optimal Arrangement**: Automatic row/column calculation based on selected viewer count
 
 ### Navigation & Viewport
 - **Synchronized Zoom**: All viewers zoom together (Compare/Analysis modes)
@@ -233,11 +261,19 @@ npm run deploy
 - **Grid Overlay**: Customizable grid with color options
 
 ### Visual Enhancements
+- **Smart Label System**: Configurable display of folder names, file names, and filter labels
+  - Toggle folder/file labels independently
+  - Dynamic filter chain display with sequential naming
+  - Customizable label visibility in capture mode
 - **Crosshair Overlay**: Reference point visualization (Pinpoint mode)
 - **Image Information Panel**: Detailed file and dimension info
 - **Progress Indicators**: Loading and processing feedback
-- **Capture System**: Screenshot functionality with options
-- **Toggle Modal**: Cycle through selected images for comparison
+- **Advanced Capture System**: Screenshot functionality with comprehensive options
+  - Show/hide labels independently
+  - Show/hide crosshairs (Pinpoint mode)
+  - Show/hide minimap
+  - Show/hide filter labels
+- **Toggle Modal**: Cycle through selected images for detailed comparison
 
 ### File Management
 - **Multi-Format Support**: JPEG, PNG, TIFF, WebP, GIF, BMP
@@ -253,27 +289,39 @@ npm run deploy
 
 ## ⌨️ Keyboard Shortcuts
 
-### Mode Switching
+### Mode Switching ✅
 - **1** - Switch to Single Mode
 - **2** - Switch to Compare Mode
 - **3** - Switch to Pinpoint Mode  
 - **4** - Switch to Analysis Mode
 
-### Navigation
+### Navigation ✅
 - **Arrow Keys** - Pan view (when image is loaded)
 - **+/=** - Zoom in
 - **-** - Zoom out
 - **R** - Reset view to fit
 - **I** - Toggle image information panel
 
-### Pinpoint Mode Specific
+### Pinpoint Mode Specific ✅
 - **+/=** - Increase individual scale (when viewer is active)
 - **-** - Decrease individual scale (when viewer is active)
 - **Alt + Drag** - Local rotation (on individual viewers)
 
-### General
-- **Space** - Open toggle modal (when images are selected)
+### UI Controls 🔄 *Planned*
+- **F** - Toggle folder controls visibility
+- **L** - Toggle file list visibility
+- **Ctrl+L** - Toggle filter labels visibility
+- **M** - Toggle minimap
+- **G** - Toggle grid overlay
+
+### General 🔄 *Planned*
+- **Space** - Open toggle modal (when images are selected) *Note: Currently works via button only*
 - **Escape** - Close modals and overlays
+- **Ctrl+Shift+P** - Open filter preview modal
+- **C** - Open capture modal
+
+### Modal Navigation ✅
+- **Escape** - Close active modals and overlays (implemented in individual modal components)
 
 ## 🔧 Technical Features
 
@@ -313,7 +361,10 @@ src/
 ├── components/          # UI components
 │   ├── ImageCanvas.tsx     # Core image renderer
 │   ├── FilterControls.tsx  # Filter system UI
+│   ├── FilterPreviewModal.tsx # Filter preview system
 │   ├── FolderControl.tsx   # File browser
+│   ├── FlexibleLayout.tsx  # Free layout system
+│   ├── ViewToggleControls.tsx # UI toggle buttons
 │   └── ...
 ├── modes/              # Application modes
 │   ├── SingleMode.tsx      # Focused single-view
@@ -322,6 +373,7 @@ src/
 │   └── AnalysisMode.tsx    # Single-image analysis
 ├── utils/              # Utility functions
 │   ├── filters.ts          # Filter implementations
+│   ├── filterChainLabel.ts # Filter chain labeling system
 │   ├── opencv.ts           # OpenCV integration
 │   └── ...
 ├── hooks/              # Custom React hooks
@@ -439,6 +491,26 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issues** - [GitHub Issues](https://github.com/MouseBall54/image_multi_view/issues)
 - **Discussions** - [GitHub Discussions](https://github.com/MouseBall54/image_multi_view/discussions)
 - **Wiki** - [Project Wiki](https://github.com/MouseBall54/image_multi_view/wiki)
+
+---
+
+## 🆕 Latest Features
+
+### Recently Added
+- **Smart Filter Labels**: Dynamic display of filter chains with sequential naming (e.g., "Gaussian Blur → Sharpen → Canny")
+- **Filter Preview System**: Side-by-side preview of filters before applying
+- **Enhanced Grid Layout System**: Interactive grid selector with live preview and dynamic expansion
+- **Enhanced UI Toggle System**: Independent control of folders, files, and filter labels
+- **Improved Capture System**: Granular control over what elements appear in screenshots
+- **Filter Chain Management**: Enhanced interface for creating and managing complex filter sequences
+
+### Coming Soon
+- **Complete Keyboard Shortcuts**: UI controls and additional general shortcuts
+- **Enhanced Filter Export/Import**: Save and share filter configurations
+- **Advanced Batch Processing**: Process multiple images with same settings
+- **Custom Filter Presets**: Create and manage filter templates
+- **Performance Monitoring**: Real-time performance analysis tools
+- **Space Bar Toggle**: Direct keyboard activation of toggle modal
 
 ---
 

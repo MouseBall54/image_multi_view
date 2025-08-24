@@ -86,9 +86,13 @@ interface State {
   numViewers: number;
   viewerRows: number;
   viewerCols: number;
+  // Layout preview (for ghost overlay when selecting a new layout)
+  previewLayout: { rows: number; cols: number } | null;
   showMinimap: boolean;
   showGrid: boolean;
   gridColor: GridColor;
+  showFilelist: boolean;
+  showFilterLabels: boolean;
   // Minimap options
   minimapPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
   minimapWidth: number; // in px
@@ -137,6 +141,7 @@ interface State {
   filterCart: FilterChainItem[];
   filterPresets: FilterPreset[];
   showFilterCart: boolean;
+  filterPanelTab: 'editor' | 'chain';
   
   // Preview Modal states
   previewModal: {
@@ -153,6 +158,7 @@ interface State {
     editMode?: boolean;
     onParameterChange?: (params: FilterParams) => void;
     stepIndex?: number;
+    stickySource?: boolean; // When true, don't auto-sync sourceFile
   };
   previewSize: 'S' | 'M' | 'L';
 
@@ -164,9 +170,13 @@ interface State {
   setStripExt: (strip: boolean) => void;
   setNumViewers: (n: number) => void;
   setViewerLayout: (rows: number, cols: number) => void;
+  setLayoutPreview: (rows: number, cols: number) => void;
+  clearLayoutPreview: () => void;
   setShowMinimap: (show: boolean) => void;
   setShowGrid: (show: boolean) => void;
   setGridColor: (color: GridColor) => void;
+  setShowFilelist: (show: boolean) => void;
+  setShowFilterLabels: (show: boolean) => void;
   setMinimapPosition: (pos: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => void;
   setMinimapWidth: (w: number) => void;
   setViewport: (vp: Partial<Viewport>) => void;
@@ -233,6 +243,7 @@ interface State {
   
   // UI controls
   setShowFilterCart: (show: boolean) => void;
+  setFilterPanelTab: (tab: 'editor' | 'chain') => void;
   
   // Preview Modal actions
   openPreviewModal: (config: {
@@ -277,9 +288,12 @@ export const useStore = create<State>((set) => ({
   numViewers: 2,
   viewerRows: 1,
   viewerCols: 2,
+  previewLayout: null,
   showMinimap: false,
   showGrid: false,
   gridColor: 'white',
+  showFilelist: true,
+  showFilterLabels: true,
   minimapPosition: 'bottom-right',
   minimapWidth: 150,
   viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5, refScreenX: undefined, refScreenY: undefined },
@@ -323,11 +337,13 @@ export const useStore = create<State>((set) => ({
   filterCart: [],
   filterPresets: [],
   showFilterCart: false,
+  filterPanelTab: 'chain',
   
   // Preview Modal states
   previewModal: {
     isOpen: false,
     mode: 'single',
+    stickySource: false,
   },
   previewSize: 'M',
   
@@ -340,9 +356,13 @@ export const useStore = create<State>((set) => ({
   setStripExt: (strip) => set({ stripExt: strip }),
   setNumViewers: (n) => set({ numViewers: n }),
   setViewerLayout: (rows, cols) => set({ viewerRows: rows, viewerCols: cols, numViewers: rows * cols }),
+  setLayoutPreview: (rows, cols) => set({ previewLayout: { rows, cols } }),
+  clearLayoutPreview: () => set({ previewLayout: null }),
   setShowMinimap: (show) => set({ showMinimap: show }),
   setShowGrid: (show) => set({ showGrid: show }),
   setGridColor: (color) => set({ gridColor: color }),
+  setShowFilelist: (show) => set({ showFilelist: show }),
+  setShowFilterLabels: (show) => set({ showFilterLabels: show }),
   setMinimapPosition: (pos) => set({ minimapPosition: pos }),
   setMinimapWidth: (w) => set({ minimapWidth: w }),
   setViewport: (vp) => set(s => ({ viewport: { ...s.viewport, ...vp } })),
@@ -420,6 +440,7 @@ export const useStore = create<State>((set) => ({
         tempViewerFilter: state.analysisFilters[key] || 'none',
         tempViewerFilterParams: state.analysisFilterParams[key] || defaultFilterParams,
         showFilterCart: true,
+        filterPanelTab: 'editor',
       }
     } else { // Folder-based modes
       // Ensure a current item exists so previews can resolve a source file
@@ -442,6 +463,7 @@ export const useStore = create<State>((set) => ({
         tempViewerFilter: state.viewerFilters[key] || 'none',
         tempViewerFilterParams: state.viewerFilterParams[key] || defaultFilterParams,
         showFilterCart: true,
+        filterPanelTab: 'editor',
         current: nextCurrent || state.current,
       }
     }
@@ -459,13 +481,19 @@ export const useStore = create<State>((set) => ({
       return {
         analysisFilters: { ...state.analysisFilters, [key]: state.tempViewerFilter },
         analysisFilterParams: { ...state.analysisFilterParams, [key]: state.tempViewerFilterParams },
-        activeFilterEditor: null,
+        // Keep editor open in integrated panel workflow
+        activeFilterEditor: key,
+        filterPanelTab: 'editor',
+        showFilterCart: true,
       }
     } else { // Folder-based modes
       return {
         viewerFilters: { ...state.viewerFilters, [key]: state.tempViewerFilter },
         viewerFilterParams: { ...state.viewerFilterParams, [key]: state.tempViewerFilterParams },
-        activeFilterEditor: null,
+        // Keep editor open in integrated panel workflow
+        activeFilterEditor: key,
+        filterPanelTab: 'editor',
+        showFilterCart: true,
       }
     }
   }),
@@ -639,7 +667,14 @@ export const useStore = create<State>((set) => ({
   })),
 
   // UI controls
-  setShowFilterCart: (show) => set({ showFilterCart: show }),
+  setShowFilterCart: (show) => set(state => {
+    if (show) return { showFilterCart: true };
+    return {
+      showFilterCart: false,
+      activeFilterEditor: null,
+    };
+  }),
+  setFilterPanelTab: (tab) => set({ filterPanelTab: tab }),
   
   // Preview Modal actions
   openPreviewModal: (config) => set(state => ({
@@ -647,6 +682,8 @@ export const useStore = create<State>((set) => ({
       ...state.previewModal,
       isOpen: true,
       size: config.size || state.previewSize,
+      // Do not carry stickySource across opens unless explicitly requested
+      stickySource: config.stickySource ?? false,
       ...config
     }
   })),
@@ -657,7 +694,8 @@ export const useStore = create<State>((set) => ({
     previewModal: {
       ...state.previewModal,
       isOpen: false,
-      realTimeUpdate: false
+      realTimeUpdate: false,
+      stickySource: false
     }
   })),
   
@@ -699,10 +737,21 @@ useStore.subscribe((state, prevState) => {
       pinpointRotations: {},
       analysisRotation: 0,
       compareRotation: 0,
+      // Reset all applied filters across modes when switching modes
+      viewerFilters: {},
+      viewerFilterParams: {},
+      analysisFilters: {},
+      analysisFilterParams: {},
       // Reset toggle selection when mode changes
       selectedViewers: [],
       toggleModalOpen: false,
       toggleCurrentIndex: 0,
+      // Clear any sticky preview source when switching modes
+      previewModal: {
+        ...state.previewModal,
+        stickySource: false,
+        sourceFile: undefined,
+      },
     });
 
     // Clear analysis file if leaving analysis mode

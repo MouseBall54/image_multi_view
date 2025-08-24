@@ -6,13 +6,14 @@ import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
 import { SingleMode, SingleModeHandle } from "./modes/SingleMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
-import { FilterControls } from "./components/FilterControls";
 import { FilterCart } from "./components/FilterCart";
 import { FilterPreviewModal } from "./components/FilterPreviewModal";
 import ToastContainer from "./components/ToastContainer";
 import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
 import { CompareRotationControl } from "./components/CompareRotationControl";
 import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
+import { ViewToggleControls } from "./components/ViewToggleControls";
+import { LayoutGridSelector } from "./components/LayoutGridSelector";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
 import { decodeTiffWithUTIF } from "./utils/utif";
 import { initializeOpenCV } from "./utils/opencv";
@@ -73,7 +74,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, showFilterLabels, setShowFilterLabels, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart } = useStore();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -89,7 +90,7 @@ export default function App() {
 
   const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true, showMinimap: false });
+  const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true, showMinimap: false, showFilterLabels: true });
   const [clipboardStatus, setClipboardStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
 
@@ -265,10 +266,10 @@ export default function App() {
           >
             CompareX
           </h1>
-          <button onClick={() => setShowControls(!showControls)} className="toggle-controls-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.37 3.63a2.12 2.12 0 1 1 3 3L12 16l-4 1 1-4Z"/></svg>
-            <span>{showControls ? 'Hide' : 'Show'} Folderlist</span>
-          </button>
+          <ViewToggleControls 
+            showControls={showControls} 
+            onToggleControls={() => setShowControls(!showControls)} 
+          />
         </div>
         <div className="top-controls-wrapper">
           <div className="controls-main">
@@ -281,50 +282,11 @@ export default function App() {
               </select>
             </label>
             {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'analysis') && (
-              <label><span>Layout:</span>
-                <select value={`${viewerRows}x${viewerCols}`} onChange={e => {
-                  const [rows, cols] = e.target.value.split('x').map(Number);
-                  setViewerLayout(rows, cols);
-                }}>
-                  <option value="1x2">1×2 (2)</option>
-                  <option value="1x3">1×3 (3)</option>
-                  <option value="1x4">1×4 (4)</option>
-                  <option value="1x5">1×5 (5)</option>
-                  <option value="1x6">1×6 (6)</option>
-                  <option value="1x7">1×7 (7)</option>
-                  <option value="1x8">1×8 (8)</option>
-                  <option value="1x9">1×9 (9)</option>
-                  <option value="1x10">1×10 (10)</option>
-                  <option value="1x12">1×12 (12)</option>
-                  <option value="1x15">1×15 (15)</option>
-                  <option value="1x18">1×18 (18)</option>
-                  <option value="1x20">1×20 (20)</option>
-                  <option value="2x2">2×2 (4)</option>
-                  <option value="2x3">2×3 (6)</option>
-                  <option value="2x4">2×4 (8)</option>
-                  <option value="2x5">2×5 (10)</option>
-                  <option value="2x6">2×6 (12)</option>
-                  <option value="2x8">2×8 (16)</option>
-                  <option value="2x9">2×9 (18)</option>
-                  <option value="2x10">2×10 (20)</option>
-                  <option value="3x2">3×2 (6)</option>
-                  <option value="3x3">3×3 (9)</option>
-                  <option value="3x4">3×4 (12)</option>
-                  <option value="3x5">3×5 (15)</option>
-                  <option value="3x6">3×6 (18)</option>
-                  <option value="4x2">4×2 (8)</option>
-                  <option value="4x3">4×3 (12)</option>
-                  <option value="4x4">4×4 (16)</option>
-                  <option value="4x5">4×5 (20)</option>
-                  <option value="5x2">5×2 (10)</option>
-                  <option value="5x3">5×3 (15)</option>
-                  <option value="5x4">5×4 (20)</option>
-                  <option value="6x3">6×3 (18)</option>
-                  <option value="6x4">6×4 (24)</option>
-                  <option value="8x3">8×3 (24)</option>
-                  <option value="10x2">10×2 (20)</option>
-                </select>
-              </label>
+              <LayoutGridSelector
+                currentRows={viewerRows}
+                currentCols={viewerCols}
+                onLayoutChange={(rows, cols) => setViewerLayout(rows, cols)}
+              />
             )}
             <button
               className={"toggle-main-btn"}
@@ -423,6 +385,10 @@ export default function App() {
                 <input type="checkbox" checked={captureOptions.showLabels} onChange={(e) => setCaptureOptions(o => ({...o, showLabels: e.target.checked}))} />
                 Show Labels
               </label>
+              <label>
+                <input type="checkbox" checked={captureOptions.showFilterLabels} onChange={(e) => setCaptureOptions(o => ({...o, showFilterLabels: e.target.checked}))} />
+                Show Filter Labels
+              </label>
               {appMode === 'pinpoint' && (
                 <label>
                   <input type="checkbox" checked={captureOptions.showCrosshair} onChange={(e) => setCaptureOptions(o => ({...o, showCrosshair: e.target.checked}))} />
@@ -499,7 +465,6 @@ export default function App() {
         </div>
       )}
 
-      <FilterControls />
       <FilterCart />
       
       {/* Only render FilterPreviewModal for modal mode, sidebar mode is rendered within FilterCart */}

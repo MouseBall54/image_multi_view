@@ -142,8 +142,9 @@ const filterGroups = [
   'Frequency Domain (Experimental)'
 ];
 
-export const FilterControls: React.FC = () => {
+export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const {
+    appMode,
     activeFilterEditor,
     tempViewerFilter,
     tempViewerFilterParams,
@@ -219,15 +220,16 @@ export const FilterControls: React.FC = () => {
       return undefined;
     })();
 
-    // Update preview modal if open
-    if (sourceFile) {
+    // Update preview modal if open (unless stickySource is set)
+    const state = useStore.getState();
+    if (sourceFile && !(state.previewModal?.stickySource)) {
       updatePreviewModal({ sourceFile });
     }
   }, [current?.filename, analysisFile, activeFilterEditor, folders]);
 
   if (activeFilterEditor === null) return null;
 
-  // Get current image file for preview
+  // Get current image file for preview (robust across modes)
   const getCurrentImageFile = (): File | undefined => {
     const findFileInFolder = (folder: any, filename: string | undefined): File | undefined => {
       if (!folder || !folder.data || !folder.data.files || !filename) return undefined;
@@ -244,17 +246,29 @@ export const FilterControls: React.FC = () => {
     };
 
     if (typeof activeFilterEditor === 'string') {
-      // Viewer mode - get from folder
       if (!current) return undefined;
-      const folder = folders[activeFilterEditor];
-      if (folder && folder.data.files) {
-        return findFileInFolder(folder, current.filename);
+      // Prefer the editor-targeted folder
+      const primary = findFileInFolder(folders[activeFilterEditor], current.filename);
+      if (primary) return primary;
+      // Try active canvas key (Pinpoint)
+      const state = useStore.getState();
+      const ack = state.activeCanvasKey;
+      if (ack && typeof ack === 'string') {
+        const viaCanvas = findFileInFolder(folders[ack], current.filename);
+        if (viaCanvas) return viaCanvas;
       }
-    } else if (typeof activeFilterEditor === 'number') {
-      // Analysis mode - get from analysisFile
+      // Scan any folder that has the current filename
+      for (const k in current.has) {
+        if ((current.has as any)[k]) {
+          const f = findFileInFolder(folders[k as any], current.filename);
+          if (f) return f;
+        }
+      }
+      return undefined;
+    }
+    if (typeof activeFilterEditor === 'number') {
       return analysisFile || undefined;
     }
-    
     return undefined;
   };
 
@@ -931,13 +945,8 @@ export const FilterControls: React.FC = () => {
 
   const panelStyle: React.CSSProperties = panelPos ? { position: 'fixed', left: panelPos.left, top: panelPos.top, transform: 'none', cursor: isDragging ? 'grabbing' as const : undefined } : {};
 
-  return (
-    <div className="filter-controls-overlay">
-      <div className="filter-controls-panel" ref={panelRef} style={panelStyle}>
-        <div className="panel-header" onMouseDown={onHeaderMouseDown} style={{ cursor: 'grab' }}>
-          <h3>Filter Editor (View {activeFilterEditor})</h3>
-          <button onClick={closeFilterEditor} className="close-btn">&times;</button>
-        </div>
+  const body = (
+        <>
         <div className="panel-body">
           <div className="control-row">
             <label>Filter Type</label>
@@ -1047,7 +1056,8 @@ export const FilterControls: React.FC = () => {
                     title: `Filter Preview: ${ALL_FILTERS.find(f => f.type === tempViewerFilter)?.name || tempViewerFilter}`,
                     sourceFile,
                     realTimeUpdate: true,
-                    position: 'sidebar'
+                    position: 'sidebar',
+                    stickySource: appMode === 'pinpoint'
                   });
                 }
               }}
@@ -1079,6 +1089,15 @@ export const FilterControls: React.FC = () => {
                 <path d="M15 10L12 7L9 10"/>
               </svg>
             </button>
+            <button 
+              onClick={applyTempFilterSettings} 
+              className="btn btn-icon btn-theme-accent"
+              title="Apply current filter settings"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20,6 9,17 4,12"/>
+              </svg>
+            </button>
             {!showFilterCart && (
               <button 
                 onClick={() => setShowFilterCart(true)}
@@ -1094,12 +1113,29 @@ export const FilterControls: React.FC = () => {
               </button>
             )}
           </div>
-          <button onClick={applyTempFilterSettings} className="btn btn-icon btn-theme-accent">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20,6 9,17 4,12"/>
-            </svg>
-          </button>
         </div>
+        </>
+  );
+
+  if (embedded) {
+    return (
+      <div className="filter-controls-embedded">
+        <div className="panel-header">
+          <h3>Filter Editor</h3>
+        </div>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <div className="filter-controls-overlay">
+      <div className="filter-controls-panel" ref={panelRef} style={panelStyle}>
+        <div className="panel-header" onMouseDown={onHeaderMouseDown} style={{ cursor: 'grab' }}>
+          <h3>Filter Editor (View {activeFilterEditor})</h3>
+          <button onClick={closeFilterEditor} className="close-btn">&times;</button>
+        </div>
+        {body}
       </div>
     </div>
   );

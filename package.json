@@ -2,6 +2,7 @@
   "name": "compareX",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
   "description": "Advanced image comparison and analysis tool",
   "author": "CompareX Team",
   "main": "electron.js",

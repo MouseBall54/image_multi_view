@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useStore, FilterParams } from '../store';
-import { ALL_FILTERS } from './FilterControls';
+import { ALL_FILTERS, FilterControls } from './FilterControls';
 import type { FilterChainItem } from '../types';
 import { importFilterChain, isValidFilterChainFile } from '../utils/filterExport';
 import { getRelevantParams as getRelevantParamsForType } from '../utils/filterExport';
@@ -13,6 +13,7 @@ interface DragItem {
 
 export const FilterCart: React.FC = () => {
   const {
+    appMode,
     filterCart,
     showFilterCart,
     filterPresets,
@@ -21,6 +22,8 @@ export const FilterCart: React.FC = () => {
     current,
     folders,
     analysisFile,
+    tempViewerFilter,
+    tempViewerFilterParams,
     removeFromFilterCart,
     reorderFilterCart,
     clearFilterCart,
@@ -64,6 +67,57 @@ export const FilterCart: React.FC = () => {
   React.useEffect(() => {
     // Drag counter tracking for proper leave detection
   }, [dragOverCounter]);
+
+  // Auto-enable preview when filter cart opens (immediately, no delay)
+  const previewInitializedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!showFilterCart) { previewInitializedRef.current = false; return; }
+    if (previewModal.isOpen) { previewInitializedRef.current = true; return; }
+    if (previewInitializedRef.current) return;
+    const sourceFile = getCurrentImageFile();
+    if (!sourceFile) return;
+
+    if (filterCart.length > 0) {
+      // Preview the entire current chain
+      const enabledFilters = filterCart.filter(f => f.enabled);
+      if (enabledFilters.length > 0) {
+        openPreviewModal({
+          mode: 'chain',
+          chainItems: enabledFilters,
+          title: `Preview Chain (${enabledFilters.length} filters)`,
+          sourceFile,
+          position: 'sidebar',
+          editMode: false,
+          stickySource: false
+        });
+      } else {
+        // Show original image when no enabled filters
+        openPreviewModal({
+          mode: 'single',
+          filterType: 'none',
+          filterParams: {},
+          title: 'Original Image',
+          sourceFile,
+          position: 'sidebar',
+          editMode: false,
+          stickySource: false
+        });
+      }
+    } else {
+      // Empty cart - show original image
+      openPreviewModal({
+        mode: 'single',
+        filterType: 'none',
+        filterParams: {},
+        title: 'Original Image',
+        sourceFile,
+        position: 'sidebar',
+        editMode: false,
+        stickySource: false
+      });
+    }
+    previewInitializedRef.current = true;
+  }, [showFilterCart, previewModal.isOpen, openPreviewModal, filterCart]);
 
   // Drag handlers (drag by header)
   const onHeaderMouseDown = (e: React.MouseEvent) => {
@@ -165,6 +219,39 @@ export const FilterCart: React.FC = () => {
     }, 300);
   }, [closePreviewModal, previewSize]);
 
+  // Ensure preview sidebar is active by default when panel opens
+  React.useEffect(() => {
+    if (!showFilterCart) return;
+    if (previewModal.isOpen && previewModal.position === 'sidebar') return;
+    const sourceFile = getCurrentImageFile();
+    if (!sourceFile) return;
+    // Prefer chain preview if chain has items, otherwise single filter preview
+    const enabledChain = filterCart.filter(f => f.enabled);
+    if (enabledChain.length > 0) {
+      openPreviewModal({
+        mode: 'chain',
+        chainItems: enabledChain,
+        title: `Preview (Steps 1-${enabledChain.length})`,
+        sourceFile,
+        position: 'sidebar',
+        editMode: true,
+        stickySource: false,
+      });
+    } else if (tempViewerFilter && tempViewerFilter !== 'none') {
+      openPreviewModal({
+        mode: 'single',
+        filterType: tempViewerFilter,
+        filterParams: tempViewerFilterParams as FilterParams,
+        title: `Filter Preview`,
+        sourceFile,
+        position: 'sidebar',
+        realTimeUpdate: true,
+        editMode: true,
+        stickySource: false,
+      });
+    }
+  }, [showFilterCart]);
+
   // Get preview width for CSS custom property
   const getPreviewWidth = () => {
     switch (previewSize) {
@@ -178,6 +265,8 @@ export const FilterCart: React.FC = () => {
   // Keep preview modal's source file in sync with current selection
   React.useEffect(() => {
     if (!previewModal.isOpen || previewModal.position !== 'sidebar') return;
+    // If source is intentionally locked (e.g., opened directly from Pinpoint button), don't override
+    if (previewModal.stickySource) return;
     const newFile = (() => {
       // reuse the resolver below without moving hooks; simple inline resolver
       if (typeof activeFilterEditor === 'string') {
@@ -262,11 +351,29 @@ export const FilterCart: React.FC = () => {
 
   // Resolve a source file for preview irrespective of editor visibility
   const getCurrentImageFile = (): File | undefined => {
-    // 1) If editor has a target (string key), use it
+    // 1) If editor has a target (string key), prefer that folder, then fallbacks
     if (typeof activeFilterEditor === 'string') {
       if (!current) return undefined;
-      const folder = folders[activeFilterEditor];
-      return findFileInFolder(folder, current.filename);
+      const primaryFolder = folders[activeFilterEditor];
+      const primary = findFileInFolder(primaryFolder, current.filename);
+      if (primary) return primary;
+
+      // 1a) Try active canvas folder (useful for Pinpoint mode)
+      if (activeCanvasKey && typeof activeCanvasKey === 'string') {
+        const canvasFolder = folders[activeCanvasKey];
+        const viaCanvas = findFileInFolder(canvasFolder, current.filename);
+        if (viaCanvas) return viaCanvas;
+      }
+
+      // 1b) Last resort: scan any folder that has the current filename
+      for (const k in current.has) {
+        if ((current.has as any)[k]) {
+          const folder = folders[k as any];
+          const f = findFileInFolder(folder, current.filename);
+          if (f) return f;
+        }
+      }
+      return undefined;
     }
     // 2) If editor targeted analysis index
     if (typeof activeFilterEditor === 'number') {
@@ -300,15 +407,19 @@ export const FilterCart: React.FC = () => {
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number, item: FilterChainItem) => {
     setDraggedItem({ index, id: item.id });
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item.id);
   };
 
   const handleFilterDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
     e.preventDefault();
+    e.stopPropagation();
+    
     if (draggedItem && draggedItem.index !== dropIndex) {
       reorderFilterCart(draggedItem.index, dropIndex);
     }
@@ -673,7 +784,7 @@ export const FilterCart: React.FC = () => {
       )}
 
       <div className="filter-cart-header" onMouseDown={onHeaderMouseDown} style={{ cursor: 'grab' }}>
-        <h3>Filter Chain ({filterCart.length})</h3>
+        <h3>Filters</h3>
         <button 
           className="close-btn"
           onClick={() => setShowFilterCart(false)}
@@ -705,20 +816,83 @@ export const FilterCart: React.FC = () => {
         )}
 
         <div 
-          className="filter-cart-content"
+          className="filter-cart-content side-by-side"
           data-preview-size={previewModal.isOpen && previewModal.position === 'sidebar' ? previewSize : undefined}
         >
-          {filterCart.length === 0 ? (
-            <div className="empty-cart">
-              <p>No filters in chain</p>
-              <p><small>Add filters using the "Add to Chain" button</small></p>
+          <div className="embedded-editor-wrap">
+            <FilterControls embedded />
+            
+            {/* Presets Section (moved to editor wrap bottom) */}
+            <div className="filter-presets-section">
+              <div className="presets-header">
+                <h4>Saved Presets</h4>
+                <div className="presets-actions">
+                  <button 
+                    className="btn btn-small btn-theme-primary"
+                    onClick={() => setShowExportDialog(true)}
+                    disabled={filterCart.length === 0}
+                    title="Export filter chain as JSON file"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7,10 12,15 17,10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                  </button>
+                  <button 
+                    className="btn btn-small btn-theme-accent"
+                    onClick={handleImportClick}
+                    title="Import filter chain(s) from JSON file(s) - supports multiple files (or drag & drop JSON files here)"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17,8 12,3 7,8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              {filterPresets.length > 0 && (
+                <div className="presets-list">
+                  {filterPresets.map((preset) => (
+                    <div key={preset.id} className="preset-item">
+                      <div className="preset-info">
+                        <div className="preset-name">{preset.name}</div>
+                        <div className="preset-filters">
+                          <small>{preset.chain.length} filters</small>
+                        </div>
+                      </div>
+                      <div className="preset-actions">
+                        <button
+                          className="btn btn-small"
+                          onClick={() => loadFilterPreset(preset.id)}
+                          title="Load preset to cart"
+                        >
+                          Load
+                        </button>
+                        <button
+                          className="btn btn-small btn-danger"
+                          onClick={() => deleteFilterPreset(preset.id)}
+                          title="Delete preset"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ) : (
-          <div className="filter-chain-list">
+          </div>
+          <div className="chain-column">
+            <div className="panel-header">
+              <h3>Filter Chain</h3>
+            </div>
+            <div className="filter-chain-list">
             {filterCart.map((item, index) => (
                 <div
                   key={item.id}
-                  className={`filter-chain-item ${!item.enabled ? 'disabled' : ''}`}
+                  className={`filter-chain-item ${!item.enabled ? 'disabled' : ''} ${draggedItem?.id === item.id ? 'dragging' : ''}`}
                   draggable
                   onDragStart={(e) => handleDragStart(e, index, item)}
                   onDragOver={handleFilterDragOver}
@@ -733,7 +907,12 @@ export const FilterCart: React.FC = () => {
                       <button
                         className="preview-btn"
                         onClick={(e) => {
-                          const sourceFile = getCurrentImageFile();
+                          // Resolve source with sticky preference in Pinpoint mode
+                          const state = useStore.getState();
+                          let sourceFile = getCurrentImageFile();
+                          if (state.previewModal?.stickySource && state.previewModal?.sourceFile) {
+                            sourceFile = state.previewModal.sourceFile;
+                          }
                           if (!sourceFile || !item.enabled) return;
 
                           // Exit edit mode when switching to preview mode
@@ -749,6 +928,7 @@ export const FilterCart: React.FC = () => {
                               sourceFile,
                               position: 'sidebar',
                               editMode: true,
+                              stickySource: state.previewModal?.stickySource || appMode === 'pinpoint',
                               onParameterChange: (newParams: FilterParams) => {
                                 updateFilterCartItem(item.id, { params: newParams });
                                 updatePreviewModal({ filterParams: newParams });
@@ -765,6 +945,7 @@ export const FilterCart: React.FC = () => {
                                 sourceFile,
                                 position: 'sidebar',
                                 editMode: true,
+                                stickySource: state.previewModal?.stickySource || appMode === 'pinpoint',
                                 onParameterChange: (newParams: FilterParams) => {
                                   // Update the clicked item in the cart
                                   updateFilterCartItem(item.id, { params: newParams });
@@ -830,159 +1011,93 @@ export const FilterCart: React.FC = () => {
                 </div>
               ))}
             </div>
-        )}
 
-        {/* Filter Cart Actions - Always visible */}
-        <div className="filter-cart-actions">
-              <div className="cart-action-row">
-                <button 
-                  className="btn btn-icon btn-theme-secondary"
-                  onClick={() => {
-                    // Compute a target viewer key (editor target, active canvas, or analysis)
-                    const targetKey = typeof activeFilterEditor !== 'undefined' && activeFilterEditor !== null
-                      ? activeFilterEditor
-                      : (activeCanvasKey ?? (analysisFile ? 0 : null));
-                    if (targetKey !== null && targetKey !== undefined) {
-                      // Apply no filter (reset to original)
-                      const noFilterChain = {
-                        id: 'reset',
-                        name: 'Reset to Original',
-                        items: [{
-                          id: 'none',
-                          filterType: 'none' as const,
-                          params: {},
-                          enabled: true
-                        }],
-                        createdAt: Date.now(),
-                        modifiedAt: Date.now()
-                      };
-                      applyFilterChain(noFilterChain, targetKey as any);
-                    }
-                  }}
-                  disabled={!getCurrentImageFile()}
-                  title="Reset to original image"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="23,4 23,10 17,10"/>
-                    <polyline points="1,20 1,14 7,14"/>
-                    <path d="M20.49,9A9,9,0,0,0,5.64,5.64L1,10"/>
-                    <path d="M3.51,15a9,9,0,0,0,14.85,3.36L23,14"/>
-                  </svg>
-                </button>
-                <button 
-                  className="btn btn-icon btn-theme-accent"
-                  onClick={() => {
-                    const targetKey = typeof activeFilterEditor !== 'undefined' && activeFilterEditor !== null
-                      ? activeFilterEditor
-                      : (activeCanvasKey ?? (analysisFile ? 0 : null));
-                    if (targetKey !== null && targetKey !== undefined && filterCart.length > 0) {
-                      const tempChain = {
-                        id: 'temp',
-                        name: 'Current Chain',
-                        items: filterCart,
-                        createdAt: Date.now(),
-                        modifiedAt: Date.now()
-                      };
-                      applyFilterChain(tempChain, targetKey as any);
-                    }
-                  }}
-                  disabled={filterCart.length === 0 || !getCurrentImageFile()}
-                  title="Apply current chain to active viewer"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20,6 9,17 4,12"/>
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="cart-action-row">
-                <button 
-                  className="btn btn-icon btn-theme-secondary"
-                  onClick={clearFilterCart}
-                  disabled={filterCart.length === 0}
-                  title="Clear all filters from chain"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3,6 5,6 21,6"/>
-                    <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
-                    <line x1="10" y1="11" x2="10" y2="17"/>
-                    <line x1="14" y1="11" x2="14" y2="17"/>
-                  </svg>
-                </button>
-                <button 
-                  className="btn btn-icon btn-theme-success"
-                  onClick={() => setShowPresetDialog(true)}
-                  disabled={filterCart.length === 0}
-                  title="Save as preset"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="cart-action-row">
-                <button 
-                  className="btn btn-icon btn-theme-primary"
-                  onClick={() => setShowExportDialog(true)}
-                  disabled={filterCart.length === 0}
-                  title="Export filter chain as JSON file"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7,10 12,15 17,10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                </button>
-                <button 
-                  className="btn btn-icon btn-theme-accent"
-                  onClick={handleImportClick}
-                  title="Import filter chain(s) from JSON file(s) - supports multiple files (or drag & drop JSON files here)"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="17,8 12,3 7,8"/>
-                    <line x1="12" y1="3" x2="12" y2="15"/>
-                  </svg>
-                </button>
-              </div>
-        </div>
-
-        {/* Presets Section */}
-        {filterPresets.length > 0 && (
-          <div className="filter-presets-section">
-            <h4>Saved Presets</h4>
-            <div className="presets-list">
-              {filterPresets.map((preset) => (
-                <div key={preset.id} className="preset-item">
-                  <div className="preset-info">
-                    <div className="preset-name">{preset.name}</div>
-                    <div className="preset-filters">
-                      <small>{preset.chain.length} filters</small>
-                    </div>
-                  </div>
-                  <div className="preset-actions">
-                    <button
-                      className="btn btn-small"
-                      onClick={() => loadFilterPreset(preset.id)}
-                      title="Load preset to cart"
-                    >
-                      Load
-                    </button>
-                    <button
-                      className="btn btn-small btn-danger"
-                      onClick={() => deleteFilterPreset(preset.id)}
-                      title="Delete preset"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+            {/* Filter Cart Actions - all buttons in single row */}
+            <div className="filter-cart-actions">
+              <button 
+                className="btn btn-icon btn-theme-secondary"
+                onClick={() => {
+                  // Compute a target viewer key (editor target, active canvas, or analysis)
+                  const targetKey = typeof activeFilterEditor !== 'undefined' && activeFilterEditor !== null
+                    ? activeFilterEditor
+                    : (activeCanvasKey ?? (analysisFile ? 0 : null));
+                  if (targetKey !== null && targetKey !== undefined) {
+                    // Apply no filter (reset to original)
+                    const noFilterChain = {
+                      id: 'reset',
+                      name: 'Reset to Original',
+                      items: [{
+                        id: 'none',
+                        filterType: 'none' as const,
+                        params: {},
+                        enabled: true
+                      }],
+                      createdAt: Date.now(),
+                      modifiedAt: Date.now()
+                    };
+                    applyFilterChain(noFilterChain, targetKey as any);
+                  }
+                }}
+                disabled={!getCurrentImageFile()}
+                title="Reset to original image"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="23,4 23,10 17,10"/>
+                  <polyline points="1,20 1,14 7,14"/>
+                  <path d="M20.49,9A9,9,0,0,0,5.64,5.64L1,10"/>
+                  <path d="M3.51,15a9,9,0,0,0,14.85,3.36L23,14"/>
+                </svg>
+              </button>
+              <button 
+                className="btn btn-icon btn-theme-accent"
+                onClick={() => {
+                  const targetKey = typeof activeFilterEditor !== 'undefined' && activeFilterEditor !== null
+                    ? activeFilterEditor
+                    : (activeCanvasKey ?? (analysisFile ? 0 : null));
+                  if (targetKey !== null && targetKey !== undefined && filterCart.length > 0) {
+                    const tempChain = {
+                      id: 'temp',
+                      name: 'Current Chain',
+                      items: filterCart,
+                      createdAt: Date.now(),
+                      modifiedAt: Date.now()
+                    };
+                    applyFilterChain(tempChain, targetKey as any);
+                  }
+                }}
+                disabled={filterCart.length === 0 || !getCurrentImageFile()}
+                title="Apply current chain to active viewer"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20,6 9,17 4,12"/>
+                </svg>
+              </button>
+              <button 
+                className="btn btn-icon btn-theme-secondary"
+                onClick={clearFilterCart}
+                disabled={filterCart.length === 0}
+                title="Clear all filters from chain"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3,6 5,6 21,6"/>
+                  <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
+                  <line x1="10" y1="11" x2="10" y2="17"/>
+                  <line x1="14" y1="11" x2="14" y2="17"/>
+                </svg>
+              </button>
+              <button 
+                className="btn btn-icon btn-theme-success"
+                onClick={() => setShowPresetDialog(true)}
+                disabled={filterCart.length === 0}
+                title="Save as preset"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+                </svg>
+              </button>
+            </div> {/* End of filter-cart-actions */}
+          </div> {/* End of chain-column */}
+        </div> {/* End of filter-cart-content */}
 
       {/* Hidden file input for import */}
       <input
@@ -1011,12 +1126,6 @@ export const FilterCart: React.FC = () => {
               autoFocus
             />
             <div className="dialog-actions">
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setShowPresetDialog(false)}
-              >
-                Cancel
-              </button>
               <button 
                 className="btn btn-primary"
                 onClick={handleSavePreset}
@@ -1061,12 +1170,6 @@ export const FilterCart: React.FC = () => {
               </div>
             </div>
             <div className="dialog-actions">
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setShowExportDialog(false)}
-              >
-                Cancel
-              </button>
               <button 
                 className="btn btn-primary"
                 onClick={handleExportCart}

@@ -5,11 +5,12 @@ import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { FolderControl } from '../components/FolderControl';
 import { ALL_FILTERS } from '../components/FilterControls';
 import type { FolderKey, FilterType } from '../types';
+import { generateFilterChainLabel } from '../utils/filterChainLabel';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
 export interface SingleModeHandle {
-  capture: (options: { showLabels: boolean; showMinimap: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean; showMinimap: boolean; showFilterLabels?: boolean }) => Promise<string | null>;
 }
 
 interface SingleModeProps {
@@ -30,7 +31,7 @@ const isValidImageFile = (file: File): boolean => {
 export const SingleMode = forwardRef<SingleModeHandle, SingleModeProps>(({ bitmapCache, setPrimaryFile, showControls }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
-  const { openFilterEditor, viewerFilters, selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, setCurrent } = useStore();
+  const { openFilterEditor, viewerFilters, viewerFilterParams, selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, setCurrent, showFilelist, previewLayout, showFilterLabels } = useStore();
 
   // Selected file state for Single mode
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -52,7 +53,7 @@ export const SingleMode = forwardRef<SingleModeHandle, SingleModeProps>(({ bitma
 
   // Capture implementation (single viewer)
   React.useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels, showMinimap }) => {
+    capture: async ({ showLabels, showMinimap, showFilterLabels = true }) => {
       const handle = canvasRef.current;
       if (!handle) return null;
       const canvas = handle.getCanvas();
@@ -75,8 +76,11 @@ export const SingleMode = forwardRef<SingleModeHandle, SingleModeProps>(({ bitma
         if (selectedFile) {
           lines.push(selectedFile.name);
         }
-        const filterName = getFilterName(selectedSourceKey ? viewerFilters[selectedSourceKey] : undefined);
-        if (filterName) lines.push(`[${filterName}]`);
+        const filterName = getFilterName(
+          selectedSourceKey ? viewerFilters[selectedSourceKey] : undefined,
+          selectedSourceKey ? viewerFilterParams[selectedSourceKey] : undefined
+        );
+        if (filterName && showFilterLabels) lines.push(`[${filterName}]`);
         ctx.font = '16px sans-serif';
         const lineHeight = 20;
         const maxWidth = Math.max(...lines.map(line => ctx.measureText(line).width), 0);
@@ -163,9 +167,11 @@ export const SingleMode = forwardRef<SingleModeHandle, SingleModeProps>(({ bitma
     return fileList.filter(({ file }) => file.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [fileList, searchQuery]);
 
-  const getFilterName = (type: FilterType | undefined) => {
+  const getFilterName = (type: FilterType | undefined, params?: FilterParams) => {
     if (!type || type === 'none') return null;
-    if (type === 'filterchain') return 'custom filter';
+    if (type === 'filterchain' && params?.filterChain) {
+      return generateFilterChainLabel(params.filterChain);
+    }
     return ALL_FILTERS.find(f => f.type === type)?.name || 'custom filter';
   };
 
@@ -234,14 +240,15 @@ export const SingleMode = forwardRef<SingleModeHandle, SingleModeProps>(({ bitma
           </div>
         </div>
       )}
-      <main className="compare-mode-main">
-        <aside
-          className={`filelist ${isDragOver ? 'drag-over' : ''}`}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
+      <main className={`compare-mode-main ${showFilelist ? '' : 'filelist-hidden'}`}>
+        {showFilelist && (
+          <aside
+            className={`filelist ${isDragOver ? 'drag-over' : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
           {isDragOver && (
             <div className="drag-overlay">
               <div className="drag-overlay-content">
@@ -292,8 +299,23 @@ export const SingleMode = forwardRef<SingleModeHandle, SingleModeProps>(({ bitma
               ))
             )}
           </ul>
-        </aside>
+          </aside>
+        )}
         <section className="viewers" style={gridStyle}>
+          {previewLayout && (
+            <div
+              className="viewers-preview-overlay"
+              aria-hidden
+              style={{
+                gridTemplateColumns: `repeat(${previewLayout.cols}, 1fr)`,
+                gridTemplateRows: `repeat(${previewLayout.rows}, 1fr)`
+              } as React.CSSProperties}
+            >
+              {Array.from({ length: (previewLayout.rows * previewLayout.cols) }).map((_, i) => (
+                <div key={i} className="preview-cell" />
+              ))}
+            </div>
+          )}
           {!selectedFile ? (
             <div className="analysis-mode-placeholder--inline">
               <p>Select a folder and choose an image to begin.</p>
@@ -302,7 +324,7 @@ export const SingleMode = forwardRef<SingleModeHandle, SingleModeProps>(({ bitma
             <div className="viewer-container">
               <ImageCanvas
                 ref={canvasRef}
-                label={[selectedSourceKey ? (allFolders[selectedSourceKey]?.alias || selectedSourceKey) : '', selectedFile?.name || '', (() => { const n = getFilterName(selectedSourceKey ? viewerFilters[selectedSourceKey] : undefined); return n ? `[${n}]` : ''; })()].filter(Boolean).join('\n')}
+                label={[selectedSourceKey ? (allFolders[selectedSourceKey]?.alias || selectedSourceKey) : '', selectedFile?.name || '', (() => { const n = getFilterName(selectedSourceKey ? viewerFilters[selectedSourceKey] : undefined, selectedSourceKey ? viewerFilterParams[selectedSourceKey] : undefined); return (n && showFilterLabels) ? `[${n}]` : ''; })()].filter(Boolean).join('\n')}
                 file={selectedFile || undefined}
                 cache={bitmapCache.current}
                 appMode="compare"

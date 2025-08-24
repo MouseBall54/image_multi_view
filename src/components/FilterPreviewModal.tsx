@@ -61,6 +61,9 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
   // Predetermined maximum size (per S/M/L in sidebar; fixed cap in modal)
   const maxPreviewSize = position === 'sidebar' ? currentSizeConfig.maxSize : 800;
 
+  // Keep track of current object URL to avoid StrictMode early revocation
+  const objectUrlRef = useRef<string | null>(null);
+
   // Load source image (only when opening or source file changes)
   useEffect(() => {
     if (!isOpen || !sourceFile) return;
@@ -69,9 +72,11 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
     const name = (sourceFile as any).name as string | undefined;
     const ext = name ? name.split('.').pop()?.toLowerCase() : undefined;
 
-    let objectUrl: string | null = null;
+    // Cancel flag to ignore late events
+    let cancelled = false;
 
     const handleLoaded = (img: HTMLImageElement) => {
+      if (cancelled) return;
       const aspectRatio = img.width / img.height;
       let previewWidth = img.width;
       let previewHeight = img.height;
@@ -94,24 +99,41 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
       decodeTiffWithUTIF(sourceFile, UTIF_OPTIONS)
         .then(handleLoaded)
         .catch((err) => {
-          console.error('Failed to decode TIFF for preview:', err);
+          if (!cancelled) console.error('Failed to decode TIFF for preview:', err);
         });
-      return;
+      return () => { cancelled = true; };
     }
 
-    // Default path: use object URL for standard image types
+    // Default path: use FileReader to avoid blob URL revoke races in StrictMode
     const img = new Image();
     img.onload = () => handleLoaded(img);
     img.onerror = (e) => {
-      console.error('Failed to load image for preview', e);
+      if (!cancelled) console.error('Failed to load image for preview', e);
     };
-    objectUrl = URL.createObjectURL(sourceFile);
-    img.src = objectUrl;
+
+    let reader: FileReader | null = new FileReader();
+    reader.onload = () => {
+      if (cancelled) return;
+      try {
+        img.src = (reader!.result as string);
+      } catch (e) {
+        console.error('Failed to set preview image src', e);
+      }
+    };
+    reader.onerror = (e) => {
+      if (!cancelled) console.error('Failed to read file for preview', e);
+    };
+    reader.readAsDataURL(sourceFile);
 
     return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      // Abort any in-flight read and mark cancelled
+      cancelled = true;
+      try { reader?.abort(); } catch {}
+      reader = null;
     };
   }, [isOpen, sourceFile]); // Load once per file/modal open; sizing handled separately
+
+  // No-op unmount cleanup (object URLs not used for standard images now)
 
   // Recompute preview dimensions if container limits change after image loaded
   useEffect(() => {
@@ -271,9 +293,6 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
               ))}
             </div>
           )}
-          <button className="preview-modal-close" onClick={onClose}>
-            ×
-          </button>
         </div>
 
         <div className="preview-modal-body" ref={bodyRef}>
@@ -330,12 +349,7 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
 
         <div className="preview-modal-footer">
           <div className="preview-controls">
-            <button 
-              className="btn btn-secondary"
-              onClick={onClose}
-            >
-              Close
-            </button>
+            {/* Close button removed - can close via overlay click or other interactions */}
           </div>
         </div>
       </div>

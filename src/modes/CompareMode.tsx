@@ -7,11 +7,12 @@ import { FolderControl } from '../components/FolderControl';
 import { ToggleModal } from '../components/ToggleModal';
 import { ALL_FILTERS } from '../components/FilterControls';
 import type { FolderKey, MatchedItem, FilterType } from '../types';
+import { generateFilterChainLabel } from '../utils/filterChainLabel';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
 export interface CompareModeHandle {
-  capture: (options: { showLabels: boolean; showMinimap: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean; showMinimap: boolean; showFilterLabels?: boolean }) => Promise<string | null>;
 }
 
 interface CompareModeProps {
@@ -34,8 +35,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { 
-    current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, clearFolder, viewerRows, viewerCols,
-    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast
+    current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, viewerFilterParams, clearFolder, viewerRows, viewerCols,
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels
   } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -195,7 +196,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   };
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels, showMinimap }) => {
+    capture: async ({ showLabels, showMinimap, showFilterLabels = true }) => {
       const activeKeys = FOLDER_KEYS.slice(0, numViewers);
       const firstCanvas = canvasRefs[activeKeys[0]]?.current?.getCanvas();
       if (!firstCanvas) return null;
@@ -251,8 +252,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
             lines.push(current.filename);
           }
 
-          const filterName = getFilterName(viewerFilters[key]);
-          if (filterName) {
+          const filterName = getFilterName(viewerFilters[key], viewerFilterParams[key]);
+          if (filterName && showFilterLabels) {
             lines.push(`[${filterName}]`);
           }
           
@@ -311,9 +312,11 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     );
   }, [matched, searchQuery]);
   
-  const getFilterName = (type: FilterType | undefined) => {
+  const getFilterName = (type: FilterType | undefined, params?: FilterParams) => {
     if (!type || type === 'none') return null;
-    if (type === 'filterchain') return 'custom filter';
+    if (type === 'filterchain' && params?.filterChain) {
+      return generateFilterChainLabel(params.filterChain);
+    }
     return ALL_FILTERS.find(f => f.type === type)?.name || 'custom filter';
   };
 
@@ -349,6 +352,9 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     '--rows': viewerRows,
   } as React.CSSProperties;
 
+  const { previewLayout } = useStore();
+  const showPreview = !!previewLayout;
+
   return (
     <>
       {showControls && <div className="controls">
@@ -368,14 +374,15 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
           ))}
         </div>
       </div>}
-      <main className="compare-mode-main">
-        <aside 
-          className={`filelist ${isDragOver ? 'drag-over' : ''}`}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
+      <main className={`compare-mode-main ${showFilelist ? '' : 'filelist-hidden'}`}>
+        {showFilelist && (
+          <aside 
+            className={`filelist ${isDragOver ? 'drag-over' : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
           {/* Drag and Drop Overlay */}
           {isDragOver && (
             <div className="drag-overlay">
@@ -437,8 +444,23 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
               ))
             )}
           </ul>
-        </aside>
+          </aside>
+        )}
         <section className="viewers" style={gridStyle}>
+          {showPreview && (
+            <div
+              className="viewers-preview-overlay"
+              aria-hidden
+              style={{
+                gridTemplateColumns: `repeat(${previewLayout!.cols}, 1fr)`,
+                gridTemplateRows: `repeat(${previewLayout!.rows}, 1fr)`
+              } as React.CSSProperties}
+            >
+              {Array.from({ length: (previewLayout!.rows * previewLayout!.cols) }).map((_, i) => (
+                <div key={i} className="preview-cell" />
+              ))}
+            </div>
+          )}
           {FOLDER_KEYS.slice(0, numViewers).map(key => {
             const lines: string[] = [];
             const folderLabel = allFolders[key]?.alias || key;
@@ -448,8 +470,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
               lines.push(current.filename);
             }
 
-            const filterName = getFilterName(viewerFilters[key]);
-            if (filterName) {
+            const filterName = getFilterName(viewerFilters[key], viewerFilterParams[key]);
+            if (filterName && showFilterLabels) {
               lines.push(`[${filterName}]`);
             }
             const finalLabel = lines.join('\n');

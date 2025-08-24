@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { useFolderPickers } from '../hooks/useFolderPickers';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { ToggleModal } from '../components/ToggleModal';
+import { generateFilterChainLabel } from '../utils/filterChainLabel';
 import { ALL_FILTERS } from '../components/FilterControls';
 import { FolderControl } from '../components/FolderControl';
 import type { DrawableImage, FolderKey, FilterType } from '../types';
@@ -24,7 +25,7 @@ type Props = {
 };
 
 export interface AnalysisModeHandle {
-  capture: (options: { showLabels: boolean; showMinimap: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean; showMinimap: boolean; showFilterLabels?: boolean }) => Promise<string | null>;
 }
 
 export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
@@ -35,7 +36,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     analysisFilters, analysisFilterParams, 
     analysisRotation, openFilterEditor,
     viewerRows, viewerCols,
-    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, showFilelist, showFilterLabels,
+    previewLayout,
   } = useStore();
   const { pick, inputRefs, onInput, allFolders, updateAlias } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
@@ -203,7 +205,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   };
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels, showMinimap }) => {
+    capture: async ({ showLabels, showMinimap, showFilterLabels = true }) => {
       const firstCanvasHandle = imageCanvasRefs.current.get(0);
       if (!firstCanvasHandle) return null;
       const firstCanvas = firstCanvasHandle.getCanvas();
@@ -258,8 +260,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
           if (analysisFile) {
             lines.push(analysisFile.name);
           }
-          const filterName = getFilterName(analysisFilters[index]);
-          if (filterName) {
+          const filterName = getFilterName(analysisFilters[index], analysisFilterParams[index]);
+          if (filterName && showFilterLabels) {
             lines.push(`[${filterName}]`);
           }
 
@@ -321,9 +323,11 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     setAnalysisFile(file, source);
   };
   
-  const getFilterName = (type: FilterType | undefined) => {
+  const getFilterName = (type: FilterType | undefined, params?: FilterParams) => {
     if (!type || type === 'none') return null;
-    if (type === 'filterchain') return 'custom filter';
+    if (type === 'filterchain' && params?.filterChain) {
+      return generateFilterChainLabel(params.filterChain);
+    }
     return ALL_FILTERS.find(f => f.type === type)?.name || 'custom filter';
   };
 
@@ -379,14 +383,15 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
           ))}
         </div>
       </div>}
-      <main className="compare-mode-main">
-        <aside 
-          className={`filelist ${isDragOver ? 'drag-over' : ''}`}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
+      <main className={`compare-mode-main ${showFilelist ? '' : 'filelist-hidden'}`}>
+        {showFilelist && (
+          <aside 
+            className={`filelist ${isDragOver ? 'drag-over' : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
           {/* Drag and Drop Overlay */}
           {isDragOver && (
             <div className="drag-overlay">
@@ -455,15 +460,30 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               ))
             )}
           </ul>
-        </aside>
+          </aside>
+        )}
         <section className="viewers" style={gridStyle}>
+          {previewLayout && (
+            <div
+              className="viewers-preview-overlay"
+              aria-hidden
+              style={{
+                gridTemplateColumns: `repeat(${previewLayout.cols}, 1fr)`,
+                gridTemplateRows: `repeat(${previewLayout.rows}, 1fr)`
+              } as React.CSSProperties}
+            >
+              {Array.from({ length: (previewLayout.rows * previewLayout.cols) }).map((_, i) => (
+                <div key={i} className="preview-cell" />
+              ))}
+            </div>
+          )}
           {!analysisFile ? (
              <div className="analysis-mode-placeholder--inline">
                 <p>Select a folder and then choose an image from the list to begin.</p>
              </div>
           ) : (
             Array.from({ length: numViewers }).map((_, i) => {
-              const filterName = getFilterName(analysisFilters[i]);
+              const filterName = getFilterName(analysisFilters[i], analysisFilterParams[i]);
               const lines: string[] = [];
               if (analysisFileSource) {
                 lines.push(analysisFileSource);
@@ -471,7 +491,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               if (analysisFile) {
                 lines.push(analysisFile.name);
               }
-              if (filterName) {
+              if (filterName && showFilterLabels) {
                 lines.push(`[${filterName}]`);
               }
               const label = lines.join('\n');
