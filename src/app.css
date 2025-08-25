@@ -397,27 +397,28 @@ main {
   align-items: center;
   gap: 8px;
   width: 100%;
+  cursor: pointer;
+  user-select: none;
 }
 
 .file-checkbox {
-  appearance: none;
   width: 16px;
   height: 16px;
   border: 2px solid var(--border-color);
   border-radius: 3px;
   background: var(--bg-dark);
-  cursor: pointer;
   position: relative;
   transition: all 0.2s;
   flex-shrink: 0;
+  pointer-events: none;
 }
 
-.file-checkbox:checked {
+.file-checkbox.checked {
   background: var(--accent-primary);
   border-color: var(--accent-primary);
 }
 
-.file-checkbox:checked::after {
+.file-checkbox.checked::after {
   content: '✓';
   position: absolute;
   top: -2px;
@@ -427,7 +428,7 @@ main {
   font-weight: bold;
 }
 
-.file-checkbox:hover {
+.file-item-content:hover .file-checkbox {
   border-color: var(--accent-primary);
 }
 
@@ -448,29 +449,23 @@ main {
   color: var(--text-primary);
 }
 
-.file-source {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
+.file-source-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-top: 2px;
 }
 
-.drag-handle {
+.file-source {
+  font-size: 0.8rem;
   color: var(--text-secondary);
-  cursor: grab;
-  font-size: 12px;
-  flex-shrink: 0;
-  padding: 2px 4px;
-  border-radius: 3px;
-  transition: all 0.2s;
 }
 
-.drag-handle:hover {
-  color: var(--text-primary);
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.filelist li[draggable="true"]:hover .drag-handle {
-  color: var(--accent-primary);
+.viewer-indicators {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
 }
 
 /* Selection controls */
@@ -558,6 +553,86 @@ main {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Viewer indicator badge */
+.viewer-indicator {
+  background: var(--accent-primary);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  min-width: 18px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.viewer-indicator:hover {
+  background: var(--accent-hover);
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.4);
+}
+
+.file-item-content:hover .viewer-indicator {
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+/* Different colors for different viewers (24 viewers A-X) */
+.viewer-indicator[title*="viewer A"] { background: #007bff; }
+.viewer-indicator[title*="viewer B"] { background: #28a745; }
+.viewer-indicator[title*="viewer C"] { background: #dc3545; }
+.viewer-indicator[title*="viewer D"] { background: #ffc107; color: #000; }
+.viewer-indicator[title*="viewer E"] { background: #6610f2; }
+.viewer-indicator[title*="viewer F"] { background: #fd7e14; }
+.viewer-indicator[title*="viewer G"] { background: #20c997; }
+.viewer-indicator[title*="viewer H"] { background: #e83e8c; }
+.viewer-indicator[title*="viewer I"] { background: #6f42c1; }
+.viewer-indicator[title*="viewer J"] { background: #17a2b8; }
+.viewer-indicator[title*="viewer K"] { background: #343a40; }
+.viewer-indicator[title*="viewer L"] { background: #795548; }
+.viewer-indicator[title*="viewer M"] { background: #9c27b0; }
+.viewer-indicator[title*="viewer N"] { background: #ff5722; }
+.viewer-indicator[title*="viewer O"] { background: #607d8b; }
+.viewer-indicator[title*="viewer P"] { background: #8bc34a; }
+.viewer-indicator[title*="viewer Q"] { background: #ff9800; color: #000; }
+.viewer-indicator[title*="viewer R"] { background: #e91e63; }
+.viewer-indicator[title*="viewer S"] { background: #3f51b5; }
+.viewer-indicator[title*="viewer T"] { background: #009688; }
+.viewer-indicator[title*="viewer U"] { background: #cddc39; color: #000; }
+.viewer-indicator[title*="viewer V"] { background: #f44336; }
+.viewer-indicator[title*="viewer W"] { background: #2196f3; }
+.viewer-indicator[title*="viewer X"] { background: #4caf50; }
+
+.viewer-indicator[title*="viewer A"]:hover { background: #0056b3; }
+.viewer-indicator[title*="viewer B"]:hover { background: #1e7e34; }
+.viewer-indicator[title*="viewer C"]:hover { background: #c82333; }
+.viewer-indicator[title*="viewer D"]:hover { background: #e0a800; }
+.viewer-indicator[title*="viewer E"]:hover { background: #520dc2; }
+.viewer-indicator[title*="viewer F"]:hover { background: #e55a00; }
+.viewer-indicator[title*="viewer G"]:hover { background: #1aa179; }
+.viewer-indicator[title*="viewer H"]:hover { background: #d91a72; }
+.viewer-indicator[title*="viewer I"]:hover { background: #59359a; }
+.viewer-indicator[title*="viewer J"]:hover { background: #138496; }
+.viewer-indicator[title*="viewer K"]:hover { background: #23272b; }
+.viewer-indicator[title*="viewer L"]:hover { background: #5d4037; }
+.viewer-indicator[title*="viewer M"]:hover { background: #7b1fa2; }
+.viewer-indicator[title*="viewer N"]:hover { background: #d84315; }
+.viewer-indicator[title*="viewer O"]:hover { background: #455a64; }
+.viewer-indicator[title*="viewer P"]:hover { background: #689f38; }
+.viewer-indicator[title*="viewer Q"]:hover { background: #f57c00; }
+.viewer-indicator[title*="viewer R"]:hover { background: #c2185b; }
+.viewer-indicator[title*="viewer S"]:hover { background: #303f9f; }
+.viewer-indicator[title*="viewer T"]:hover { background: #00695c; }
+.viewer-indicator[title*="viewer U"]:hover { background: #afb42b; }
+.viewer-indicator[title*="viewer V"]:hover { background: #d32f2f; }
+.viewer-indicator[title*="viewer W"]:hover { background: #1976d2; }
+.viewer-indicator[title*="viewer X"]:hover { background: #388e3c; }
 
 /* Viewer drag over state */
 .viewer-container.drag-over {

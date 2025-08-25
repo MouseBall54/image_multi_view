@@ -376,6 +376,27 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     );
   }, [fileList, searchQuery]);
 
+  // Helper function to find all viewers where a file is displayed
+  const getFileViewerKeys = (file: File, sourceKey: FolderKey): FolderKey[] => {
+    const viewerKeys: FolderKey[] = [];
+    for (const [viewerKey, pinpointImage] of Object.entries(pinpointImages)) {
+      if (pinpointImage?.file === file && pinpointImage.sourceKey === sourceKey) {
+        viewerKeys.push(viewerKey as FolderKey);
+      }
+    }
+    // Sort alphabetically to show in order (A, B, C, D, etc.)
+    return viewerKeys.sort();
+  };
+
+  // Helper function to focus on a specific viewer
+  const focusViewer = (viewerKey: FolderKey) => {
+    setActiveCanvasKey(viewerKey);
+    const viewerElement = document.querySelector(`[data-viewer-key="${viewerKey}"]`);
+    if (viewerElement) {
+      viewerElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   
   useEffect(() => {
     const primaryFile = pinpointImages['A']?.file;
@@ -652,6 +673,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                   img?.file === file && img.sourceKey === folderKey
                 );
                 const isSelected = selectedFiles.has(fileId);
+                const displayedInViewers = getFileViewerKeys(file, folderKey);
                 
                 return (
                   <li key={`${folderKey}-${file.webkitRelativePath || file.name}-${file.lastModified}`}
@@ -659,23 +681,43 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                       draggable
                       onDragStart={(e) => handleFileDragStart(e, file, folderKey)}
                       onDragEnd={() => setDraggedFile(null)}>
-                    <div className="file-item-content">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleFileSelection(fileId)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="file-checkbox"
+                    <div 
+                      className="file-item-content"
+                      onClick={() => toggleFileSelection(fileId)}
+                    >
+                      <div
+                        className={`file-checkbox ${isSelected ? 'checked' : ''}`}
                       />
                       <div 
                         className="file-name"
-                        onClick={() => handleFileListItemClick(file, folderKey)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleFileListItemClick(file, folderKey);
+                        }}
                         title="Click to load into active viewer"
                       >
                         <div className="file-main-name">{file.name}</div>
-                        <div className="file-source">{source}</div>
+                        <div className="file-source-container">
+                          <div className="file-source">{source}</div>
+                          {displayedInViewers.length > 0 && (
+                            <div className="viewer-indicators">
+                              {displayedInViewers.map((viewerKey, index) => (
+                                <div 
+                                  key={viewerKey}
+                                  className="viewer-indicator"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    focusViewer(viewerKey);
+                                  }}
+                                  title={`Displayed in viewer ${viewerKey}. Click to focus viewer.`}
+                                >
+                                  {viewerKey}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="drag-handle" title="Drag to viewer">⋮⋮</div>
                     </div>
                   </li>
                 );
@@ -715,6 +757,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
               <div 
                 key={key} 
                 className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''} ${dragOverViewer === key ? 'drag-over' : ''}`}
+                data-viewer-key={key}
                 onDragOver={(e) => handleViewerDragOver(e, key)}
                 onDragLeave={handleViewerDragLeave}
                 onDrop={(e) => handleViewerDrop(e, key)}
