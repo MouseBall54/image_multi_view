@@ -560,6 +560,19 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     }
   }, [activeKeys, activeCanvasKey, setActiveCanvasKey]);
 
+  // ✅ FIX: Initialize local scales for all active viewers to prevent fallback to changing viewport.scale
+  useEffect(() => {
+    const currentPinpointScales = useStore.getState().pinpointScales;
+    const currentViewport = useStore.getState().viewport;
+    
+    activeKeys.forEach(key => {
+      if (currentPinpointScales[key] == null) {
+        // Use current viewport scale as initial value only once
+        setPinpointScale(key, currentViewport.scale);
+      }
+    });
+  }, [activeKeys, setPinpointScale]); // Only depend on activeKeys and setPinpointScale function
+
   return (
     <>
       {showControls && <div className="controls">

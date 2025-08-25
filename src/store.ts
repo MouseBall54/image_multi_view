@@ -807,11 +807,17 @@ useStore.subscribe((state, prevState) => {
     
     // fitScaleFn은 ResizeObserver에 의해 업데이트될 예정이므로 약간의 지연 후 적용
     setTimeout(() => {
-      const { fitScaleFn } = useStore.getState();
+      const currentState = useStore.getState();
+      const { fitScaleFn, pinpointScales, appMode } = currentState;
       const newScale = fitScaleFn ? fitScaleFn() : 1;
+      
+      // ✅ FIX: In pinpoint mode, preserve existing local scales as-is during layout changes
+      
       useStore.setState({
         viewport: { scale: newScale, cx: 0.5, cy: 0.5, refScreenX: undefined, refScreenY: undefined },
-        pinpointGlobalScale: 1,
+        // ✅ FIX: Only reset global scale if not in pinpoint mode to preserve zoom state
+        ...(appMode !== 'pinpoint' ? { pinpointGlobalScale: 1 } : {}),
+        // ✅ FIX: Preserve existing local scales completely in pinpoint mode - no changes needed!
       });
     }, 100);
   }

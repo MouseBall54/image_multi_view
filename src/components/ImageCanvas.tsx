@@ -679,7 +679,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           const { setActiveCanvasKey } = useStore.getState();
           setActiveCanvasKey(folderKey);
         }
-        const preScale = (overrideScale ?? currentViewport.scale) * currentGlobalScale;
+        // ✅ FIX: Use existing individual scale or fallback to viewport scale (read-only)
+        const individualScale = overrideScale ?? currentViewport.scale;
+        const preScale = individualScale * currentGlobalScale;
         const prePct = preScale * 100;
         const desiredScale = preScale * (e.deltaY < 0 ? step : (1 / step));
         let desiredPct = desiredScale * 100;
@@ -690,7 +692,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         // Clamp to global min/max zoom
         const clampedPct = Math.max(MIN_ZOOM * 100, Math.min(MAX_ZOOM * 100, desiredPct));
         const nextScale = clampedPct / 100;
-        const nextGlobalScale = nextScale / (overrideScale ?? currentViewport.scale);
+        // ✅ FIX: Calculate global scale change proportionally to preserve individual scale
+        const scaleRatio = nextScale / preScale;
+        const nextGlobalScale = currentGlobalScale * scaleRatio;
         if (nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
         setPinpointGlobalScale(nextGlobalScale);
         const refScreenX = currentViewport.refScreenX || (width / 2);
