@@ -47,7 +47,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   const { 
     setCurrent, setViewport,
     pinpointScales, setPinpointScale,
-    activeCanvasKey, setActiveCanvasKey, clearFolder,
+    clearFolder,
     openFilterEditor, viewerFilters, viewerFilterParams, viewerRows, viewerCols,
     openPreviewModal,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels,
@@ -470,14 +470,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     }));
   };
 
-  const handleFileListItemClick = (file: File, sourceKey: FolderKey) => {
-    if (!activeCanvasKey) {
-      console.warn("No active viewer. Click a viewer to select it first.");
-      return;
-    }
-
-    loadFileToViewer(file, sourceKey, activeCanvasKey);
-  };
 
   // Auto-place selected files into available viewers
   const handleAutoPlaceFiles = () => {
@@ -570,12 +562,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     '--rows': viewerRows,
   } as React.CSSProperties;
 
-  // Ensure active canvas key remains valid when layout changes
-  useEffect(() => {
-    if (activeCanvasKey && !activeKeys.includes(activeCanvasKey)) {
-      setActiveCanvasKey(null);
-    }
-  }, [activeKeys, activeCanvasKey, setActiveCanvasKey]);
 
   // ✅ FIX: Initialize local scales for all active viewers to prevent fallback to changing viewport.scale
   useEffect(() => {
@@ -718,14 +704,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                       <div
                         className={`file-checkbox ${isSelected ? 'checked' : ''}`}
                       />
-                      <div 
-                        className="file-name"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleFileListItemClick(file, folderKey);
-                        }}
-                        title="Click to load into active viewer"
-                      >
+                      <div className="file-name">
                         <div className="file-main-name">{file.name}</div>
                         <div className="file-source-container">
                           <div className="file-source">{source}</div>
@@ -803,8 +782,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                   refPoint={pinpointImage?.refPoint}
                   onSetRefPoint={handleSetRefPoint}
                   folderKey={key}
-                  onClick={(key) => setActiveCanvasKey(key)}
-                  isActive={activeCanvasKey === key}
                   overrideFilterType={viewerFilters[key]}
                   overrideFilterParams={viewerFilterParams[key]}
                 />

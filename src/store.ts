@@ -292,7 +292,7 @@ interface State {
 
 export const useStore = create<State>((set) => ({
   appMode: "single",
-  pinpointMouseMode: "pin",
+  pinpointMouseMode: "pan",
   stripExt: true,
   numViewers: 2,
   viewerRows: 1,

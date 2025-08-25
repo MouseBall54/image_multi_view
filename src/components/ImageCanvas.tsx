@@ -552,7 +552,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   // Effect to draw the processed image to the visible canvas
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !processedImage) return;
+    if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
     const { width, height } = canvas.getBoundingClientRect();
     canvas.width = Math.round(width);
@@ -560,6 +560,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     
     // 캔버스 크기 상태 업데이트 (미니맵용)
     setCanvasSize({ width: Math.round(width), height: Math.round(height) });
+    
+    // If no processedImage, draw black background
+    if (!processedImage) {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
     
     drawImage(ctx, processedImage, true);
   }, [processedImage, drawImage, viewport, pinpointGlobalScale, pinpointRotations, pinpointGlobalRotation, isRotating, showGrid, gridColor, compareRotation]);
@@ -570,16 +577,20 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     if (!canvas) return;
 
     const resizeObserver = new ResizeObserver(() => {
+      const ctx = canvas.getContext("2d")!;
+      const { width, height } = canvas.getBoundingClientRect();
+      canvas.width = Math.round(width);
+      canvas.height = Math.round(height);
+      
+      // 캔버스 크기 상태 업데이트 (미니맵용)
+      setCanvasSize({ width: Math.round(width), height: Math.round(height) });
+      
       if (processedImage) {
-        const ctx = canvas.getContext("2d")!;
-        const { width, height } = canvas.getBoundingClientRect();
-        canvas.width = Math.round(width);
-        canvas.height = Math.round(height);
-        
-        // 캔버스 크기 상태 업데이트 (미니맵용)
-        setCanvasSize({ width: Math.round(width), height: Math.round(height) });
-        
         drawImage(ctx, processedImage, true);
+      } else {
+        // Draw black background when no image
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
       
       // Update fit scale function if this is a reference canvas
@@ -840,7 +851,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   const handleContainerClick = () => {
     // In analysis mode, clicks are handled by the dedicated button.
     // For other modes, the passed onClick (if any) is triggered.
-    if (appMode !== 'analysis' && onClick) {
+    if (appMode !== 'analysis' && appMode !== 'pinpoint' && onClick) {
       onClick(folderKey);
     }
   };
