@@ -135,6 +135,9 @@ interface State {
   toggleModalOpen: boolean;
   toggleCurrentIndex: number;
 
+  // File Selection state for batch operations
+  selectedFiles: Set<string>; // Set of file IDs (folderKey-filename) for multi-select
+
   // Filter Chain states
   filterChains: FilterChain[];
   activeFilterChain: FilterChain | null;
@@ -210,6 +213,12 @@ interface State {
   closeToggleModal: () => void;
   setToggleCurrentIndex: (index: number) => void;
 
+  // File Selection actions
+  toggleFileSelection: (fileId: string) => void;
+  clearFileSelection: () => void;
+  selectAllFiles: () => void;
+  autoPlaceSelectedFiles: () => void;
+
   // Filter actions
   openFilterEditor: (key: FolderKey | number) => void;
   closeFilterEditor: () => void;
@@ -283,7 +292,7 @@ interface State {
 
 export const useStore = create<State>((set) => ({
   appMode: "single",
-  pinpointMouseMode: "pin",
+  pinpointMouseMode: "pan",
   stripExt: true,
   numViewers: 2,
   viewerRows: 1,
@@ -330,6 +339,9 @@ export const useStore = create<State>((set) => ({
   selectedViewers: [],
   toggleModalOpen: false,
   toggleCurrentIndex: 0,
+
+  // File Selection state
+  selectedFiles: new Set(),
 
   // Filter Chain states
   filterChains: [],
@@ -432,13 +444,49 @@ export const useStore = create<State>((set) => ({
   closeToggleModal: () => set({ toggleModalOpen: false }),
   setToggleCurrentIndex: (index) => set({ toggleCurrentIndex: index }),
 
+  // File Selection actions
+  toggleFileSelection: (fileId) => set((state) => {
+    const newSelected = new Set(state.selectedFiles);
+    if (newSelected.has(fileId)) {
+      newSelected.delete(fileId);
+    } else {
+      newSelected.add(fileId);
+    }
+    return { selectedFiles: newSelected };
+  }),
+  clearFileSelection: () => set({ selectedFiles: new Set() }),
+  selectAllFiles: () => set((state) => {
+    const allFileIds = new Set<string>();
+    Object.entries(state.folders).forEach(([folderKey, folderState]) => {
+      if (folderState?.data.files) {
+        for (const [fileName] of folderState.data.files) {
+          allFileIds.add(`${folderKey}-${fileName}`);
+        }
+      }
+    });
+    return { selectedFiles: allFileIds };
+  }),
+  autoPlaceSelectedFiles: () => set((state) => {
+    // This will be implemented in PinpointMode component
+    return state;
+  }),
+
   // Filter actions
   openFilterEditor: (key) => set(state => {
     if (typeof key === 'number') { // Analysis Mode
+      // Determine if this analysis view already has a chain applied
+      const existingType = state.analysisFilters[key];
+      const existingParams = state.analysisFilterParams[key];
+      const chainItems = (existingType === 'filterchain' && existingParams && existingParams.filterChain)
+        ? existingParams.filterChain
+        : [];
+
       return {
         activeFilterEditor: key,
-        tempViewerFilter: state.analysisFilters[key] || 'none',
-        tempViewerFilterParams: state.analysisFilterParams[key] || defaultFilterParams,
+        tempViewerFilter: existingType || 'none',
+        tempViewerFilterParams: existingParams || defaultFilterParams,
+        // Sync the cart with the view-specific chain
+        filterCart: [...chainItems],
         showFilterCart: true,
         filterPanelTab: 'editor',
       }
@@ -458,10 +506,20 @@ export const useStore = create<State>((set) => ({
           nextCurrent = { filename: firstFilename, has } as any;
         }
       }
+
+      // Determine if this viewer already has a chain applied
+      const existingType = state.viewerFilters[key];
+      const existingParams = state.viewerFilterParams[key];
+      const chainItems = (existingType === 'filterchain' && existingParams && existingParams.filterChain)
+        ? existingParams.filterChain
+        : [];
+
       return {
         activeFilterEditor: key,
-        tempViewerFilter: state.viewerFilters[key] || 'none',
-        tempViewerFilterParams: state.viewerFilterParams[key] || defaultFilterParams,
+        tempViewerFilter: existingType || 'none',
+        tempViewerFilterParams: existingParams || defaultFilterParams,
+        // Sync the cart with the view-specific chain
+        filterCart: [...chainItems],
         showFilterCart: true,
         filterPanelTab: 'editor',
         current: nextCurrent || state.current,
@@ -746,6 +804,8 @@ useStore.subscribe((state, prevState) => {
       selectedViewers: [],
       toggleModalOpen: false,
       toggleCurrentIndex: 0,
+      // Reset file selection when mode changes
+      selectedFiles: new Set(),
       // Clear any sticky preview source when switching modes
       previewModal: {
         ...state.previewModal,
@@ -766,11 +826,17 @@ useStore.subscribe((state, prevState) => {
     
     // fitScaleFn은 ResizeObserver에 의해 업데이트될 예정이므로 약간의 지연 후 적용
     setTimeout(() => {
-      const { fitScaleFn } = useStore.getState();
+      const currentState = useStore.getState();
+      const { fitScaleFn, pinpointScales, appMode } = currentState;
       const newScale = fitScaleFn ? fitScaleFn() : 1;
+      
+      // ✅ FIX: In pinpoint mode, preserve existing local scales as-is during layout changes
+      
       useStore.setState({
         viewport: { scale: newScale, cx: 0.5, cy: 0.5, refScreenX: undefined, refScreenY: undefined },
-        pinpointGlobalScale: 1,
+        // ✅ FIX: Only reset global scale if not in pinpoint mode to preserve zoom state
+        ...(appMode !== 'pinpoint' ? { pinpointGlobalScale: 1 } : {}),
+        // ✅ FIX: Preserve existing local scales completely in pinpoint mode - no changes needed!
       });
     }, 100);
   }

@@ -47,10 +47,11 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   const { 
     setCurrent, setViewport,
     pinpointScales, setPinpointScale,
-    activeCanvasKey, setActiveCanvasKey, clearFolder,
+    clearFolder,
     openFilterEditor, viewerFilters, viewerFilterParams, viewerRows, viewerCols,
     openPreviewModal,
-    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels,
+    selectedFiles, toggleFileSelection, clearFileSelection, selectAllFiles
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,6 +61,10 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragOverCounter, setDragOverCounter] = useState(0);
   const [draggedFileCount, setDraggedFileCount] = useState(0);
+  
+  // Drag and drop states for file list to viewer
+  const [draggedFile, setDraggedFile] = useState<{ file: File; sourceKey: FolderKey } | null>(null);
+  const [dragOverViewer, setDragOverViewer] = useState<FolderKey | null>(null);
 
   // Use dragOverCounter to prevent linting error
   React.useEffect(() => {
@@ -371,6 +376,27 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     );
   }, [fileList, searchQuery]);
 
+  // Helper function to find all viewers where a file is displayed
+  const getFileViewerKeys = (file: File, sourceKey: FolderKey): FolderKey[] => {
+    const viewerKeys: FolderKey[] = [];
+    for (const [viewerKey, pinpointImage] of Object.entries(pinpointImages)) {
+      if (pinpointImage?.file === file && pinpointImage.sourceKey === sourceKey) {
+        viewerKeys.push(viewerKey as FolderKey);
+      }
+    }
+    // Sort alphabetically to show in order (A, B, C, D, etc.)
+    return viewerKeys.sort();
+  };
+
+  // Helper function to focus on a specific viewer
+  const focusViewer = (viewerKey: FolderKey) => {
+    setActiveCanvasKey(viewerKey);
+    const viewerElement = document.querySelector(`[data-viewer-key="${viewerKey}"]`);
+    if (viewerElement) {
+      viewerElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   
   useEffect(() => {
     const primaryFile = pinpointImages['A']?.file;
@@ -389,12 +415,24 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     setViewport({ refScreenX: screenPoint.x, refScreenY: screenPoint.y });
   };
 
-  const handleFileListItemClick = (file: File, sourceKey: FolderKey) => {
-    if (!activeCanvasKey) {
-      console.warn("No active viewer. Click a viewer to select it first.");
-      return;
+  // ✅ NEW: Function to unload image from viewer
+  const handleUnloadImage = (key: FolderKey) => {
+    setPinpointImages(prev => {
+      const newImages = { ...prev };
+      delete newImages[key];
+      return newImages;
+    });
+    // Also clear any related pinpoint data for this viewer
+    setPinpoint(key, { x: 0, y: 0 });
+    setPinpointScale(key, viewport.scale);
+    // Clear selection if this viewer was selected
+    if (selectedViewers.includes(key)) {
+      const newSelected = selectedViewers.filter(v => v !== key);
+      setSelectedViewers(newSelected);
     }
+  };
 
+  const loadFileToViewer = (file: File, sourceKey: FolderKey, targetKey: FolderKey) => {
     // Update global 'current' so previews resolve the selected file across modes
     try {
       const filename = file.name;
@@ -421,15 +459,101 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       setCurrent(null);
     }
 
-    const oldPinpointImage = pinpointImages[activeCanvasKey];
+    const oldPinpointImage = pinpointImages[targetKey];
     const refPoint = (oldPinpointImage && oldPinpointImage.file?.name === file.name)
       ? oldPinpointImage.refPoint
       : { x: 0.5, y: 0.5 };
     
     setPinpointImages(prev => ({
       ...prev,
-      [activeCanvasKey]: { file, refPoint, sourceKey }
+      [targetKey]: { file, refPoint, sourceKey }
     }));
+  };
+
+
+  // Auto-place selected files into available viewers
+  const handleAutoPlaceFiles = () => {
+    if (selectedFiles.size === 0) return;
+
+    const availableViewers = activeKeys.slice(); // Copy the array
+    let viewerIndex = 0;
+
+    // Convert selected files to actual file objects
+    const filesToPlace: { file: File; sourceKey: FolderKey }[] = [];
+    
+    selectedFiles.forEach(fileId => {
+      const [folderKey, fileName] = fileId.split('-', 2);
+      const folderState = allFolders[folderKey as FolderKey];
+      if (folderState?.data.files) {
+        const file = folderState.data.files.get(fileName);
+        if (file) {
+          filesToPlace.push({ file, sourceKey: folderKey as FolderKey });
+        }
+      }
+    });
+
+    // Place files in viewers sequentially
+    filesToPlace.forEach(({ file, sourceKey }) => {
+      if (viewerIndex < availableViewers.length) {
+        const targetViewer = availableViewers[viewerIndex];
+        loadFileToViewer(file, sourceKey, targetViewer);
+        viewerIndex++;
+      }
+    });
+
+    // Show success message
+    if (addToast && filesToPlace.length > 0) {
+      const placedCount = Math.min(filesToPlace.length, availableViewers.length);
+      addToast({
+        type: 'success',
+        title: 'Files Auto-Placed',
+        message: `Placed ${placedCount} file${placedCount > 1 ? 's' : ''} into viewers`,
+        details: filesToPlace.slice(0, availableViewers.length).map(({ file }) => file.name),
+        duration: 3000
+      });
+    }
+
+    // Clear selection after placement
+    clearFileSelection();
+  };
+
+  // Handle drag start from file list
+  const handleFileDragStart = (e: React.DragEvent, file: File, sourceKey: FolderKey) => {
+    setDraggedFile({ file, sourceKey });
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', `${sourceKey}-${file.name}`);
+  };
+
+  // Handle drag over viewer
+  const handleViewerDragOver = (e: React.DragEvent, viewerKey: FolderKey) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setDragOverViewer(viewerKey);
+  };
+
+  // Handle drag leave viewer
+  const handleViewerDragLeave = () => {
+    setDragOverViewer(null);
+  };
+
+  // Handle drop on viewer
+  const handleViewerDrop = (e: React.DragEvent, viewerKey: FolderKey) => {
+    e.preventDefault();
+    setDragOverViewer(null);
+    
+    if (draggedFile) {
+      loadFileToViewer(draggedFile.file, draggedFile.sourceKey, viewerKey);
+      setDraggedFile(null);
+      
+      if (addToast) {
+        addToast({
+          type: 'success',
+          title: 'File Loaded',
+          message: `Loaded ${draggedFile.file.name} into viewer ${viewerKey}`,
+          duration: 2000
+        });
+      }
+    }
   };
 
   const gridStyle = {
@@ -438,12 +562,19 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     '--rows': viewerRows,
   } as React.CSSProperties;
 
-  // Ensure active canvas key remains valid when layout changes
+
+  // ✅ FIX: Initialize local scales for all active viewers to prevent fallback to changing viewport.scale
   useEffect(() => {
-    if (activeCanvasKey && !activeKeys.includes(activeCanvasKey)) {
-      setActiveCanvasKey(null);
-    }
-  }, [activeKeys, activeCanvasKey, setActiveCanvasKey]);
+    const currentPinpointScales = useStore.getState().pinpointScales;
+    const currentViewport = useStore.getState().viewport;
+    
+    activeKeys.forEach(key => {
+      if (currentPinpointScales[key] == null) {
+        // Use current viewport scale as initial value only once
+        setPinpointScale(key, currentViewport.scale);
+      }
+    });
+  }, [activeKeys, setPinpointScale]); // Only depend on activeKeys and setPinpointScale function
 
   return (
     <>
@@ -503,8 +634,11 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
               onChange={e => setSearchQuery(e.target.value)}
             />
             <div className="filelist-options">
-              <div className="count">Files: {filteredFileList.length}</div>
-              {/* Toggle moved to header controls-main */}
+              {selectedFiles.size > 0 ? (
+                <span className="selected-count">{selectedFiles.size} selected</span>
+              ) : (
+                <div className="count">Files: {filteredFileList.length}</div>
+              )}
               <select value={folderFilter} onChange={e => setFolderFilter(e.target.value as FolderKey | 'all')}>
                 <option value="all">All Folders</option>
                 {activeKeys.map(key => (
@@ -512,6 +646,33 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                 ))}
               </select>
             </div>
+            {filteredFileList.length > 0 && (
+              <div className="file-controls">
+                <button 
+                  className="select-all-btn"
+                  onClick={selectAllFiles}
+                  disabled={selectedFiles.size === filteredFileList.length}
+                >
+                  Select All
+                </button>
+                <button 
+                  className="clear-selection-btn"
+                  onClick={clearFileSelection}
+                  disabled={selectedFiles.size === 0}
+                >
+                  Clear
+                </button>
+                {selectedFiles.size > 0 && (
+                  <button 
+                    className="auto-place-btn"
+                    onClick={handleAutoPlaceFiles}
+                    title="Auto-place selected files into viewers"
+                  >
+                    📍 Auto Place
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <ul>
             {filteredFileList.length === 0 && !isDragOver ? (
@@ -523,15 +684,50 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
               </li>
             ) : (
               filteredFileList.map(({ file, source, folderKey }) => {
+                const fileId = `${folderKey}-${file.name}`;
                 const isFileActive = Object.values(pinpointImages).some(img => 
                   img?.file === file && img.sourceKey === folderKey
                 );
+                const isSelected = selectedFiles.has(fileId);
+                const displayedInViewers = getFileViewerKeys(file, folderKey);
                 
                 return (
                   <li key={`${folderKey}-${file.webkitRelativePath || file.name}-${file.lastModified}`}
-                      className={isFileActive ? "active" : ""}
-                      onClick={() => handleFileListItemClick(file, folderKey)}>
-                    {file.name}
+                      className={`${isFileActive ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
+                      draggable
+                      onDragStart={(e) => handleFileDragStart(e, file, folderKey)}
+                      onDragEnd={() => setDraggedFile(null)}>
+                    <div 
+                      className="file-item-content"
+                      onClick={() => toggleFileSelection(fileId)}
+                    >
+                      <div
+                        className={`file-checkbox ${isSelected ? 'checked' : ''}`}
+                      />
+                      <div className="file-name">
+                        <div className="file-main-name">{file.name}</div>
+                        <div className="file-source-container">
+                          <div className="file-source">{source}</div>
+                          {displayedInViewers.length > 0 && (
+                            <div className="viewer-indicators">
+                              {displayedInViewers.map((viewerKey, index) => (
+                                <div 
+                                  key={viewerKey}
+                                  className="viewer-indicator"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    focusViewer(viewerKey);
+                                  }}
+                                  title={`Displayed in viewer ${viewerKey}. Click to focus viewer.`}
+                                >
+                                  {viewerKey}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </li>
                 );
               })
@@ -567,7 +763,14 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             const label = lines.join('\n');
 
             return (
-              <div key={key} className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''}`}>
+              <div 
+                key={key} 
+                className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''} ${dragOverViewer === key ? 'drag-over' : ''}`}
+                data-viewer-key={key}
+                onDragOver={(e) => handleViewerDragOver(e, key)}
+                onDragLeave={handleViewerDragLeave}
+                onDrop={(e) => handleViewerDrop(e, key)}
+              >
                 <ImageCanvas 
                   ref={canvasRefs[key]}
                   label={label}
@@ -579,8 +782,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                   refPoint={pinpointImage?.refPoint}
                   onSetRefPoint={handleSetRefPoint}
                   folderKey={key}
-                  onClick={(key) => setActiveCanvasKey(key)}
-                  isActive={activeCanvasKey === key}
                   overrideFilterType={viewerFilters[key]}
                   overrideFilterParams={viewerFilterParams[key]}
                 />
@@ -596,8 +797,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                     className="viewer__filter-button" 
                     title={`Filter Settings for ${allFolders[key]?.alias || key}`}
                     onClick={() => {
-                      // Ensure active canvas key reflects the clicked viewer for preview resolution
-                      setActiveCanvasKey(key);
+                      // Note: activeCanvasKey removed - no longer needed for pinpoint mode
                       openFilterEditor(key);
                       // Open preview immediately with the exact file for this viewer
                       const src = pinpointImages[key]?.file || null;
@@ -633,6 +833,20 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                     </svg>
                   </button>
                   <PinpointRotationControl folderKey={key} />
+                  {pinpointImages[key] && (
+                    <button 
+                      className="viewer__unload-button" 
+                      title={`Unload image from viewer ${key}`}
+                      onClick={() => handleUnloadImage(key)}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" 
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  )}
                 </div>
                 <PinpointScaleControl folderKey={key} />
               </div>

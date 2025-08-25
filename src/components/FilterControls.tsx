@@ -1047,31 +1047,6 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
           <div className="filter-actions">
             <button 
               onClick={() => {
-                const sourceFile = getCurrentImageFile();
-                if (sourceFile && tempViewerFilter !== 'none') {
-                  openPreviewModal({
-                    mode: 'single',
-                    filterType: tempViewerFilter,
-                    filterParams: tempViewerFilterParams,
-                    title: `Filter Preview: ${ALL_FILTERS.find(f => f.type === tempViewerFilter)?.name || tempViewerFilter}`,
-                    sourceFile,
-                    realTimeUpdate: true,
-                    position: 'sidebar',
-                    stickySource: appMode === 'pinpoint'
-                  });
-                }
-              }}
-              className="btn btn-icon btn-theme-primary"
-              disabled={tempViewerFilter === 'none' || !getCurrentImageFile()}
-              title="Open filter preview with real-time updates"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="m21 21-4.35-4.35"/>
-              </svg>
-            </button>
-            <button 
-              onClick={() => {
                 addToFilterCart();
                 if (!showFilterCart) {
                   setShowFilterCart(true);
@@ -1087,15 +1062,6 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57L23 6H6"/>
                 <path d="M12 13V7"/>
                 <path d="M15 10L12 7L9 10"/>
-              </svg>
-            </button>
-            <button 
-              onClick={applyTempFilterSettings} 
-              className="btn btn-icon btn-theme-accent"
-              title="Apply current filter settings"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20,6 9,17 4,12"/>
               </svg>
             </button>
             {!showFilterCart && (
