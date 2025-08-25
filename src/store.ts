@@ -474,10 +474,19 @@ export const useStore = create<State>((set) => ({
   // Filter actions
   openFilterEditor: (key) => set(state => {
     if (typeof key === 'number') { // Analysis Mode
+      // Determine if this analysis view already has a chain applied
+      const existingType = state.analysisFilters[key];
+      const existingParams = state.analysisFilterParams[key];
+      const chainItems = (existingType === 'filterchain' && existingParams && existingParams.filterChain)
+        ? existingParams.filterChain
+        : [];
+
       return {
         activeFilterEditor: key,
-        tempViewerFilter: state.analysisFilters[key] || 'none',
-        tempViewerFilterParams: state.analysisFilterParams[key] || defaultFilterParams,
+        tempViewerFilter: existingType || 'none',
+        tempViewerFilterParams: existingParams || defaultFilterParams,
+        // Sync the cart with the view-specific chain
+        filterCart: [...chainItems],
         showFilterCart: true,
         filterPanelTab: 'editor',
       }
@@ -497,10 +506,20 @@ export const useStore = create<State>((set) => ({
           nextCurrent = { filename: firstFilename, has } as any;
         }
       }
+
+      // Determine if this viewer already has a chain applied
+      const existingType = state.viewerFilters[key];
+      const existingParams = state.viewerFilterParams[key];
+      const chainItems = (existingType === 'filterchain' && existingParams && existingParams.filterChain)
+        ? existingParams.filterChain
+        : [];
+
       return {
         activeFilterEditor: key,
-        tempViewerFilter: state.viewerFilters[key] || 'none',
-        tempViewerFilterParams: state.viewerFilterParams[key] || defaultFilterParams,
+        tempViewerFilter: existingType || 'none',
+        tempViewerFilterParams: existingParams || defaultFilterParams,
+        // Sync the cart with the view-specific chain
+        filterCart: [...chainItems],
         showFilterCart: true,
         filterPanelTab: 'editor',
         current: nextCurrent || state.current,
