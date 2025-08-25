@@ -415,6 +415,23 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     setViewport({ refScreenX: screenPoint.x, refScreenY: screenPoint.y });
   };
 
+  // ✅ NEW: Function to unload image from viewer
+  const handleUnloadImage = (key: FolderKey) => {
+    setPinpointImages(prev => {
+      const newImages = { ...prev };
+      delete newImages[key];
+      return newImages;
+    });
+    // Also clear any related pinpoint data for this viewer
+    setPinpoint(key, { x: 0, y: 0 });
+    setPinpointScale(key, viewport.scale);
+    // Clear selection if this viewer was selected
+    if (selectedViewers.includes(key)) {
+      const newSelected = selectedViewers.filter(v => v !== key);
+      setSelectedViewers(newSelected);
+    }
+  };
+
   const loadFileToViewer = (file: File, sourceKey: FolderKey, targetKey: FolderKey) => {
     // Update global 'current' so previews resolve the selected file across modes
     try {
@@ -840,6 +857,20 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                     </svg>
                   </button>
                   <PinpointRotationControl folderKey={key} />
+                  {pinpointImages[key] && (
+                    <button 
+                      className="viewer__unload-button" 
+                      title={`Unload image from viewer ${key}`}
+                      onClick={() => handleUnloadImage(key)}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" 
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  )}
                 </div>
                 <PinpointScaleControl folderKey={key} />
               </div>
