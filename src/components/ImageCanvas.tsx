@@ -53,7 +53,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       setSourceImage(null);
       return; 
     }
-    const cacheKey = `${label}-${file.name}`;
+    // Use a stable, viewer-specific cache key to avoid collisions across folders
+    const cacheKey = `${String(folderKey)}|${file.name}|${(file as any).size ?? 'na'}|${(file as any).lastModified ?? 'na'}`;
     const cachedImage = cache.get(cacheKey);
     if (cachedImage) { 
       setSourceImage(cachedImage);
