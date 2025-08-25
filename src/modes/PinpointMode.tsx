@@ -797,8 +797,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                     className="viewer__filter-button" 
                     title={`Filter Settings for ${allFolders[key]?.alias || key}`}
                     onClick={() => {
-                      // Ensure active canvas key reflects the clicked viewer for preview resolution
-                      setActiveCanvasKey(key);
+                      // Note: activeCanvasKey removed - no longer needed for pinpoint mode
                       openFilterEditor(key);
                       // Open preview immediately with the exact file for this viewer
                       const src = pinpointImages[key]?.file || null;
