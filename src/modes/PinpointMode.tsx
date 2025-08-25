@@ -50,7 +50,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     activeCanvasKey, setActiveCanvasKey, clearFolder,
     openFilterEditor, viewerFilters, viewerFilterParams, viewerRows, viewerCols,
     openPreviewModal,
-    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels,
+    selectedFiles, toggleFileSelection, clearFileSelection, selectAllFiles
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,6 +61,10 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragOverCounter, setDragOverCounter] = useState(0);
   const [draggedFileCount, setDraggedFileCount] = useState(0);
+  
+  // Drag and drop states for file list to viewer
+  const [draggedFile, setDraggedFile] = useState<{ file: File; sourceKey: FolderKey } | null>(null);
+  const [dragOverViewer, setDragOverViewer] = useState<FolderKey | null>(null);
 
   // Use dragOverCounter to prevent linting error
   React.useEffect(() => {
@@ -389,12 +394,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     setViewport({ refScreenX: screenPoint.x, refScreenY: screenPoint.y });
   };
 
-  const handleFileListItemClick = (file: File, sourceKey: FolderKey) => {
-    if (!activeCanvasKey) {
-      console.warn("No active viewer. Click a viewer to select it first.");
-      return;
-    }
-
+  const loadFileToViewer = (file: File, sourceKey: FolderKey, targetKey: FolderKey) => {
     // Update global 'current' so previews resolve the selected file across modes
     try {
       const filename = file.name;
@@ -421,15 +421,109 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       setCurrent(null);
     }
 
-    const oldPinpointImage = pinpointImages[activeCanvasKey];
+    const oldPinpointImage = pinpointImages[targetKey];
     const refPoint = (oldPinpointImage && oldPinpointImage.file?.name === file.name)
       ? oldPinpointImage.refPoint
       : { x: 0.5, y: 0.5 };
     
     setPinpointImages(prev => ({
       ...prev,
-      [activeCanvasKey]: { file, refPoint, sourceKey }
+      [targetKey]: { file, refPoint, sourceKey }
     }));
+  };
+
+  const handleFileListItemClick = (file: File, sourceKey: FolderKey) => {
+    if (!activeCanvasKey) {
+      console.warn("No active viewer. Click a viewer to select it first.");
+      return;
+    }
+
+    loadFileToViewer(file, sourceKey, activeCanvasKey);
+  };
+
+  // Auto-place selected files into available viewers
+  const handleAutoPlaceFiles = () => {
+    if (selectedFiles.size === 0) return;
+
+    const availableViewers = activeKeys.slice(); // Copy the array
+    let viewerIndex = 0;
+
+    // Convert selected files to actual file objects
+    const filesToPlace: { file: File; sourceKey: FolderKey }[] = [];
+    
+    selectedFiles.forEach(fileId => {
+      const [folderKey, fileName] = fileId.split('-', 2);
+      const folderState = allFolders[folderKey as FolderKey];
+      if (folderState?.data.files) {
+        const file = folderState.data.files.get(fileName);
+        if (file) {
+          filesToPlace.push({ file, sourceKey: folderKey as FolderKey });
+        }
+      }
+    });
+
+    // Place files in viewers sequentially
+    filesToPlace.forEach(({ file, sourceKey }) => {
+      if (viewerIndex < availableViewers.length) {
+        const targetViewer = availableViewers[viewerIndex];
+        loadFileToViewer(file, sourceKey, targetViewer);
+        viewerIndex++;
+      }
+    });
+
+    // Show success message
+    if (addToast && filesToPlace.length > 0) {
+      const placedCount = Math.min(filesToPlace.length, availableViewers.length);
+      addToast({
+        type: 'success',
+        title: 'Files Auto-Placed',
+        message: `Placed ${placedCount} file${placedCount > 1 ? 's' : ''} into viewers`,
+        details: filesToPlace.slice(0, availableViewers.length).map(({ file }) => file.name),
+        duration: 3000
+      });
+    }
+
+    // Clear selection after placement
+    clearFileSelection();
+  };
+
+  // Handle drag start from file list
+  const handleFileDragStart = (e: React.DragEvent, file: File, sourceKey: FolderKey) => {
+    setDraggedFile({ file, sourceKey });
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', `${sourceKey}-${file.name}`);
+  };
+
+  // Handle drag over viewer
+  const handleViewerDragOver = (e: React.DragEvent, viewerKey: FolderKey) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setDragOverViewer(viewerKey);
+  };
+
+  // Handle drag leave viewer
+  const handleViewerDragLeave = () => {
+    setDragOverViewer(null);
+  };
+
+  // Handle drop on viewer
+  const handleViewerDrop = (e: React.DragEvent, viewerKey: FolderKey) => {
+    e.preventDefault();
+    setDragOverViewer(null);
+    
+    if (draggedFile) {
+      loadFileToViewer(draggedFile.file, draggedFile.sourceKey, viewerKey);
+      setDraggedFile(null);
+      
+      if (addToast) {
+        addToast({
+          type: 'success',
+          title: 'File Loaded',
+          message: `Loaded ${draggedFile.file.name} into viewer ${viewerKey}`,
+          duration: 2000
+        });
+      }
+    }
   };
 
   const gridStyle = {
@@ -503,8 +597,11 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
               onChange={e => setSearchQuery(e.target.value)}
             />
             <div className="filelist-options">
-              <div className="count">Files: {filteredFileList.length}</div>
-              {/* Toggle moved to header controls-main */}
+              {selectedFiles.size > 0 ? (
+                <span className="selected-count">{selectedFiles.size} selected</span>
+              ) : (
+                <div className="count">Files: {filteredFileList.length}</div>
+              )}
               <select value={folderFilter} onChange={e => setFolderFilter(e.target.value as FolderKey | 'all')}>
                 <option value="all">All Folders</option>
                 {activeKeys.map(key => (
@@ -512,6 +609,33 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                 ))}
               </select>
             </div>
+            {filteredFileList.length > 0 && (
+              <div className="file-controls">
+                <button 
+                  className="select-all-btn"
+                  onClick={selectAllFiles}
+                  disabled={selectedFiles.size === filteredFileList.length}
+                >
+                  Select All
+                </button>
+                <button 
+                  className="clear-selection-btn"
+                  onClick={clearFileSelection}
+                  disabled={selectedFiles.size === 0}
+                >
+                  Clear
+                </button>
+                {selectedFiles.size > 0 && (
+                  <button 
+                    className="auto-place-btn"
+                    onClick={handleAutoPlaceFiles}
+                    title="Auto-place selected files into viewers"
+                  >
+                    📍 Auto Place
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <ul>
             {filteredFileList.length === 0 && !isDragOver ? (
@@ -523,15 +647,36 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
               </li>
             ) : (
               filteredFileList.map(({ file, source, folderKey }) => {
+                const fileId = `${folderKey}-${file.name}`;
                 const isFileActive = Object.values(pinpointImages).some(img => 
                   img?.file === file && img.sourceKey === folderKey
                 );
+                const isSelected = selectedFiles.has(fileId);
                 
                 return (
                   <li key={`${folderKey}-${file.webkitRelativePath || file.name}-${file.lastModified}`}
-                      className={isFileActive ? "active" : ""}
-                      onClick={() => handleFileListItemClick(file, folderKey)}>
-                    {file.name}
+                      className={`${isFileActive ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
+                      draggable
+                      onDragStart={(e) => handleFileDragStart(e, file, folderKey)}
+                      onDragEnd={() => setDraggedFile(null)}>
+                    <div className="file-item-content">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleFileSelection(fileId)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="file-checkbox"
+                      />
+                      <div 
+                        className="file-name"
+                        onClick={() => handleFileListItemClick(file, folderKey)}
+                        title="Click to load into active viewer"
+                      >
+                        <div className="file-main-name">{file.name}</div>
+                        <div className="file-source">{source}</div>
+                      </div>
+                      <div className="drag-handle" title="Drag to viewer">⋮⋮</div>
+                    </div>
                   </li>
                 );
               })
@@ -567,7 +712,13 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             const label = lines.join('\n');
 
             return (
-              <div key={key} className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''}`}>
+              <div 
+                key={key} 
+                className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''} ${dragOverViewer === key ? 'drag-over' : ''}`}
+                onDragOver={(e) => handleViewerDragOver(e, key)}
+                onDragLeave={handleViewerDragLeave}
+                onDrop={(e) => handleViewerDrop(e, key)}
+              >
                 <ImageCanvas 
                   ref={canvasRefs[key]}
                   label={label}

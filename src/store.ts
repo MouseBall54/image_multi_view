@@ -135,6 +135,9 @@ interface State {
   toggleModalOpen: boolean;
   toggleCurrentIndex: number;
 
+  // File Selection state for batch operations
+  selectedFiles: Set<string>; // Set of file IDs (folderKey-filename) for multi-select
+
   // Filter Chain states
   filterChains: FilterChain[];
   activeFilterChain: FilterChain | null;
@@ -209,6 +212,12 @@ interface State {
   openToggleModal: () => void;
   closeToggleModal: () => void;
   setToggleCurrentIndex: (index: number) => void;
+
+  // File Selection actions
+  toggleFileSelection: (fileId: string) => void;
+  clearFileSelection: () => void;
+  selectAllFiles: () => void;
+  autoPlaceSelectedFiles: () => void;
 
   // Filter actions
   openFilterEditor: (key: FolderKey | number) => void;
@@ -331,6 +340,9 @@ export const useStore = create<State>((set) => ({
   toggleModalOpen: false,
   toggleCurrentIndex: 0,
 
+  // File Selection state
+  selectedFiles: new Set(),
+
   // Filter Chain states
   filterChains: [],
   activeFilterChain: null,
@@ -431,6 +443,33 @@ export const useStore = create<State>((set) => ({
   openToggleModal: () => set({ toggleModalOpen: true, toggleCurrentIndex: 0 }),
   closeToggleModal: () => set({ toggleModalOpen: false }),
   setToggleCurrentIndex: (index) => set({ toggleCurrentIndex: index }),
+
+  // File Selection actions
+  toggleFileSelection: (fileId) => set((state) => {
+    const newSelected = new Set(state.selectedFiles);
+    if (newSelected.has(fileId)) {
+      newSelected.delete(fileId);
+    } else {
+      newSelected.add(fileId);
+    }
+    return { selectedFiles: newSelected };
+  }),
+  clearFileSelection: () => set({ selectedFiles: new Set() }),
+  selectAllFiles: () => set((state) => {
+    const allFileIds = new Set<string>();
+    Object.entries(state.folders).forEach(([folderKey, folderState]) => {
+      if (folderState?.data.files) {
+        for (const [fileName] of folderState.data.files) {
+          allFileIds.add(`${folderKey}-${fileName}`);
+        }
+      }
+    });
+    return { selectedFiles: allFileIds };
+  }),
+  autoPlaceSelectedFiles: () => set((state) => {
+    // This will be implemented in PinpointMode component
+    return state;
+  }),
 
   // Filter actions
   openFilterEditor: (key) => set(state => {
@@ -746,6 +785,8 @@ useStore.subscribe((state, prevState) => {
       selectedViewers: [],
       toggleModalOpen: false,
       toggleCurrentIndex: 0,
+      // Reset file selection when mode changes
+      selectedFiles: new Set(),
       // Clear any sticky preview source when switching modes
       previewModal: {
         ...state.previewModal,

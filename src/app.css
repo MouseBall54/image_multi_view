@@ -391,6 +391,195 @@ main {
   background-color: rgba(0, 123, 255, 0.2);
 }
 
+/* Enhanced file list item with checkbox and drag handle */
+.file-item-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.file-checkbox {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg-dark);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.file-checkbox:checked {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.file-checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  top: -2px;
+  left: 1px;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.file-checkbox:hover {
+  border-color: var(--accent-primary);
+}
+
+.file-name {
+  flex-grow: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.file-name:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.file-main-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.file-source {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.drag-handle {
+  color: var(--text-secondary);
+  cursor: grab;
+  font-size: 12px;
+  flex-shrink: 0;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.drag-handle:hover {
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.filelist li[draggable="true"]:hover .drag-handle {
+  color: var(--accent-primary);
+}
+
+/* Selection controls */
+.selection-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 8px;
+}
+
+.selected-count {
+  background: var(--accent-primary);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.auto-place-btn {
+  background: var(--success-color);
+  border: none;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.auto-place-btn:hover {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+.file-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.select-all-btn {
+  background: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.select-all-btn:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  background: var(--bg-dark);
+}
+
+.select-all-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.clear-selection-btn {
+  background: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-selection-btn:hover:not(:disabled) {
+  border-color: var(--danger-color);
+  color: var(--danger-color);
+}
+
+.clear-selection-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Viewer drag over state */
+.viewer-container.drag-over {
+  border: 2px dashed var(--accent-primary);
+  background: rgba(0, 123, 255, 0.05);
+}
+
+.viewer-container.drag-over::after {
+  content: 'Drop image here';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--accent-primary);
+  font-weight: bold;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 8px 16px;
+  border-radius: 4px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
 /* Viewer selection button */
 .viewer-select-btn {
   background: var(--bg-light);
