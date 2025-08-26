@@ -31,13 +31,22 @@ export const ImageLoadingOverlay: React.FC<{
   isProcessing: boolean;
   loadingText?: string;
   processingText?: string;
+  currentFilterName?: string;
+  filterProgress?: { current: number; total: number };
 }> = ({ 
   isLoading, 
   isProcessing, 
   loadingText = 'Loading image...', 
-  processingText = 'Processing filter...' 
+  processingText = 'Processing filter...',
+  currentFilterName = '',
+  filterProgress = { current: 0, total: 0 }
 }) => {
   if (!isLoading && !isProcessing) return null;
+
+  const showProgress = isProcessing && filterProgress.total > 0;
+  const progressText = showProgress && filterProgress.total > 1 
+    ? `${filterProgress.current}/${filterProgress.total}` 
+    : '';
 
   return (
     <div className="image-loading-overlay">
@@ -46,6 +55,24 @@ export const ImageLoadingOverlay: React.FC<{
         <div className="loading-text">
           {isLoading ? loadingText : processingText}
         </div>
+        {isProcessing && currentFilterName && (
+          <div className="filter-name">
+            {currentFilterName}
+          </div>
+        )}
+        {showProgress && (
+          <div className="filter-progress">
+            {progressText}
+            <div className="progress-bar">
+              <div 
+                className="progress-fill" 
+                style={{ 
+                  width: filterProgress.total > 0 ? `${(filterProgress.current / filterProgress.total) * 100}%` : '0%' 
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -4866,3 +4866,40 @@ main {
 .viewer {
   position: relative;
 }
+
+/* Filter name and progress styles */
+.filter-name {
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  opacity: 0.95;
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+.filter-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.progress-bar {
+  width: 120px;
+  height: 4px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #4A90E2;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}

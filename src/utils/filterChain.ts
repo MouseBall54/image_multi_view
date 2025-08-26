@@ -73,6 +73,14 @@ export async function applyFilterChain(
   const cachedResult = filterResultCache.get(cacheKey);
   
   if (cachedResult) {
+    // Even for cached results, simulate progress for UI consistency
+    if (progressCallback) {
+      for (let i = 0; i <= enabledItems.length; i++) {
+        await new Promise(resolve => setTimeout(resolve, 10)); // Small delay for visual feedback
+        progressCallback(i / enabledItems.length);
+      }
+    }
+    
     const outputCanvas = document.createElement('canvas');
     outputCanvas.width = cachedResult.width;
     outputCanvas.height = cachedResult.height;
@@ -91,7 +99,7 @@ export async function applyFilterChain(
     for (let i = 0; i < enabledItems.length; i++) {
       const item = enabledItems[i];
       
-      // Report progress
+      // Report progress at start of filter
       if (progressCallback) {
         progressCallback(i / enabledItems.length);
       }
@@ -104,6 +112,12 @@ export async function applyFilterChain(
       // Apply the filter
       await applySingleFilter(currentCanvas, tempCanvas, item.filterType as FilterType, item.params as FilterParams);
       
+      // Report progress after completing this filter with a small delay for UI update
+      if (progressCallback) {
+        await new Promise(resolve => setTimeout(resolve, 50)); // Allow UI to update
+        progressCallback((i + 1) / enabledItems.length);
+      }
+      
       // Clean up previous intermediate canvas (but not the source)
       if (currentCanvas !== sourceCanvas) {
         needsCleanup.push(currentCanvas);
@@ -112,10 +126,8 @@ export async function applyFilterChain(
       currentCanvas = tempCanvas;
     }
 
-    // Report completion
-    if (progressCallback) {
-      progressCallback(1.0);
-    }
+    // Final progress report is already done in the loop
+    // No need for additional completion callback
 
     // Cache the final result
     try {
