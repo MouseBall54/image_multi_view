@@ -675,74 +675,50 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     let lastX = 0, lastY = 0;
     let dragMode: 'pan' | 'rotate' | null = null;
     const onWheel = (e: WheelEvent) => {
+      // Pinpoint 모드에서는 휠 이벤트를 PinpointMode 컴포넌트에서 통합 처리
+      // 개별 ImageCanvas에서는 처리하지 않음
+      if (appMode === 'pinpoint') {
+        return;
+      }
+      
       e.preventDefault();
       e.stopPropagation();
       const { left, top, width, height } = canvas.getBoundingClientRect();
       const mx = e.clientX - left;
       const my = e.clientY - top;
-      const { viewport: currentViewport, pinpointGlobalScale: currentGlobalScale, setPinpointGlobalScale } = useStore.getState();
+      const { viewport: currentViewport } = useStore.getState();
       // Zoom step: start with multiplicative step (e.g., 1.1x),
       // but cap the visible percent change to at most +/- 50 points per event.
       const MAX_PERCENT_STEP = 50; // percentage points
       const step = WHEEL_ZOOM_STEP;
-      if (appMode === 'pinpoint') {
-        // Zoom the canvas under the cursor; also mark it active for consistency
-        if (typeof folderKey === 'string') {
-          const { setActiveCanvasKey } = useStore.getState();
-          setActiveCanvasKey(folderKey);
-        }
-        // ✅ FIX: Use existing individual scale or fallback to viewport scale (read-only)
-        const individualScale = overrideScale ?? currentViewport.scale;
-        const preScale = individualScale * currentGlobalScale;
-        const prePct = preScale * 100;
-        const desiredScale = preScale * (e.deltaY < 0 ? step : (1 / step));
-        let desiredPct = desiredScale * 100;
-        // Cap absolute percent change to +/- MAX_PERCENT_STEP
-        const maxPct = prePct + MAX_PERCENT_STEP;
-        const minPct = prePct - MAX_PERCENT_STEP;
-        desiredPct = Math.max(minPct, Math.min(maxPct, desiredPct));
-        // Clamp to global min/max zoom
-        const clampedPct = Math.max(MIN_ZOOM * 100, Math.min(MAX_ZOOM * 100, desiredPct));
-        const nextScale = clampedPct / 100;
-        // ✅ FIX: Calculate global scale change proportionally to preserve individual scale
-        const scaleRatio = nextScale / preScale;
-        const nextGlobalScale = currentGlobalScale * scaleRatio;
-        if (nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
-        setPinpointGlobalScale(nextGlobalScale);
-        const refScreenX = currentViewport.refScreenX || (width / 2);
-        const refScreenY = currentViewport.refScreenY || (height / 2);
-        const nextRefScreenX = mx + (refScreenX - mx) * (nextScale / preScale);
-        const nextRefScreenY = my + (refScreenY - my) * (nextScale / preScale);
-        setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
-      } else {
-        const preScale = currentViewport.scale;
-        const prePct = preScale * 100;
-        const desiredScale = preScale * (e.deltaY < 0 ? step : (1 / step));
-        let desiredPct = desiredScale * 100;
-        const maxPct = prePct + MAX_PERCENT_STEP;
-        const minPct = prePct - MAX_PERCENT_STEP;
-        desiredPct = Math.max(minPct, Math.min(maxPct, desiredPct));
-        let nextScale = Math.max(MIN_ZOOM * 100, Math.min(MAX_ZOOM * 100, desiredPct)) / 100;
-        nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextScale));
-        if (nextScale === preScale) return;
-        let { cx, cy } = currentViewport;
-        if (CURSOR_ZOOM_CENTERED) {
-          const imgW = sourceImage.width, imgH = sourceImage.height;
-          const drawW = imgW * preScale;
-          const x = (width / 2) - ((cx || 0.5) * imgW * preScale);
-          const y = (height / 2) - ((cy || 0.5) * imgH * preScale);
-          const imgX = (mx - x) / drawW;
-          const imgY = (my - y) / drawW;
-          const drawW2 = imgW * nextScale;
-          const x2 = mx - imgX * drawW2;
-          const y2 = my - imgY * drawW2;
-          const newCxPx = ((width / 2) - x2) / nextScale;
-          const newCyPx = ((height / 2) - y2) / nextScale;
-          cx = newCxPx / imgW;
-          cy = newCyPx / imgH;
-        }
-        setViewport({ scale: nextScale, cx, cy });
+      
+      const preScale = currentViewport.scale;
+      const prePct = preScale * 100;
+      const desiredScale = preScale * (e.deltaY < 0 ? step : (1 / step));
+      let desiredPct = desiredScale * 100;
+      const maxPct = prePct + MAX_PERCENT_STEP;
+      const minPct = prePct - MAX_PERCENT_STEP;
+      desiredPct = Math.max(minPct, Math.min(maxPct, desiredPct));
+      let nextScale = Math.max(MIN_ZOOM * 100, Math.min(MAX_ZOOM * 100, desiredPct)) / 100;
+      nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextScale));
+      if (nextScale === preScale) return;
+      let { cx, cy } = currentViewport;
+      if (CURSOR_ZOOM_CENTERED) {
+        const imgW = sourceImage.width, imgH = sourceImage.height;
+        const drawW = imgW * preScale;
+        const x = (width / 2) - ((cx || 0.5) * imgW * preScale);
+        const y = (height / 2) - ((cy || 0.5) * imgH * preScale);
+        const imgX = (mx - x) / drawW;
+        const imgY = (my - y) / drawW;
+        const drawW2 = imgW * nextScale;
+        const x2 = mx - imgX * drawW2;
+        const y2 = my - imgY * drawW2;
+        const newCxPx = ((width / 2) - x2) / nextScale;
+        const newCyPx = ((height / 2) - y2) / nextScale;
+        cx = newCxPx / imgW;
+        cy = newCyPx / imgH;
       }
+      setViewport({ scale: nextScale, cx, cy });
     };
     const onDown = (e: MouseEvent) => {
       if (appMode === 'pinpoint' && typeof folderKey === 'string') {

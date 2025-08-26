@@ -4,7 +4,7 @@ import { ToggleModal } from '../components/ToggleModal';
 import { useStore } from '../store';
 import { useFolderPickers } from '../hooks/useFolderPickers';
 import type { FolderKey, FilterType } from '../types';
-import { MAX_ZOOM, MIN_ZOOM } from '../config';
+import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP } from '../config';
 import { FolderControl } from '../components/FolderControl';
 import { ALL_FILTERS } from '../components/FilterControls';
 
@@ -402,6 +402,80 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     const primaryFile = pinpointImages['A']?.file;
     setPrimaryFile(primaryFile || null);
   }, [pinpointImages, setPrimaryFile]);
+
+  // ✅ 통합 휠 이벤트 처리 - 글로벌 스케일만 조절
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      // 뷰어 영역 내에서만 처리
+      const target = e.target as HTMLElement;
+      const canvas = target.closest('canvas');
+      if (!canvas) return;
+      
+      const viewerContainer = canvas.closest('.viewer-container');
+      if (!viewerContainer) return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const { left, top, width, height } = canvas.getBoundingClientRect();
+      const mx = e.clientX - left;
+      const my = e.clientY - top;
+      
+      const { 
+        viewport: currentViewport, 
+        pinpointGlobalScale: currentGlobalScale, 
+        setPinpointGlobalScale 
+      } = useStore.getState();
+      
+      // 휠 스텝 설정 (config에서 가져옴)
+      const MAX_PERCENT_STEP = 50;
+      
+      // 현재 전체 스케일 계산 (개별 스케일은 고정, 글로벌 스케일만 변경)
+      const baseScale = currentViewport.scale; // 기준 스케일
+      const preGlobalScale = currentGlobalScale;
+      const preScale = baseScale * preGlobalScale;
+      const prePct = preScale * 100;
+      
+      // 새로운 스케일 계산
+      const desiredScale = preScale * (e.deltaY < 0 ? WHEEL_ZOOM_STEP : (1 / WHEEL_ZOOM_STEP));
+      let desiredPct = desiredScale * 100;
+      
+      // 퍼센트 변화량 제한
+      const maxPct = prePct + MAX_PERCENT_STEP;
+      const minPct = prePct - MAX_PERCENT_STEP;
+      desiredPct = Math.max(minPct, Math.min(maxPct, desiredPct));
+      
+      // 최종 스케일 클램핑
+      const clampedPct = Math.max(MIN_ZOOM * 100, Math.min(MAX_ZOOM * 100, desiredPct));
+      const nextScale = clampedPct / 100;
+      
+      // 글로벌 스케일 업데이트
+      const nextGlobalScale = nextScale / baseScale;
+      if (nextGlobalScale <= 0 || nextScale > MAX_ZOOM || nextScale < MIN_ZOOM) return;
+      
+      setPinpointGlobalScale(nextGlobalScale);
+      
+      // 마우스 커서 중심으로 줌 (참조점 조정)
+      const refScreenX = currentViewport.refScreenX || (width / 2);
+      const refScreenY = currentViewport.refScreenY || (height / 2);
+      const nextRefScreenX = mx + (refScreenX - mx) * (nextScale / preScale);
+      const nextRefScreenY = my + (refScreenY - my) * (nextScale / preScale);
+      
+      setViewport({ refScreenX: nextRefScreenX, refScreenY: nextRefScreenY });
+    };
+
+    // 뷰어 컨테이너에 이벤트 리스너 등록
+    const viewersSection = document.querySelector('.viewers');
+    if (viewersSection) {
+      viewersSection.addEventListener('wheel', handleWheel, { passive: false });
+    }
+
+    return () => {
+      if (viewersSection) {
+        viewersSection.removeEventListener('wheel', handleWheel);
+      }
+    };
+  }, [setViewport]);
 
   const handleSetRefPoint = (key: FolderKey, imgPoint: { x: number, y: number }, screenPoint: {x: number, y: number}) => {
     setPinpointImages(prev => {
