@@ -34,6 +34,7 @@ export interface ImageCanvasHandle {
 
 export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, filteredCache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive, overrideFilterType, overrideFilterParams, rotation }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const viewportRef = useRef<any>(null);
   const [sourceImage, setSourceImage] = useState<DrawableImage | null>(null);
   const [processedImage, setProcessedImage] = useState<DrawableImage | null>(null);
   const [isRotating, setIsRotating] = useState(false);
@@ -850,6 +851,11 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     return () => canvas.removeEventListener('contextmenu', handleCtxMenu);
   }, [appMode]);
 
+  // viewport ref를 최신 상태로 업데이트
+  useEffect(() => {
+    viewportRef.current = viewport;
+  }, [viewport]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !sourceImage) return;
@@ -868,7 +874,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const { left, top, width, height } = canvas.getBoundingClientRect();
       const mx = e.clientX - left;
       const my = e.clientY - top;
-      const { viewport: currentViewport } = useStore.getState();
+      const currentViewport = viewportRef.current;
+      if (!currentViewport) return;
       // Zoom step: start with multiplicative step (e.g., 1.1x),
       // but cap the visible percent change to at most +/- 50 points per event.
       const MAX_PERCENT_STEP = 50; // percentage points
@@ -969,7 +976,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           return;
         }
       }
-      const { viewport: currentViewport } = useStore.getState();
+      const currentViewport = viewportRef.current;
+      if (!currentViewport) return;
       if (appMode === 'pinpoint') {
         const refScreenX = (currentViewport.refScreenX || (canvas.width / 2)) + dx;
         const refScreenY = (currentViewport.refScreenY || (canvas.height / 2)) + dy;
