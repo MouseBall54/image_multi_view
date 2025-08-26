@@ -2,6 +2,7 @@ import { useEffect, useImperativeHandle, useRef, useState, forwardRef, useCallba
 import { useStore } from "../store";
 import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, RESPECT_EXIF, WHEEL_ZOOM_STEP, SHOW_FOLDER_LABEL, UTIF_OPTIONS } from "../config";
 import { Minimap } from "./Minimap";
+import { ImageLoadingOverlay } from "./LoadingSpinner";
 import { AppMode, FolderKey, FilterType, DrawableImage } from "../types";
 import { decodeTiffWithUTIF } from '../utils/utif';
 import * as Filters from "../utils/filters";
@@ -37,6 +38,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   const [processedImage, setProcessedImage] = useState<DrawableImage | null>(null);
   const [isRotating, setIsRotating] = useState(false);
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
+  const [isProcessingFilter, setIsProcessingFilter] = useState(false);
   const { 
     viewport, setViewport, setFitScaleFn, 
     pinpointMouseMode, setPinpointScale, 
@@ -51,13 +54,16 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     let revoked = false;
     if (!file) { 
       setSourceImage(null);
+      setIsLoadingImage(false);
       return; 
     }
+    
     // Use a stable, viewer-specific cache key to avoid collisions across folders
     const cacheKey = `${String(folderKey)}|${file.name}|${(file as any).size ?? 'na'}|${(file as any).lastModified ?? 'na'}`;
     const cachedImage = cache.get(cacheKey);
     if (cachedImage) { 
       setSourceImage(cachedImage);
+      setIsLoadingImage(false);
       // Also record its size for performance estimates
       const size = { width: cachedImage.width as number, height: cachedImage.height as number };
       if (typeof folderKey === 'string') {
@@ -67,6 +73,10 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       }
       return; 
     }
+    
+    // Start loading animation
+    setIsLoadingImage(true);
+    
     (async () => {
       try {
         const ext = (file.name.split('.').pop() || '').toLowerCase();
@@ -81,6 +91,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         if (!revoked) {
           cache.set(cacheKey, newImage);
           setSourceImage(newImage);
+          setIsLoadingImage(false);
           // Record size immediately
           const size = { width: (newImage as any).width as number, height: (newImage as any).height as number };
           if (typeof folderKey === 'string') {
@@ -91,7 +102,10 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         }
       } catch (err) {
         console.error('Error loading image:', err);
-        if (!revoked) setSourceImage(null);
+        if (!revoked) {
+          setSourceImage(null);
+          setIsLoadingImage(false);
+        }
       }
     })();
     return () => { revoked = true; };
@@ -105,6 +119,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
       if (!sourceImage || !file) {
         setProcessedImage(null);
+        setIsProcessingFilter(false);
         return;
       }
 
@@ -117,8 +132,12 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           setAnalysisImageSize(folderKey as number, size);
         }
         setProcessedImage(sourceImage);
+        setIsProcessingFilter(false);
         return;
       }
+
+      // Start filter processing animation
+      setIsProcessingFilter(true);
 
       // --- Caching Logic ---
       const filterCacheKey = filteredCache ? `${String(folderKey)}|${file.name}|${filter}|${JSON.stringify(params)}` : '';
@@ -126,6 +145,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         const cachedImage = filteredCache.get(filterCacheKey);
         if (cachedImage) {
           setProcessedImage(cachedImage);
+          setIsProcessingFilter(false);
           return;
         }
       }
@@ -231,6 +251,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         filteredCache.set(filterCacheKey, finalImage);
       }
       setProcessedImage(finalImage);
+      setIsProcessingFilter(false);
     };
 
     processImage();
@@ -900,6 +921,12 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           position={minimapPosition}
         />
       )}
+      <ImageLoadingOverlay 
+        isLoading={isLoadingImage} 
+        isProcessing={isProcessingFilter}
+        loadingText="Loading image..."
+        processingText="Processing filter..."
+      />
     </div>
   );
 });
