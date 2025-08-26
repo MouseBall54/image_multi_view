@@ -51,7 +51,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     openFilterEditor, viewerFilters, viewerFilterParams, viewerRows, viewerCols,
     openPreviewModal,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels,
-    selectedFiles, toggleFileSelection, clearFileSelection, selectAllFiles
+    selectedFiles, toggleFileSelection, clearFileSelection, selectAllFiles,
+    clearPinpointScales, setPinpointGlobalScale, fitScaleFn
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -649,6 +650,19 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       }
     });
   }, [activeKeys, setPinpointScale]); // Only depend on activeKeys and setPinpointScale function
+
+  // ✅ 레이아웃 변경 시 자동 Reset View 적용
+  useEffect(() => {
+    const resetView = () => {
+      const newScale = fitScaleFn ? fitScaleFn() : 1;
+      clearPinpointScales();
+      setPinpointGlobalScale(1);
+      setViewport({ scale: newScale, refScreenX: undefined, refScreenY: undefined });
+    };
+
+    // 레이아웃 변경 직후 Reset View 실행
+    resetView();
+  }, [viewerRows, viewerCols, clearPinpointScales, setPinpointGlobalScale, setViewport, fitScaleFn]);
 
   return (
     <>
