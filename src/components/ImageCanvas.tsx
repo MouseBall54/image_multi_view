@@ -35,6 +35,11 @@ export interface ImageCanvasHandle {
 export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, filteredCache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive, overrideFilterType, overrideFilterParams, rotation }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewportRef = useRef<any>(null);
+  // Stable refs for event handlers to ensure proper detach/reattach without duplication
+  const wheelHandlerRef = useRef<((e: WheelEvent) => void) | null>(null);
+  const downHandlerRef = useRef<((e: MouseEvent) => void) | null>(null);
+  const upHandlerRef = useRef<(() => void) | null>(null);
+  const moveHandlerRef = useRef<((e: MouseEvent) => void) | null>(null);
   const [sourceImage, setSourceImage] = useState<DrawableImage | null>(null);
   const [processedImage, setProcessedImage] = useState<DrawableImage | null>(null);
   const [isRotating, setIsRotating] = useState(false);
@@ -858,10 +863,15 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !sourceImage) return;
+    if (!canvas) return;
     let isDown = false;
     let lastX = 0, lastY = 0;
     let dragMode: 'pan' | 'rotate' | null = null;
+    // Remove previously attached handlers to avoid stacking duplicates
+    if (wheelHandlerRef.current) canvas.removeEventListener('wheel', wheelHandlerRef.current as any, { capture: true });
+    if (downHandlerRef.current) canvas.removeEventListener('mousedown', downHandlerRef.current as any);
+    if (upHandlerRef.current) window.removeEventListener('mouseup', upHandlerRef.current as any);
+    if (moveHandlerRef.current) window.removeEventListener('mousemove', moveHandlerRef.current as any);
     const onWheel = (e: WheelEvent) => {
       // Pinpoint 모드에서는 휠 이벤트를 PinpointMode 컴포넌트에서 통합 처리
       // 개별 ImageCanvas에서는 처리하지 않음
@@ -872,6 +882,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       e.preventDefault();
       e.stopPropagation();
       const { left, top, width, height } = canvas.getBoundingClientRect();
+      if (!sourceImage) return; // 이미지 미로드 시 무시
       const mx = e.clientX - left;
       const my = e.clientY - top;
       const currentViewport = viewportRef.current;
@@ -983,7 +994,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         const refScreenY = (currentViewport.refScreenY || (canvas.height / 2)) + dy;
         setViewport({ refScreenX, refScreenY });
       } else {
-        const imgW = sourceImage.width, imgH = sourceImage.height;
+        const imgW = sourceImage ? sourceImage.width : 1;
+        const imgH = sourceImage ? sourceImage.height : 1;
         const dpX = -dx / (currentViewport.scale * imgW);
         const dpY = -dy / (currentViewport.scale * imgH);
         let cx = (currentViewport.cx || 0.5) + dpX;
@@ -994,14 +1006,22 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       }
     };
     canvas.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    wheelHandlerRef.current = onWheel;
     canvas.addEventListener("mousedown", onDown);
+    downHandlerRef.current = onDown;
     window.addEventListener("mouseup", onUp);
+    upHandlerRef.current = onUp;
     window.addEventListener("mousemove", onMove);
+    moveHandlerRef.current = onMove;
     return () => {
-      canvas.removeEventListener("wheel", onWheel);
-      canvas.removeEventListener("mousedown", onDown);
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("mousemove", onMove);
+      if (wheelHandlerRef.current) canvas.removeEventListener("wheel", wheelHandlerRef.current as any, { capture: true });
+      if (downHandlerRef.current) canvas.removeEventListener("mousedown", downHandlerRef.current as any);
+      if (upHandlerRef.current) window.removeEventListener("mouseup", upHandlerRef.current as any);
+      if (moveHandlerRef.current) window.removeEventListener("mousemove", moveHandlerRef.current as any);
+      wheelHandlerRef.current = null;
+      downHandlerRef.current = null;
+      upHandlerRef.current = null;
+      moveHandlerRef.current = null;
     };
   }, [sourceImage, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, setPinpointScale]);
 
