@@ -127,6 +127,44 @@ export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = 
   { name: 'Discrete Fourier Transform (DFT)', type: 'dft', group: 'Frequency Domain (Experimental)' },
   { name: 'Discrete Cosine Transform (DCT)', type: 'dct', group: 'Frequency Domain (Experimental)' },
   { name: 'Wavelet Transform', type: 'wavelet', group: 'Frequency Domain (Experimental)' },
+
+  // Colormap - Perceptually Uniform (Recommended)
+  { name: 'Viridis (Recommended)', type: 'colormap_viridis', group: 'Colormap - Perceptually Uniform' },
+  { name: 'Inferno (High Contrast)', type: 'colormap_inferno', group: 'Colormap - Perceptually Uniform' },
+  { name: 'Plasma (Vivid)', type: 'colormap_plasma', group: 'Colormap - Perceptually Uniform' },
+  { name: 'Magma (Dark Tones)', type: 'colormap_magma', group: 'Colormap - Perceptually Uniform' },
+  { name: 'Parula (MATLAB)', type: 'colormap_parula', group: 'Colormap - Perceptually Uniform' },
+
+  // Colormap - Rainbow/Legacy
+  { name: 'Jet (Legacy)', type: 'colormap_jet', group: 'Colormap - Rainbow/Legacy' },
+  { name: 'HSV (Rainbow)', type: 'colormap_hsv', group: 'Colormap - Rainbow/Legacy' },
+  { name: 'Hot (Heat)', type: 'colormap_hot', group: 'Colormap - Rainbow/Legacy' },
+
+  // Colormap - Aesthetic Gradients  
+  { name: 'Cool (Cyan-Magenta)', type: 'colormap_cool', group: 'Colormap - Aesthetic' },
+  { name: 'Warm (Red-Yellow)', type: 'colormap_warm', group: 'Colormap - Aesthetic' },
+  { name: 'Spring (Magenta-Yellow)', type: 'colormap_spring', group: 'Colormap - Aesthetic' },
+  { name: 'Summer (Green-Yellow)', type: 'colormap_summer', group: 'Colormap - Aesthetic' },
+  { name: 'Autumn (Red-Yellow)', type: 'colormap_autumn', group: 'Colormap - Aesthetic' },
+  { name: 'Winter (Blue-Green)', type: 'colormap_winter', group: 'Colormap - Aesthetic' },
+
+  // Colormap - Specialized
+  { name: 'Bone (Gray-Blue)', type: 'colormap_bone', group: 'Colormap - Specialized' },
+  { name: 'Copper (Black-Copper)', type: 'colormap_copper', group: 'Colormap - Specialized' },
+  { name: 'Pink (Sepia-like)', type: 'colormap_pink', group: 'Colormap - Specialized' },
+
+  // Colormap - Diverging (Change-based)
+  { name: 'Red-Blue Diverging (Recommended)', type: 'colormap_rdbu', group: 'Colormap - Diverging' },
+  { name: 'Red-Yellow-Blue', type: 'colormap_rdylbu', group: 'Colormap - Diverging' },
+  { name: 'Blue-White-Red', type: 'colormap_bwr', group: 'Colormap - Diverging' },
+  { name: 'Seismic (Geophysics)', type: 'colormap_seismic', group: 'Colormap - Diverging' },
+  { name: 'Cool-Warm (ParaView)', type: 'colormap_coolwarm', group: 'Colormap - Diverging' },
+  { name: 'Spectral (Rainbow Diverging)', type: 'colormap_spectral', group: 'Colormap - Diverging' },
+
+  // Colormap - Gradient-based
+  { name: 'Gradient Magnitude', type: 'colormap_gradient_magnitude', group: 'Colormap - Gradient-based' },
+  { name: 'Edge Intensity', type: 'colormap_edge_intensity', group: 'Colormap - Gradient-based' },
+  { name: 'Difference Map', type: 'colormap_difference', group: 'Colormap - Gradient-based' },
 ];
 
 const filterGroups = [
@@ -139,7 +177,13 @@ const filterGroups = [
   'Edge Detection - Advanced',
   'Texture Analysis',
   'Morphology & Distance',
-  'Frequency Domain (Experimental)'
+  'Frequency Domain (Experimental)',
+  'Colormap - Perceptually Uniform',
+  'Colormap - Rainbow/Legacy',
+  'Colormap - Aesthetic',
+  'Colormap - Specialized',
+  'Colormap - Diverging',
+  'Colormap - Gradient-based'
 ];
 
 export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
@@ -399,6 +443,46 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
       'morph_blackhat': 'morphology',
       'morph_gradient': 'morphology',
       'distancetransform': 'distanceTransform',
+      
+      // Colormap - Perceptually Uniform (Recommended)
+      'colormap_viridis': 'colormap',
+      'colormap_inferno': 'colormap',
+      'colormap_plasma': 'colormap',
+      'colormap_magma': 'colormap',
+      'colormap_parula': 'colormap',
+      
+      // Colormap - Rainbow/Legacy
+      'colormap_jet': 'colormap',
+      'colormap_hsv': 'colormap',
+      'colormap_hot': 'colormap',
+      
+      // Colormap - Aesthetic Gradients
+      'colormap_cool': 'colormap',
+      'colormap_warm': 'colormap',
+      'colormap_spring': 'colormap',
+      'colormap_summer': 'colormap',
+      'colormap_autumn': 'colormap',
+      'colormap_winter': 'colormap',
+      
+      // Colormap - Specialized
+      'colormap_bone': 'colormap',
+      'colormap_copper': 'colormap',
+      'colormap_pink': 'colormap',
+      
+      // Colormap - Diverging (Change-based)
+      'colormap_rdbu': 'colormap',
+      'colormap_rdylbu': 'colormap',
+      'colormap_bwr': 'colormap',
+      'colormap_seismic': 'colormap',
+      'colormap_coolwarm': 'colormap',
+      'colormap_spectral': 'colormap',
+      
+      // Colormap - Gradient-based
+      'colormap_gradient_magnitude': 'gradient_colormap',
+      'colormap_edge_intensity': 'gradient_colormap',
+      'colormap_difference': 'colormap', // Less expensive than full gradient
+      
+      'filterchain': 'filterchain',
     };
     
     const performanceType = filterMap[tempViewerFilter] || 'default';
@@ -938,6 +1022,90 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
             </div>
           </>
         );
+
+      // Gradient-based Colormap Parameters
+      case 'colormap_gradient_magnitude':
+        return (
+          <>
+            <div className="control-row">
+              <label>Intensity</label>
+              <input type="range" min="0.1" max="3.0" step="0.1" value={tempViewerFilterParams.gamma ?? 1.0} onChange={(e)=>handleParamChange('gamma', e.target.value)} />
+              <span>{tempViewerFilterParams.gamma ?? 1.0}</span>
+            </div>
+            <div className="control-row">
+              <label>Sensitivity</label>
+              <input type="range" min="0.1" max="5.0" step="0.1" value={tempViewerFilterParams.sensitivity ?? 1.0} onChange={(e)=>handleParamChange('sensitivity', e.target.value)} />
+              <span>{tempViewerFilterParams.sensitivity ?? 1.0}</span>
+            </div>
+          </>
+        );
+
+      case 'colormap_edge_intensity':
+        return (
+          <>
+            <div className="control-row">
+              <label>Intensity</label>
+              <input type="range" min="0.1" max="3.0" step="0.1" value={tempViewerFilterParams.gamma ?? 1.0} onChange={(e)=>handleParamChange('gamma', e.target.value)} />
+              <span>{tempViewerFilterParams.gamma ?? 1.0}</span>
+            </div>
+            <div className="control-row">
+              <label>Threshold</label>
+              <input type="range" min="0.01" max="0.5" step="0.01" value={tempViewerFilterParams.threshold ?? 0.1} onChange={(e)=>handleParamChange('threshold', e.target.value)} />
+              <span>{tempViewerFilterParams.threshold ?? 0.1}</span>
+            </div>
+          </>
+        );
+
+      case 'colormap_difference':
+        return (
+          <>
+            <div className="control-row">
+              <label>Intensity</label>
+              <input type="range" min="0.1" max="3.0" step="0.1" value={tempViewerFilterParams.gamma ?? 1.0} onChange={(e)=>handleParamChange('gamma', e.target.value)} />
+              <span>{tempViewerFilterParams.gamma ?? 1.0}</span>
+            </div>
+            <div className="control-row">
+              <label>Center Value</label>
+              <input type="range" min="0" max="255" step="1" value={tempViewerFilterParams.centerValue ?? 128} onChange={(e)=>handleParamChange('centerValue', e.target.value)} />
+              <span>{tempViewerFilterParams.centerValue ?? 128}</span>
+            </div>
+          </>
+        );
+
+      // Regular Colormap Parameters (for intensity)
+      case 'colormap_viridis':
+      case 'colormap_inferno':
+      case 'colormap_plasma':
+      case 'colormap_magma':
+      case 'colormap_parula':
+      case 'colormap_jet':
+      case 'colormap_hsv':
+      case 'colormap_hot':
+      case 'colormap_cool':
+      case 'colormap_warm':
+      case 'colormap_spring':
+      case 'colormap_summer':
+      case 'colormap_autumn':
+      case 'colormap_winter':
+      case 'colormap_bone':
+      case 'colormap_copper':
+      case 'colormap_pink':
+      case 'colormap_rdbu':
+      case 'colormap_rdylbu':
+      case 'colormap_bwr':
+      case 'colormap_seismic':
+      case 'colormap_coolwarm':
+      case 'colormap_spectral':
+        return (
+          <>
+            <div className="control-row">
+              <label>Intensity</label>
+              <input type="range" min="0.1" max="3.0" step="0.1" value={tempViewerFilterParams.gamma ?? 1.0} onChange={(e)=>handleParamChange('gamma', e.target.value)} />
+              <span>{tempViewerFilterParams.gamma ?? 1.0}</span>
+            </div>
+          </>
+        );
+
       default:
         return <p>No parameters for this filter.</p>;
     }

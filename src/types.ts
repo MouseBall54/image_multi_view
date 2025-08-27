@@ -83,6 +83,38 @@ export type FilterType =
   | "morph_blackhat"
   | "morph_gradient"
   | "distancetransform"
+  // Colormap - Perceptually Uniform (Recommended)
+  | "colormap_viridis"
+  | "colormap_inferno"
+  | "colormap_plasma"
+  | "colormap_magma"
+  | "colormap_parula"
+  // Colormap - Rainbow/Legacy
+  | "colormap_jet"
+  | "colormap_hsv"
+  | "colormap_hot"
+  // Colormap - Aesthetic Gradients
+  | "colormap_cool"
+  | "colormap_warm"
+  | "colormap_spring"
+  | "colormap_summer"
+  | "colormap_autumn"
+  | "colormap_winter"
+  // Colormap - Specialized
+  | "colormap_bone"
+  | "colormap_copper"
+  | "colormap_pink"
+  // Colormap - Diverging (Change-based)
+  | "colormap_rdbu"
+  | "colormap_rdylbu"
+  | "colormap_bwr"
+  | "colormap_seismic"
+  | "colormap_coolwarm"
+  | "colormap_spectral"
+  // Colormap - Gradient-based
+  | "colormap_gradient_magnitude"
+  | "colormap_edge_intensity"
+  | "colormap_difference"
   | "filterchain";
 
 export type DrawableImage = ImageBitmap | HTMLImageElement;

@@ -40,6 +40,9 @@ export interface FilterParams {
   // Morphology params
   morphShape?: string; // 'rect', 'ellipse', 'cross'
   morphIterations?: number;
+  // Gradient-based colormap params
+  sensitivity?: number; // For gradient magnitude
+  centerValue?: number; // For difference map (default: 128)
   // Filter Chain params
   filterChain?: FilterChainItem[];
   chainId?: string;
@@ -77,6 +80,9 @@ const defaultFilterParams: FilterParams = {
   // Morphology defaults
   morphShape: 'ellipse',
   morphIterations: 1,
+  // Gradient-based colormap defaults
+  sensitivity: 1.0,
+  centerValue: 128,
 };
 
 interface State {

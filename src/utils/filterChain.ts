@@ -211,6 +211,38 @@ export function estimateFilterChainCost(
     'histogramequalization': 3.0,
     'clahe': 6.0,
     'gabor': 10.0,
+    
+    // Colormap filters - fast lookup table operations
+    'colormap_viridis': 0.3,
+    'colormap_inferno': 0.3,
+    'colormap_plasma': 0.3,
+    'colormap_magma': 0.3,
+    'colormap_parula': 0.3,
+    'colormap_jet': 0.3,
+    'colormap_hsv': 0.3,
+    'colormap_hot': 0.3,
+    'colormap_cool': 0.3,
+    'colormap_warm': 0.3,
+    'colormap_spring': 0.3,
+    'colormap_summer': 0.3,
+    'colormap_autumn': 0.3,
+    'colormap_winter': 0.3,
+    'colormap_bone': 0.3,
+    'colormap_copper': 0.3,
+    'colormap_pink': 0.3,
+    
+    // Diverging (Change-based) colormaps
+    'colormap_rdbu': 0.3,
+    'colormap_rdylbu': 0.3,
+    'colormap_bwr': 0.3,
+    'colormap_seismic': 0.3,
+    'colormap_coolwarm': 0.3,
+    'colormap_spectral': 0.3,
+    
+    // Gradient-based colormaps (more expensive due to computation)
+    'colormap_gradient_magnitude': 2.5,
+    'colormap_edge_intensity': 2.5,
+    'colormap_difference': 1.5,
   };
 
   let totalCost = 0;
@@ -379,6 +411,97 @@ async function applySingleFilter(
     case 'distancetransform': 
       if (params) await Filters.applyDistanceTransform(ctx, params); 
       break;
+    
+    // Colormap - Perceptually Uniform (Recommended)
+    case 'colormap_viridis': 
+      await Filters.applyViridisColormap(ctx, params); 
+      break;
+    case 'colormap_inferno': 
+      await Filters.applyInfernoColormap(ctx, params); 
+      break;
+    case 'colormap_plasma': 
+      await Filters.applyPlasmaColormap(ctx, params); 
+      break;
+    case 'colormap_magma': 
+      await Filters.applyMagmaColormap(ctx, params); 
+      break;
+    case 'colormap_parula': 
+      await Filters.applyParulaColormap(ctx, params); 
+      break;
+    
+    // Colormap - Rainbow/Legacy
+    case 'colormap_jet': 
+      await Filters.applyJetColormap(ctx, params); 
+      break;
+    case 'colormap_hsv': 
+      await Filters.applyHsvColormap(ctx, params); 
+      break;
+    case 'colormap_hot': 
+      await Filters.applyHotColormap(ctx, params); 
+      break;
+    
+    // Colormap - Aesthetic Gradients
+    case 'colormap_cool': 
+      await Filters.applyCoolColormap(ctx, params); 
+      break;
+    case 'colormap_warm': 
+      await Filters.applyWarmColormap(ctx, params); 
+      break;
+    case 'colormap_spring': 
+      await Filters.applySpringColormap(ctx, params); 
+      break;
+    case 'colormap_summer': 
+      await Filters.applySummerColormap(ctx, params); 
+      break;
+    case 'colormap_autumn': 
+      await Filters.applyAutumnColormap(ctx, params); 
+      break;
+    case 'colormap_winter': 
+      await Filters.applyWinterColormap(ctx, params); 
+      break;
+    
+    // Colormap - Specialized
+    case 'colormap_bone': 
+      await Filters.applyBoneColormap(ctx, params); 
+      break;
+    case 'colormap_copper': 
+      await Filters.applyCopperColormap(ctx, params); 
+      break;
+    case 'colormap_pink': 
+      await Filters.applyPinkColormap(ctx, params); 
+      break;
+    
+    // Colormap - Diverging (Change-based)
+    case 'colormap_rdbu': 
+      await Filters.applyRdbuColormap(ctx, params); 
+      break;
+    case 'colormap_rdylbu': 
+      await Filters.applyRdylbuColormap(ctx, params); 
+      break;
+    case 'colormap_bwr': 
+      await Filters.applyBwrColormap(ctx, params); 
+      break;
+    case 'colormap_seismic': 
+      await Filters.applySeismicColormap(ctx, params); 
+      break;
+    case 'colormap_coolwarm': 
+      await Filters.applyCoolwarmColormap(ctx, params); 
+      break;
+    case 'colormap_spectral': 
+      await Filters.applySpectralColormap(ctx, params); 
+      break;
+    
+    // Colormap - Gradient-based
+    case 'colormap_gradient_magnitude': 
+      await Filters.applyGradientMagnitudeColormap(ctx, params); 
+      break;
+    case 'colormap_edge_intensity': 
+      await Filters.applyEdgeIntensityColormap(ctx, params); 
+      break;
+    case 'colormap_difference': 
+      await Filters.applyDifferenceColormap(ctx, params); 
+      break;
+    
     default:
       console.warn(`Unknown filter type: ${filterType}`);
   }

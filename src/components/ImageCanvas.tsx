@@ -355,6 +355,122 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           if (params) await Filters.applyDistanceTransform(ctx, params); 
           break;
         
+        // Colormap - Perceptually Uniform (Recommended)
+        case 'colormap_viridis': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyViridisColormap(ctx, params); 
+          break;
+        case 'colormap_inferno': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyInfernoColormap(ctx, params); 
+          break;
+        case 'colormap_plasma': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyPlasmaColormap(ctx, params); 
+          break;
+        case 'colormap_magma': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyMagmaColormap(ctx, params); 
+          break;
+        case 'colormap_parula': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyParulaColormap(ctx, params); 
+          break;
+        
+        // Colormap - Rainbow/Legacy
+        case 'colormap_jet': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyJetColormap(ctx, params); 
+          break;
+        case 'colormap_hsv': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyHsvColormap(ctx, params); 
+          break;
+        case 'colormap_hot': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyHotColormap(ctx, params); 
+          break;
+        
+        // Colormap - Aesthetic Gradients
+        case 'colormap_cool': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyCoolColormap(ctx, params); 
+          break;
+        case 'colormap_warm': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyWarmColormap(ctx, params); 
+          break;
+        case 'colormap_spring': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applySpringColormap(ctx, params); 
+          break;
+        case 'colormap_summer': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applySummerColormap(ctx, params); 
+          break;
+        case 'colormap_autumn': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyAutumnColormap(ctx, params); 
+          break;
+        case 'colormap_winter': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyWinterColormap(ctx, params); 
+          break;
+        
+        // Colormap - Specialized
+        case 'colormap_bone': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyBoneColormap(ctx, params); 
+          break;
+        case 'colormap_copper': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyCopperColormap(ctx, params); 
+          break;
+        case 'colormap_pink': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyPinkColormap(ctx, params); 
+          break;
+        
+        // Colormap - Diverging (Change-based)
+        case 'colormap_rdbu': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyRdbuColormap(ctx, params); 
+          break;
+        case 'colormap_rdylbu': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyRdylbuColormap(ctx, params); 
+          break;
+        case 'colormap_bwr': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyBwrColormap(ctx, params); 
+          break;
+        case 'colormap_seismic': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applySeismicColormap(ctx, params); 
+          break;
+        case 'colormap_coolwarm': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyCoolwarmColormap(ctx, params); 
+          break;
+        case 'colormap_spectral': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applySpectralColormap(ctx, params); 
+          break;
+        
+        // Colormap - Gradient-based
+        case 'colormap_gradient_magnitude': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyGradientMagnitudeColormap(ctx, params); 
+          break;
+        case 'colormap_edge_intensity': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyEdgeIntensityColormap(ctx, params); 
+          break;
+        case 'colormap_difference': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyDifferenceColormap(ctx, params); 
+          break;
+        
         case 'filterchain': {
           if (params && params.filterChain) {
             try {

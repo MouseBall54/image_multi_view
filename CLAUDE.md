@@ -1,186 +1,113 @@
 # CLAUDE.md
+## 개요 (요점정리)
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+* **Colormap**은 단일 채널(또는 스칼라 값)을 **색상 팔레트**로 매핑하여 가시성을 높이는 기법입니다.
+* 대표 군: **Perceptually uniform(권장: viridis/inferno/plasma/magma, parula)**, **Rainbow계(legacy: jet)**, **Heat 계열(hot)**, **미학적 그라데이션(cool/warm/spring/autumn/winter/summer)**, **HSV/HLS 기반**, **변화량(gradient/variance/flow) 기반 의사색**.
+* 핵심 판단 기준: **지각 균일성**, **Colorblind 친화성**, **인쇄/화면 일관성**, **데이터 의미 보존(왜곡 최소화)**.
+* Jet은 여전히 널리 알려졌지만 **왜곡**과 **오해 유발** 가능—연구/리포팅에는 **viridis 계열** 권장.
+* 변화량 기반 시각화는 **크기→밝기/채도**, **방향→Hue**로 매핑하는 패턴이 표준적입니다.
 
-## Development Commands
+---
 
-- `npm run dev` - Start development server
-- `npm run build` - Create production build  
-- `npm run lint` - Run TypeScript compiler to check for type errors
-- `npm run preview` - Preview production build locally
-- `npm run deploy` - Deploy to GitHub Pages (runs build first)
+# Colormap 가이드 (Markdown)
 
-## Architecture Overview
+### 1) 기본 개념
 
-This is a React-based image comparison web application built with TypeScript and Vite. The app provides specialized viewing modes for analyzing and comparing images from local folders.
+* **정의**: 스칼라 값(예: 0\~255, 실수 범위 등)을 **색상공간**(RGB/HSV 등) 상의 경로로 변환하는 **함수/룩업테이블(LUT)**.
+* **목적**: 미세한 값 차이를 **시각적으로 구분**하고, **의미 있는 패턴**(경향, 경계, 이상치)을 빠르게 드러냄.
+* **구성요소**:
 
-### State Management
-- **Zustand store** (`src/store.ts`) - Central state management for all app modes, viewport, filters, and UI state
-- **Types** (`src/types.ts`) - Core TypeScript definitions including `AppMode`, `FolderKey`, `FilterType`, and `Viewport`
+  * **Domain**(입력 값 범위)
+  * **Color path**(색상 경로, 불연속/연속, 선형/비선형)
+  * **Gamma/Perceptual curve**(밝기 반응 보정)
 
-### Core Application Structure
-- **Main App** (`src/App.tsx`) - Root component handling mode switching, keyboard shortcuts, and UI orchestration
-- **Mode Components** (`src/modes/`) - Three specialized view modes:
-  - `CompareMode.tsx` - Side-by-side comparison of 2-9 folders
-  - `PinpointMode.tsx` - Manual alignment with reference points and rotation
-  - `AnalysisMode.tsx` - Apply different filters to the same image
+---
 
-### Key Components
-- **ImageCanvas** (`src/components/ImageCanvas.tsx`) - Core canvas-based image renderer with zoom, pan, and filter support
-- **FilterControls** (`src/components/FilterControls.tsx`) - Comprehensive image filter system with 40+ filter types
-- **FolderControl** (`src/components/FolderControl.tsx`) - File browser and folder selection interface
+### 2) 권장(PU: Perceptually Uniform) 계열
 
-### Utilities
-- **Image Processing** (`src/utils/utif.ts`) - TIFF image decoding using UTIF library
-- **File Matching** (`src/utils/match.ts`) - Logic for matching files across folders
-- **Filter Implementation** (`src/utils/filters.ts`) - Canvas-based image filter algorithms
+> **데이터 사실성 유지**, **색각 이상 친화**, **밝기 단조 증가**가 목표.
 
-### Configuration
-- **Base Path**: `/image_multi_view/` for GitHub Pages deployment
-- **Browser-only**: No server required - all image processing happens client-side
-- **TIFF Support**: Uses `utif` library for TIFF decoding, `tiff` library as fallback
+* **Viridis**: 어두운 보라 → 청록 → 노랑 (현대 표준, 과학 시각화 권장)
+* **Inferno**: 검정 → 보라 → 주황/노랑 (고대비, 어두운 배경에 강함)
+* **Plasma**: 보라 → 분홍/주황 → 노랑 (선명하고 화사)
+* **Magma**: 검정 → 자주/보라 → 주황 (어두운 톤에서 부드럽게 증가)
+* **Parula**(MATLAB 신기본): 어두운 파랑 → 밝은 노랑 (Jet 대체로 고안)
 
-### Key Features
-- **Privacy-focused**: All processing local, no file uploads
-- **Flexible Layout System**: Auto and custom layout modes with resizable panels
-- **Synchronized viewports**: Pan/zoom actions sync across all viewers  
-- **Advanced filtering**: 40+ image filters with adjustable parameters
-- **Keyboard-driven**: Extensive hotkey support for rapid navigation
-- **Multiple file formats**: Standard web images plus TIFF support
+**특징**
 
-## Toggle Mode Redesign
+* **밝기(Perceived lightness)가 단조롭게 증가** → 값 크기 인지에 일관성.
+* **Colorblind 친화** → 정보 손실 최소화.
+* **보고서/논문/의료/계측** 등 고신뢰 상황에 적합.
 
-The standalone toggle mode has been eliminated and replaced with integrated toggle functionality within each mode. The toggle feature allows cycling through a pre-selected set of images for detailed comparison and difference analysis.
+---
 
-### Toggle Functionality Concept
-**Core Purpose:**
-- Cycle through a pre-selected collection of images in the same viewport
-- Enable detailed difference analysis by rapidly switching between selected images
-- Maintain viewport state (zoom, pan, rotation) while switching images
-- Preserve mode-specific settings during image transitions
+### 3) Rainbow/Legacy 및 Heat/미학 계열
 
-### Image Selection and Toggle Workflow
-1. **Image Selection Phase**: User selects specific images they want to compare
-2. **Toggle Activation**: Space bar or Toggle button activates cycling mode
-3. **Image Cycling**: Navigate through selected images while preserving view state
-4. **Difference Analysis**: Compare images by rapid switching to spot differences
+* **Jet (Rainbow)**: 파랑 → 청록 → 초록 → 노랑 → 빨강
 
-### Implementation Strategy
-1. **Eliminated ToggleMode.tsx** - Removed standalone toggle mode
-2. **Updated AppMode type** - Removed "toggle" from union type in `src/types.ts`
-3. **Integrated selection + toggle per mode** - Each mode handles image selection and cycling
-4. **Mode-specific toggle behavior**:
-   - **Compare Mode**: Select from matched file list, cycle through selected images
-   - **Pinpoint Mode**: Select loaded images, cycle while preserving alignment settings
-   - **Analysis Mode**: Select different processed versions, cycle through filter comparisons
+  * **장점**: 직관적·화려함, 익숙함
+  * **단점**: **지각 비균일**, 중간 지점에서 **가짜 경계** 생성 가능, 오해 유발
+  * **사용 권고**: 탐색적 뷰어(내부용)에는 가능하나 **공개 보고/논문**은 지양
+* **Hot**: 검정 → 빨강 → 노랑 → 흰색 (열/강도 표현에 직관적)
 
-### Toggle Behavior Per Mode
+  * 고값 영역이 흰색으로 포화되어 **상세 손실 주의**
+* **Cool/Warm/Spring/Autumn/Winter/Summer**:
 
-#### Compare Mode Toggle
-- **Selection**: Checkbox/multi-select from matched file list
-- **Trigger**: Space bar or Toggle button after selection
-- **Action**: Cycle through selected images across all viewers simultaneously
-- **State Preservation**: Viewport zoom/pan maintained across image switches
-- **Use Case**: Compare same scenes across different folders or different images
+  * **선형 그라데이션** 중심의 미학적 팔레트
+  * **정량 비교**보다 **UI/미적 연출**에 적합
+* **HSV/HLS 기반(원형 Hue 매핑)**:
 
-#### Pinpoint Mode Toggle  
-- **Selection**: Choose specific images loaded in viewers for comparison
-- **Trigger**: Space bar (when not in other modal states)
-- **Action**: Cycle through selected images in the active viewer
-- **State Preservation**: 
-  - Individual viewer rotations maintained
-  - Reference points preserved
-  - Scale settings kept
-  - Global rotation applied consistently
-- **Use Case**: Compare aligned images with different rotation/scale adjustments
+  * 입력 값을 **Hue**에 할당, **S/V**는 고정 또는 값에 연동
+  * **방향 데이터**나 **주기 데이터** 표현에 유리(예: 각도 0\~360°)
 
-#### Analysis Mode Toggle
-- **Selection**: Choose different images or filter variations to compare
-- **Trigger**: Space bar 
-- **Action**: Cycle through selected images/filter combinations
-- **State Preservation**: 
-  - Applied filters maintained (or cycle through different filter presets)
-  - Filter parameters preserved
-  - Rotation settings kept
-- **Use Case**: Compare same image with different processing or different source images
+---
 
-### Technical Implementation
-- **Selection State**: Track selected images per mode in Zustand store
-- **Selection UI**: Checkbox interfaces or multi-select controls in each mode
-- **Keyboard Handling**: Space bar for cycling, Shift+Space for reverse
-- **Cycle Logic**: Wrap-around cycling through selected image collection
-- **Mode Integration**: Selection and toggle integrated into existing mode workflows
-- **Visual Feedback**: Clear indication of current position in toggle sequence
+### 4) 변화량 기반(Gradient/Variance/Flow) 의사색
 
-### Key Benefits
-- **Focused Comparison**: Only cycle through images user specifically wants to compare
-- **Flexible Selection**: Different selection criteria per mode (files, filters, alignments)
-- **State Preservation**: Mode-specific settings maintained during image transitions
-- **Rapid Analysis**: Quick image switching enables effective difference detection
-- **Contextual Workflow**: Toggle behavior adapted to each mode's specific use case
+> **값 자체**가 아니라 **값의 변화/특성**을 색으로 보여주는 방식.
 
-### Layout System
-The application features a flexible layout system with two modes:
+* **Gradient Magnitude → Colormap**:
 
-**Auto Layout (Default)**
-- Automatically arranges viewers in an optimal grid based on viewer count
-- Uses square root calculation for balanced rows/columns
+  * 엣지 크기(변화량) 계산(Sobel/Scharr/Prewitt/Laplacian 등) → **크기를 밝기**로 정규화 → **Viridis/Inferno/Hot 등**에 매핑
+  * **윤곽/경계 강조**, 결함/패턴 탐지 전처리에 유용
+* **Gradient Direction(Angle) → Hue**:
 
-**Free Layout**
-- Complete freedom to position and size panels anywhere
-- Drag panels by their header to move them around the container
-- Resize panels by dragging edge handles without grid constraints
-- Minimum panel size of 50px for usability
-- Panels can overlap and be positioned freely
-- No automatic alignment or grid snapping
+  * 방향(각도)을 **Hue**로, 크기를 **Value/Alpha**로 → **벡터 필드 시각화**에 표준적
+* **Local Variance/Std → Colormap**:
 
-**Layout Components**
-- **FlexibleLayout** (`src/components/FlexibleLayout.tsx`) - Core layout container with dynamic panel management
-- **ResizeHandle** (`src/components/ResizeHandle.tsx`) - Interactive resize controls with throttled updates (60fps)
-- **DragHandle** (`src/components/DragHandle.tsx`) - Panel drag functionality for free positioning
-- **LayoutControls** (`src/components/LayoutControls.tsx`) - Mode switching and reset functionality
+  * 윈도우 내 분산/표준편차를 색으로 → **질감/거칠기** 분석
+* **Temporal Difference(프레임 차) → Colormap**:
 
-## Mode-Specific Architecture
+  * 변화량을 색으로 → **모션/변동성** 강조
+* **Optical Flow → Color Wheel**:
 
-### Compare Mode
-- **Multi-folder comparison**: 2-9 folders side-by-side
-- **Synchronized navigation**: Pan/zoom propagates across all viewers
-- **File matching**: Automatic filename matching with extension stripping option
-- **Layout flexibility**: Auto and free layout modes with resizable panels
+  * **방향=Hue / 속도=밝기**로 매핑하는 **flow 전용 휠** 관행
 
-### Pinpoint Mode  
-- **Reference-based alignment**: Set common reference points across images
-- **Individual scaling**: Per-viewer scale with global scale multiplier
-- **Rotation support**: Local rotation (Alt+drag) + global rotation controls
-- **Flexible loading**: Load any image from any folder into any viewer
+---
 
-### Analysis Mode
-- **Single image focus**: Apply multiple filters to one source image
-- **Filter comparison**: Side-by-side filter effect analysis
-- **Rotation controls**: Global rotation for consistent orientation
-- **Parameter adjustment**: Real-time filter parameter tuning
+### 7) 대표 Colormap 요약 표
 
-## Important Development Notes
+| 분류         | 이름                | 경로(대략)           | 장점               | 주의점      | 적합 용도     |
+| ---------- | ----------------- | ---------------- | ---------------- | -------- | --------- |
+| Perceptual | **viridis**       | 보라 → 청록 → 노랑     | 균일/Colorblind 친화 | 채도 주관성   | 논문/리포트/계측 |
+| Perceptual | inferno           | 검정 → 보라 → 주황/노랑  | 고대비, 어두운 배경 강함   | 고값 포화 유의 | 결함/엣지 강조  |
+| Perceptual | plasma            | 보라 → 분홍/주황 → 노랑  | 선명, 부드러움         | 과채도 인상   | 프레젠테이션    |
+| Perceptual | magma             | 검정 → 자주/보라 → 주황  | 어두운 톤 부드러움       | 저명부 과밀   | 야간/저조도    |
+| Perceptual | parula            | 파랑 → 청록 → 노랑     | Jet 대체(균일성 개선)   | 구현 의존성   | MATLAB 호환 |
+| Rainbow    | jet               | 파랑 → … → 빨강      | 익숙/화려            | 왜곡/가짜 경계 | 내부 탐색용    |
+| Heat       | hot               | 검정 → 빨강 → 노랑 → 흰 | 직관적 온도 감         | 하이라이트 포화 | 열/강도 맵    |
+| Aesthetic  | cool/warm/spring… | 2색 그라데이션         | 심미성              | 정량성 약함   | UI/장식     |
+| HSV        | Hue-map           | 각도→Hue           | 방향/주기 표현         | 값-밝기 과잉  | Flow/위상   |
 
-### Coordinate System Accuracy
-- **ImageCanvas coordinate calculation**: The indicator dot positioning uses precise image-to-screen coordinate transformation
-- **Account for transformations**: Scale, pan, and rotation must be considered in coordinate calculations
-- **Reference points**: Pinpoint mode requires careful handling of reference point coordinates vs. screen positions
+---
 
-### Filter System
-- **40+ filter types**: Comprehensive image processing pipeline with adjustable parameters
-- **Real-time application**: Filters applied via canvas operations with caching
-- **Parameter validation**: Ensure filter parameters stay within valid ranges
-- **Performance considerations**: Large images may require debounced parameter updates
+### 8) 변화량(Gradient/Flow) 시각화 패턴 요약
 
-### State Management Patterns
-- **Mode isolation**: Each mode maintains its own state without interfering with others
-- **Viewport synchronization**: Shared viewport state for synchronized navigation
-- **Cache management**: Efficient bitmap caching for performance with large image sets
-- **Filter caching**: Separate cache for filtered images to avoid recomputation
+* **크기(Magnitude)** → **밝기(Value)** 또는 **채도(Saturation)**
+* **방향(Direction/Angle)** → **Hue(색상각)**
+* **노이즈 억제**: 사전 **스무딩(예: Gaussian)** 후 gradient
+* **스케일 공간**: 커널 크기/σ 조정으로 **구조적 스케일** 선택
+* **임계/마스킹**: 작은 변화량 무시(Threshold)로 가독성 향상
+* **벡터 필드**: **색상휠 범례**(Hue=방향, 밝기=속도) 필수
 
-### Keyboard Shortcuts
-- **Space**: Primary navigation (currently toggle mode, will become modal trigger)
-- **Mode switching**: Number keys for quick mode changes
-- **Viewer selection**: Click to activate viewers for keyboard operations
-- **Global shortcuts**: Capture, layout switching, filter controls
+---
