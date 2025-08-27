@@ -351,7 +351,6 @@ export default function App() {
                 <div className="global-scale-control">
                   <label>Global Scale:</label>
                   <span>{(pinpointGlobalScale * 100).toFixed(0)}%</span>
-                  <button onClick={() => setPinpointGlobalScale(1)}>Reset</button>
                 </div>
               </div>
             )}
