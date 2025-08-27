@@ -44,8 +44,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   const [filterProgress, setFilterProgress] = useState({ current: 0, total: 0 });
   const { 
     viewport, setViewport, setFitScaleFn, 
-    pinpointMouseMode, setPinpointScale, 
-    pinpointGlobalScale, showMinimap, showGrid, gridColor, showFilterLabels,
+    pinpointMouseMode, 
+    pinpointGlobalScale, showMinimap, showGrid, gridColor,
     pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator,
     compareRotation, minimapWidth, minimapPosition,
     setViewerImageSize, setAnalysisImageSize
@@ -848,13 +848,26 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     return () => canvas.removeEventListener('contextmenu', handleCtxMenu);
   }, [appMode]);
 
+  // ✅ FIX: Create stable references for event handlers to prevent duplicate listeners
+  const eventHandlersRef = useRef<{
+    onWheel?: (e: WheelEvent) => void;
+    onDown?: (e: MouseEvent) => void;
+    onUp?: () => void;
+    onMove?: (e: MouseEvent) => void;
+  }>({});
+
+  // Update event handlers when dependencies change (but don't re-register listeners)
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !sourceImage) return;
+    if (!sourceImage) return;
+    
     let isDown = false;
     let lastX = 0, lastY = 0;
     let dragMode: 'pan' | 'rotate' | null = null;
-    const onWheel = (e: WheelEvent) => {
+    
+    eventHandlersRef.current.onWheel = (e: WheelEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
       e.preventDefault();
       e.stopPropagation();
       const { left, top, width, height } = canvas.getBoundingClientRect();
@@ -863,7 +876,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const { viewport: currentViewport, pinpointGlobalScale: currentGlobalScale, setPinpointGlobalScale } = useStore.getState();
       // Zoom step: start with multiplicative step (e.g., 1.1x),
       // but cap the visible percent change to at most +/- 50 points per event.
-      const MAX_PERCENT_STEP = 50; // percentage points
+      const MAX_PERCENT_STEP = 10; // percentage points
       const step = WHEEL_ZOOM_STEP;
       if (appMode === 'pinpoint') {
         // Zoom the canvas under the cursor; also mark it active for consistency
@@ -924,7 +937,11 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         setViewport({ scale: nextScale, cx, cy });
       }
     };
-    const onDown = (e: MouseEvent) => {
+    
+    eventHandlersRef.current.onDown = (e: MouseEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
       if (appMode === 'pinpoint' && typeof folderKey === 'string') {
         if (e.altKey) {
           dragMode = 'rotate';
@@ -951,14 +968,21 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         lastY = e.clientY;
       }
     };
-    const onUp = () => { 
+    
+    eventHandlersRef.current.onUp = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
       isDown = false; 
       dragMode = null;
       setIsRotating(false);
       canvas.style.cursor = appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab'; 
     };
-    const onMove = (e: MouseEvent) => {
-      if (!isDown || !dragMode) return;
+    
+    eventHandlersRef.current.onMove = (e: MouseEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !isDown || !dragMode) return;
+      
       e.preventDefault();
       const dx = e.clientX - lastX;
       const dy = e.clientY - lastY;
@@ -1007,17 +1031,49 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         setViewport({ cx, cy });
       }
     };
-    canvas.addEventListener("wheel", onWheel, { passive: false, capture: true });
-    canvas.addEventListener("mousedown", onDown);
-    window.addEventListener("mouseup", onUp);
-    window.addEventListener("mousemove", onMove);
-    return () => {
-      canvas.removeEventListener("wheel", onWheel);
-      canvas.removeEventListener("mousedown", onDown);
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("mousemove", onMove);
+  }, [sourceImage, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey]);
+
+  // ✅ FIX: Register event listeners only once with stable handlers
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (eventHandlersRef.current.onWheel) {
+        eventHandlersRef.current.onWheel(e);
+      }
     };
-  }, [sourceImage, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, setPinpointScale]);
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (eventHandlersRef.current.onDown) {
+        eventHandlersRef.current.onDown(e);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (eventHandlersRef.current.onUp) {
+        eventHandlersRef.current.onUp();
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (eventHandlersRef.current.onMove) {
+        eventHandlersRef.current.onMove(e);
+      }
+    };
+
+    canvas.addEventListener("wheel", handleWheel, { passive: false, capture: true });
+    canvas.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mousemove", handleMouseMove);
+    
+    return () => {
+      canvas.removeEventListener("wheel", handleWheel);
+      canvas.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, []); // ✅ Empty dependency array - listeners registered only once
 
   const rotationAngle = (
     appMode === 'pinpoint' && typeof folderKey === 'string'
