@@ -328,6 +328,18 @@ export function calculatePerformanceMetrics(
       complexity = 'medium';
       break;
 
+    // Colormap filters
+    case 'colormap':
+      baseTimeMs = megapixels * 3; // Fast lookup table operation
+      complexity = 'low';
+      break;
+    
+    // Gradient-based colormaps (more expensive)
+    case 'gradient_colormap':
+      baseTimeMs = megapixels * 25; // Gradient computation + colormap
+      complexity = 'medium';
+      break;
+
     default:
       baseTimeMs = megapixels * 20;
       complexity = 'medium';

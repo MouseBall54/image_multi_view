@@ -1549,3 +1549,165 @@ export const applyLawsTextureEnergyOpenCVFallback = async (ctx: CanvasRenderingC
   const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => { applyLawsTextureEnergy(ctx as any, params); };
   await applyFilterWithFallback(ctx, 'lawsTextureEnergy', params, originalFn, applyLawsTextureEnergyOpenCV as any);
 };
+
+// ============================================================================
+// COLORMAP FILTERS
+// Scientific visualization colormaps based on CLAUDE.md guide
+// ============================================================================
+
+import { 
+  applyColormap,
+  applyGradientMagnitudeColormap as applyGradientMagnitudeColormapCore,
+  applyEdgeIntensityColormap as applyEdgeIntensityColormapCore,
+  applyDifferenceColormap as applyDifferenceColormapCore
+} from './colormaps';
+import type { FilterType } from '../types';
+
+/**
+ * Apply colormap filter to canvas context
+ */
+export const applyColormapFilter = async (
+  ctx: CanvasRenderingContext2D, 
+  colormapName: string,
+  params?: FilterParams
+) => {
+  const canvas = ctx.canvas;
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  
+  // Use intensity parameter if provided, default to 1.0
+  const intensity = params?.gamma ?? 1.0;
+  
+  const result = applyColormap(imageData, colormapName, intensity);
+  ctx.putImageData(result, 0, 0);
+};
+
+// Perceptually Uniform Colormaps (Recommended)
+export const applyViridisColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_viridis', params);
+};
+
+export const applyInfernoColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_inferno', params);
+};
+
+export const applyPlasmaColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_plasma', params);
+};
+
+export const applyMagmaColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_magma', params);
+};
+
+export const applyParulaColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_parula', params);
+};
+
+// Rainbow/Legacy Colormaps
+export const applyJetColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_jet', params);
+};
+
+export const applyHsvColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_hsv', params);
+};
+
+export const applyHotColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_hot', params);
+};
+
+// Aesthetic Gradient Colormaps
+export const applyCoolColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_cool', params);
+};
+
+export const applyWarmColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_warm', params);
+};
+
+export const applySpringColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_spring', params);
+};
+
+export const applySummerColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_summer', params);
+};
+
+export const applyAutumnColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_autumn', params);
+};
+
+export const applyWinterColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_winter', params);
+};
+
+// Specialized Colormaps
+export const applyBoneColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_bone', params);
+};
+
+export const applyCopperColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_copper', params);
+};
+
+export const applyPinkColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_pink', params);
+};
+
+// Diverging Colormaps (Change-based)
+export const applyRdbuColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_rdbu', params);
+};
+
+export const applyRdylbuColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_rdylbu', params);
+};
+
+export const applyBwrColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_bwr', params);
+};
+
+export const applySeismicColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_seismic', params);
+};
+
+export const applyCoolwarmColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_coolwarm', params);
+};
+
+export const applySpectralColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  await applyColormapFilter(ctx, 'colormap_spectral', params);
+};
+
+// Gradient-based Colormaps (Advanced)
+export const applyGradientMagnitudeColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  const canvas = ctx.canvas;
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  
+  const intensity = params?.gamma ?? 1.0;
+  const sensitivity = params?.sensitivity ?? 1.0;
+  
+  const result = applyGradientMagnitudeColormapCore(imageData, intensity, sensitivity);
+  ctx.putImageData(result, 0, 0);
+};
+
+export const applyEdgeIntensityColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  const canvas = ctx.canvas;
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  
+  const intensity = params?.gamma ?? 1.0;
+  const threshold = params?.threshold ?? 0.1;
+  
+  const result = applyEdgeIntensityColormapCore(imageData, intensity, threshold);
+  ctx.putImageData(result, 0, 0);
+};
+
+export const applyDifferenceColormap = async (ctx: CanvasRenderingContext2D, params?: FilterParams) => {
+  const canvas = ctx.canvas;
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  
+  const intensity = params?.gamma ?? 1.0;
+  const centerValue = params?.centerValue ?? 128;
+  
+  const result = applyDifferenceColormapCore(imageData, intensity, centerValue);
+  ctx.putImageData(result, 0, 0);
+};
