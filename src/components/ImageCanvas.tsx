@@ -2,6 +2,7 @@ import { useEffect, useImperativeHandle, useRef, useState, forwardRef, useCallba
 import { useStore } from "../store";
 import { CURSOR_ZOOM_CENTERED, MAX_ZOOM, MIN_ZOOM, RESPECT_EXIF, WHEEL_ZOOM_STEP, SHOW_FOLDER_LABEL, UTIF_OPTIONS } from "../config";
 import { Minimap } from "./Minimap";
+import { ImageLoadingOverlay } from "./LoadingSpinner";
 import { AppMode, FolderKey, FilterType, DrawableImage } from "../types";
 import { decodeTiffWithUTIF } from '../utils/utif';
 import * as Filters from "../utils/filters";
@@ -37,6 +38,10 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   const [processedImage, setProcessedImage] = useState<DrawableImage | null>(null);
   const [isRotating, setIsRotating] = useState(false);
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
+  const [isProcessingFilter, setIsProcessingFilter] = useState(false);
+  const [currentFilterName, setCurrentFilterName] = useState<string>('');
+  const [filterProgress, setFilterProgress] = useState({ current: 0, total: 0 });
   const { 
     viewport, setViewport, setFitScaleFn, 
     pinpointMouseMode, setPinpointScale, 
@@ -51,6 +56,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     let revoked = false;
     if (!file) { 
       setSourceImage(null);
+      setIsLoadingImage(false);
       return; 
     }
     // Use a stable, viewer-specific cache key to avoid collisions across folders
@@ -58,6 +64,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const cachedImage = cache.get(cacheKey);
     if (cachedImage) { 
       setSourceImage(cachedImage);
+      setIsLoadingImage(false);
       // Also record its size for performance estimates
       const size = { width: cachedImage.width as number, height: cachedImage.height as number };
       if (typeof folderKey === 'string') {
@@ -67,6 +74,10 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       }
       return; 
     }
+        
+    // Start loading animation
+    setIsLoadingImage(true);
+    
     (async () => {
       try {
         const ext = (file.name.split('.').pop() || '').toLowerCase();
@@ -81,6 +92,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         if (!revoked) {
           cache.set(cacheKey, newImage);
           setSourceImage(newImage);
+          setIsLoadingImage(false);
           // Record size immediately
           const size = { width: (newImage as any).width as number, height: (newImage as any).height as number };
           if (typeof folderKey === 'string') {
@@ -91,7 +103,10 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         }
       } catch (err) {
         console.error('Error loading image:', err);
-        if (!revoked) setSourceImage(null);
+        if (!revoked) {
+          setSourceImage(null);
+          setIsLoadingImage(false);
+        }
       }
     })();
     return () => { revoked = true; };
@@ -105,9 +120,28 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
       if (!sourceImage || !file) {
         setProcessedImage(null);
+        setIsProcessingFilter(false);
         return;
       }
 
+      // Start filter processing animation immediately when filter changes
+      if (filter !== 'none') {
+        setIsProcessingFilter(true);
+        
+        // Import ALL_FILTERS dynamically to get filter name
+        import('../components/FilterControls').then(({ ALL_FILTERS }) => {
+          let filterName = 'Unknown Filter';
+          if (filter === 'filterchain' && params?.filterChain) {
+            filterName = `Filter Chain (${params.filterChain.length} filters)`;
+            setFilterProgress({ current: 0, total: params.filterChain.length });
+          } else {
+            const filterInfo = ALL_FILTERS.find(f => f.type === filter);
+            filterName = filterInfo?.name || filter;
+            setFilterProgress({ current: 0, total: 1 });
+          }
+          setCurrentFilterName(filterName);
+        });
+      }
       if (filter === 'none') {
         // Ensure size is recorded even when no filtering
         const size = { width: sourceImage.width as number, height: sourceImage.height as number };
@@ -117,6 +151,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           setAnalysisImageSize(folderKey as number, size);
         }
         setProcessedImage(sourceImage);
+        setIsProcessingFilter(false);
+        setCurrentFilterName('');
+        setFilterProgress({ current: 0, total: 0 });
         return;
       }
 
@@ -126,11 +163,17 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         const cachedImage = filteredCache.get(filterCacheKey);
         if (cachedImage) {
           setProcessedImage(cachedImage);
+          setIsProcessingFilter(false);
+          setCurrentFilterName('');
+          setFilterProgress({ current: 0, total: 0 });
           return;
         }
       }
 
       // All filters proceed; frequency-domain ones are implemented without external readiness
+      
+      // Add a small delay to ensure the loading animation is visible
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       const offscreenCanvas = document.createElement('canvas');
       offscreenCanvas.width = sourceImage.width;
@@ -159,50 +202,174 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       }
 
       switch (filter) {
-        case 'linearstretch': await Filters.applyLinearStretch(ctx); break;
-        case 'histogramequalization': await Filters.applyHistogramEqualization(ctx); break;
-        case 'laplacian': if (params) await Filters.applyLaplacian(ctx, params); break;
-        case 'highpass': Filters.applyHighpass(ctx); break;
-        case 'prewitt': if (params) await Filters.applyPrewitt(ctx, params); break;
-        case 'scharr': if (params) await Filters.applyScharr(ctx, params); break;
-        case 'sobel': if (params) await Filters.applySobel(ctx, params); break;
-        case 'robertscross': if (params) await Filters.applyRobertsCross(ctx, params); break;
-        case 'log': if (params) await Filters.applyLoG(ctx, params); break;
-        case 'dog': if (params) await Filters.applyDoG(ctx, params); break;
-        case 'marrhildreth': if (params) await Filters.applyMarrHildreth(ctx, params); break;
-        case 'gaussianblur': if (params) Filters.applyGaussianBlur(ctx, params); break;
-        case 'boxblur': if (params) Filters.applyBoxBlur(ctx, params); break;
-        case 'median': if (params) Filters.applyMedian(ctx, params); break;
-        case 'weightedmedian': if (params) Filters.applyWeightedMedian(ctx, params); break;
-        case 'alphatrimmedmean': if (params) Filters.applyAlphaTrimmedMean(ctx, params); break;
-        case 'localhistogramequalization': if (params) await Filters.applyLocalHistogramEqualization(ctx, params); break;
-        case 'adaptivehistogramequalization': if (params) Filters.applyAdaptiveHistogramEqualization(ctx, params); break;
-        case 'sharpen': if (params) Filters.applySharpen(ctx, params); break;
-        case 'canny': if (params) await Filters.applyCanny(ctx, params); break;
-        case 'clahe': if (params) await Filters.applyClahe(ctx, params); break;
-        case 'gammacorrection': if (params) await Filters.applyGammaCorrection(ctx, params); break;
-        case 'anisotropicdiffusion': if (params) Filters.applyAnisotropicDiffusion(ctx, params); break;
-        case 'unsharpmask': if (params) await Filters.applyUnsharpMask(ctx, params); break;
-        case 'gabor': if (params) await Filters.applyGabor(ctx, params); break;
-        case 'lawstextureenergy': if (params) await Filters.applyLawsTextureEnergy(ctx, params); break;
-        case 'lbp': await Filters.applyLbp(ctx); break;
-        case 'guided': if (params) Filters.applyGuidedFilter(ctx, params); break;
-        case 'edgepreserving': if (params) Filters.applyEdgePreserving(ctx, params); break;
-        case 'dft': Filters.applyDft(ctx); break;
-        case 'dct': Filters.applyDct(ctx); break;
-        case 'wavelet': Filters.applyWavelet(ctx); break;
-        case 'morph_open': if (params) await Filters.applyMorphOpen(ctx, params); break;
-        case 'morph_close': if (params) await Filters.applyMorphClose(ctx, params); break;
-        case 'morph_tophat': if (params) await Filters.applyMorphTopHat(ctx, params); break;
-        case 'morph_blackhat': if (params) await Filters.applyMorphBlackHat(ctx, params); break;
-        case 'morph_gradient': if (params) await Filters.applyMorphGradient(ctx, params); break;
-        case 'distancetransform': if (params) await Filters.applyDistanceTransform(ctx, params); break;
+        case 'linearstretch': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyLinearStretch(ctx); 
+          break;
+        case 'histogramequalization': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyHistogramEqualization(ctx); 
+          break;
+        case 'laplacian': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyLaplacian(ctx, params); 
+          break;
+        case 'highpass': 
+          setFilterProgress({ current: 1, total: 1 });
+          Filters.applyHighpass(ctx); 
+          break;
+        case 'prewitt': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyPrewitt(ctx, params); 
+          break;
+        case 'scharr': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyScharr(ctx, params); 
+          break;
+        case 'sobel': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applySobel(ctx, params); 
+          break;
+        case 'robertscross': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyRobertsCross(ctx, params); 
+          break;
+        case 'log': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyLoG(ctx, params); 
+          break;
+        case 'dog': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyDoG(ctx, params); 
+          break;
+        case 'marrhildreth': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyMarrHildreth(ctx, params); 
+          break;
+        case 'gaussianblur': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) Filters.applyGaussianBlur(ctx, params); 
+          break;
+        case 'boxblur': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) Filters.applyBoxBlur(ctx, params); 
+          break;
+        case 'median': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) Filters.applyMedian(ctx, params); 
+          break;
+        case 'weightedmedian': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) Filters.applyWeightedMedian(ctx, params); 
+          break;
+        case 'alphatrimmedmean': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) Filters.applyAlphaTrimmedMean(ctx, params); 
+          break;
+        case 'localhistogramequalization': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyLocalHistogramEqualization(ctx, params); 
+          break;
+        case 'adaptivehistogramequalization': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) Filters.applyAdaptiveHistogramEqualization(ctx, params); 
+          break;
+        case 'sharpen': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) Filters.applySharpen(ctx, params); 
+          break;
+        case 'canny': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyCanny(ctx, params); 
+          break;
+        case 'clahe': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyClahe(ctx, params); 
+          break;
+        case 'gammacorrection': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyGammaCorrection(ctx, params); 
+          break;
+        case 'anisotropicdiffusion': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) Filters.applyAnisotropicDiffusion(ctx, params); 
+          break;
+        case 'unsharpmask': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyUnsharpMask(ctx, params); 
+          break;
+        case 'gabor': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyGabor(ctx, params); 
+          break;
+        case 'lawstextureenergy': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyLawsTextureEnergy(ctx, params); 
+          break;
+        case 'lbp': 
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyLbp(ctx); 
+          break;
+        case 'guided': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) Filters.applyGuidedFilter(ctx, params); 
+          break;
+        case 'edgepreserving': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) Filters.applyEdgePreserving(ctx, params); 
+          break;
+        case 'dft': 
+          setFilterProgress({ current: 1, total: 1 });
+          Filters.applyDft(ctx); 
+          break;
+        case 'dct': 
+          setFilterProgress({ current: 1, total: 1 });
+          Filters.applyDct(ctx); 
+          break;
+        case 'wavelet': 
+          setFilterProgress({ current: 1, total: 1 });
+          Filters.applyWavelet(ctx); 
+          break;
+        case 'morph_open': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyMorphOpen(ctx, params); 
+          break;
+        case 'morph_close': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyMorphClose(ctx, params); 
+          break;
+        case 'morph_tophat': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyMorphTopHat(ctx, params); 
+          break;
+        case 'morph_blackhat': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyMorphBlackHat(ctx, params); 
+          break;
+        case 'morph_gradient': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyMorphGradient(ctx, params); 
+          break;
+        case 'distancetransform': 
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyDistanceTransform(ctx, params); 
+          break;
         
         case 'filterchain': {
           if (params && params.filterChain) {
             try {
-              // Apply the filter chain using the specialized utility
-              const chainResult = await applyFilterChain(offscreenCanvas, params.filterChain);
+                            // Apply the filter chain using the specialized utility with progress callback
+              const chainResult = await applyFilterChain(
+                offscreenCanvas, 
+                params.filterChain,
+                (progress: number) => {
+                  // Update progress: progress is 0-1, convert to current/total
+                  const totalFilters = params.filterChain?.filter(item => item.enabled).length || 1;
+                  // Use Math.round for more accurate step calculation
+                  const currentStep = Math.max(0, Math.min(totalFilters, Math.round(progress * totalFilters)));
+                  setFilterProgress({ current: currentStep, total: totalFilters });
+                }
+              );
               
               // Copy the result back to the offscreen canvas
               offscreenCanvas.width = chainResult.width;
@@ -231,9 +398,22 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         filteredCache.set(filterCacheKey, finalImage);
       }
       setProcessedImage(finalImage);
+      setIsProcessingFilter(false);
+      setCurrentFilterName('');
+      setFilterProgress({ current: 0, total: 0 });
     };
 
-    processImage();
+    // Execute filter processing with proper error handling
+    processImage().catch(error => {
+      console.error('Filter processing error:', error);
+      setIsProcessingFilter(false);
+      setCurrentFilterName('');
+      setFilterProgress({ current: 0, total: 0 });
+      // Fallback to original image on error
+      if (sourceImage) {
+        setProcessedImage(sourceImage);
+      }
+    });
 
   }, [sourceImage, file, viewerFilters, viewerFilterParams, folderKey, overrideFilterType, overrideFilterParams, filteredCache]);
 
@@ -924,6 +1104,14 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           position={minimapPosition}
         />
       )}
+            <ImageLoadingOverlay 
+        isLoading={isLoadingImage} 
+        isProcessing={isProcessingFilter}
+        loadingText="Loading image..."
+        processingText="Processing filter..."
+        currentFilterName={currentFilterName}
+        filterProgress={filterProgress}
+      />
     </div>
   );
 });
