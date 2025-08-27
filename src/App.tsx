@@ -75,6 +75,7 @@ function ViewportControls({ imageDimensions }: {
 
 export default function App() {
   const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, showFilterLabels, setShowFilterLabels, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart } = useStore();
+  const { setShowFilelist, openPreviewModal, closeToggleModal, addToast } = useStore.getState();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -186,6 +187,86 @@ export default function App() {
       const KEY_PAN_AMOUNT = 50;
 
       const key = e.key.toLowerCase();
+
+      // UI Controls
+      if (key === 'f') {
+        e.preventDefault();
+        setShowControls((prev: boolean) => !prev);
+        return;
+      }
+      if (e.ctrlKey && key === 'l') {
+        e.preventDefault();
+        setShowFilterLabels(!showFilterLabels);
+        return;
+      }
+      if (key === 'l') {
+        e.preventDefault();
+        setShowFilelist(!state.showFilelist);
+        return;
+      }
+      if (key === 'm') {
+        e.preventDefault();
+        setShowMinimap(!showMinimap);
+        return;
+      }
+      if (key === 'g') {
+        e.preventDefault();
+        setShowGrid(!showGrid);
+        return;
+      }
+
+      // Open capture modal
+      if (key === 'c') {
+        e.preventDefault();
+        handleOpenCaptureModal();
+        return;
+      }
+
+      // Open filter preview modal
+      if (e.ctrlKey && e.shiftKey && key === 'p') {
+        e.preventDefault();
+        // Resolve a source file: analysis file first, otherwise from current match
+        let source: File | undefined = undefined;
+        if (appMode === 'analysis' && analysisFile) {
+          source = analysisFile as File;
+        } else if (state.current && state.current.filename) {
+          const filename = state.current.filename;
+          // Prefer active canvas key if available
+          const preferKeys: (keyof typeof state.folders)[] = state.activeCanvasKey ? [state.activeCanvasKey] as any : [];
+          // Fallback to any folder containing the file
+          const allKeys = Object.keys(state.folders) as (keyof typeof state.folders)[];
+          const keysToCheck = [...preferKeys, ...allKeys.filter(k => !preferKeys.includes(k))];
+          for (const k of keysToCheck) {
+            const folder = state.folders[k];
+            const file = folder?.data?.files?.get(filename);
+            if (file) { source = file; break; }
+          }
+        }
+
+        if (!source) {
+          addToast({ type: 'info', message: 'No image selected to preview. Load/select an image first.' });
+          return;
+        }
+
+        openPreviewModal({
+          mode: 'single',
+          position: 'modal',
+          title: 'Filter Preview',
+          sourceFile: source,
+        });
+        return;
+      }
+
+      // Global Escape: close modals/overlays
+      if (key === 'escape') {
+        let handled = false;
+        if (previewModal.isOpen) { closePreviewModal(); handled = true; }
+        if (isCaptureModalOpen) { setCaptureModalOpen(false); handled = true; }
+        if (showColorPalette) { setShowColorPalette(false); handled = true; }
+        if (showMinimapOptionsModal) { setShowMinimapOptionsModal(false); handled = true; }
+        if (state.toggleModalOpen) { closeToggleModal(); handled = true; }
+        if (handled) { e.preventDefault(); return; }
+      }
 
       // Disable mode switching (1/2/3) when any modal/overlay is active
       // Use both state flags and DOM presence as a safety net to avoid stale state issues

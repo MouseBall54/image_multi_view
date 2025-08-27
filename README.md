@@ -33,7 +33,7 @@ No installation required - all processing happens locally in your browser!
 - **Real-time Processing**: Instant preview of all operations
 
 ### 🎨 Professional Filter System
-- **40+ Advanced Filters**: From basic adjustments to complex OpenCV operations
+- **60+ Advanced Filters**: From basic adjustments to complex OpenCV operations
 - **Filter Chains**: Combine multiple filters in custom sequences with sequential labeling
 - **Real-time Preview**: See changes instantly as you adjust parameters
 - **Filter Preview System**: Preview filters before applying with side-by-side comparison
@@ -232,6 +232,18 @@ CompareX features a comprehensive filter preview system that allows you to see f
 - **DCT** - Discrete Cosine Transform
 - **Wavelet** - Wavelet transform analysis
 
+#### Colormap Filters
+- Perceptually uniform, legacy, aesthetic, and diverging colormaps for scientific visualization and change highlighting
+- Adjustable intensity blending to mix colormap with original luminance
+- Works in both Compare and Analysis modes with real-time preview
+
+- Perceptually Uniform (Recommended): `Viridis`, `Inferno`, `Plasma`, `Magma`, `Parula`
+- Rainbow/Legacy: `Jet`, `HSV`, `Hot`
+- Aesthetic Gradients: `Cool`, `Warm`, `Spring`, `Summer`, `Autumn`, `Winter`
+- Specialized: `Bone`, `Copper`, `Pink`
+- Diverging (Change-based): `RdBu`, `RdYlBu`, `BWR`, `Seismic`, `CoolWarm`, `Spectral`
+- Gradient-based Overlays: `Gradient Magnitude`, `Edge Intensity`, `Difference`
+
 ### Filter Chain System
 - **Chain Creation**: Combine multiple filters in sequence with drag-and-drop interface
 - **Sequential Labeling**: Smart display showing filter progression (e.g., "Gaussian Blur → Sharpen → Canny")
@@ -307,14 +319,14 @@ CompareX features a comprehensive filter preview system that allows you to see f
 - **-** - Decrease individual scale (when viewer is active)
 - **Alt + Drag** - Local rotation (on individual viewers)
 
-### UI Controls 🔄 *Planned*
+### UI Controls ✅
 - **F** - Toggle folder controls visibility
 - **L** - Toggle file list visibility
 - **Ctrl+L** - Toggle filter labels visibility
 - **M** - Toggle minimap
 - **G** - Toggle grid overlay
 
-### General 🔄 *Planned*
+### General ✅
 - **Space** - Open toggle modal (when images are selected) *Note: Currently works via button only*
 - **Escape** - Close modals and overlays
 - **Ctrl+Shift+P** - Open filter preview modal
@@ -497,6 +509,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆕 Latest Features
 
 ### Recently Added
+- New: Comprehensive Colormap Filters (Viridis/Inferno/Plasma/Magma/Parula, Jet/HSV/Hot, Cool/Warm/Spring/Summer/Autumn/Winter, Bone/Copper/Pink, RdBu/RdYlBu/BWR/Seismic/CoolWarm/Spectral, Gradient Magnitude/Edge Intensity/Difference)
+- Updated: Filter count bumped to 60+ with real-time intensity blending
 - **Smart Filter Labels**: Dynamic display of filter chains with sequential naming (e.g., "Gaussian Blur → Sharpen → Canny")
 - **Filter Preview System**: Side-by-side preview of filters before applying
 - **Enhanced Grid Layout System**: Interactive grid selector with live preview and dynamic expansion
