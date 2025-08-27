@@ -671,6 +671,117 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
           </>
         );
 
+      // Gradient-based Colormaps with advanced parameters
+      case 'colormap_gradient_magnitude':
+        return (
+          <>
+            <RangeInput
+              label="Intensity"
+              value={(filterParams as any).gamma ?? 1.0}
+              min={0.1}
+              max={3.0}
+              step={0.1}
+              onChange={(value) => updateParam('gamma', value)}
+              compact={compact}
+            />
+            <RangeInput
+              label="Sensitivity"
+              value={(filterParams as any).sensitivity ?? 1.0}
+              min={0.1}
+              max={5.0}
+              step={0.1}
+              onChange={(value) => updateParam('sensitivity', value)}
+              compact={compact}
+            />
+          </>
+        );
+
+      case 'colormap_edge_intensity':
+        return (
+          <>
+            <RangeInput
+              label="Intensity"
+              value={(filterParams as any).gamma ?? 1.0}
+              min={0.1}
+              max={3.0}
+              step={0.1}
+              onChange={(value) => updateParam('gamma', value)}
+              compact={compact}
+            />
+            <RangeInput
+              label="Threshold"
+              value={(filterParams as any).threshold ?? 0.1}
+              min={0.01}
+              max={0.5}
+              step={0.01}
+              onChange={(value) => updateParam('threshold', value)}
+              compact={compact}
+            />
+          </>
+        );
+
+      case 'colormap_difference':
+        return (
+          <>
+            <RangeInput
+              label="Intensity"
+              value={(filterParams as any).gamma ?? 1.0}
+              min={0.1}
+              max={3.0}
+              step={0.1}
+              onChange={(value) => updateParam('gamma', value)}
+              compact={compact}
+            />
+            <RangeInput
+              label="Center Value"
+              value={(filterParams as any).centerValue ?? 128}
+              min={0}
+              max={255}
+              step={1}
+              onChange={(value) => updateParam('centerValue', value)}
+              compact={compact}
+            />
+          </>
+        );
+
+      // Regular Colormaps with intensity parameter
+      case 'colormap_viridis':
+      case 'colormap_inferno':
+      case 'colormap_plasma':
+      case 'colormap_magma':
+      case 'colormap_parula':
+      case 'colormap_jet':
+      case 'colormap_hsv':
+      case 'colormap_hot':
+      case 'colormap_cool':
+      case 'colormap_warm':
+      case 'colormap_spring':
+      case 'colormap_summer':
+      case 'colormap_autumn':
+      case 'colormap_winter':
+      case 'colormap_bone':
+      case 'colormap_copper':
+      case 'colormap_pink':
+      case 'colormap_rdbu':
+      case 'colormap_rdylbu':
+      case 'colormap_bwr':
+      case 'colormap_seismic':
+      case 'colormap_coolwarm':
+      case 'colormap_spectral':
+        return (
+          <>
+            <RangeInput
+              label="Intensity"
+              value={(filterParams as any).gamma ?? 1.0}
+              min={0.1}
+              max={3.0}
+              step={0.1}
+              onChange={(value) => updateParam('gamma', value)}
+              compact={compact}
+            />
+          </>
+        );
+
       default:
         return (
           <div className="param-control">
