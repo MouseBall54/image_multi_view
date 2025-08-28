@@ -34,6 +34,7 @@ export interface ImageCanvasHandle {
 
 export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, isReference, cache, filteredCache, appMode, overrideScale, refPoint, onSetRefPoint, folderKey, onClick, isActive, overrideFilterType, overrideFilterParams, rotation }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [sourceImage, setSourceImage] = useState<DrawableImage | null>(null);
   const [processedImage, setProcessedImage] = useState<DrawableImage | null>(null);
   const [isRotating, setIsRotating] = useState(false);
@@ -47,9 +48,23 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     pinpointMouseMode, 
     pinpointGlobalScale, showMinimap, showGrid, gridColor,
     pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator,
+    levelingCapture, addLevelingPoint,
     compareRotation, minimapWidth, minimapPosition,
     setViewerImageSize, setAnalysisImageSize
   } = useStore();
+
+  // Ensure cursor stays crosshair during leveling even if parent wants grab
+  useEffect(() => {
+    const active = levelingCapture.active && levelingCapture.mode === appMode;
+    if (active) {
+      document.body.classList.add('leveling-active');
+    } else {
+      document.body.classList.remove('leveling-active');
+    }
+    return () => {
+      document.body.classList.remove('leveling-active');
+    };
+  }, [levelingCapture.active, levelingCapture.mode, appMode]);
 
   // Effect to load the source image from file
   useEffect(() => {
@@ -1240,7 +1255,72 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         </div>
       )}
 
-      <canvas ref={canvasRef} className="viewer__canvas" style={{ cursor: appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab' }} />
+      { /* Wrapper to track mouse for leveling crosshair */ }
+      <div
+        style={{ position: 'relative', cursor: ((levelingCapture.active && levelingCapture.mode === appMode && (levelingCapture.targetKey == null || levelingCapture.targetKey === (folderKey as any))) ? 'crosshair' : undefined) }}
+        onMouseMove={(e) => {
+          const { levelingCapture } = useStore.getState();
+          const active = levelingCapture.active && levelingCapture.mode === appMode;
+          if (!active) return;
+          const tk = levelingCapture.targetKey;
+          if (tk != null) {
+            if (typeof folderKey === 'string' && tk !== folderKey) return;
+            if (typeof folderKey === 'number' && tk !== folderKey) return;
+          }
+          const c = canvasRef.current;
+          if (!c) return;
+          const rect = c.getBoundingClientRect();
+          setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+        }}
+        onMouseLeave={() => setMousePos(null)}
+      >
+        <canvas
+          ref={canvasRef}
+          className="viewer__canvas"
+          style={{ cursor: ((levelingCapture.active && levelingCapture.mode === appMode && (levelingCapture.targetKey == null || levelingCapture.targetKey === (folderKey as any))) ? 'crosshair' : (appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab')) }}
+          onClick={(e) => {
+            if (!(levelingCapture.active && levelingCapture.mode === appMode)) return;
+            // If targetKey is set and doesn't match this canvas, ignore
+            const tk = levelingCapture.targetKey;
+            if (tk != null) {
+              if (typeof folderKey === 'string' && tk !== folderKey) return;
+              if (typeof folderKey === 'number' && tk !== folderKey) return;
+            }
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            addLevelingPoint(folderKey as any, { x, y });
+            e.stopPropagation();
+          }}
+        />
+        {(() => {
+          const active = levelingCapture.active && levelingCapture.mode === appMode;
+          if (!active) return null;
+          const tk = levelingCapture.targetKey;
+          const isTargetCanvas = tk == null || (typeof folderKey === 'string' ? tk === folderKey : tk === folderKey);
+          if (!isTargetCanvas) return null;
+          const p1 = levelingCapture.points[0] || null;
+          const showMoving = mousePos != null;
+          return (
+            <div className="leveling-overlay">
+              {p1 && (
+                <>
+                  <div className="crosshair fixed horiz" style={{ left: 0, right: 0, top: (p1.y) + 'px' }} />
+                  <div className="crosshair fixed vert" style={{ top: 0, bottom: 0, left: (p1.x) + 'px' }} />
+                </>
+              )}
+              {showMoving && (
+                <>
+                  <div className="crosshair moving horiz" style={{ left: 0, right: 0, top: (mousePos!.y) + 'px' }} />
+                  <div className="crosshair moving vert" style={{ top: 0, bottom: 0, left: (mousePos!.x) + 'px' }} />
+                </>
+              )}
+            </div>
+          );
+        })()}
+      </div>
       {!processedImage && <div className="viewer__placeholder">{file ? 'Processing...' : (appMode === 'pinpoint' ? 'Click Button Above to Select' : 'No Image')}</div>}
       
       {indicator && processedImage && canvasRef.current && appMode !== 'pinpoint' && (() => {

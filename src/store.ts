@@ -313,6 +313,17 @@ interface State {
   removeToast: (id: string) => void;
   clearAllToasts: () => void;
 
+  // Leveling (two-point horizontal alignment)
+  levelingCapture: {
+    active: boolean;
+    mode: AppMode | null;
+    targetKey?: FolderKey | number | null;
+    points: { x: number; y: number }[];
+  };
+  startLeveling: (mode: AppMode, targetKey?: FolderKey | number | null) => void;
+  cancelLeveling: () => void;
+  addLevelingPoint: (canvasKey: FolderKey | number, point: { x: number; y: number }) => void;
+
 }
 
 export const useStore = create<State>((set) => ({
@@ -395,6 +406,9 @@ export const useStore = create<State>((set) => ({
   
   // Toast notification states
   toasts: [],
+
+  // Leveling state defaults
+  levelingCapture: { active: false, mode: null, targetKey: null, points: [] },
 
 
   setAppMode: (m) => set({ appMode: m }),
@@ -812,6 +826,53 @@ export const useStore = create<State>((set) => ({
   })),
 
   clearAllToasts: () => set({ toasts: [] }),
+
+  // Leveling state actions
+  startLeveling: (mode, targetKey = null) => set({ levelingCapture: { active: true, mode, targetKey, points: [] } }),
+  cancelLeveling: () => set({ levelingCapture: { active: false, mode: null, targetKey: null, points: [] } }),
+  addLevelingPoint: (canvasKey, point) => set((state) => {
+    const cap = state.levelingCapture;
+    if (!cap.active || !cap.mode) return state as any;
+    // Determine targetKey on first click for compare/analysis
+    let targetKey = cap.targetKey;
+    if ((cap.mode === 'compare' || cap.mode === 'analysis') && (targetKey == null)) {
+      targetKey = canvasKey;
+    }
+    const newPoints = [...cap.points, point];
+    if (newPoints.length < 2) {
+      return { levelingCapture: { ...cap, targetKey, points: newPoints } } as any;
+    }
+    // Compute angle from two canvas points (screen/canvas coords)
+    const [p1, p2] = newPoints;
+    const angleRad = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    const angleDeg = angleRad * 180 / Math.PI;
+
+    if (cap.mode === 'pinpoint' && typeof targetKey === 'string') {
+      const current = state.pinpointRotations[targetKey] || 0;
+      const newAngle = current - angleDeg;
+      return {
+        levelingCapture: { active: false, mode: null, targetKey: null, points: [] },
+        pinpointRotations: { ...state.pinpointRotations, [targetKey]: newAngle }
+      } as any;
+    }
+    if (cap.mode === 'compare') {
+      const current = state.compareRotation || 0;
+      const newAngle = ((current - angleDeg) % 360 + 360) % 360;
+      return {
+        levelingCapture: { active: false, mode: null, targetKey: null, points: [] },
+        compareRotation: newAngle
+      } as any;
+    }
+    if (cap.mode === 'analysis') {
+      const current = state.analysisRotation || 0;
+      const newAngle = ((current - angleDeg) % 360 + 360) % 360;
+      return {
+        levelingCapture: { active: false, mode: null, targetKey: null, points: [] },
+        analysisRotation: newAngle
+      } as any;
+    }
+    return { levelingCapture: { active: false, mode: null, targetKey: null, points: [] } } as any;
+  }),
 
   // Position-based viewer reordering
   reorderViewers: (fromPosition: number, toPosition: number) => set((state) => {

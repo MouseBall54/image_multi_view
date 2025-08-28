@@ -905,6 +905,23 @@ main {
   z-index: 1;
 }
 
+/* Leveling overlay: blue crosshair */
+.leveling-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+/* Crosshair lines that follow mouse or show fixed point */
+.leveling-overlay .crosshair {
+  position: absolute;
+  background: rgba(52, 152, 219, 0.95);
+}
+.leveling-overlay .crosshair.horiz { height: 2px; }
+.leveling-overlay .crosshair.vert { width: 2px; }
+.leveling-overlay .crosshair.moving { background: rgba(41, 128, 185, 0.95); }
+.leveling-overlay .crosshair.fixed { background: rgba(52, 152, 219, 0.95); }
+
 .viewer__placeholder { 
   position:absolute; 
   inset:0; 
@@ -5047,6 +5064,13 @@ body.viewer-dragging * {
 
 body.viewer-dragging .draggable-viewer {
   pointer-events: auto;
+}
+
+/* Force crosshair cursor during leveling capture */
+body.leveling-active .draggable-viewer:hover,
+body.leveling-active .draggable-viewer,
+body.leveling-active .viewer__canvas {
+  cursor: crosshair !important;
 }
 
 /* Disable hover hint under viewer to prevent scrollbars/jitter */
