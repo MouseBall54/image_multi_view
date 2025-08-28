@@ -4,7 +4,6 @@ import type { AppMode } from "./types";
 import { CompareMode, CompareModeHandle } from './modes/CompareMode';
 import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
-import { SingleMode, SingleModeHandle } from "./modes/SingleMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterCart } from "./components/FilterCart";
 import { FilterPreviewModal } from "./components/FilterPreviewModal";
@@ -87,7 +86,6 @@ export default function App() {
   const compareModeRef = useRef<CompareModeHandle>(null);
   const pinpointModeRef = useRef<PinpointModeHandle>(null);
   const analysisModeRef = useRef<AnalysisModeHandle>(null);
-  const singleModeRef = useRef<SingleModeHandle>(null);
 
   const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -106,8 +104,6 @@ export default function App() {
       dataUrl = await pinpointModeRef.current.capture(opts);
     } else if (appMode === 'analysis' && analysisModeRef.current) {
       dataUrl = await analysisModeRef.current.capture(opts);
-    } else if (appMode === 'single' && singleModeRef.current) {
-      dataUrl = await singleModeRef.current.capture(opts);
     }
     if (dataUrl) {
       setCapturedImage(dataUrl);
@@ -299,10 +295,9 @@ export default function App() {
       }
 
       switch (key) {
-        case '1': setAppMode('single'); break;
-        case '2': setAppMode('compare'); break;
-        case '3': setAppMode('pinpoint'); break;
-        case '4': setAppMode('analysis'); break;
+        case '1': setAppMode('pinpoint'); break;
+        case '2': setAppMode('analysis'); break;
+        case '3': setAppMode('compare'); break;
         case 'r': resetView(); break;
         case 'i': setShowInfoPanel((prev: boolean) => !prev); break;
         case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
@@ -329,15 +324,13 @@ export default function App() {
         return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       case 'analysis':
         return <AnalysisMode ref={analysisModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
-      case 'single':
-        return <SingleMode ref={singleModeRef} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       default:
         return null;
     }
   };
 
   return (
-    <div className={`app ${appMode === 'single' ? 'single-mode' : ''} ${showFilterCart ? 'filter-cart-open' : ''} ${previewModal.isOpen && previewModal.position === 'sidebar' ? 'preview-active' : ''}`}>
+    <div className={`app ${showFilterCart ? 'filter-cart-open' : ''} ${previewModal.isOpen && previewModal.position === 'sidebar' ? 'preview-active' : ''}`}>
       <header>
         <div className="title-container">
           <h1
@@ -356,10 +349,9 @@ export default function App() {
           <div className="controls-main">
             <label><span>Mode:</span>
               <select value={appMode} onChange={e => setAppMode(e.target.value as AppMode)}>
-                <option value="single">Single</option>
-                <option value="compare">Compare</option>
                 <option value="pinpoint">Pinpoint</option>
                 <option value="analysis">Analysis</option>
+                <option value="compare">Compare</option>
               </select>
             </label>
             {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'analysis') && (
@@ -375,7 +367,7 @@ export default function App() {
               title={"Toggle Mode (Space)"}
               disabled={
                 selectedViewers.length === 0 ||
-                ((appMode === 'compare' || appMode === 'single') && !current) ||
+                (appMode === 'compare' && !current) ||
                 (appMode === 'analysis' && !analysisFile)
               }
             >
@@ -424,7 +416,7 @@ export default function App() {
             </div>
           </div>
           <div className="controls-right">
-            {(appMode === 'compare' || appMode === 'single') && <CompareRotationControl />}
+            {appMode === 'compare' && <CompareRotationControl />}
             {appMode === 'analysis' && <AnalysisRotationControl />}
             {appMode === 'pinpoint' && <PinpointGlobalRotationControl />}
             {appMode === 'pinpoint' && (

@@ -297,7 +297,7 @@ interface State {
 }
 
 export const useStore = create<State>((set) => ({
-  appMode: "single",
+  appMode: "pinpoint",
   pinpointMouseMode: "pan",
   stripExt: true,
   numViewers: 2,

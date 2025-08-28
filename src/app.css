@@ -213,12 +213,6 @@ main {
   min-height: 0; 
 }
 
-/* Single mode: expand viewer grid to full remaining area */
-.app.single-mode .viewers {
-  width: 100%;
-  grid-template-columns: 1fr !important;
-  grid-template-rows: 1fr !important;
-}
 
 .toggle-mode-main .viewers {
   grid-template-columns: 1fr;
