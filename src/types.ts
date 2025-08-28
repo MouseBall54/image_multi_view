@@ -34,6 +34,8 @@ export type FilterType =
   | "grayscale"
   | "invert"
   | "sepia"
+  | "brightness"
+  | "contrast"
   | "sobel"
   // Smoothing
   | "gaussianblur"

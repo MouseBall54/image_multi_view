@@ -72,6 +72,8 @@ export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = 
   { name: 'Grayscale', type: 'grayscale', group: 'Tone & Basics' },
   { name: 'Invert', type: 'invert', group: 'Tone & Basics' },
   { name: 'Sepia', type: 'sepia', group: 'Tone & Basics' },
+  { name: 'Brightness', type: 'brightness', group: 'Tone & Basics' },
+  { name: 'Contrast', type: 'contrast', group: 'Tone & Basics' },
   { name: 'Linear Contrast Stretching', type: 'linearstretch', group: 'Tone & Basics' },
   { name: 'Gamma Correction', type: 'gammacorrection', group: 'Tone & Basics' },
 
@@ -392,6 +394,8 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
       
       // Contrast enhancement
       'linearstretch': 'linearStretch',
+      'brightness': 'linearStretch',
+      'contrast': 'linearStretch',
       'histogramequalization': 'histogramEqualization',
       'localhistogramequalization': 'localHistogramEqualization',
       'adaptivehistogramequalization': 'adaptiveHistogramEqualization',
@@ -510,6 +514,48 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
 
   const renderParams = () => {
     switch (tempViewerFilter) {
+      case 'brightness':
+        return (
+          <div className="control-row">
+            <label>Brightness</label>
+            <input
+              type="range"
+              min="-100"
+              max="100"
+              step="1"
+              value={tempViewerFilterParams.brightness ?? 0}
+              onChange={(e) => handleParamChange('brightness', e.target.value)}
+            />
+            <InlineNumber
+              value={tempViewerFilterParams.brightness ?? 0}
+              min={-100}
+              max={100}
+              step={1}
+              onCommit={(v)=> setTempFilterParams({ brightness: v })}
+            />
+          </div>
+        );
+      case 'contrast':
+        return (
+          <div className="control-row">
+            <label>Contrast</label>
+            <input
+              type="range"
+              min="0"
+              max="200"
+              step="1"
+              value={tempViewerFilterParams.contrast ?? 100}
+              onChange={(e) => handleParamChange('contrast', e.target.value)}
+            />
+            <InlineNumber
+              value={tempViewerFilterParams.contrast ?? 100}
+              min={0}
+              max={200}
+              step={1}
+              onCommit={(v)=> setTempFilterParams({ contrast: v })}
+            />
+          </div>
+        );
       case 'edgepreserving':
         return (
           <>

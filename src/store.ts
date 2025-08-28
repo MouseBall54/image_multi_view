@@ -19,6 +19,8 @@ export interface FilterParams {
   gridSize: number;
   gamma: number;
   cutoff: number;
+  brightness?: number; // -100..100 (% offset)
+  contrast?: number;   // 0..200 (%)
   // Gabor params
   theta: number; // Orientation
   gaborSigma: number; // Bandwidth
@@ -59,6 +61,8 @@ const defaultFilterParams: FilterParams = {
   gridSize: 8,
   gamma: 1.0,
   cutoff: 30,
+  brightness: 0,
+  contrast: 100,
   // Gabor defaults
   theta: 0,
   gaborSigma: 1.5,

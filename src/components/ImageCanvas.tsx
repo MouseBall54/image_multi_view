@@ -202,6 +202,14 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       }
 
       switch (filter) {
+        case 'brightness':
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyBrightness(ctx, params);
+          break;
+        case 'contrast':
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyContrast(ctx, params);
+          break;
         case 'linearstretch': 
           setFilterProgress({ current: 1, total: 1 });
           await Filters.applyLinearStretch(ctx); 
