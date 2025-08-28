@@ -88,6 +88,7 @@ const defaultFilterParams: FilterParams = {
 interface State {
   appMode: AppMode;
   pinpointMouseMode: PinpointMouseMode;
+  pinpointReorderMode: 'shift' | 'swap';
   stripExt: boolean;
   numViewers: number;
   viewerRows: number;
@@ -184,6 +185,7 @@ interface State {
 
   setAppMode: (m: AppMode) => void;
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
+  setPinpointReorderMode: (m: 'shift' | 'swap') => void;
   setStripExt: (strip: boolean) => void;
   setNumViewers: (n: number) => void;
   setViewerLayout: (rows: number, cols: number) => void;
@@ -312,6 +314,7 @@ interface State {
 export const useStore = create<State>((set) => ({
   appMode: "pinpoint",
   pinpointMouseMode: "pan",
+  pinpointReorderMode: 'shift',
   stripExt: true,
   numViewers: 2,
   viewerRows: 1,
@@ -392,6 +395,7 @@ export const useStore = create<State>((set) => ({
 
   setAppMode: (m) => set({ appMode: m }),
   setPinpointMouseMode: (m) => set({ pinpointMouseMode: m }),
+  setPinpointReorderMode: (m) => set({ pinpointReorderMode: m }),
   setStripExt: (strip) => set({ stripExt: strip }),
   setNumViewers: (n) => set({ numViewers: n }),
   setViewerLayout: (rows, cols) => set({ viewerRows: rows, viewerCols: cols, numViewers: rows * cols }),

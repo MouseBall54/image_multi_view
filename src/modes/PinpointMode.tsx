@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { flushSync } from 'react-dom';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { ToggleModal } from '../components/ToggleModal';
 import { DraggableViewer } from '../components/DraggableViewer';
@@ -781,27 +782,79 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                   // and reorder only the assigned images across those fixed slots.
                   if (fromPosition === toPosition) return;
 
-                  setPinpointImages(prev => {
-                    // Build an array of images ordered by slot positions
-                    const orderedKeys = Array.from({ length: numViewers }).map((_, pos) => viewerArrangement.pinpoint[pos]);
-                    const imagesByPos = orderedKeys.map(k => prev[k]);
+                  // Build arrays snapshot first to compute new state deterministically
+                  const orderedKeys = Array.from({ length: numViewers }).map((_, pos) => viewerArrangement.pinpoint[pos]);
+                  const prevImages = { ...pinpointImages };
+                  const imagesByPos = orderedKeys.map(k => prevImages[k]);
 
-                    // Move the image entry from fromPosition to toPosition (others shift)
+                  const storeState = useStore.getState();
+                  const scalesByPos = orderedKeys.map(k => storeState.pinpointScales[k]);
+                  const rotationsByPos = orderedKeys.map(k => storeState.pinpointRotations[k]);
+                  const filtersByPos = orderedKeys.map(k => storeState.viewerFilters[k]);
+                  const paramsByPos = orderedKeys.map(k => storeState.viewerFilterParams[k]);
+
+                    const mode = useStore.getState().pinpointReorderMode;
+                    if (mode === 'swap') {
+                    [imagesByPos[fromPosition], imagesByPos[toPosition]] = [imagesByPos[toPosition], imagesByPos[fromPosition]];
+                    [scalesByPos[fromPosition], scalesByPos[toPosition]] = [scalesByPos[toPosition], scalesByPos[fromPosition]];
+                    [rotationsByPos[fromPosition], rotationsByPos[toPosition]] = [rotationsByPos[toPosition], rotationsByPos[fromPosition]];
+                    [filtersByPos[fromPosition], filtersByPos[toPosition]] = [filtersByPos[toPosition], filtersByPos[fromPosition]];
+                    [paramsByPos[fromPosition], paramsByPos[toPosition]] = [paramsByPos[toPosition], paramsByPos[fromPosition]];
+                  } else {
                     const [moved] = imagesByPos.splice(fromPosition, 1);
                     imagesByPos.splice(toPosition, 0, moved);
+                    const [movedScale] = scalesByPos.splice(fromPosition, 1);
+                    scalesByPos.splice(toPosition, 0, movedScale);
+                    const [movedRotation] = rotationsByPos.splice(fromPosition, 1);
+                    rotationsByPos.splice(toPosition, 0, movedRotation);
+                    const [movedFilter] = filtersByPos.splice(fromPosition, 1);
+                    filtersByPos.splice(toPosition, 0, movedFilter);
+                    const [movedParams] = paramsByPos.splice(fromPosition, 1);
+                    paramsByPos.splice(toPosition, 0, movedParams);
+                  }
 
-                    // Write back to mapping by fixed keys per position
-                    const next: Partial<Record<FolderKey, PinpointImage>> = { ...prev };
-                    imagesByPos.forEach((img, pos) => {
-                      const slotKey = orderedKeys[pos];
-                      if (img) {
-                        next[slotKey] = img;
-                      } else {
-                        // If no image for this position, ensure the slot is cleared
-                        if (next[slotKey]) delete next[slotKey];
-                      }
-                    });
-                    return next;
+                  // Create next images mapping
+                  const nextImages: Partial<Record<FolderKey, PinpointImage>> = { ...prevImages };
+                  imagesByPos.forEach((img, pos) => {
+                    const slotKey = orderedKeys[pos];
+                    if (img) {
+                      nextImages[slotKey] = img;
+                    } else if (nextImages[slotKey]) {
+                      delete nextImages[slotKey];
+                    }
+                  });
+
+                  // Create next transform/filter mappings
+                  const nextScales: Partial<Record<FolderKey, number>> = { ...storeState.pinpointScales };
+                  const nextRotations: Partial<Record<FolderKey, number>> = { ...storeState.pinpointRotations };
+                  const nextViewerFilters: Partial<Record<FolderKey, FilterType>> = { ...storeState.viewerFilters };
+                  const nextViewerFilterParams: Partial<Record<FolderKey, any>> = { ...storeState.viewerFilterParams };
+                  scalesByPos.forEach((s, pos) => {
+                    const slotKey = orderedKeys[pos];
+                    if (s == null) delete nextScales[slotKey]; else nextScales[slotKey] = s;
+                  });
+                  rotationsByPos.forEach((r, pos) => {
+                    const slotKey = orderedKeys[pos];
+                    if (r == null) delete nextRotations[slotKey]; else nextRotations[slotKey] = r;
+                  });
+                  filtersByPos.forEach((f, pos) => {
+                    const slotKey = orderedKeys[pos];
+                    if (f == null) delete nextViewerFilters[slotKey]; else nextViewerFilters[slotKey] = f;
+                  });
+                  paramsByPos.forEach((p, pos) => {
+                    const slotKey = orderedKeys[pos];
+                    if (p == null) delete nextViewerFilterParams[slotKey]; else nextViewerFilterParams[slotKey] = p as any;
+                  });
+
+                  // Flush both local and store updates in a single commit to avoid intermediate mismatch
+                  flushSync(() => {
+                    setPinpointImages(nextImages);
+                    useStore.setState({
+                      pinpointScales: nextScales,
+                      pinpointRotations: nextRotations,
+                      viewerFilters: nextViewerFilters,
+                      viewerFilterParams: nextViewerFilterParams,
+                    } as any);
                   });
                 }}
                 className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''} ${dragOverViewer === key ? 'drag-over' : ''}`}

@@ -147,6 +147,18 @@ header {
   transition: stroke 0.2s;
 }
 
+/* Active state indicator for header buttons (e.g., Pinpoint reorder mode) */
+.controls-main-button.active {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
+
+.pinpoint-reorder-controls {
+  display: inline-flex;
+  gap: 6px;
+}
+
 /* Prominent Toggle button in header */
 .controls-main .toggle-main-btn {
   background-color: var(--accent-primary);
