@@ -47,6 +47,16 @@
 - **Keyboard Shortcut**: 빠른 workflow를 위한 광범위한 hotkey 지원
 - **Responsive Design**: desktop과 mobile 장치 모두 최적화
 
+## 🔄 최근 하이라이트
+
+- Pinpoint 재정렬 개선: 뷰어 슬롯(A, B, C, …)은 고정되고, 드래그로 이미지 할당만 이동합니다. 이미지 기준 이동으로 개별 줌/회전/필터가 함께 따라갑니다.
+- Shift vs Swap 모드: 드래그 재배열 방식을 선택할 수 있습니다. 헤더 토글(미니맵/그리드처럼 파란 강조)로 활성 상태가 표시됩니다.
+- 수평/수직 레벨링: 버튼 클릭 → 파란 십자선이 마우스를 따라 이동 → 두 점 클릭 → 기울기를 계산해 자동 정렬. Pinpoint는 뷰어별, Compare/Analysis는 글로벌 회전으로 적용됩니다.
+- Pinpoint 글로벌 스케일 입력: 헤더에서 %를 직접 입력해 조정(화살표 제거, 컴팩트 UI, 안전 클램프 적용).
+- 레이아웃 폴리시: 캔버스가 항상 셀 전체를 채우도록 정리했으며, 불필요한 hover 힌트를 제거해 스크롤바/미세 사이즈 흔들림을 해소했습니다.
+- 새 필터: 밝기(Brightness), 대비(Contrast) 추가. 미리보기/체인/익스포트까지 완전 연동.
+- 미리보기 편집 통합: 미리보기 패널에 실제 필터 에디터(타입 선택 + 컴팩트 파라미터)가 삽입되어 변경이 즉시 미리보기에 반영되고, 편집 중인 체인 스텝에도 반영됩니다.
+
 ## 📋 목차
 
 - [시작하기](#시작하기)
@@ -122,13 +132,15 @@ npm run deploy
 ### 2. Pinpoint Mode 🎯
 **적합한 용도: 정밀 alignment, reference 기반 비교, 세부 측정**
 
-- **Reference Point System**: 서로 다른 이미지 간 공통 reference point 설정
-- **개별 Scaling**: global multiplier와 함께 viewer별 scale 제어
-- **이중 Rotation 지원**: 
-  - Local rotation (개별 viewer에서 Alt+drag)
-  - 모든 viewer를 위한 global rotation 제어
-- **유연한 이미지 로딩**: 임의 folder의 임의 이미지를 임의 viewer에 로드
-- **Mouse Mode Toggle**: Pin mode(reference 설정)와 Pan mode(navigation) 간 전환
+- **고정 슬롯, 이미지 재배열**: 뷰어 슬롯(A, B, C, …)은 고정되며, Shift+드래그로 이미지 할당만 이동합니다.
+- **재배열 모드**: Shift(밀려남) / Swap(교환) 모드를 헤더 토글로 전환(활성 파란 강조).
+- **이미지 기준 이동**: 재배열 시 해당 이미지의 개별 줌/회전/필터 설정이 함께 이동합니다.
+- **Reference Point System**: 서로 다른 이미지 간 공통 reference point 설정.
+- **개별 Scaling**: viewer별 scale + 글로벌 스케일(헤더 % 입력식) 조합.
+- **이중 Rotation 지원**: 뷰어 로컬 회전 + 글로벌 회전 제어.
+- **레벨링 도구**: 수평/수직 두 점 클릭 정렬(파란 십자선 추적 → 두 점 클릭 → 각도 산출/적용, 뷰어별 적용).
+- **유연한 이미지 로딩**: 임의 폴더/이미지를 임의 뷰어로 로드.
+- **Mouse Mode Toggle**: Pin(참조점) / Pan(이동) 전환.
 
 #### 주요 기능:
 - 정확한 alignment를 위한 정밀 좌표 시스템
@@ -144,6 +156,7 @@ npm run deploy
 - **Side-by-Side Filter 비교**: 서로 다른 filter 효과 동시 확인
 - **실시간 Parameter 조정**: 즉각적인 filter parameter 업데이트
 - **Global Rotation 제어**: 일관된 방향 유지
+- **레벨링 도구**: 수평/수직 두 점 정렬(글로벌 회전에 적용)
 - **Filter Chain 관리**: 복잡한 filter sequence 생성 및 저장
 
 #### 주요 기능:
@@ -161,7 +174,7 @@ CompareX는 filter를 적용하기 전에 효과를 확인할 수 있는 포괄�
 - **Side-by-Side 비교**: 원본과 필터 적용된 이미지를 동시에 미리보기
 - **실시간 Parameter 조정**: filter parameter를 수정하면서 즉시 변화 확인
 - **Filter Chain 미리보기**: 전체 filter chain 적용 전 미리보기
-- **인터랙티브 미리보기 Modal**: 컨트롤이 포함된 전용 미리보기 인터페이스
+- **내장 에디터(Embedded Editor)**: 미리보기 패널에 실제 필터 에디터(타입 선택 + 컴팩트 파라미터)를 삽입. 변경 즉시 미리보기와 체인 스텝에 반영.
 - **Zoom 및 Pan**: 세부사항 검토를 위한 미리보기 이미지 탐색
 - **빠른 적용**: 미리본 filter를 한 번의 클릭으로 적용
 
@@ -177,9 +190,7 @@ CompareX는 filter를 적용하기 전에 효과를 확인할 수 있는 포괄�
 ### Filter 카테고리
 
 #### 기본 조정
-- **Grayscale** - grayscale로 변환
-- **Invert** - 색상 반전
-- **Sepia** - sepia tone 효과
+- **Grayscale** - grayscale로 변환+- **Invert** - 색상 반전+- **Sepia** - sepia tone 효과+- **Brightness** - 밝기(−100..100)+- **Contrast** - 대비(0..200%)
 
 #### Smoothing Filter
 - **Gaussian Blur** - 조정 가능한 sigma로 부드러운 Gaussian blur
