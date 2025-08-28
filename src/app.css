@@ -156,7 +156,27 @@ header {
 
 .pinpoint-reorder-controls {
   display: inline-flex;
-  gap: 6px;
+  gap: 0; /* segments should touch */
+}
+
+.pinpoint-reorder-controls .controls-main-button {
+  border-radius: 0;            /* flat edges between segments */
+  margin: 0;
+  padding: 8px 14px;           /* slightly tighter to feel like a set */
+}
+
+.pinpoint-reorder-controls .controls-main-button + .controls-main-button {
+  margin-left: -1px;           /* collapse adjacent borders to a single divider */
+}
+
+.pinpoint-reorder-controls .controls-main-button:first-child {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+
+.pinpoint-reorder-controls .controls-main-button:last-child {
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
 }
 
 /* Prominent Toggle button in header */
@@ -1415,6 +1435,7 @@ main {
   display: flex;
   flex-direction: column;
   min-height: 0; /* Crucial fix for grid layout with dynamic content */
+  height: 100%; /* Ensure grid cell fully occupied */
 }
 
 /* Emphasize viewers selected for Toggle with an overlay outline above the image */
@@ -1436,6 +1457,7 @@ main {
 }
 
 .viewer-container .viewer {
+  /* When nested under wrapper, we'll also set wrapper to flex */
   flex-grow: 1;
   min-height: 0;
 }
@@ -4914,6 +4936,21 @@ main {
 .draggable-viewer {
   position: relative;
   transition: all 0.2s ease;
+  height: 100%; /* Grid item fills its track */
+}
+
+/* The immediate wrapper inside viewer-container should be a flex column
+   so that .viewer can expand to fill available height */
+.viewer-container > [data-viewer-key] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.viewer-container > [data-viewer-key] .viewer {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* Show grab cursor only when Shift is held */
@@ -5002,6 +5039,12 @@ body.viewer-dragging * {
 
 body.viewer-dragging .draggable-viewer {
   pointer-events: auto;
+}
+
+/* Disable hover hint under viewer to prevent scrollbars/jitter */
+body:not(.viewer-dragging) .draggable-viewer:hover::after {
+  content: none !important;
+  display: none !important;
 }
 
 /* Shift key indicator - only show when not dragging */
