@@ -11,6 +11,7 @@ import ToastContainer from "./components/ToastContainer";
 import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
 import { CompareRotationControl } from "./components/CompareRotationControl";
 import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
+import { PinpointGlobalScaleControl } from "./components/PinpointGlobalScaleControl";
 import { ViewToggleControls } from "./components/ViewToggleControls";
 import { LayoutGridSelector } from "./components/LayoutGridSelector";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
@@ -437,10 +438,7 @@ export default function App() {
             {appMode === 'pinpoint' && <PinpointGlobalRotationControl />}
             {appMode === 'pinpoint' && (
               <div className="global-controls-wrapper">
-                <div className="global-scale-control">
-                  <label>Global Scale:</label>
-                  <span>{(pinpointGlobalScale * 100).toFixed(0)}%</span>
-                </div>
+                <PinpointGlobalScaleControl />
               </div>
             )}
             {appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
