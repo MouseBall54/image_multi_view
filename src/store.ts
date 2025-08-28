@@ -319,8 +319,9 @@ interface State {
     mode: AppMode | null;
     targetKey?: FolderKey | number | null;
     points: { x: number; y: number }[];
+    axis: 'horizontal' | 'vertical';
   };
-  startLeveling: (mode: AppMode, targetKey?: FolderKey | number | null) => void;
+  startLeveling: (mode: AppMode, targetKey?: FolderKey | number | null, axis?: 'horizontal' | 'vertical') => void;
   cancelLeveling: () => void;
   addLevelingPoint: (canvasKey: FolderKey | number, point: { x: number; y: number }) => void;
 
@@ -408,7 +409,7 @@ export const useStore = create<State>((set) => ({
   toasts: [],
 
   // Leveling state defaults
-  levelingCapture: { active: false, mode: null, targetKey: null, points: [] },
+  levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
 
 
   setAppMode: (m) => set({ appMode: m }),
@@ -828,8 +829,8 @@ export const useStore = create<State>((set) => ({
   clearAllToasts: () => set({ toasts: [] }),
 
   // Leveling state actions
-  startLeveling: (mode, targetKey = null) => set({ levelingCapture: { active: true, mode, targetKey, points: [] } }),
-  cancelLeveling: () => set({ levelingCapture: { active: false, mode: null, targetKey: null, points: [] } }),
+  startLeveling: (mode, targetKey = null, axis = 'horizontal') => set({ levelingCapture: { active: true, mode, targetKey, points: [], axis } }),
+  cancelLeveling: () => set({ levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' } }),
   addLevelingPoint: (canvasKey, point) => set((state) => {
     const cap = state.levelingCapture;
     if (!cap.active || !cap.mode) return state as any;
@@ -846,32 +847,33 @@ export const useStore = create<State>((set) => ({
     const [p1, p2] = newPoints;
     const angleRad = Math.atan2(p2.y - p1.y, p2.x - p1.x);
     const angleDeg = angleRad * 180 / Math.PI;
+    const delta = cap.axis === 'vertical' ? (angleDeg - 90) : angleDeg; // rotate by -delta
 
     if (cap.mode === 'pinpoint' && typeof targetKey === 'string') {
       const current = state.pinpointRotations[targetKey] || 0;
-      const newAngle = current - angleDeg;
+      const newAngle = current - delta;
       return {
-        levelingCapture: { active: false, mode: null, targetKey: null, points: [] },
+        levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
         pinpointRotations: { ...state.pinpointRotations, [targetKey]: newAngle }
       } as any;
     }
     if (cap.mode === 'compare') {
       const current = state.compareRotation || 0;
-      const newAngle = ((current - angleDeg) % 360 + 360) % 360;
+      const newAngle = ((current - delta) % 360 + 360) % 360;
       return {
-        levelingCapture: { active: false, mode: null, targetKey: null, points: [] },
+        levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
         compareRotation: newAngle
       } as any;
     }
     if (cap.mode === 'analysis') {
       const current = state.analysisRotation || 0;
-      const newAngle = ((current - angleDeg) % 360 + 360) % 360;
+      const newAngle = ((current - delta) % 360 + 360) % 360;
       return {
-        levelingCapture: { active: false, mode: null, targetKey: null, points: [] },
+        levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
         analysisRotation: newAngle
       } as any;
     }
-    return { levelingCapture: { active: false, mode: null, targetKey: null, points: [] } } as any;
+    return { levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' } } as any;
   }),
 
   // Position-based viewer reordering
