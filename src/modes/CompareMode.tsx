@@ -5,6 +5,7 @@ import { matchFilenames } from '../utils/match';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { FolderControl } from '../components/FolderControl';
 import { ToggleModal } from '../components/ToggleModal';
+import { DraggableViewer } from '../components/DraggableViewer';
 import { ALL_FILTERS } from '../components/FilterControls';
 import type { FolderKey, MatchedItem, FilterType } from '../types';
 import { generateFilterChainLabel } from '../utils/filterChainLabel';
@@ -36,7 +37,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { 
     current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, viewerFilterParams, clearFolder, viewerRows, viewerCols,
-    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels
+    selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels, 
+    reorderViewers, viewerArrangement, appMode
   } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -287,18 +289,20 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   };
 
   useEffect(() => {
-    const primaryFile = fileOf('A', current);
+    const primaryKey = viewerArrangement.compare[0]; // First position is primary
+    const primaryFile = fileOf(primaryKey, current);
     setPrimaryFile(primaryFile || null);
-  }, [current, allFolders, setPrimaryFile]);
+  }, [current, allFolders, setPrimaryFile, viewerArrangement]);
 
   const activeFolders = useMemo(() => {
-    return FOLDER_KEYS.slice(0, numViewers).reduce((acc, key) => {
+    const activeKeys = viewerArrangement.compare.slice(0, numViewers);
+    return activeKeys.reduce((acc, key) => {
       if (allFolders[key]?.data.files) {
         acc[key] = allFolders[key]!.data.files;
       }
       return acc;
     }, {} as Record<FolderKey, Map<string, File>>);
-  }, [allFolders, numViewers]);
+  }, [allFolders, numViewers, viewerArrangement]);
 
   const matched = useMemo(
     () => matchFilenames(activeFolders, stripExt),
@@ -358,16 +362,19 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   return (
     <>
       {showControls && <div className="controls">
-        {FOLDER_KEYS.slice(0, numViewers).map(key => (
-          <FolderControl
-            key={key}
-            folderKey={key}
-            folderState={allFolders[key]}
-            onSelect={pick}
-            onClear={clearFolder}
-            onUpdateAlias={updateAlias}
-          />
-        ))}
+        {Array.from({ length: numViewers }).map((_, position) => {
+          const key = viewerArrangement.compare[position];
+          return (
+            <FolderControl
+              key={position}
+              folderKey={key}
+              folderState={allFolders[key]}
+              onSelect={pick}
+              onClear={clearFolder}
+              onUpdateAlias={updateAlias}
+            />
+          );
+        })}
         <div style={{ display: 'none' }}>
           {FOLDER_KEYS.map(key => (
             <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
@@ -461,7 +468,10 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
               ))}
             </div>
           )}
-          {FOLDER_KEYS.slice(0, numViewers).map(key => {
+          {Array.from({ length: numViewers }).map((_, position) => {
+            // Get the FolderKey for this position using the arrangement
+            const key = viewerArrangement.compare[position];
+            
             const lines: string[] = [];
             const folderLabel = allFolders[key]?.alias || key;
             lines.push(folderLabel);
@@ -477,7 +487,12 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
             const finalLabel = lines.join('\n');
 
             return (
-              <div key={key} className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''}`}>
+              <DraggableViewer 
+                key={position} 
+                position={position}
+                onReorder={reorderViewers}
+                className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''}`}
+              >
                 <ImageCanvas
                   ref={canvasRefs[key]}
                   label={finalLabel}
@@ -515,7 +530,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
                     </svg>
                   </button>
                 </div>
-              </div>
+              </DraggableViewer>
             );
           })}
         </section>

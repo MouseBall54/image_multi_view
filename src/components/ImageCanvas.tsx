@@ -904,6 +904,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const canvas = canvasRef.current;
     if (!canvas || !sourceImage || appMode !== 'pinpoint' || !onSetRefPoint || pinpointMouseMode !== 'pin' || typeof folderKey !== 'string') return;
     const handleClick = (e: MouseEvent) => {
+      // Disable pinpoint setting when Shift is held (for viewer reordering)
+      if (e.shiftKey) return;
+      
       const { left, top, width, height } = canvas.getBoundingClientRect();
       const canvasX = e.clientX - left;
       const canvasY = e.clientY - top;
@@ -1058,6 +1061,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       const canvas = canvasRef.current;
       if (!canvas) return;
       
+      // Disable panning when Shift is held (for viewer reordering)
+      if (e.shiftKey) return;
+      
       if (appMode === 'pinpoint' && typeof folderKey === 'string') {
         if (e.altKey) {
           dragMode = 'rotate';
@@ -1098,6 +1104,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     eventHandlersRef.current.onMove = (e: MouseEvent) => {
       const canvas = canvasRef.current;
       if (!canvas || !isDown || !dragMode) return;
+      
+      // Disable panning when Shift is held (for viewer reordering)
+      if (e.shiftKey) return;
       
       e.preventDefault();
       const dx = e.clientX - lastX;

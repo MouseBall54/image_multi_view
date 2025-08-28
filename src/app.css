@@ -4897,3 +4897,138 @@ main {
   border-radius: 2px;
   transition: width 0.3s ease;
 }
+
+/* Draggable Viewer Styles */
+.draggable-viewer {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+/* Show grab cursor only when Shift is held */
+.draggable-viewer:hover {
+  cursor: grab;
+}
+
+.draggable-viewer.dragging {
+  opacity: 0.8;
+  transform: scale(0.98);
+  z-index: 1000;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.draggable-viewer.drop-target::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border: 3px solid var(--accent-primary);
+  border-radius: 8px;
+  z-index: 1001;
+  pointer-events: none;
+  animation: pulse-border 0.8s ease-in-out infinite alternate;
+  background: rgba(0, 123, 255, 0.05);
+}
+
+.drag-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.drag-indicator {
+  background-color: var(--accent-primary);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+  animation: float 2s ease-in-out infinite;
+}
+
+.drop-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 123, 255, 0.1);
+  border: 2px dashed var(--accent-primary);
+  border-radius: 6px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1002;
+  pointer-events: none;
+}
+
+.drop-zone {
+  background-color: var(--accent-primary);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  animation: bounce 0.6s ease-in-out infinite alternate;
+}
+
+/* Global dragging state */
+body.viewer-dragging * {
+  pointer-events: none;
+}
+
+body.viewer-dragging .draggable-viewer {
+  pointer-events: auto;
+}
+
+/* Shift key indicator - only show when not dragging */
+body:not(.viewer-dragging) .draggable-viewer:hover::after {
+  content: 'Shift+drag to reorder';
+  position: absolute;
+  bottom: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 1003;
+  opacity: 0;
+  animation: fadeIn 0.3s ease-in-out 0.7s forwards;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Animations */
+@keyframes pulse-border {
+  0% { border-color: var(--accent-primary); }
+  100% { border-color: rgba(0, 123, 255, 0.5); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes bounce {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.05); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(5px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

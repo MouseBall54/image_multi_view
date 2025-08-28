@@ -94,6 +94,14 @@ interface State {
   viewerCols: number;
   // Layout preview (for ghost overlay when selecting a new layout)
   previewLayout: { rows: number; cols: number } | null;
+  
+  // Viewer arrangement system
+  viewerArrangement: {
+    compare: FolderKey[];      // [A, B, C, D] - which folder at each position
+    pinpoint: FolderKey[];     // [A, B, C, D] - which folder at each position
+    analysis: number[];        // [0, 1, 2, 3] - which filter index at each position
+  };
+  
   showMinimap: boolean;
   showGrid: boolean;
   gridColor: GridColor;
@@ -289,6 +297,11 @@ interface State {
     position?: 'modal' | 'sidebar';
   }>) => void;
 
+  // Viewer arrangement actions
+  reorderViewers: (fromPosition: number, toPosition: number) => void;
+  getViewerContentAtPosition: (position: number, mode: AppMode) => FolderKey | number;
+  resetViewerArrangement: () => void;
+
   // Toast notification actions
   addToast: (toast: Omit<ToastMessage, 'id'>) => void;
   removeToast: (id: string) => void;
@@ -304,6 +317,14 @@ export const useStore = create<State>((set) => ({
   viewerRows: 1,
   viewerCols: 2,
   previewLayout: null,
+  
+  // Default viewer arrangement (A-Z = 26 viewers)
+  viewerArrangement: {
+    compare: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
+    pinpoint: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],  
+    analysis: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+  },
+  
   showMinimap: false,
   showGrid: false,
   gridColor: 'white',
@@ -783,6 +804,44 @@ export const useStore = create<State>((set) => ({
   })),
 
   clearAllToasts: () => set({ toasts: [] }),
+
+  // Position-based viewer reordering
+  reorderViewers: (fromPosition: number, toPosition: number) => set((state) => {
+    if (fromPosition === toPosition) return state;
+    
+    const { appMode } = state;
+    const newArrangement = { ...state.viewerArrangement };
+    
+    // Get the array for current mode
+    const currentArrangement = [...newArrangement[appMode]];
+    
+    // Move item from fromPosition to toPosition
+    const [movedItem] = currentArrangement.splice(fromPosition, 1);
+    currentArrangement.splice(toPosition, 0, movedItem);
+    
+    // Update the arrangement
+    newArrangement[appMode] = currentArrangement;
+    
+    return {
+      ...state,
+      viewerArrangement: newArrangement
+    };
+  }),
+
+  // Get content (FolderKey or number) for a position in specific mode
+  getViewerContentAtPosition: (position: number, mode: AppMode) => (state: any) => {
+    return state.viewerArrangement[mode][position];
+  },
+
+  // Reset arrangement to default
+  resetViewerArrangement: () => set((state) => ({
+    ...state,
+    viewerArrangement: {
+      compare: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
+      pinpoint: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],  
+      analysis: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+    }
+  })),
 
 }));
 
