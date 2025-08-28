@@ -220,6 +220,32 @@ export const applyGaussianBlur = async (ctx: CanvasRenderingContext2D, params: F
   await applyFilterWithFallback(ctx, 'gaussianBlur', params, originalFn, applyGaussianBlurOpenCV);
 };
 
+export const applyBrightness = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data } = imageData;
+  const b = Math.max(-255, Math.min(255, (params.brightness ?? 0)));
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = Math.max(0, Math.min(255, data[i] + b));
+    data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + b));
+    data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + b));
+  }
+  ctx.putImageData(imageData, 0, 0);
+};
+
+export const applyContrast = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const { data } = imageData;
+  // Contrast as percentage: 100 => 1.0 (no change)
+  const percent = (params.contrast ?? 100);
+  const factor = Math.max(0, percent) / 100; // 0..inf
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = Math.max(0, Math.min(255, 128 + (data[i] - 128) * factor));
+    data[i + 1] = Math.max(0, Math.min(255, 128 + (data[i + 1] - 128) * factor));
+    data[i + 2] = Math.max(0, Math.min(255, 128 + (data[i + 2] - 128) * factor));
+  }
+  ctx.putImageData(imageData, 0, 0);
+};
+
 export const applySharpen = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
   const kernel = createSharpenKernel(params.sharpenAmount);
   convolve(ctx, kernel);

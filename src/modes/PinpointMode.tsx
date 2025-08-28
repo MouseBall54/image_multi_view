@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { flushSync } from 'react-dom';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { ToggleModal } from '../components/ToggleModal';
+import { DraggableViewer } from '../components/DraggableViewer';
 import { useStore } from '../store';
 import { useFolderPickers } from '../hooks/useFolderPickers';
 import type { FolderKey, FilterType } from '../types';
@@ -51,7 +53,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     openFilterEditor, viewerFilters, viewerFilterParams, viewerRows, viewerCols,
     openPreviewModal,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels,
-    selectedFiles, toggleFileSelection, clearFileSelection, selectAllFiles
+    selectedFiles, toggleFileSelection, clearFileSelection, selectAllFiles, setActiveCanvasKey,
+    viewerArrangement
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -255,12 +258,13 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
   useImperativeHandle(ref, () => ({
     capture: async ({ showLabels, showCrosshair, showMinimap, showFilterLabels = true }) => {
-      const activeKeys = FOLDER_KEYS.slice(0, numViewers);
-      const firstCanvas = canvasRefs[activeKeys[0]]?.current?.getCanvas();
+      const firstKey = viewerArrangement.pinpoint[0];
+      const firstCanvas = canvasRefs[firstKey]?.current?.getCanvas();
       if (!firstCanvas) return null;
       const { width, height } = firstCanvas;
 
-      const tempCanvases = activeKeys.map(key => {
+      const tempCanvases = Array.from({ length: numViewers }).map((_, position) => {
+        const key = viewerArrangement.pinpoint[position];
         const handle = canvasRefs[key].current;
         if (!handle) return null;
         const tempCanvas = document.createElement('canvas');
@@ -301,7 +305,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         if (row > 0) finalCtx.fillRect(dx, dy - BORDER_WIDTH / 2, width, BORDER_WIDTH);
 
         if (showLabels) {
-          const key = activeKeys[index];
+          const key = viewerArrangement.pinpoint[index];
           const pinpointImage = pinpointImages[key];
           const sourceFolderAlias = pinpointImage?.sourceKey ? (allFolders[pinpointImage.sourceKey]?.alias || pinpointImage.sourceKey) : (allFolders[key]?.alias || key);
           const filterName = getFilterName(viewerFilters[key], viewerFilterParams[key]);
@@ -336,7 +340,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     }
   }));
 
-  const activeKeys = useMemo(() => FOLDER_KEYS.slice(0, numViewers), [numViewers]);
 
 
   const fileList = useMemo(() => {
@@ -353,7 +356,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     };
 
     if (folderFilter === 'all') {
-      activeKeys.forEach(key => {
+      Array.from({ length: numViewers }).forEach((_, position) => {
+        const key = viewerArrangement.pinpoint[position];
         addFilesFromKey(key);
       });
     } else {
@@ -367,7 +371,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       if (a.source > b.source) return 1;
       return 0;
     });
-  }, [folderFilter, allFolders, activeKeys]);
+  }, [folderFilter, allFolders, numViewers, viewerArrangement.pinpoint]);
 
   const filteredFileList = useMemo(() => {
     if (!searchQuery) return fileList;
@@ -475,7 +479,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   const handleAutoPlaceFiles = () => {
     if (selectedFiles.size === 0) return;
 
-    const availableViewers = activeKeys.slice(); // Copy the array
+    const availableViewers = Array.from({ length: numViewers }).map((_, position) => viewerArrangement.pinpoint[position]);
     let viewerIndex = 0;
 
     // Convert selected files to actual file objects
@@ -568,27 +572,31 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     const currentPinpointScales = useStore.getState().pinpointScales;
     const currentViewport = useStore.getState().viewport;
     
-    activeKeys.forEach(key => {
+    Array.from({ length: numViewers }).forEach((_, position) => {
+      const key = viewerArrangement.pinpoint[position];
       if (currentPinpointScales[key] == null) {
         // Use current viewport scale as initial value only once
         setPinpointScale(key, currentViewport.scale);
       }
     });
-  }, [activeKeys, setPinpointScale]); // Only depend on activeKeys and setPinpointScale function
+  }, [numViewers, viewerArrangement.pinpoint, setPinpointScale]); // Updated dependencies
 
   return (
     <>
       {showControls && <div className="controls">
-        {activeKeys.map(key => (
-          <FolderControl
-            key={key}
-            folderKey={key}
-            folderState={allFolders[key]}
-            onSelect={pick}
-            onClear={clearFolder}
-            onUpdateAlias={updateAlias}
-          />
-        ))}
+        {Array.from({ length: numViewers }).map((_, position) => {
+          const key = viewerArrangement.pinpoint[position];
+          return (
+            <FolderControl
+              key={position}
+              folderKey={key}
+              folderState={allFolders[key]}
+              onSelect={pick}
+              onClear={clearFolder}
+              onUpdateAlias={updateAlias}
+            />
+          );
+        })}
       </div>}
       <main className={`pinpoint-mode-main ${showFilelist ? '' : 'filelist-hidden'}`}>
         {showFilelist && (
@@ -641,9 +649,10 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
               )}
               <select value={folderFilter} onChange={e => setFolderFilter(e.target.value as FolderKey | 'all')}>
                 <option value="all">All Folders</option>
-                {activeKeys.map(key => (
-                  allFolders[key] && <option key={key} value={key}>Folder {allFolders[key]?.alias || key}</option>
-                ))}
+                {Array.from({ length: numViewers }).map((_, position) => {
+                  const key = viewerArrangement.pinpoint[position];
+                  return allFolders[key] && <option key={key} value={key}>Folder {allFolders[key]?.alias || key}</option>
+                })}
               </select>
             </div>
             {filteredFileList.length > 0 && (
@@ -745,7 +754,9 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             }
           }}
         >
-          {activeKeys.map(key => {
+          {Array.from({ length: numViewers }).map((_, position) => {
+            // Get the FolderKey for this position using the arrangement
+            const key = viewerArrangement.pinpoint[position];
             const pinpointImage = pinpointImages[key];
             const sourceFolderAlias = pinpointImage?.sourceKey ? (allFolders[pinpointImage.sourceKey]?.alias || pinpointImage.sourceKey) : (allFolders[key]?.alias || key);
             const filterName = getFilterName(viewerFilters[key], viewerFilterParams[key]);
@@ -763,14 +774,97 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
             const label = lines.join('\n');
 
             return (
-              <div 
-                key={key} 
+              <DraggableViewer 
+                key={position} 
+                position={position}
+                onReorder={(fromPosition, toPosition) => {
+                  // In Pinpoint mode, keep viewer slots fixed (A, B, C, D...)
+                  // and reorder only the assigned images across those fixed slots.
+                  if (fromPosition === toPosition) return;
+
+                  // Build arrays snapshot first to compute new state deterministically
+                  const orderedKeys = Array.from({ length: numViewers }).map((_, pos) => viewerArrangement.pinpoint[pos]);
+                  const prevImages = { ...pinpointImages };
+                  const imagesByPos = orderedKeys.map(k => prevImages[k]);
+
+                  const storeState = useStore.getState();
+                  const scalesByPos = orderedKeys.map(k => storeState.pinpointScales[k]);
+                  const rotationsByPos = orderedKeys.map(k => storeState.pinpointRotations[k]);
+                  const filtersByPos = orderedKeys.map(k => storeState.viewerFilters[k]);
+                  const paramsByPos = orderedKeys.map(k => storeState.viewerFilterParams[k]);
+
+                    const mode = useStore.getState().pinpointReorderMode;
+                    if (mode === 'swap') {
+                    [imagesByPos[fromPosition], imagesByPos[toPosition]] = [imagesByPos[toPosition], imagesByPos[fromPosition]];
+                    [scalesByPos[fromPosition], scalesByPos[toPosition]] = [scalesByPos[toPosition], scalesByPos[fromPosition]];
+                    [rotationsByPos[fromPosition], rotationsByPos[toPosition]] = [rotationsByPos[toPosition], rotationsByPos[fromPosition]];
+                    [filtersByPos[fromPosition], filtersByPos[toPosition]] = [filtersByPos[toPosition], filtersByPos[fromPosition]];
+                    [paramsByPos[fromPosition], paramsByPos[toPosition]] = [paramsByPos[toPosition], paramsByPos[fromPosition]];
+                  } else {
+                    const [moved] = imagesByPos.splice(fromPosition, 1);
+                    imagesByPos.splice(toPosition, 0, moved);
+                    const [movedScale] = scalesByPos.splice(fromPosition, 1);
+                    scalesByPos.splice(toPosition, 0, movedScale);
+                    const [movedRotation] = rotationsByPos.splice(fromPosition, 1);
+                    rotationsByPos.splice(toPosition, 0, movedRotation);
+                    const [movedFilter] = filtersByPos.splice(fromPosition, 1);
+                    filtersByPos.splice(toPosition, 0, movedFilter);
+                    const [movedParams] = paramsByPos.splice(fromPosition, 1);
+                    paramsByPos.splice(toPosition, 0, movedParams);
+                  }
+
+                  // Create next images mapping
+                  const nextImages: Partial<Record<FolderKey, PinpointImage>> = { ...prevImages };
+                  imagesByPos.forEach((img, pos) => {
+                    const slotKey = orderedKeys[pos];
+                    if (img) {
+                      nextImages[slotKey] = img;
+                    } else if (nextImages[slotKey]) {
+                      delete nextImages[slotKey];
+                    }
+                  });
+
+                  // Create next transform/filter mappings
+                  const nextScales: Partial<Record<FolderKey, number>> = { ...storeState.pinpointScales };
+                  const nextRotations: Partial<Record<FolderKey, number>> = { ...storeState.pinpointRotations };
+                  const nextViewerFilters: Partial<Record<FolderKey, FilterType>> = { ...storeState.viewerFilters };
+                  const nextViewerFilterParams: Partial<Record<FolderKey, any>> = { ...storeState.viewerFilterParams };
+                  scalesByPos.forEach((s, pos) => {
+                    const slotKey = orderedKeys[pos];
+                    if (s == null) delete nextScales[slotKey]; else nextScales[slotKey] = s;
+                  });
+                  rotationsByPos.forEach((r, pos) => {
+                    const slotKey = orderedKeys[pos];
+                    if (r == null) delete nextRotations[slotKey]; else nextRotations[slotKey] = r;
+                  });
+                  filtersByPos.forEach((f, pos) => {
+                    const slotKey = orderedKeys[pos];
+                    if (f == null) delete nextViewerFilters[slotKey]; else nextViewerFilters[slotKey] = f;
+                  });
+                  paramsByPos.forEach((p, pos) => {
+                    const slotKey = orderedKeys[pos];
+                    if (p == null) delete nextViewerFilterParams[slotKey]; else nextViewerFilterParams[slotKey] = p as any;
+                  });
+
+                  // Flush both local and store updates in a single commit to avoid intermediate mismatch
+                  flushSync(() => {
+                    setPinpointImages(nextImages);
+                    useStore.setState({
+                      pinpointScales: nextScales,
+                      pinpointRotations: nextRotations,
+                      viewerFilters: nextViewerFilters,
+                      viewerFilterParams: nextViewerFilterParams,
+                    } as any);
+                  });
+                }}
                 className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''} ${dragOverViewer === key ? 'drag-over' : ''}`}
-                data-viewer-key={key}
-                onDragOver={(e) => handleViewerDragOver(e, key)}
-                onDragLeave={handleViewerDragLeave}
-                onDrop={(e) => handleViewerDrop(e, key)}
               >
+                <div 
+                  data-viewer-key={key}
+                  onDragOver={(e) => handleViewerDragOver(e, key)}
+                  onDragLeave={handleViewerDragLeave}
+                  onDrop={(e) => handleViewerDrop(e, key)}
+                >
                 <ImageCanvas 
                   ref={canvasRefs[key]}
                   label={label}
@@ -833,6 +927,28 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                     </svg>
                   </button>
                   <PinpointRotationControl folderKey={key} />
+                  <button
+                    className="viewer__filter-button"
+                    title="Level horizontally (pick 2 points)"
+                    onClick={() => useStore.getState().startLeveling('pinpoint', key)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="3" y1="12" x2="21" y2="12"></line>
+                      <circle cx="8" cy="12" r="2"></circle>
+                      <circle cx="16" cy="12" r="2"></circle>
+                    </svg>
+                  </button>
+                  <button
+                    className="viewer__filter-button"
+                    title="Level vertically (pick 2 points)"
+                    onClick={() => useStore.getState().startLeveling('pinpoint', key, 'vertical')}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="3" x2="12" y2="21"></line>
+                      <circle cx="12" cy="8" r="2"></circle>
+                      <circle cx="12" cy="16" r="2"></circle>
+                    </svg>
+                  </button>
                   {pinpointImages[key] && (
                     <button 
                       className="viewer__unload-button" 
@@ -849,7 +965,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                   )}
                 </div>
                 <PinpointScaleControl folderKey={key} />
-              </div>
+                </div>
+              </DraggableViewer>
             );
           })}
         </section>

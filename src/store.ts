@@ -19,6 +19,8 @@ export interface FilterParams {
   gridSize: number;
   gamma: number;
   cutoff: number;
+  brightness?: number; // -100..100 (% offset)
+  contrast?: number;   // 0..200 (%)
   // Gabor params
   theta: number; // Orientation
   gaborSigma: number; // Bandwidth
@@ -59,6 +61,8 @@ const defaultFilterParams: FilterParams = {
   gridSize: 8,
   gamma: 1.0,
   cutoff: 30,
+  brightness: 0,
+  contrast: 100,
   // Gabor defaults
   theta: 0,
   gaborSigma: 1.5,
@@ -88,12 +92,21 @@ const defaultFilterParams: FilterParams = {
 interface State {
   appMode: AppMode;
   pinpointMouseMode: PinpointMouseMode;
+  pinpointReorderMode: 'shift' | 'swap';
   stripExt: boolean;
   numViewers: number;
   viewerRows: number;
   viewerCols: number;
   // Layout preview (for ghost overlay when selecting a new layout)
   previewLayout: { rows: number; cols: number } | null;
+  
+  // Viewer arrangement system
+  viewerArrangement: {
+    compare: FolderKey[];      // [A, B, C, D] - which folder at each position
+    pinpoint: FolderKey[];     // [A, B, C, D] - which folder at each position
+    analysis: number[];        // [0, 1, 2, 3] - which filter index at each position
+  };
+  
   showMinimap: boolean;
   showGrid: boolean;
   gridColor: GridColor;
@@ -176,6 +189,7 @@ interface State {
 
   setAppMode: (m: AppMode) => void;
   setPinpointMouseMode: (m: PinpointMouseMode) => void;
+  setPinpointReorderMode: (m: 'shift' | 'swap') => void;
   setStripExt: (strip: boolean) => void;
   setNumViewers: (n: number) => void;
   setViewerLayout: (rows: number, cols: number) => void;
@@ -289,21 +303,47 @@ interface State {
     position?: 'modal' | 'sidebar';
   }>) => void;
 
+  // Viewer arrangement actions
+  reorderViewers: (fromPosition: number, toPosition: number) => void;
+  getViewerContentAtPosition: (position: number, mode: AppMode) => FolderKey | number;
+  resetViewerArrangement: () => void;
+
   // Toast notification actions
   addToast: (toast: Omit<ToastMessage, 'id'>) => void;
   removeToast: (id: string) => void;
   clearAllToasts: () => void;
 
+  // Leveling (two-point horizontal alignment)
+  levelingCapture: {
+    active: boolean;
+    mode: AppMode | null;
+    targetKey?: FolderKey | number | null;
+    points: { x: number; y: number }[];
+    axis: 'horizontal' | 'vertical';
+  };
+  startLeveling: (mode: AppMode, targetKey?: FolderKey | number | null, axis?: 'horizontal' | 'vertical') => void;
+  cancelLeveling: () => void;
+  addLevelingPoint: (canvasKey: FolderKey | number, point: { x: number; y: number }) => void;
+
 }
 
 export const useStore = create<State>((set) => ({
-  appMode: "single",
+  appMode: "pinpoint",
   pinpointMouseMode: "pan",
+  pinpointReorderMode: 'shift',
   stripExt: true,
   numViewers: 2,
   viewerRows: 1,
   viewerCols: 2,
   previewLayout: null,
+  
+  // Default viewer arrangement (A-Z = 26 viewers)
+  viewerArrangement: {
+    compare: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
+    pinpoint: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],  
+    analysis: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+  },
+  
   showMinimap: false,
   showGrid: false,
   gridColor: 'white',
@@ -368,9 +408,13 @@ export const useStore = create<State>((set) => ({
   // Toast notification states
   toasts: [],
 
+  // Leveling state defaults
+  levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
+
 
   setAppMode: (m) => set({ appMode: m }),
   setPinpointMouseMode: (m) => set({ pinpointMouseMode: m }),
+  setPinpointReorderMode: (m) => set({ pinpointReorderMode: m }),
   setStripExt: (strip) => set({ stripExt: strip }),
   setNumViewers: (n) => set({ numViewers: n }),
   setViewerLayout: (rows, cols) => set({ viewerRows: rows, viewerCols: cols, numViewers: rows * cols }),
@@ -783,6 +827,92 @@ export const useStore = create<State>((set) => ({
   })),
 
   clearAllToasts: () => set({ toasts: [] }),
+
+  // Leveling state actions
+  startLeveling: (mode, targetKey = null, axis = 'horizontal') => set({ levelingCapture: { active: true, mode, targetKey, points: [], axis } }),
+  cancelLeveling: () => set({ levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' } }),
+  addLevelingPoint: (canvasKey, point) => set((state) => {
+    const cap = state.levelingCapture;
+    if (!cap.active || !cap.mode) return state as any;
+    // Determine targetKey on first click for compare/analysis
+    let targetKey = cap.targetKey;
+    if ((cap.mode === 'compare' || cap.mode === 'analysis') && (targetKey == null)) {
+      targetKey = canvasKey;
+    }
+    const newPoints = [...cap.points, point];
+    if (newPoints.length < 2) {
+      return { levelingCapture: { ...cap, targetKey, points: newPoints } } as any;
+    }
+    // Compute angle from two canvas points (screen/canvas coords)
+    const [p1, p2] = newPoints;
+    const angleRad = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    const angleDeg = angleRad * 180 / Math.PI;
+    const delta = cap.axis === 'vertical' ? (angleDeg - 90) : angleDeg; // rotate by -delta
+
+    if (cap.mode === 'pinpoint' && typeof targetKey === 'string') {
+      const current = state.pinpointRotations[targetKey] || 0;
+      const newAngle = current - delta;
+      return {
+        levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
+        pinpointRotations: { ...state.pinpointRotations, [targetKey]: newAngle }
+      } as any;
+    }
+    if (cap.mode === 'compare') {
+      const current = state.compareRotation || 0;
+      const newAngle = ((current - delta) % 360 + 360) % 360;
+      return {
+        levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
+        compareRotation: newAngle
+      } as any;
+    }
+    if (cap.mode === 'analysis') {
+      const current = state.analysisRotation || 0;
+      const newAngle = ((current - delta) % 360 + 360) % 360;
+      return {
+        levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
+        analysisRotation: newAngle
+      } as any;
+    }
+    return { levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' } } as any;
+  }),
+
+  // Position-based viewer reordering
+  reorderViewers: (fromPosition: number, toPosition: number) => set((state) => {
+    if (fromPosition === toPosition) return state;
+    
+    const { appMode } = state;
+    const newArrangement = { ...state.viewerArrangement };
+    
+    // Get the array for current mode
+    const currentArrangement = [...newArrangement[appMode]];
+    
+    // Move item from fromPosition to toPosition
+    const [movedItem] = currentArrangement.splice(fromPosition, 1);
+    currentArrangement.splice(toPosition, 0, movedItem);
+    
+    // Update the arrangement
+    newArrangement[appMode] = currentArrangement;
+    
+    return {
+      ...state,
+      viewerArrangement: newArrangement
+    };
+  }),
+
+  // Get content (FolderKey or number) for a position in specific mode
+  getViewerContentAtPosition: (position: number, mode: AppMode) => (state: any) => {
+    return state.viewerArrangement[mode][position];
+  },
+
+  // Reset arrangement to default
+  resetViewerArrangement: () => set((state) => ({
+    ...state,
+    viewerArrangement: {
+      compare: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
+      pinpoint: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],  
+      analysis: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+    }
+  })),
 
 }));
 

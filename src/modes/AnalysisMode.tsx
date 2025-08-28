@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { useFolderPickers } from '../hooks/useFolderPickers';
 import { ImageCanvas, ImageCanvasHandle } from '../components/ImageCanvas';
 import { ToggleModal } from '../components/ToggleModal';
+import { DraggableViewer } from '../components/DraggableViewer';
 import { generateFilterChainLabel } from '../utils/filterChainLabel';
 import { ALL_FILTERS } from '../components/FilterControls';
 import { FolderControl } from '../components/FolderControl';
@@ -37,7 +38,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     analysisRotation, openFilterEditor,
     viewerRows, viewerCols,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, showFilelist, showFilterLabels,
-    previewLayout,
+    previewLayout, reorderViewers,
   } = useStore();
   const { pick, inputRefs, onInput, allFolders, updateAlias } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
@@ -497,8 +498,14 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               const label = lines.join('\n');
 
               const isSelected = selectedViewers.includes(i.toString() as FolderKey);
+              const folderKey = FOLDER_KEYS[i]; // Convert index to FolderKey
               return (
-                <div key={i} className={`viewer-container ${isSelected ? 'selected' : ''}`}>
+                <DraggableViewer 
+                  key={i} 
+                  folderKey={folderKey} 
+                  onReorder={reorderViewers}
+                  className={`viewer-container ${isSelected ? 'selected' : ''}`}
+                >
                   <ImageCanvas
                     ref={el => el ? imageCanvasRefs.current.set(i, el) : imageCanvasRefs.current.delete(i)}
                     file={analysisFile}
@@ -539,7 +546,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                       </svg>
                     </button>
                   </div>
-                </div>
+                </DraggableViewer>
               );
             })
           )}

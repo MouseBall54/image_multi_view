@@ -201,6 +201,8 @@ export function estimateFilterChainCost(
     'grayscale': 0.1,
     'invert': 0.1,
     'sepia': 0.2,
+    'brightness': 0.1,
+    'contrast': 0.1,
     'gaussianblur': 2.0,
     'boxblur': 1.0,
     'median': 5.0,
@@ -297,6 +299,25 @@ async function applySingleFilter(
 
   // Apply canvas-based filters
   switch (filterType) {
+    case 'filterchain': {
+      // Nested filter chain: apply subchain to the source and draw result to output
+      const sub = (params as any)?.filterChain as FilterChainItem[] | undefined;
+      if (sub && Array.isArray(sub)) {
+        const nestedCanvas = await applyFilterChain(sourceCanvas, sub, undefined);
+        ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+        ctx.drawImage(nestedCanvas, 0, 0);
+      } else {
+        // No subchain provided; just copy source
+        ctx.drawImage(sourceCanvas, 0, 0);
+      }
+      break;
+    }
+    case 'brightness':
+      if (params) await Filters.applyBrightness(ctx, params);
+      break;
+    case 'contrast':
+      if (params) await Filters.applyContrast(ctx, params);
+      break;
     case 'none':
       // Already drawn above
       break;

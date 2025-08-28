@@ -35,6 +35,8 @@ const FILTER_PARAMETER_MAP: Record<FilterType, string[]> = {
   'grayscale': [],
   'invert': [],
   'sepia': [],
+  'brightness': ['brightness'],
+  'contrast': ['contrast'],
   'linearstretch': [],
   'gammacorrection': ['gamma'],
   'histogramequalization': [],

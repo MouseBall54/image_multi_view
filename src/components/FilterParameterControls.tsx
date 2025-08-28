@@ -100,6 +100,34 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
 
   const renderControls = () => {
     switch (filterType) {
+      case 'brightness':
+        return (
+          <>
+            <RangeInput
+              label="Brightness"
+              value={(filterParams as any).brightness ?? 0}
+              min={-100}
+              max={100}
+              step={1}
+              onChange={(value) => updateParam('brightness', value)}
+              compact={compact}
+            />
+          </>
+        );
+      case 'contrast':
+        return (
+          <>
+            <RangeInput
+              label="Contrast"
+              value={(filterParams as any).contrast ?? 100}
+              min={0}
+              max={200}
+              step={1}
+              onChange={(value) => updateParam('contrast', value)}
+              compact={compact}
+            />
+          </>
+        );
       case 'gaussianblur':
         return (
           <>

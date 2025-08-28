@@ -47,6 +47,16 @@ No installation required - all processing happens locally in your browser!
 - **Keyboard Shortcuts**: Extensive hotkey support for rapid workflow
 - **Responsive Design**: Optimized for both desktop and mobile devices
 
+## 🔄 Recent Highlights
+
+- Pinpoint reordering refined: viewer slots (A, B, C, …) stay fixed while you drag to reorder images. Image-follow transforms ensure per-image zoom, rotation, and filters move with the image.
+- Shift vs Swap: choose how drag reordering behaves. Toggle lives in the header and shows active state (blue) like Minimap/Grid.
+- Leveling tools: horizontal and vertical auto-level. Click the button, then click two points; a blue crosshair follows the cursor, the first click is fixed, and the second click computes the angle to align. Applies per-viewer in Pinpoint, and as global rotation in Compare/Analysis.
+- Pinpoint Global Scale input: enter a % directly in the header. Arrow controls removed and input is compact; values are safely clamped to avoid over-zoom.
+- Layout polish: viewer canvas fills the entire grid cell reliably in all layouts; removed old hover hints that could cause scrollbars and tiny size shifts.
+- New filters: Brightness and Contrast (Tone & Basics). Integrated everywhere (preview, chains, export) with compact controls.
+- Preview editor integration: the preview panel now embeds the same filter editor (type + params) used elsewhere. Changes reflect immediately in the preview and update the chain step you’re editing.
+
 ## 📋 Table of Contents
 
 - [Getting Started](#getting-started)
@@ -122,13 +132,17 @@ npm run deploy
 ### 2. Pinpoint Mode 🎯
 **Perfect for: Precision alignment, reference-based comparison, detailed measurement**
 
-- **Reference Point System**: Set common reference points across different images
-- **Individual Scaling**: Per-viewer scale control with global multiplier
-- **Dual Rotation Support**: 
-  - Local rotation (Alt+drag on individual viewers)
+- **Fixed Slots, Image Reorder**: Viewer slots (A, B, C, …) remain fixed; Shift+drag reorders images across those slots.
+- **Reorder Modes**: Header toggle for Shift (insert/shift) and Swap (pairwise swap) with active state indicator.
+- **Image-Follow Transform**: Per-image zoom, rotation, and filter assignments move with the image when reordering.
+- **Reference Point System**: Set common reference points across different images.
+- **Individual Scaling**: Per-viewer scale with a Global Scale multiplier (editable % input in header).
+- **Dual Rotation Support**:
+  - Local rotation per viewer
   - Global rotation control for all viewers
-- **Flexible Image Loading**: Load any image from any folder into any viewer
-- **Mouse Mode Toggle**: Switch between Pin mode (set references) and Pan mode (navigate)
+- **Leveling Tools**: Horizontal and Vertical leveling. Click button → blue crosshair follows cursor → click two points → angle is computed and applied (per-viewer here).
+- **Flexible Image Loading**: Load any image from any folder into any viewer.
+- **Mouse Mode Toggle**: Switch between Pin (set references) and Pan (navigate).
 
 #### Key Features:
 - Precision coordinate system for accurate alignment
@@ -144,6 +158,7 @@ npm run deploy
 - **Side-by-Side Filter Comparison**: View different filter effects simultaneously
 - **Real-time Parameter Adjustment**: Instant filter parameter updates
 - **Global Rotation Controls**: Maintain consistent orientation
+- **Leveling Tools**: Horizontal/Vertical leveling with two-point click (applies to global rotation in this mode)
 - **Filter Chain Management**: Create and save complex filter sequences
 
 #### Key Features:
@@ -161,7 +176,7 @@ CompareX features a comprehensive filter preview system that allows you to see f
 - **Side-by-Side Comparison**: Preview original vs filtered images simultaneously
 - **Real-Time Parameter Adjustment**: See changes instantly as you modify filter parameters
 - **Filter Chain Preview**: Preview entire filter chains before applying
-- **Interactive Preview Modal**: Dedicated preview interface with controls
+- **Embedded Editor in Preview**: The preview panel now embeds the same filter editor (type selector + compact parameter controls). Changes update the chain step or single filter in real-time.
 - **Zoom and Pan**: Navigate preview images to examine details
 - **Quick Apply**: Apply previewed filters with one click
 
@@ -180,6 +195,8 @@ CompareX features a comprehensive filter preview system that allows you to see f
 - **Grayscale** - Convert to grayscale
 - **Invert** - Color inversion
 - **Sepia** - Sepia tone effect
+- **Brightness** - Linear brightness offset (−100..100)
+- **Contrast** - Contrast scaling (0..200%)
 
 #### Smoothing Filters
 - **Gaussian Blur** - Smooth Gaussian blur with adjustable sigma

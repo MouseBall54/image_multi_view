@@ -1,6 +1,6 @@
 // src/types.ts
 export type FolderKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z";
-export type AppMode = "compare" | "pinpoint" | "analysis" | "single";
+export type AppMode = "compare" | "pinpoint" | "analysis";
 export type PinpointMouseMode = "pin" | "pan";
 export type GridColor = 'white' | 'red' | 'yellow' | 'blue';
 
@@ -34,6 +34,8 @@ export type FilterType =
   | "grayscale"
   | "invert"
   | "sepia"
+  | "brightness"
+  | "contrast"
   | "sobel"
   // Smoothing
   | "gaussianblur"

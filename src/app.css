@@ -147,6 +147,38 @@ header {
   transition: stroke 0.2s;
 }
 
+/* Active state indicator for header buttons (e.g., Pinpoint reorder mode) */
+.controls-main-button.active {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
+
+.pinpoint-reorder-controls {
+  display: inline-flex;
+  gap: 0; /* segments should touch */
+}
+
+.pinpoint-reorder-controls .controls-main-button {
+  border-radius: 0;            /* flat edges between segments */
+  margin: 0;
+  padding: 8px 14px;           /* slightly tighter to feel like a set */
+}
+
+.pinpoint-reorder-controls .controls-main-button + .controls-main-button {
+  margin-left: -1px;           /* collapse adjacent borders to a single divider */
+}
+
+.pinpoint-reorder-controls .controls-main-button:first-child {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+
+.pinpoint-reorder-controls .controls-main-button:last-child {
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
 /* Prominent Toggle button in header */
 .controls-main .toggle-main-btn {
   background-color: var(--accent-primary);
@@ -213,12 +245,6 @@ main {
   min-height: 0; 
 }
 
-/* Single mode: expand viewer grid to full remaining area */
-.app.single-mode .viewers {
-  width: 100%;
-  grid-template-columns: 1fr !important;
-  grid-template-rows: 1fr !important;
-}
 
 .toggle-mode-main .viewers {
   grid-template-columns: 1fr;
@@ -788,6 +814,9 @@ main {
 
 .viewer { 
   position: relative; 
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   background:#000; 
   border-radius: 6px; 
   overflow:hidden; 
@@ -878,6 +907,30 @@ main {
   position: relative;
   z-index: 1;
 }
+
+/* Ensure the canvas wrapper fills remaining height in viewer */
+.viewer .viewer-canvas-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Leveling overlay: blue crosshair */
+.leveling-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+/* Crosshair lines that follow mouse or show fixed point */
+.leveling-overlay .crosshair {
+  position: absolute;
+  background: rgba(52, 152, 219, 0.95);
+}
+.leveling-overlay .crosshair.horiz { height: 2px; }
+.leveling-overlay .crosshair.vert { width: 2px; }
+.leveling-overlay .crosshair.moving { background: rgba(41, 128, 185, 0.95); }
+.leveling-overlay .crosshair.fixed { background: rgba(52, 152, 219, 0.95); }
 
 .viewer__placeholder { 
   position:absolute; 
@@ -1296,19 +1349,27 @@ main {
   gap: 8px;
 }
 
-.global-scale-control label {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
+.global-scale-control label { display: inline-flex; align-items: center; gap: 4px; }
+.global-scale-control label span { color: var(--text-secondary); font-size: 0.9rem; }
+.global-scale-control label .unit { color: var(--text-secondary); }
+
+.global-scale-control input[type="number"] {
+  width: 48px;
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  text-align: right;
+  -moz-appearance: textfield; /* hide arrows in Firefox */
 }
 
-.global-scale-control span {
-  font-variant-numeric: tabular-nums;
-  font-weight: bold;
-  color: var(--text-primary);
-  background-color: var(--bg-dark);
-  padding: 6px 10px;
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
+/* Hide number input arrows for global scale (WebKit) */
+.global-scale-control input[type="number"]::-webkit-outer-spin-button,
+.global-scale-control input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .global-scale-control button {
@@ -1409,6 +1470,7 @@ main {
   display: flex;
   flex-direction: column;
   min-height: 0; /* Crucial fix for grid layout with dynamic content */
+  height: 100%; /* Ensure grid cell fully occupied */
 }
 
 /* Emphasize viewers selected for Toggle with an overlay outline above the image */
@@ -1430,6 +1492,7 @@ main {
 }
 
 .viewer-container .viewer {
+  /* When nested under wrapper, we'll also set wrapper to flex */
   flex-grow: 1;
   min-height: 0;
 }
@@ -4902,4 +4965,167 @@ main {
   background-color: #4A90E2;
   border-radius: 2px;
   transition: width 0.3s ease;
+}
+
+/* Draggable Viewer Styles */
+.draggable-viewer {
+  position: relative;
+  transition: all 0.2s ease;
+  height: 100%; /* Grid item fills its track */
+}
+
+/* The immediate wrapper inside viewer-container should be a flex column
+   so that .viewer can expand to fill available height */
+.viewer-container > [data-viewer-key] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.viewer-container > [data-viewer-key] .viewer {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Show grab cursor only when Shift is held */
+.draggable-viewer:hover {
+  cursor: grab;
+}
+
+.draggable-viewer.dragging {
+  opacity: 0.8;
+  transform: scale(0.98);
+  z-index: 1000;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.draggable-viewer.drop-target::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border: 3px solid var(--accent-primary);
+  border-radius: 8px;
+  z-index: 1001;
+  pointer-events: none;
+  animation: pulse-border 0.8s ease-in-out infinite alternate;
+  background: rgba(0, 123, 255, 0.05);
+}
+
+.drag-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.drag-indicator {
+  background-color: var(--accent-primary);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+  animation: float 2s ease-in-out infinite;
+}
+
+.drop-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 123, 255, 0.1);
+  border: 2px dashed var(--accent-primary);
+  border-radius: 6px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1002;
+  pointer-events: none;
+}
+
+.drop-zone {
+  background-color: var(--accent-primary);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  animation: bounce 0.6s ease-in-out infinite alternate;
+}
+
+/* Global dragging state */
+body.viewer-dragging * {
+  pointer-events: none;
+}
+
+body.viewer-dragging .draggable-viewer {
+  pointer-events: auto;
+}
+
+/* Force crosshair cursor during leveling capture */
+body.leveling-active .draggable-viewer:hover,
+body.leveling-active .draggable-viewer,
+body.leveling-active .viewer__canvas {
+  cursor: crosshair !important;
+}
+
+/* Disable hover hint under viewer to prevent scrollbars/jitter */
+body:not(.viewer-dragging) .draggable-viewer:hover::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Shift key indicator - only show when not dragging */
+body:not(.viewer-dragging) .draggable-viewer:hover::after {
+  content: 'Shift+drag to reorder';
+  position: absolute;
+  bottom: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 1003;
+  opacity: 0;
+  animation: fadeIn 0.3s ease-in-out 0.7s forwards;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Animations */
+@keyframes pulse-border {
+  0% { border-color: var(--accent-primary); }
+  100% { border-color: rgba(0, 123, 255, 0.5); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes bounce {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.05); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(5px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }

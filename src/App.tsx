@@ -4,7 +4,6 @@ import type { AppMode } from "./types";
 import { CompareMode, CompareModeHandle } from './modes/CompareMode';
 import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
-import { SingleMode, SingleModeHandle } from "./modes/SingleMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterCart } from "./components/FilterCart";
 import { FilterPreviewModal } from "./components/FilterPreviewModal";
@@ -12,6 +11,7 @@ import ToastContainer from "./components/ToastContainer";
 import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
 import { CompareRotationControl } from "./components/CompareRotationControl";
 import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
+import { PinpointGlobalScaleControl } from "./components/PinpointGlobalScaleControl";
 import { ViewToggleControls } from "./components/ViewToggleControls";
 import { LayoutGridSelector } from "./components/LayoutGridSelector";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
@@ -74,7 +74,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, showFilterLabels, setShowFilterLabels, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, pinpointGlobalScale, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, showFilterLabels, setShowFilterLabels, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart, pinpointReorderMode, setPinpointReorderMode } = useStore();
   const { setShowFilelist, openPreviewModal, closeToggleModal, addToast } = useStore.getState();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
@@ -87,7 +87,6 @@ export default function App() {
   const compareModeRef = useRef<CompareModeHandle>(null);
   const pinpointModeRef = useRef<PinpointModeHandle>(null);
   const analysisModeRef = useRef<AnalysisModeHandle>(null);
-  const singleModeRef = useRef<SingleModeHandle>(null);
 
   const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -106,8 +105,6 @@ export default function App() {
       dataUrl = await pinpointModeRef.current.capture(opts);
     } else if (appMode === 'analysis' && analysisModeRef.current) {
       dataUrl = await analysisModeRef.current.capture(opts);
-    } else if (appMode === 'single' && singleModeRef.current) {
-      dataUrl = await singleModeRef.current.capture(opts);
     }
     if (dataUrl) {
       setCapturedImage(dataUrl);
@@ -299,10 +296,9 @@ export default function App() {
       }
 
       switch (key) {
-        case '1': setAppMode('single'); break;
-        case '2': setAppMode('compare'); break;
-        case '3': setAppMode('pinpoint'); break;
-        case '4': setAppMode('analysis'); break;
+        case '1': setAppMode('pinpoint'); break;
+        case '2': setAppMode('analysis'); break;
+        case '3': setAppMode('compare'); break;
         case 'r': resetView(); break;
         case 'i': setShowInfoPanel((prev: boolean) => !prev); break;
         case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
@@ -329,15 +325,13 @@ export default function App() {
         return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       case 'analysis':
         return <AnalysisMode ref={analysisModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
-      case 'single':
-        return <SingleMode ref={singleModeRef} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       default:
         return null;
     }
   };
 
   return (
-    <div className={`app ${appMode === 'single' ? 'single-mode' : ''} ${showFilterCart ? 'filter-cart-open' : ''} ${previewModal.isOpen && previewModal.position === 'sidebar' ? 'preview-active' : ''}`}>
+    <div className={`app ${showFilterCart ? 'filter-cart-open' : ''} ${previewModal.isOpen && previewModal.position === 'sidebar' ? 'preview-active' : ''}`}>
       <header>
         <div className="title-container">
           <h1
@@ -356,10 +350,9 @@ export default function App() {
           <div className="controls-main">
             <label><span>Mode:</span>
               <select value={appMode} onChange={e => setAppMode(e.target.value as AppMode)}>
-                <option value="single">Single</option>
-                <option value="compare">Compare</option>
                 <option value="pinpoint">Pinpoint</option>
                 <option value="analysis">Analysis</option>
+                <option value="compare">Compare</option>
               </select>
             </label>
             {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'analysis') && (
@@ -375,7 +368,7 @@ export default function App() {
               title={"Toggle Mode (Space)"}
               disabled={
                 selectedViewers.length === 0 ||
-                ((appMode === 'compare' || appMode === 'single') && !current) ||
+                (appMode === 'compare' && !current) ||
                 (appMode === 'analysis' && !analysisFile)
               }
             >
@@ -383,12 +376,28 @@ export default function App() {
               Toggle ({selectedViewers.length})
             </button>
             {appMode === 'pinpoint' && (
-              <label><span>Mouse:</span>
-                <select value={pinpointMouseMode} onChange={e => setPinpointMouseMode(e.target.value as any)}>
-                  <option value="pin">Pin</option>
-                  <option value="pan">Pan</option>
-                </select>
-              </label>
+              <>
+                <label><span>Mouse:</span>
+                  <select value={pinpointMouseMode} onChange={e => setPinpointMouseMode(e.target.value as any)}>
+                    <option value="pin">Pin</option>
+                    <option value="pan">Pan</option>
+                  </select>
+                </label>
+                <div className="pinpoint-reorder-controls" title="Reorder behavior for Pinpoint drag">
+                  <button
+                    className={`controls-main-button ${pinpointReorderMode === 'shift' ? 'active' : ''}`}
+                    onClick={() => setPinpointReorderMode('shift')}
+                  >
+                    Shift
+                  </button>
+                  <button
+                    className={`controls-main-button ${pinpointReorderMode === 'swap' ? 'active' : ''}`}
+                    onClick={() => setPinpointReorderMode('swap')}
+                  >
+                    Swap
+                  </button>
+                </div>
+              </>
             )}
             <button onClick={handleOpenCaptureModal}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
@@ -424,15 +433,12 @@ export default function App() {
             </div>
           </div>
           <div className="controls-right">
-            {(appMode === 'compare' || appMode === 'single') && <CompareRotationControl />}
+            {appMode === 'compare' && <CompareRotationControl />}
             {appMode === 'analysis' && <AnalysisRotationControl />}
             {appMode === 'pinpoint' && <PinpointGlobalRotationControl />}
             {appMode === 'pinpoint' && (
               <div className="global-controls-wrapper">
-                <div className="global-scale-control">
-                  <label>Global Scale:</label>
-                  <span>{(pinpointGlobalScale * 100).toFixed(0)}%</span>
-                </div>
+                <PinpointGlobalScaleControl />
               </div>
             )}
             {appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
