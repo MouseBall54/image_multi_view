@@ -814,6 +814,9 @@ main {
 
 .viewer { 
   position: relative; 
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   background:#000; 
   border-radius: 6px; 
   overflow:hidden; 
@@ -903,6 +906,13 @@ main {
   pointer-events: auto;
   position: relative;
   z-index: 1;
+}
+
+/* Ensure the canvas wrapper fills remaining height in viewer */
+.viewer .viewer-canvas-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* Leveling overlay: blue crosshair */

@@ -1257,6 +1257,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
       { /* Wrapper to track mouse for leveling crosshair */ }
       <div
+        className="viewer-canvas-wrap"
         style={{ position: 'relative', cursor: ((levelingCapture.active && levelingCapture.mode === appMode && (levelingCapture.targetKey == null || levelingCapture.targetKey === (folderKey as any))) ? 'crosshair' : undefined) }}
         onMouseMove={(e) => {
           const { levelingCapture } = useStore.getState();
