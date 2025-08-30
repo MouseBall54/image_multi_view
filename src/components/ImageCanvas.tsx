@@ -195,6 +195,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       offscreenCanvas.height = sourceImage.height;
       const ctx = offscreenCanvas.getContext('2d');
       if (!ctx) return;
+      // Always process in original orientation (no rotation applied here)
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.filter = 'none';
 
       // Store actual image size for performance estimation
       const size = { width: offscreenCanvas.width, height: offscreenCanvas.height };
