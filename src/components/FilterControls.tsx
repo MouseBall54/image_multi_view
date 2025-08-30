@@ -6,6 +6,7 @@ import {
   calculatePerformanceMetrics, 
   formatPerformanceEstimate
 } from '../utils/opencvFilters';
+import { FilterModeToggle } from './FilterModeToggle';
 
 // Inline editable number: click value to edit, blur/Enter to commit, Esc to cancel
 const InlineNumber: React.FC<{
@@ -65,6 +66,17 @@ const InlineNumber: React.FC<{
     </span>
   );
 };
+
+// Basic filters for simplified mode (7 essential filters)
+export const BASIC_FILTERS: FilterType[] = [
+  'none',
+  'brightness', 
+  'contrast',
+  'grayscale',
+  'gaussianblur',
+  'histogramequalization',
+  'sharpen'
+];
 
 export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   // Tone & Basics
@@ -214,6 +226,11 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   const [panelPos, setPanelPos] = React.useState<{ left: number; top: number } | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const dragOffsetRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Filter mode state management
+  const [isAdvancedMode, setIsAdvancedMode] = React.useState(() => {
+    return localStorage.getItem('filterModalAdvancedMode') === 'true';
+  });
 
   const onHeaderMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -1200,13 +1217,23 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 title: `Filter Preview: ${ALL_FILTERS.find(f => f.type === newFilterType)?.name || newFilterType}`
               });
             }}>
-              {filterGroups.map(group => (
-                <optgroup label={group} key={group}>
-                  {ALL_FILTERS.filter(f => f.group === group).map(f => (
-                    <option key={f.type} value={f.type}>{f.name}</option>
-                  ))}
-                </optgroup>
-              ))}
+              {filterGroups.map(group => {
+                const groupFilters = ALL_FILTERS.filter(f => f.group === group);
+                const displayFilters = isAdvancedMode ? 
+                  groupFilters : 
+                  groupFilters.filter(f => BASIC_FILTERS.includes(f.type));
+                
+                // Only show groups that have filters to display
+                if (displayFilters.length === 0) return null;
+                
+                return (
+                  <optgroup label={group} key={group}>
+                    {displayFilters.map(f => (
+                      <option key={f.type} value={f.type}>{f.name}</option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </select>
           </div>
           <div className="params-container">
@@ -1301,7 +1328,13 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     return (
       <div className="filter-controls-embedded">
         <div className="panel-header">
-          <h3>Filter Editor</h3>
+          <div className="header-left">
+            <h3>Filter Editor</h3>
+            <FilterModeToggle 
+              isAdvanced={isAdvancedMode} 
+              onToggle={setIsAdvancedMode} 
+            />
+          </div>
         </div>
         {body}
       </div>
@@ -1312,7 +1345,13 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     <div className="filter-controls-overlay">
       <div className="filter-controls-panel" ref={panelRef} style={panelStyle}>
         <div className="panel-header" onMouseDown={onHeaderMouseDown} style={{ cursor: 'grab' }}>
-          <h3>Filter Editor (View {activeFilterEditor})</h3>
+          <div className="header-left">
+            <h3>Filter Editor (View {activeFilterEditor})</h3>
+            <FilterModeToggle 
+              isAdvanced={isAdvancedMode} 
+              onToggle={setIsAdvancedMode} 
+            />
+          </div>
           <button onClick={closeFilterEditor} className="close-btn">&times;</button>
         </div>
         {body}
