@@ -566,8 +566,6 @@ export default function App() {
           title={previewModal.title}
           realTimeUpdate={previewModal.realTimeUpdate}
           position={previewModal.position}
-          editMode={previewModal.editMode}
-          onParameterChange={previewModal.onParameterChange}
           stepIndex={previewModal.stepIndex}
         />
       )}

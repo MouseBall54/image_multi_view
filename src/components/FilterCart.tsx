@@ -28,7 +28,6 @@ export const FilterCart: React.FC = () => {
     reorderFilterCart,
     clearFilterCart,
     toggleFilterCartItem,
-    updateFilterCartItem,
     saveFilterPreset,
     loadFilterPreset,
     deleteFilterPreset,
@@ -41,6 +40,9 @@ export const FilterCart: React.FC = () => {
     previewSize,
     closePreviewModal,
     addToast,
+    setTempFilterType,
+    setTempFilterParams,
+    setEditingFilterChainItem,
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
@@ -87,7 +89,6 @@ export const FilterCart: React.FC = () => {
           title: `Preview Chain (${enabledFilters.length} filters)`,
           sourceFile,
           position: 'sidebar',
-          editMode: false,
           stickySource: false
         });
       } else {
@@ -95,11 +96,9 @@ export const FilterCart: React.FC = () => {
         openPreviewModal({
           mode: 'single',
           filterType: 'none',
-          filterParams: {},
           title: 'Original Image',
           sourceFile,
           position: 'sidebar',
-          editMode: false,
           stickySource: false
         });
       }
@@ -108,11 +107,9 @@ export const FilterCart: React.FC = () => {
       openPreviewModal({
         mode: 'single',
         filterType: 'none',
-        filterParams: {},
         title: 'Original Image',
         sourceFile,
         position: 'sidebar',
-        editMode: false,
         stickySource: false
       });
     }
@@ -162,6 +159,11 @@ export const FilterCart: React.FC = () => {
         
         // Small delay to allow for smooth transition
         setTimeout(() => {
+          // Update panel-body to show the editing filter's parameters
+          setTempFilterType(editingItem.filterType);
+          setTempFilterParams(editingItem.params as FilterParams);
+          setEditingFilterChainItem(editingItemId);
+          
           if (precedingSteps.length > 0) {
             // Show chain preview with preceding steps + current step being edited
             openPreviewModal({
@@ -171,14 +173,7 @@ export const FilterCart: React.FC = () => {
               sourceFile,
               realTimeUpdate: true,
               position: 'sidebar',
-              editMode: true,
-              stepIndex: stepIndex,
-              onParameterChange: (newParams: FilterParams) => {
-                updateFilterCartItem(editingItemId, { params: newParams });
-                // Update the chain with new parameters for real-time preview
-                const updatedChain = [...precedingSteps, { ...editingItem, params: newParams }];
-                updatePreviewModal({ chainItems: updatedChain });
-              }
+                    stepIndex: stepIndex
             });
           } else {
             // First step - show single filter preview
@@ -190,12 +185,7 @@ export const FilterCart: React.FC = () => {
               sourceFile,
               realTimeUpdate: true,
               position: 'sidebar',
-              editMode: true,
-              stepIndex: 0,
-              onParameterChange: (newParams: FilterParams) => {
-                updateFilterCartItem(editingItemId, { params: newParams });
-                updatePreviewModal({ filterParams: newParams });
-              }
+                    stepIndex: 0
             });
           }
         }, 100);
@@ -228,13 +218,18 @@ export const FilterCart: React.FC = () => {
     // Prefer chain preview if chain has items, otherwise single filter preview
     const enabledChain = filterCart.filter(f => f.enabled);
     if (enabledChain.length > 0) {
+      // Update panel-body to show the last filter's parameters for editing
+      const lastFilter = enabledChain[enabledChain.length - 1];
+      setTempFilterType(lastFilter.filterType);
+      setTempFilterParams(lastFilter.params as FilterParams);
+      setEditingFilterChainItem(lastFilter.id);
+      
       openPreviewModal({
         mode: 'chain',
         chainItems: enabledChain,
         title: `Preview (Steps 1-${enabledChain.length})`,
         sourceFile,
         position: 'sidebar',
-        editMode: true,
         stickySource: false,
       });
     } else if (tempViewerFilter && tempViewerFilter !== 'none') {
@@ -246,7 +241,6 @@ export const FilterCart: React.FC = () => {
         sourceFile,
         position: 'sidebar',
         realTimeUpdate: true,
-        editMode: true,
         stickySource: false,
       });
     }
@@ -808,8 +802,6 @@ export const FilterCart: React.FC = () => {
               title={previewModal.title}
               realTimeUpdate={previewModal.realTimeUpdate}
               position="sidebar"
-              editMode={previewModal.editMode}
-              onParameterChange={previewModal.onParameterChange}
               stepIndex={previewModal.stepIndex}
             />
           </div>
@@ -920,6 +912,11 @@ export const FilterCart: React.FC = () => {
 
                           if (e.shiftKey) {
                             // Shift+Click: Preview only this single filter
+                            // Update panel-body to show this filter's parameters
+                            setTempFilterType(item.filterType);
+                            setTempFilterParams(item.params as FilterParams);
+                            setEditingFilterChainItem(item.id);
+                            
                             openPreviewModal({
                               mode: 'single',
                               filterType: item.filterType,
@@ -927,35 +924,24 @@ export const FilterCart: React.FC = () => {
                               title: `Preview: ${getFilterDisplayName(item.filterType)}`,
                               sourceFile,
                               position: 'sidebar',
-                              editMode: true,
-                              stickySource: state.previewModal?.stickySource || appMode === 'pinpoint',
-                              onParameterChange: (newParams: FilterParams) => {
-                                updateFilterCartItem(item.id, { params: newParams });
-                                updatePreviewModal({ filterParams: newParams });
-                              }
+                                                    stickySource: state.previewModal?.stickySource || appMode === 'pinpoint'
                             });
                           } else {
                             // Normal click: Preview chain up to this point
                             const filtersUpToThis = filterCart.slice(0, index + 1).filter(f => f.enabled);
                             if (filtersUpToThis.length > 0) {
+                              // Update panel-body to show the clicked filter's parameters
+                              setTempFilterType(item.filterType);
+                              setTempFilterParams(item.params as FilterParams);
+                              setEditingFilterChainItem(item.id);
+                              
                               openPreviewModal({
                                 mode: 'chain',
                                 chainItems: filtersUpToThis,
                                 title: `Preview (Steps 1-${index + 1})`,
                                 sourceFile,
                                 position: 'sidebar',
-                                editMode: true,
-                                stickySource: state.previewModal?.stickySource || appMode === 'pinpoint',
-                                onParameterChange: (newParams: FilterParams) => {
-                                  // Update the clicked item in the cart
-                                  updateFilterCartItem(item.id, { params: newParams });
-                                  // Recompute the preview chain up to this
-                                  const updated = filterCart
-                                    .slice(0, index + 1)
-                                    .filter(f => f.enabled)
-                                    .map((f) => (f.id === item.id ? { ...f, params: newParams } : f));
-                                  updatePreviewModal({ chainItems: updated });
-                                }
+                                                        stickySource: state.previewModal?.stickySource || appMode === 'pinpoint'
                               });
                             }
                           }

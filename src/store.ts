@@ -138,6 +138,9 @@ interface State {
   tempViewerFilter: FilterType;
   tempViewerFilterParams: FilterParams;
   activeFilterEditor: FolderKey | number | null; // Updated to allow number for analysis mode index
+  
+  // FilterChain editing state
+  editingFilterChainItem: string | null; // ID of the FilterChainItem being edited
 
   // Analysis Mode State
   analysisFile: File | null;
@@ -177,8 +180,6 @@ interface State {
     realTimeUpdate?: boolean;
     position?: 'modal' | 'sidebar';
     size?: 'S' | 'M' | 'L';
-    editMode?: boolean;
-    onParameterChange?: (params: FilterParams) => void;
     stepIndex?: number;
     stickySource?: boolean; // When true, don't auto-sync sourceFile
   };
@@ -245,6 +246,9 @@ interface State {
   setTempFilterType: (type: FilterType) => void;
   setTempFilterParams: (params: Partial<FilterParams>) => void;
   applyTempFilterSettings: () => void;
+  
+  // FilterChain editing actions
+  setEditingFilterChainItem: (itemId: string | null) => void;
 
   // Filter Chain actions
   addToFilterCart: () => void;
@@ -285,9 +289,8 @@ interface State {
     realTimeUpdate?: boolean;
     position?: 'modal' | 'sidebar';
     size?: 'S' | 'M' | 'L';
-    editMode?: boolean;
-    onParameterChange?: (params: FilterParams) => void;
     stepIndex?: number;
+    stickySource?: boolean;
   }) => void;
   setPreviewSize: (size: 'S' | 'M' | 'L') => void;
   closePreviewModal: () => void;
@@ -371,6 +374,7 @@ export const useStore = create<State>((set) => ({
   tempViewerFilter: 'none',
   tempViewerFilterParams: defaultFilterParams,
   activeFilterEditor: null,
+  editingFilterChainItem: null,
 
   // Analysis Mode State
   analysisFile: null,
@@ -581,6 +585,9 @@ export const useStore = create<State>((set) => ({
   setTempFilterParams: (params) => set(state => ({
     tempViewerFilterParams: { ...state.tempViewerFilterParams, ...params }
   })),
+  
+  // FilterChain editing actions
+  setEditingFilterChainItem: (itemId: string | null) => set({ editingFilterChainItem: itemId }),
   applyTempFilterSettings: () => set(state => {
     const key = state.activeFilterEditor;
     if (key === null) return {};
@@ -804,7 +811,8 @@ export const useStore = create<State>((set) => ({
       isOpen: false,
       realTimeUpdate: false,
       stickySource: false
-    }
+    },
+    editingFilterChainItem: null
   })),
   
   updatePreviewModal: (updates) => set(state => ({

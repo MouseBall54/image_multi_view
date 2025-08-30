@@ -209,17 +209,17 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     closeFilterEditor,
     setTempFilterType,
     setTempFilterParams,
-    applyTempFilterSettings,
     current,
     viewerImageSizes,
     analysisImageSizes,
     addToFilterCart,
     setShowFilterCart,
     showFilterCart,
-    openPreviewModal,
     updatePreviewModal,
     folders,
     analysisFile,
+    editingFilterChainItem,
+    updateFilterCartItem,
   } = useStore();
 
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -338,22 +338,107 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   const handleParamChange = (param: string, value: string) => {
     const numValue = parseFloat(value);
     if (!isNaN(numValue)) {
+      const newParams = { ...tempViewerFilterParams, [param]: numValue };
       setTempFilterParams({ [param]: numValue });
       
-      // Update preview modal if it's open with real-time updates
-      updatePreviewModal({
-        filterParams: { ...tempViewerFilterParams, [param]: numValue }
-      });
+      // Update FilterChain item if we're editing one
+      if (editingFilterChainItem) {
+        updateFilterCartItem(editingFilterChainItem, { params: newParams });
+        
+        // Update preview modal with the updated chain
+        const state = useStore.getState();
+        const updatedChain = state.filterCart.map(item => 
+          item.id === editingFilterChainItem ? { ...item, params: newParams } : item
+        );
+        
+        if (state.previewModal?.isOpen && state.previewModal.mode === 'chain') {
+          // Find the step index being edited
+          const editingStepIndex = updatedChain.findIndex(item => item.id === editingFilterChainItem);
+          // Only include filters up to the step being edited
+          const filtersUpToStep = updatedChain.slice(0, editingStepIndex + 1).filter(f => f.enabled);
+          updatePreviewModal({ chainItems: filtersUpToStep });
+        } else if (state.previewModal?.isOpen && state.previewModal.mode === 'single') {
+          updatePreviewModal({ filterParams: newParams });
+        }
+      } else {
+        // Update preview modal if it's open with real-time updates (non-chain editing)
+        const state = useStore.getState();
+        if (state.previewModal?.isOpen) {
+          updatePreviewModal({
+            filterParams: newParams
+          });
+        }
+      }
     }
   };
 
   const handleStringParamChange = (param: string, value: string) => {
+    const newParams = { ...tempViewerFilterParams, [param]: value };
     setTempFilterParams({ [param]: value });
     
-    // Update preview modal if it's open with real-time updates
-    updatePreviewModal({
-      filterParams: { ...tempViewerFilterParams, [param]: value }
-    });
+    // Update FilterChain item if we're editing one
+    if (editingFilterChainItem) {
+      updateFilterCartItem(editingFilterChainItem, { params: newParams });
+      
+      // Update preview modal with the updated chain
+      const state = useStore.getState();
+      const updatedChain = state.filterCart.map(item => 
+        item.id === editingFilterChainItem ? { ...item, params: newParams } : item
+      );
+      
+      if (state.previewModal?.isOpen && state.previewModal.mode === 'chain') {
+        // Find the step index being edited
+        const editingStepIndex = updatedChain.findIndex(item => item.id === editingFilterChainItem);
+        // Only include filters up to the step being edited
+        const filtersUpToStep = updatedChain.slice(0, editingStepIndex + 1).filter(f => f.enabled);
+        updatePreviewModal({ chainItems: filtersUpToStep });
+      } else if (state.previewModal?.isOpen && state.previewModal.mode === 'single') {
+        updatePreviewModal({ filterParams: newParams });
+      }
+    } else {
+      // Update preview modal if it's open with real-time updates (non-chain editing)
+      const state = useStore.getState();
+      if (state.previewModal?.isOpen) {
+        updatePreviewModal({
+          filterParams: newParams
+        });
+      }
+    }
+  };
+
+  // Helper for InlineNumber onCommit with preview updates
+  const handleInlineNumberCommit = (param: string, value: number) => {
+    const newParams = { ...tempViewerFilterParams, [param]: value };
+    setTempFilterParams({ [param]: value });
+    
+    // Update FilterChain item if we're editing one
+    if (editingFilterChainItem) {
+      updateFilterCartItem(editingFilterChainItem, { params: newParams });
+      
+      // Update preview modal with the updated chain
+      const state = useStore.getState();
+      const updatedChain = state.filterCart.map(item => 
+        item.id === editingFilterChainItem ? { ...item, params: newParams } : item
+      );
+      
+      if (state.previewModal?.isOpen && state.previewModal.mode === 'chain') {
+        // Find the step index being edited
+        const editingStepIndex = updatedChain.findIndex(item => item.id === editingFilterChainItem);
+        // Only include filters up to the step being edited
+        const filtersUpToStep = updatedChain.slice(0, editingStepIndex + 1).filter(f => f.enabled);
+        updatePreviewModal({ chainItems: filtersUpToStep });
+      } else if (state.previewModal?.isOpen && state.previewModal.mode === 'single') {
+        updatePreviewModal({ filterParams: newParams });
+      }
+    } else {
+      // Update preview modal if it's open with real-time updates (non-chain editing)
+      const state = useStore.getState();
+      if (state.previewModal?.isOpen) {
+        updatePreviewModal({
+          filterParams: newParams
+        });
+      }
+    }
   };
 
   // Calculate performance metrics for current filter and image
@@ -548,7 +633,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               min={-100}
               max={100}
               step={1}
-              onCommit={(v)=> setTempFilterParams({ brightness: v })}
+              onCommit={(v)=> handleInlineNumberCommit('brightness', v)}
             />
           </div>
         );
@@ -569,7 +654,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               min={0}
               max={200}
               step={1}
-              onCommit={(v)=> setTempFilterParams({ contrast: v })}
+              onCommit={(v)=> handleInlineNumberCommit('contrast', v)}
             />
           </div>
         );
@@ -661,7 +746,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 min={0.1}
                 max={10}
                 step={0.01}
-                onCommit={(v)=> setTempFilterParams({ sigma: v })}
+                onCommit={(v)=> handleInlineNumberCommit('sigma', v)}
               />
             </div>
           </>
@@ -696,7 +781,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 min={0.1}
                 max={10}
                 step={0.01}
-                onCommit={(v)=> setTempFilterParams({ sigma: v })}
+                onCommit={(v)=> handleInlineNumberCommit('sigma', v)}
               />
             </div>
           </>
@@ -904,7 +989,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 min={1}
                 max={10}
                 step={0.01}
-                onCommit={(v)=> setTempFilterParams({ clipLimit: v })}
+                onCommit={(v)=> handleInlineNumberCommit('clipLimit', v)}
               />
             </div>
             <div className="control-row">
@@ -938,7 +1023,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               min={0.2}
               max={2.2}
               step={0.01}
-              onCommit={(v)=> setTempFilterParams({ gamma: v })}
+              onCommit={(v)=> handleInlineNumberCommit('gamma', v)}
             />
           </div>
         );
@@ -972,7 +1057,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 min={0.1}
                 max={10}
                 step={0.01}
-                onCommit={(v)=> setTempFilterParams({ sigma: v })}
+                onCommit={(v)=> handleInlineNumberCommit('sigma', v)}
               />
             </div>
             <div className="control-row">
@@ -990,7 +1075,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 min={0.1}
                 max={5}
                 step={0.01}
-                onCommit={(v)=> setTempFilterParams({ sharpenAmount: v })}
+                onCommit={(v)=> handleInlineNumberCommit('sharpenAmount', v)}
               />
             </div>
           </>
@@ -1006,27 +1091,27 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
             <div className="control-row">
               <label>Theta (θ)</label>
               <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.theta ?? 0} onChange={(e) => handleParamChange('theta', e.target.value)} />
-              <InlineNumber value={tempViewerFilterParams.theta ?? 0} min={0} max={3.14} step={0.01} onCommit={(v)=> setTempFilterParams({ theta: v })} />
+              <InlineNumber value={tempViewerFilterParams.theta ?? 0} min={0} max={3.14} step={0.01} onCommit={(v)=> handleInlineNumberCommit('theta', v)} />
             </div>
             <div className="control-row">
               <label>Sigma (σ)</label>
               <input type="range" min="1" max="10" step="0.5" value={tempViewerFilterParams.sigma ?? 4.0} onChange={(e) => handleParamChange('sigma', e.target.value)} />
-              <InlineNumber value={tempViewerFilterParams.sigma ?? 4.0} min={1} max={10} step={0.01} onCommit={(v)=> setTempFilterParams({ sigma: v })} />
+              <InlineNumber value={tempViewerFilterParams.sigma ?? 4.0} min={1} max={10} step={0.01} onCommit={(v)=> handleInlineNumberCommit('sigma', v)} />
             </div>
             <div className="control-row">
               <label>Lambda (λ)</label>
               <input type="range" min="3" max="20" step="1" value={tempViewerFilterParams.lambda ?? 10.0} onChange={(e) => handleParamChange('lambda', e.target.value)} />
-              <InlineNumber value={tempViewerFilterParams.lambda ?? 10.0} min={3} max={20} step={0.01} onCommit={(v)=> setTempFilterParams({ lambda: v })} />
+              <InlineNumber value={tempViewerFilterParams.lambda ?? 10.0} min={3} max={20} step={0.01} onCommit={(v)=> handleInlineNumberCommit('lambda', v)} />
             </div>
             <div className="control-row">
               <label>Gamma (γ)</label>
               <input type="range" min="0.2" max="1" step="0.1" value={tempViewerFilterParams.gamma ?? 0.5} onChange={(e) => handleParamChange('gamma', e.target.value)} />
-              <InlineNumber value={tempViewerFilterParams.gamma ?? 0.5} min={0.2} max={1} step={0.01} onCommit={(v)=> setTempFilterParams({ gamma: v })} />
+              <InlineNumber value={tempViewerFilterParams.gamma ?? 0.5} min={0.2} max={1} step={0.01} onCommit={(v)=> handleInlineNumberCommit('gamma', v)} />
             </div>
             <div className="control-row">
               <label>Psi (ψ)</label>
               <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.psi ?? 0} onChange={(e) => handleParamChange('psi', e.target.value)} />
-              <InlineNumber value={tempViewerFilterParams.psi ?? 0} min={0} max={3.14} step={0.01} onCommit={(v)=> setTempFilterParams({ psi: v })} />
+              <InlineNumber value={tempViewerFilterParams.psi ?? 0} min={0} max={3.14} step={0.01} onCommit={(v)=> handleInlineNumberCommit('psi', v)} />
             </div>
           </>
         );
@@ -1081,7 +1166,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.epsilon ?? 0.04}
                 onChange={(e) => handleParamChange('epsilon', e.target.value)}
               />
-              <InlineNumber value={tempViewerFilterParams.epsilon ?? 0.04} min={0.01} max={0.2} step={0.01} onCommit={(v)=> setTempFilterParams({ epsilon: v })} />
+              <InlineNumber value={tempViewerFilterParams.epsilon ?? 0.04} min={0.01} max={0.2} step={0.01} onCommit={(v)=> handleInlineNumberCommit('epsilon', v)} />
             </div>
           </>
         );
