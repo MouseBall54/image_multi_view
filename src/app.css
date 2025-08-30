@@ -872,6 +872,32 @@ main {
   height: 16px;
 }
 
+/* Download button — match viewer-controls theme */
+.viewer__download-button {
+  background: rgba(30,30,30,0.6);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, border-color 0.2s;
+  pointer-events: auto;
+}
+
+.viewer__download-button:hover {
+  background: var(--accent-primary);
+  border-color: var(--accent-hover);
+}
+
+.viewer__download-button svg {
+  stroke: currentColor;
+  width: 16px;
+  height: 16px;
+}
+
 .viewer__unload-button {
   background: rgba(30,30,30,0.6);
   border: 1px solid rgba(255,255,255,0.2);
