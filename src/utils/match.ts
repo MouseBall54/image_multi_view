@@ -1,5 +1,6 @@
 // src/utils/match.ts
 import type { FolderKey, MatchedItem } from "../types";
+import { naturalSort } from "./naturalSort";
 
 export function matchFilenames(
   folders: Partial<Record<FolderKey, Map<string, File>>>,
@@ -45,5 +46,5 @@ export function matchFilenames(
     });
     list.push({ filename, has });
   }
-  return list.sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true }));
+  return list.sort((a, b) => naturalSort(a.filename, b.filename));
 }

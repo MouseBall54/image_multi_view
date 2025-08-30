@@ -8,6 +8,7 @@ import { generateFilterChainLabel } from '../utils/filterChainLabel';
 import { ALL_FILTERS } from '../components/FilterControls';
 import { FolderControl } from '../components/FolderControl';
 import type { DrawableImage, FolderKey, FilterType } from '../types';
+import { createFileComparator } from '../utils/naturalSort';
 
 // Helper function to check if a file is a valid image
 const isValidImageFile = (file: File): boolean => {
@@ -306,7 +307,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
       addFilesFromKey(folderFilter);
     }
 
-    return filesWithSource.sort((a, b) => a.file.name.localeCompare(b.file.name));
+    return filesWithSource.sort(createFileComparator((item: { file: File, source: string, folderKey: FolderKey }) => item.file.name));
   }, [folderFilter, allFolders]);
 
   const filteredFileList = useMemo(() => {
