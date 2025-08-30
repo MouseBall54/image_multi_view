@@ -1392,7 +1392,7 @@ main {
 .global-scale-control label .unit { color: var(--text-secondary); }
 
 .global-scale-control input[type="number"] {
-  width: 48px;
+  width: 35px;
   background-color: var(--bg-dark);
   border: 1px solid var(--border-color);
   color: var(--text-primary);

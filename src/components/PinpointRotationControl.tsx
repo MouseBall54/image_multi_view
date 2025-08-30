@@ -17,9 +17,6 @@ export function PinpointRotationControl({ folderKey }: Props) {
 
   const [angleInput, setAngleInput] = useState(currentAngle.toFixed(1));
   
-  const rotationLoopRef = useRef<number | null>(null);
-  const rotationSpeedRef = useRef<number>(0);
-  const lastUpdateTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (parseFloat(angleInput) !== currentAngle) {
@@ -104,14 +101,6 @@ export function PinpointRotationControl({ folderKey }: Props) {
 
   return (
     <div className="pinpoint-rotation-control">
-      <button 
-        onMouseDown={() => startRotation(-1)}
-        onMouseUp={stopRotation}
-        onMouseLeave={stopRotation}
-        title="Rotate Left (Hold for speed)"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3L22 2"/></svg>
-      </button>
       <div className="rotation-input-wrapper">
         <input 
           type="number" 
@@ -124,14 +113,6 @@ export function PinpointRotationControl({ folderKey }: Props) {
         />
         <span className="degree-symbol">°</span>
       </div>
-      <button 
-        onMouseDown={() => startRotation(1)}
-        onMouseUp={stopRotation}
-        onMouseLeave={stopRotation}
-        title="Rotate Right (Hold for speed)"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 22v-6h6M21.5 2v6h-6M22 12.5a10 10 0 0 1-18.8 4.3L2 22"/></svg>
-      </button>
       <button onClick={() => updateRotation(0)} title="Reset Rotation">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M1 4v6h6"/>
