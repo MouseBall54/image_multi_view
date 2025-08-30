@@ -849,13 +849,24 @@ export const useStore = create<State>((set) => ({
     const angleDeg = angleRad * 180 / Math.PI;
     const delta = cap.axis === 'vertical' ? (angleDeg - 90) : angleDeg; // rotate by -delta
 
-    if (cap.mode === 'pinpoint' && typeof targetKey === 'string') {
-      const current = state.pinpointRotations[targetKey] || 0;
-      const newAngle = current - delta;
-      return {
-        levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
-        pinpointRotations: { ...state.pinpointRotations, [targetKey]: newAngle }
-      } as any;
+    if (cap.mode === 'pinpoint') {
+      if (typeof targetKey === 'string') {
+        // Individual image rotation
+        const current = state.pinpointRotations[targetKey] || 0;
+        const newAngle = current - delta;
+        return {
+          levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
+          pinpointRotations: { ...state.pinpointRotations, [targetKey]: newAngle }
+        } as any;
+      } else if (targetKey === null) {
+        // Global rotation
+        const current = state.pinpointGlobalRotation || 0;
+        const newAngle = ((current - delta) % 360 + 360) % 360;
+        return {
+          levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
+          pinpointGlobalRotation: newAngle
+        } as any;
+      }
     }
     if (cap.mode === 'compare') {
       const current = state.compareRotation || 0;
