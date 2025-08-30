@@ -303,10 +303,10 @@ export default function App() {
         case 'i': setShowInfoPanel((prev: boolean) => !prev); break;
         case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
         case '-': setViewport({ scale: Math.max(MIN_ZOOM, (viewport.scale || 1) - 0.01) }); break;
-        case 'arrowup': e.preventDefault(); if (imageDimensions && viewport.cy) setViewport({ cy: viewport.cy - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); break;
-        case 'arrowdown': e.preventDefault(); if (imageDimensions && viewport.cy) setViewport({ cy: viewport.cy + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); break;
-        case 'arrowleft': e.preventDefault(); if (imageDimensions && viewport.cx) setViewport({ cx: viewport.cx - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); break;
-        case 'arrowright': e.preventDefault(); if (imageDimensions && viewport.cx) setViewport({ cx: viewport.cx + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); break;
+        case 'arrowup': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cy) setViewport({ cy: viewport.cy - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); } break;
+        case 'arrowdown': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cy) setViewport({ cy: viewport.cy + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); } break;
+        case 'arrowleft': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cx) setViewport({ cx: viewport.cx - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); } break;
+        case 'arrowright': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cx) setViewport({ cx: viewport.cx + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); } break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
