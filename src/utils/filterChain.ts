@@ -3,7 +3,8 @@ import type { FilterParams } from '../store';
 import * as Filters from './filters';
 
 // Cache for intermediate filter results to improve performance
-const filterResultCache = new Map<string, ImageBitmap>();
+// Use HTMLCanvasElement for stability (ImageBitmap can become detached/closed)
+const filterResultCache = new Map<string, HTMLCanvasElement>();
 const MAX_CACHE_SIZE = 20; // Limit cache size to prevent memory issues
 
 // Generate cache key based on filter chain and image
@@ -31,9 +32,7 @@ function cleanCache() {
   if (filterResultCache.size > MAX_CACHE_SIZE) {
     const keysToDelete = Array.from(filterResultCache.keys()).slice(0, filterResultCache.size - MAX_CACHE_SIZE);
     keysToDelete.forEach(key => {
-      const bitmap = filterResultCache.get(key);
-      if (bitmap) {
-        bitmap.close(); // Free memory
+      if (filterResultCache.has(key)) {
         filterResultCache.delete(key);
       }
     });
@@ -127,13 +126,15 @@ export async function applyFilterChain(
     // Final progress report is already done in the loop
     // No need for additional completion callback
 
-    // Cache the final result
-    try {
-      const resultBitmap = await createImageBitmap(currentCanvas);
-      filterResultCache.set(cacheKey, resultBitmap);
+    // Cache the final result (copy into a stable canvas)
+    const cacheCanvas = document.createElement('canvas');
+    cacheCanvas.width = currentCanvas.width;
+    cacheCanvas.height = currentCanvas.height;
+    const cacheCtx = cacheCanvas.getContext('2d');
+    if (cacheCtx) {
+      cacheCtx.drawImage(currentCanvas, 0, 0);
+      filterResultCache.set(cacheKey, cacheCanvas);
       cleanCache();
-    } catch (error) {
-      console.warn('Failed to cache filter result:', error);
     }
 
     return currentCanvas;
@@ -166,7 +167,6 @@ export async function applyFilterChain(
  * Clear the filter result cache
  */
 export function clearFilterCache() {
-  filterResultCache.forEach(bitmap => bitmap.close());
   filterResultCache.clear();
 }
 

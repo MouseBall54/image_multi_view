@@ -8,6 +8,7 @@ import { ToggleModal } from '../components/ToggleModal';
 import { DraggableViewer } from '../components/DraggableViewer';
 import { ALL_FILTERS } from '../components/FilterControls';
 import type { FolderKey, MatchedItem, FilterType } from '../types';
+import type { FilterParams } from '../store';
 import { generateFilterChainLabel } from '../utils/filterChainLabel';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
@@ -38,7 +39,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   const { 
     current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, viewerFilterParams, clearFolder, viewerRows, viewerCols,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels, 
-    reorderViewers, viewerArrangement, appMode
+    reorderViewers, viewerArrangement
   } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -283,7 +284,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     const folderState = allFolders[key];
     if (!folderState?.data.files) return undefined;
     const name = stripExt
-      ? Array.from(folderState.data.files.keys()).find(n => n.replace(/\.[^/.]+$/, "") === item.filename)
+      ? (Array.from(folderState.data.files.keys()) as string[]).find((n: string) => n.replace(/\.[^/.]+$/, "") === item.filename)
       : item.filename;
     return name ? folderState.data.files.get(name) : undefined;
   };
@@ -296,7 +297,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
   const activeFolders = useMemo(() => {
     const activeKeys = viewerArrangement.compare.slice(0, numViewers);
-    return activeKeys.reduce((acc, key) => {
+    return activeKeys.reduce((acc: Record<FolderKey, Map<string, File>>, key: FolderKey) => {
       if (allFolders[key]?.data.files) {
         acc[key] = allFolders[key]!.data.files;
       }
@@ -327,7 +328,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   // Viewer selection for toggle functionality
   const handleViewerSelect = (key: FolderKey) => {
     const newSelected = selectedViewers.includes(key)
-      ? selectedViewers.filter(k => k !== key)
+      ? selectedViewers.filter((k: FolderKey) => k !== key)
       : [...selectedViewers, key];
     setSelectedViewers(newSelected);
   };
@@ -377,7 +378,14 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
         })}
         <div style={{ display: 'none' }}>
           {FOLDER_KEYS.map(key => (
-            <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
+            <input
+              key={key}
+              ref={inputRefs[key]}
+              type="file"
+              multiple
+              onChange={(e) => onInput(key, e)}
+              {...({ webkitdirectory: '' } as any)}
+            />
           ))}
         </div>
       </div>}
@@ -494,7 +502,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
                 className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''}`}
               >
                 <ImageCanvas
-                  ref={canvasRefs[key]}
+                  ref={canvasRefs[key as FolderKey]}
                   label={finalLabel}
                   file={fileOf(key, current)}
                   isReference={key === 'A'}

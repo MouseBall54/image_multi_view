@@ -71,11 +71,7 @@ export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode
         const drawX = refScreenX - (refImgX * totalScale);
         const drawY = refScreenY - (refImgY * totalScale);
         
-        // Calculate visible portion ratios
-        const visibleLeft = Math.max(0, -drawX) / scaledImageWidth;
-        const visibleTop = Math.max(0, -drawY) / scaledImageHeight;
-        const visibleRight = Math.min(1, (canvasSize.width - drawX) / scaledImageWidth);
-        const visibleBottom = Math.min(1, (canvasSize.height - drawY) / scaledImageHeight);
+        // Calculate visible portion ratios (values not used directly below)
         
         // Compute rotated viewport polygon corners in minimap coordinates
         const angle = (rotationDeg || 0) * Math.PI / 180;

@@ -683,7 +683,6 @@ function computeGradientMagnitude(imageData: ImageData): ImageData {
       const idx = (y * width + x) * 4;
       
       // Get surrounding pixels (grayscale)
-      const centerGray = rgbToGrayscale(data[idx], data[idx + 1], data[idx + 2]);
       const leftGray = rgbToGrayscale(data[idx - 4], data[idx - 3], data[idx - 2]);
       const rightGray = rgbToGrayscale(data[idx + 4], data[idx + 5], data[idx + 6]);
       const topGray = rgbToGrayscale(data[idx - width * 4], data[idx - width * 4 + 1], data[idx - width * 4 + 2]);

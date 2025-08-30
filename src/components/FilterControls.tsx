@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../store';
-import type { FilterType } from '../types';
+import type { FilterType, FolderKey } from '../types';
 import { LAWS_KERNEL_TYPES } from '../utils/filters';
 import { 
   calculatePerformanceMetrics, 
@@ -202,7 +202,6 @@ const filterGroups = [
 
 export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const {
-    appMode,
     activeFilterEditor,
     tempViewerFilter,
     tempViewerFilterParams,
@@ -273,8 +272,8 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
         const base = current.filename.replace(/\.[^/.]+$/, '');
         for (const [name, file] of files) {
           if (name === current.filename) return file;
-          const nb = name.replace(/\.[^/.]+$/, '');
-          if (nb === current.filename || nb === base) return file;
+          const baseName = name.replace(/\.[^/.]+$/, '');
+          if (baseName === current.filename || baseName === base) return file;
         }
         return undefined;
       } else if (typeof activeFilterEditor === 'number') {
@@ -302,8 +301,8 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
       const base = filename.replace(/\.[^/.]+$/, '');
       for (const [name, file] of files) {
         if (name === filename) return file;
-        const nb = name.replace(/\.[^/.]+$/, '');
-        if (nb === filename || nb === base) return file;
+        const baseName: string = name.replace(/\.[^/.]+$/, '');
+        if (baseName === filename || baseName === base) return file;
       }
       return undefined;
     };
@@ -321,9 +320,9 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
         if (viaCanvas) return viaCanvas;
       }
       // Scan any folder that has the current filename
-      for (const k in current.has) {
-        if ((current.has as any)[k]) {
-          const f = findFileInFolder(folders[k as any], current.filename);
+      for (const k of Object.keys(current.has) as (keyof typeof current.has)[]) {
+        if (current.has[k]) {
+          const f = findFileInFolder(folders[k as FolderKey], current.filename);
           if (f) return f;
         }
       }
@@ -334,6 +333,8 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     }
     return undefined;
   };
+  // touch reference to avoid TS unused warning in strict mode
+  void getCurrentImageFile;
 
   const handleParamChange = (param: string, value: string) => {
     const numValue = parseFloat(value);

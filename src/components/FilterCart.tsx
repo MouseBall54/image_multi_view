@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useStore, FilterParams } from '../store';
 import { ALL_FILTERS, FilterControls } from './FilterControls';
-import type { FilterChainItem } from '../types';
+import type { FilterChainItem, FilterPreset, FolderKey } from '../types';
 import { importFilterChain, isValidFilterChainFile } from '../utils/filterExport';
 import { getRelevantParams as getRelevantParamsForType } from '../utils/filterExport';
 import { FilterPreviewModal } from './FilterPreviewModal';
@@ -81,7 +81,7 @@ export const FilterCart: React.FC = () => {
 
     if (filterCart.length > 0) {
       // Preview the entire current chain
-      const enabledFilters = filterCart.filter(f => f.enabled);
+      const enabledFilters = filterCart.filter((f: FilterChainItem) => f.enabled);
       if (enabledFilters.length > 0) {
         openPreviewModal({
           mode: 'chain',
@@ -148,11 +148,11 @@ export const FilterCart: React.FC = () => {
   // Handle preview when editing starts
   React.useEffect(() => {
     if (editingItemId) {
-      const editingItem = filterCart.find(item => item.id === editingItemId);
+      const editingItem = filterCart.find((item: FilterChainItem) => item.id === editingItemId);
       const sourceFile = getCurrentImageFile();
       if (editingItem && sourceFile) {
         // Find the step index of the editing item
-        const stepIndex = filterCart.findIndex(item => item.id === editingItemId);
+        const stepIndex = filterCart.findIndex((item: FilterChainItem) => item.id === editingItemId);
         
         // Create a chain of steps up to (but not including) the current step for the base image
         const precedingSteps = filterCart.slice(0, stepIndex);
@@ -216,7 +216,7 @@ export const FilterCart: React.FC = () => {
     const sourceFile = getCurrentImageFile();
     if (!sourceFile) return;
     // Prefer chain preview if chain has items, otherwise single filter preview
-    const enabledChain = filterCart.filter(f => f.enabled);
+    const enabledChain = filterCart.filter((f: FilterChainItem) => f.enabled);
     if (enabledChain.length > 0) {
       // Update panel-body to show the last filter's parameters for editing
       const lastFilter = enabledChain[enabledChain.length - 1];
@@ -273,8 +273,8 @@ export const FilterCart: React.FC = () => {
         const base = current.filename.replace(/\.[^/.]+$/, '');
         for (const [name, file] of files) {
           if (name === current.filename) return file;
-          const nb = name.replace(/\.[^/.]+$/, '');
-          if (nb === current.filename || nb === base) return file;
+          const baseName = name.replace(/\.[^/.]+$/, '');
+          if (baseName === current.filename || baseName === base) return file;
         }
         return undefined;
       }
@@ -285,7 +285,7 @@ export const FilterCart: React.FC = () => {
       if (activeCanvasKey && typeof activeCanvasKey === 'string') {
         if (!current) return undefined;
         const folder = folders[activeCanvasKey];
-        const has = current?.has?.[activeCanvasKey as any];
+          const has = current?.has?.[activeCanvasKey as any as keyof typeof current.has];
         if (has && folder?.data.files) {
           const files: Map<string, File> = folder.data.files;
           let f = files.get(current.filename);
@@ -293,16 +293,16 @@ export const FilterCart: React.FC = () => {
           const base = current.filename.replace(/\.[^/.]+$/, '');
           for (const [name, file] of files) {
             if (name === current.filename) return file;
-            const nb = name.replace(/\.[^/.]+$/, '');
-            if (nb === current.filename || nb === base) return file;
+            const baseName: string = name.replace(/\.[^/.]+$/, '');
+            if (baseName === current.filename || baseName === base) return file;
           }
           return undefined;
         }
       }
       if (current) {
-        for (const k in current.has) {
-          if ((current.has as any)[k]) {
-            const folder = folders[k as any];
+        for (const k of Object.keys(current.has) as (keyof typeof current.has)[]) {
+          if (current.has[k]) {
+            const folder = folders[k as FolderKey];
             if (folder && folder.data && folder.data.files) {
               const files: Map<string, File> = folder.data.files;
               let f = files.get(current.filename);
@@ -310,8 +310,8 @@ export const FilterCart: React.FC = () => {
               const base = current.filename.replace(/\.[^/.]+$/, '');
               for (const [name, file] of files) {
                 if (name === current.filename) return file;
-                const nb = name.replace(/\.[^/.]+$/, '');
-                if (nb === current.filename || nb === base) return file;
+                const baseName: string = name.replace(/\.[^/.]+$/, '');
+                if (baseName === current.filename || baseName === base) return file;
               }
             }
           }
@@ -337,8 +337,8 @@ export const FilterCart: React.FC = () => {
     const base = filename.replace(/\.[^/.]+$/, '');
     for (const [name, file] of files) {
       if (name === filename) return file;
-      const nb = name.replace(/\.[^/.]+$/, '');
-      if (nb === filename || nb === base) return file;
+      const baseName: string = name.replace(/\.[^/.]+$/, '');
+      if (baseName === filename || baseName === base) return file;
     }
     return undefined;
   };
@@ -360,9 +360,9 @@ export const FilterCart: React.FC = () => {
       }
 
       // 1b) Last resort: scan any folder that has the current filename
-      for (const k in current.has) {
-        if ((current.has as any)[k]) {
-          const folder = folders[k as any];
+      for (const k of Object.keys(current.has) as (keyof typeof current.has)[]) {
+        if (current.has[k]) {
+          const folder = folders[k as FolderKey];
           const f = findFileInFolder(folder, current.filename);
           if (f) return f;
         }
@@ -376,20 +376,20 @@ export const FilterCart: React.FC = () => {
     // 3) If analysis file exists (analysis mode or not), prefer it
     if (analysisFile) return analysisFile;
     // 4) Fallback to active canvas folder key
-    if (activeCanvasKey && typeof activeCanvasKey === 'string') {
-      if (!current) return undefined;
-      const folder = folders[activeCanvasKey];
-      // Ensure this folder has the current filename
-      const has = current?.has?.[activeCanvasKey as any];
-      if (has && folder?.data.files) {
-        return findFileInFolder(folder, current.filename);
+      if (activeCanvasKey && typeof activeCanvasKey === 'string') {
+        if (!current) return undefined;
+        const folder = folders[activeCanvasKey];
+        // Ensure this folder has the current filename
+        const has = (current?.has as Record<FolderKey, boolean>)[activeCanvasKey as FolderKey];
+        if (has && folder?.data.files) {
+          return findFileInFolder(folder, current.filename);
+        }
       }
-    }
     // 5) Last resort: find any folder that contains current filename
     if (current) {
       for (const k in current.has) {
-        if ((current.has as any)[k]) {
-          const folder = folders[k as any];
+        if ((current.has as Record<FolderKey, boolean>)[k as FolderKey]) {
+          const folder = folders[k as FolderKey];
           const file = findFileInFolder(folder, current.filename);
           if (file) return file;
         }
@@ -846,7 +846,7 @@ export const FilterCart: React.FC = () => {
               </div>
               {filterPresets.length > 0 && (
                 <div className="presets-list">
-                  {filterPresets.map((preset) => (
+                  {filterPresets.map((preset: FilterPreset) => (
                     <div key={preset.id} className="preset-item">
                       <div className="preset-info">
                         <div className="preset-name">{preset.name}</div>
@@ -881,7 +881,7 @@ export const FilterCart: React.FC = () => {
               <h3>Filter Chain</h3>
             </div>
             <div className="filter-chain-list">
-            {filterCart.map((item, index) => (
+            {filterCart.map((item: FilterChainItem, index: number) => (
                 <div
                   key={item.id}
                   className={`filter-chain-item ${!item.enabled ? 'disabled' : ''} ${draggedItem?.id === item.id ? 'dragging' : ''}`}
@@ -928,7 +928,7 @@ export const FilterCart: React.FC = () => {
                             });
                           } else {
                             // Normal click: Preview chain up to this point
-                            const filtersUpToThis = filterCart.slice(0, index + 1).filter(f => f.enabled);
+                            const filtersUpToThis = filterCart.slice(0, index + 1).filter((f: FilterChainItem) => f.enabled);
                             if (filtersUpToThis.length > 0) {
                               // Update panel-body to show the clicked filter's parameters
                               setTempFilterType(item.filterType);

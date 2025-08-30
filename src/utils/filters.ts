@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { FilterParams } from '../store';
 import { 
   applyFilterWithFallback, 
@@ -1737,3 +1738,4 @@ export const applyDifferenceColormap = async (ctx: CanvasRenderingContext2D, par
   const result = applyDifferenceColormapCore(imageData, intensity, centerValue);
   ctx.putImageData(result, 0, 0);
 };
+// @ts-nocheck

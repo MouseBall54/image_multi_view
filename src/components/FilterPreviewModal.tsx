@@ -56,8 +56,7 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
   // Predetermined maximum size (per S/M/L in sidebar; fixed cap in modal)
   const maxPreviewSize = position === 'sidebar' ? currentSizeConfig.maxSize : 800;
 
-  // Keep track of current object URL to avoid StrictMode early revocation
-  const objectUrlRef = useRef<string | null>(null);
+  // Note: object URLs not required; using FileReader approach
 
   // Load source image (only when opening or source file changes)
   useEffect(() => {

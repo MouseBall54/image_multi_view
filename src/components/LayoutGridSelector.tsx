@@ -96,11 +96,9 @@ export const LayoutGridSelector: React.FC<LayoutGridSelectorProps> = ({
     for (let row = 1; row <= maxRows; row++) {
       for (let col = 1; col <= maxCols; col++) {
         const totalViewers = row * col;
-        const hoveredViewers = hoveredRows * hoveredCols;
         const isSelected = row <= hoveredRows && col <= hoveredCols;
         const isCurrent = row === currentRows && col === currentCols;
         const isOverLimit = totalViewers > MAX_VIEWERS;
-        const hoveredOverLimit = hoveredViewers > MAX_VIEWERS;
         
         const hoverGuide = row === hoveredRows || col === hoveredCols;
         cells.push(

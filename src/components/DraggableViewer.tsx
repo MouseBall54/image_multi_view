@@ -1,5 +1,4 @@
 import React, { useState, useRef, useCallback } from 'react';
-import type { FolderKey } from '../types';
 
 interface DraggableViewerProps {
   position: number;

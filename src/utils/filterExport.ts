@@ -30,7 +30,7 @@ export interface ExportedFilterPreset {
 }
 
 // Define which parameters each filter type actually uses
-const FILTER_PARAMETER_MAP: Record<FilterType, string[]> = {
+const FILTER_PARAMETER_MAP: Partial<Record<FilterType, string[]>> = {
   'none': [],
   'grayscale': [],
   'invert': [],

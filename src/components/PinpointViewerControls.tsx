@@ -1,5 +1,5 @@
 // src/components/PinpointViewerControls.tsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
 import type { FolderKey } from '../types';
 
@@ -17,9 +17,6 @@ export function PinpointViewerControls({ folderKey }: Props) {
   const currentAngle = pinpointRotations[folderKey] || 0;
   const [angleInput, setAngleInput] = useState(currentAngle.toFixed(1));
   
-  const rotationLoopRef = useRef<number | null>(null);
-  const rotationSpeedRef = useRef<number>(0);
-  const lastUpdateTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (parseFloat(angleInput) !== currentAngle) {
@@ -33,51 +30,7 @@ export function PinpointViewerControls({ folderKey }: Props) {
     setPinpointRotation(folderKey, normalizedAngle);
   }, [folderKey, setPinpointRotation]);
 
-  const handleRotate = useCallback((degrees: number) => {
-    const current = useStore.getState().pinpointRotations[folderKey] || 0;
-    updateRotation(current + degrees);
-  }, [folderKey, updateRotation]);
-
-  const startRotation = useCallback((direction: number) => {
-    const startTime = performance.now();
-    lastUpdateTimeRef.current = startTime;
-    rotationSpeedRef.current = 0;
-
-    const loop = (currentTime: number) => {
-      const elapsedTime = currentTime - startTime;
-
-      if (elapsedTime > 2000) rotationSpeedRef.current = 3;
-      else if (elapsedTime > 1000) rotationSpeedRef.current = 2;
-      else if (elapsedTime > 400) rotationSpeedRef.current = 1;
-      
-      let step = 0;
-      let interval = 0;
-
-      switch (rotationSpeedRef.current) {
-        case 1: step = 0.1; interval = 100; break;
-        case 2: step = 1.0; interval = 50; break;
-        case 3: step = 5.0; interval = 25; break;
-        default: rotationLoopRef.current = requestAnimationFrame(loop); return;
-      }
-
-      if (currentTime - lastUpdateTimeRef.current > interval) {
-        handleRotate(step * direction);
-        lastUpdateTimeRef.current = currentTime;
-      }
-      
-      rotationLoopRef.current = requestAnimationFrame(loop);
-    };
-
-    handleRotate(0.1 * direction);
-    rotationLoopRef.current = requestAnimationFrame(loop);
-  }, [handleRotate]);
-
-  const stopRotation = useCallback(() => {
-    if (rotationLoopRef.current) {
-      cancelAnimationFrame(rotationLoopRef.current);
-      rotationLoopRef.current = null;
-    }
-  }, []);
+  // Removed continuous-rotation handlers to simplify and avoid unused refs
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAngleInput(e.target.value);

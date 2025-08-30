@@ -503,7 +503,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
                 params.filterChain,
                 (progress: number) => {
                   // Update progress: progress is 0-1, convert to current/total
-                  const totalFilters = params.filterChain?.filter(item => item.enabled).length || 1;
+                  const totalFilters = params.filterChain?.filter((item: any) => item.enabled).length || 1;
                   // Use Math.round for more accurate step calculation
                   const currentStep = Math.max(0, Math.min(totalFilters, Math.round(progress * totalFilters)));
                   setFilterProgress({ current: currentStep, total: totalFilters });
