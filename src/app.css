@@ -2801,6 +2801,11 @@ main {
               box-shadow 0.3s ease;
 }
 
+/* Disable transitions during drag to prevent initial jump animation */
+.filter-cart-panel.dragging {
+  transition: none !important;
+}
+
 /* Drag and drop states */
 .filter-cart-panel.drag-over,
 .filelist.drag-over {

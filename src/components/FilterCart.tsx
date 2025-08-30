@@ -122,6 +122,9 @@ export const FilterCart: React.FC = () => {
     if (!panelRef.current) return;
     const rect = panelRef.current.getBoundingClientRect();
     dragOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    // Snap to current visual position immediately to avoid transform transition jump
+    // This switches from centered transform to explicit left/top at the same position
+    setPanelPos({ left: rect.left, top: rect.top });
     setIsDragging(true);
 
     const onMove = (ev: MouseEvent) => {
@@ -744,7 +747,7 @@ export const FilterCart: React.FC = () => {
   return (
     <div 
       ref={panelRef}
-      className={`filter-cart-panel ${previewClosing ? 'preview-closing' : ''} ${isDragOver ? 'drag-over' : ''}`}
+      className={`filter-cart-panel ${previewClosing ? 'preview-closing' : ''} ${isDragOver ? 'drag-over' : ''} ${isDragging ? 'dragging' : ''}`}
       data-preview-size={previewModal.isOpen && previewModal.position === 'sidebar' ? previewSize : undefined}
       style={panelStyle}
       onDragEnter={handleDragEnter}
