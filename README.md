@@ -20,11 +20,10 @@ No installation required - all processing happens locally in your browser!
 - **Complete Privacy** - Your images never leave your device
 - **No Server Required** - Pure web application with offline capability
 
-### 🎯 Four Specialized Viewing Modes
-1. **Single Mode** - Focused single-view with unified file list
-2. **Compare Mode** - Side-by-side comparison of multiple folders
-3. **Pinpoint Mode** - Precision alignment with reference points and rotation
-4. **Analysis Mode** - Advanced filter application and comparison
+### 🎯 Three Specialized Viewing Modes
+1. **Compare Mode** - Side-by-side comparison of multiple folders
+2. **Pinpoint Mode** - Precision alignment with reference points and rotation
+3. **Analysis Mode** - Advanced filter application and comparison
 
 ### 🖼️ Advanced Image Support
 - **Standard Formats**: JPEG, PNG, WebP, GIF, BMP
@@ -47,15 +46,13 @@ No installation required - all processing happens locally in your browser!
 - **Keyboard Shortcuts**: Extensive hotkey support for rapid workflow
 - **Responsive Design**: Optimized for both desktop and mobile devices
 
-## 🔄 Recent Highlights
+## 🔄 Recent Highlights (Condensed)
 
-- Pinpoint reordering refined: viewer slots (A, B, C, …) stay fixed while you drag to reorder images. Image-follow transforms ensure per-image zoom, rotation, and filters move with the image.
-- Shift vs Swap: choose how drag reordering behaves. Toggle lives in the header and shows active state (blue) like Minimap/Grid.
-- Leveling tools: horizontal and vertical auto-level. Click the button, then click two points; a blue crosshair follows the cursor, the first click is fixed, and the second click computes the angle to align. Applies per-viewer in Pinpoint, and as global rotation in Compare/Analysis.
-- Pinpoint Global Scale input: enter a % directly in the header. Arrow controls removed and input is compact; values are safely clamped to avoid over-zoom.
-- Layout polish: viewer canvas fills the entire grid cell reliably in all layouts; removed old hover hints that could cause scrollbars and tiny size shifts.
-- New filters: Brightness and Contrast (Tone & Basics). Integrated everywhere (preview, chains, export) with compact controls.
-- Preview editor integration: the preview panel now embeds the same filter editor (type + params) used elsewhere. Changes reflect immediately in the preview and update the chain step you’re editing.
+- Pinpoint reordering refined: fixed slots (A, B, C, …), image-follow transforms
+- Shift vs Swap reorder modes with header toggle and active state
+- Leveling tools (horizontal/vertical): two-point alignment (per-viewer/global)
+- Pinpoint Global Scale: direct % input with safe clamping
+- Layout polish: canvases reliably fill grid cells, reduced layout jitter
 
 ## 📋 Table of Contents
 
@@ -99,19 +96,6 @@ npm run deploy
 ```
 
 ## 🎛️ Viewing Modes
-
-### 0. Single Mode 🎥
-**Perfect for: Focused inspection, quick filtering, distraction-free viewing**
-
-- **Unified File List**: Aggregated list across loaded folders (no filename matching or extension stripping)
-- **One Viewer**: Clean 1×1 layout that fills the viewer area
-- **Compare-Class Features**: Filters, minimap, grid, capture, and preview system
-- **Drag & Drop**: Quickly create a temporary folder or load the first image if no slot is available
-
-#### Key Features:
-- Aggregated file list with folder filter and search
-- Per-folder filter settings and preview
-- Capture with label overlays
 
 ### 1. Compare Mode 🔍
 **Perfect for: Multi-folder comparisons, file matching, side-by-side analysis**
@@ -319,13 +303,12 @@ CompareX features a comprehensive filter preview system that allows you to see f
 ## ⌨️ Keyboard Shortcuts
 
 ### Mode Switching ✅
-- **1** - Switch to Single Mode
-- **2** - Switch to Compare Mode
-- **3** - Switch to Pinpoint Mode  
-- **4** - Switch to Analysis Mode
+- **1** - Switch to Pinpoint Mode
+- **2** - Switch to Analysis Mode
+- **3** - Switch to Compare Mode
 
 ### Navigation ✅
-- **Arrow Keys** - Pan view (when image is loaded)
+- **Shift + Arrow Keys** - Pan view (when image is loaded)
 - **+/=** - Zoom in
 - **-** - Zoom out
 - **R** - Reset view to fit
@@ -343,8 +326,7 @@ CompareX features a comprehensive filter preview system that allows you to see f
 - **M** - Toggle minimap
 - **G** - Toggle grid overlay
 
-### General ✅
-- **Space** - Open toggle modal (when images are selected) *Note: Currently works via button only*
+- **Space** - Open toggle modal (when conditions met: viewers selected and appropriate mode)
 - **Escape** - Close modals and overlays
 - **Ctrl+Shift+P** - Open filter preview modal
 - **C** - Open capture modal
@@ -387,28 +369,29 @@ CompareX features a comprehensive filter preview system that allows you to see f
 ### Project Structure
 ```
 src/
-├── components/          # UI components
-│   ├── ImageCanvas.tsx     # Core image renderer
-│   ├── FilterControls.tsx  # Filter system UI
-│   ├── FilterPreviewModal.tsx # Filter preview system
-│   ├── FolderControl.tsx   # File browser
-│   ├── FlexibleLayout.tsx  # Free layout system
-│   ├── ViewToggleControls.tsx # UI toggle buttons
+├── components/             # UI components
+│   ├── ImageCanvas.tsx         # Core image renderer
+│   ├── FilterControls.tsx      # Filter system UI
+│   ├── FilterPreviewModal.tsx  # Filter preview system (modal/sidebar)
+│   ├── FilterCart.tsx          # Filter chain editor + presets/import/export
+│   ├── LayoutGridSelector.tsx  # Grid layout picker
+│   ├── FolderControl.tsx       # Folder picker control
+│   ├── Toast*.tsx              # Toast notifications
 │   └── ...
-├── modes/              # Application modes
-│   ├── SingleMode.tsx      # Focused single-view
-│   ├── CompareMode.tsx     # Multi-folder comparison
-│   ├── PinpointMode.tsx    # Reference-based alignment
-│   └── AnalysisMode.tsx    # Single-image analysis
-├── utils/              # Utility functions
-│   ├── filters.ts          # Filter implementations
-│   ├── filterChainLabel.ts # Filter chain labeling system
-│   ├── opencv.ts           # OpenCV integration
-│   └── ...
-├── hooks/              # Custom React hooks
-├── store.ts           # Zustand state management
-├── types.ts           # TypeScript definitions
-└── App.tsx            # Main application component
+├── modes/                 # Application modes
+│   ├── CompareMode.tsx
+│   ├── PinpointMode.tsx
+│   └── AnalysisMode.tsx
+├── utils/                 # Utilities
+│   ├── filters.ts             # Filter implementations
+│   ├── filterChain.ts         # Sequential chain processor
+│   ├── filterChainLabel.ts    # Chain labeling
+│   ├── opencv.ts              # OpenCV integration
+│   └── utif.ts                # TIFF decoding helpers
+├── hooks/                 # Custom hooks
+├── store.ts               # Zustand store
+├── types.ts               # Shared types
+└── App.tsx                # Main app component
 ```
 
 ### Development Commands
@@ -428,11 +411,10 @@ npm run deploy   # Deploy to GitHub Pages
 5. **Open** a Pull Request
 
 ### Code Style
-- **TypeScript** - Strict typing enabled
-- **ESLint** - Code quality enforcement
-- **Prettier** - Code formatting
-- **Component Structure** - Functional components with hooks
-- **State Management** - Zustand for global state
+- **TypeScript** - Strict typing enabled (tsc as linter)
+- **No ESLint/Prettier** - Keep consistent formatting; pass `npm run lint`
+- **Components** - Functional components with hooks
+- **State** - Centralized in Zustand store
 
 ## 🏗️ Architecture Deep Dive
 
@@ -535,13 +517,27 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Improved Capture System**: Granular control over what elements appear in screenshots
 - **Filter Chain Management**: Enhanced interface for creating and managing complex filter sequences
 
+#### Workflow & UX
+- Keyboard shortcuts updated: 1 → Pinpoint, 2 → Analysis, 3 → Compare (blocked while modals/overlays are active)
+- Navigation: pan with Shift + Arrow keys; zoom with +/−; fit with R
+- Filter preview/editor: chain-step editing previews the chain up to the edited step with real-time updates
+
+#### Filter Cart
+- Batch import: drag & drop multiple JSON filter chains with detailed toast summary
+- Export current cart; manage presets directly in the cart
+
+#### Stability & Compatibility
+- Filter-chain cache reworked to use canvases (fixes detached ImageBitmap drawImage errors)
+- OpenCV gamma correction uses float power (`cv.pow`) instead of `cv.LUT`
+- UTIF typing added; TIFF preview pipeline reliability improved
+
+#### Developer Experience
+- TypeScript strict errors resolved across components/store; safer typing for viewer arrangement, presets, and cart operations
+
 ### Coming Soon
 - **Complete Keyboard Shortcuts**: UI controls and additional general shortcuts
-- **Enhanced Filter Export/Import**: Save and share filter configurations
 - **Advanced Batch Processing**: Process multiple images with same settings
-- **Custom Filter Presets**: Create and manage filter templates
 - **Performance Monitoring**: Real-time performance analysis tools
-- **Space Bar Toggle**: Direct keyboard activation of toggle modal
 
 ---
 
