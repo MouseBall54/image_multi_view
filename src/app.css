@@ -3306,6 +3306,9 @@ main {
 /* Chain column panel header - match embedded style */
 .chain-column .panel-header {
   padding: 0 0 8px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 /* During preview close, maintain panel layout until width transition completes */
@@ -4196,6 +4199,40 @@ main {
 .btn-icon.btn-theme-success:hover:not(:disabled) {
   background: #218838;
   border-color: #218838;
+}
+
+/* Function-based button styles for Import/Export operations */
+.btn-import {
+  background: var(--accent-primary);
+  color: white;
+  border: 1px solid var(--accent-primary);
+}
+
+.btn-import:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-export {
+  background: var(--success-color);
+  color: white;
+  border: 1px solid var(--success-color);
+}
+
+.btn-export:hover:not(:disabled) {
+  background: #218838;
+  border-color: #218838;
+}
+
+.btn-apply-chain {
+  background: var(--accent-primary);
+  color: white;
+  border: 1px solid var(--accent-primary);
+}
+
+.btn-apply-chain:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .btn-icon.btn-theme-secondary {
