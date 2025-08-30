@@ -10,6 +10,7 @@ import { MAX_ZOOM, MIN_ZOOM } from '../config';
 import { FolderControl } from '../components/FolderControl';
 import { ALL_FILTERS } from '../components/FilterControls';
 import { createFileComparator } from '../utils/naturalSort';
+import { PinpointViewerControls } from '../components/PinpointViewerControls';
 
 // Helper function to check if a file is a valid image
 const isValidImageFile = (file: File): boolean => {
@@ -29,7 +30,6 @@ interface PinpointImage {
 }
 
 // A new component for individual scale control
-import { PinpointRotationControl } from '../components/PinpointRotationControl';
 import { PinpointScaleControl } from '../components/PinpointScaleControl';
 import { generateFilterChainLabel } from '../utils/filterChainLabel';
 
@@ -921,29 +921,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                       <line x1="17" y1="16" x2="23" y2="16"></line>
                     </svg>
                   </button>
-                  <PinpointRotationControl folderKey={key} />
-                  <button
-                    className="viewer__filter-button"
-                    title="Level horizontally (pick 2 points)"
-                    onClick={() => useStore.getState().startLeveling('pinpoint', key)}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="3" y1="12" x2="21" y2="12"></line>
-                      <circle cx="8" cy="12" r="2"></circle>
-                      <circle cx="16" cy="12" r="2"></circle>
-                    </svg>
-                  </button>
-                  <button
-                    className="viewer__filter-button"
-                    title="Level vertically (pick 2 points)"
-                    onClick={() => useStore.getState().startLeveling('pinpoint', key, 'vertical')}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="12" y1="3" x2="12" y2="21"></line>
-                      <circle cx="12" cy="8" r="2"></circle>
-                      <circle cx="12" cy="16" r="2"></circle>
-                    </svg>
-                  </button>
                   {pinpointImages[key] && (
                     <button 
                       className="viewer__unload-button" 
@@ -960,6 +937,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                   )}
                 </div>
                 <PinpointScaleControl folderKey={key} />
+                <PinpointViewerControls folderKey={key} />
                 </div>
               </DraggableViewer>
             );
