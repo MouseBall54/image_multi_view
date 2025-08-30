@@ -20,11 +20,10 @@
 - **완전한 Privacy** - 이미지가 절대 기기를 벗어나지 않음
 - **서버 불필요** - offline 기능을 갖춘 순수 web application
 
-### 🎯 4가지 전문 Viewing Mode
-1. **Single Mode** - 통합 파일 리스트 기반의 집중 단일 뷰
-2. **Compare Mode** - 여러 folder의 side-by-side 비교
-3. **Pinpoint Mode** - reference point와 rotation을 이용한 정밀 alignment
-4. **Analysis Mode** - 고급 filter 적용 및 비교
+### 🎯 3가지 전문 Viewing Mode
+1. **Compare Mode** - 여러 폴더의 side-by-side 비교
+2. **Pinpoint Mode** - 참조점과 회전을 이용한 정밀 정렬
+3. **Analysis Mode** - 고급 필터 적용 및 비교
 
 ### 🖼️ 고급 이미지 지원
 - **표준 Format**: JPEG, PNG, WebP, GIF, BMP
@@ -47,15 +46,16 @@
 - **Keyboard Shortcut**: 빠른 workflow를 위한 광범위한 hotkey 지원
 - **Responsive Design**: desktop과 mobile 장치 모두 최적화
 
-## 🔄 최근 하이라이트
+## 🔄 최근 하이라이트 (요약)
 
 - Pinpoint 재정렬 개선: 뷰어 슬롯(A, B, C, …)은 고정되고, 드래그로 이미지 할당만 이동합니다. 이미지 기준 이동으로 개별 줌/회전/필터가 함께 따라갑니다.
 - Shift vs Swap 모드: 드래그 재배열 방식을 선택할 수 있습니다. 헤더 토글(미니맵/그리드처럼 파란 강조)로 활성 상태가 표시됩니다.
 - 수평/수직 레벨링: 버튼 클릭 → 파란 십자선이 마우스를 따라 이동 → 두 점 클릭 → 기울기를 계산해 자동 정렬. Pinpoint는 뷰어별, Compare/Analysis는 글로벌 회전으로 적용됩니다.
 - Pinpoint 글로벌 스케일 입력: 헤더에서 %를 직접 입력해 조정(화살표 제거, 컴팩트 UI, 안전 클램프 적용).
 - 레이아웃 폴리시: 캔버스가 항상 셀 전체를 채우도록 정리했으며, 불필요한 hover 힌트를 제거해 스크롤바/미세 사이즈 흔들림을 해소했습니다.
-- 새 필터: 밝기(Brightness), 대비(Contrast) 추가. 미리보기/체인/익스포트까지 완전 연동.
-- 미리보기 편집 통합: 미리보기 패널에 실제 필터 에디터(타입 선택 + 컴팩트 파라미터)가 삽입되어 변경이 즉시 미리보기에 반영되고, 편집 중인 체인 스텝에도 반영됩니다.
+
+
+## 🆕 최신 기능
 
 ## 📋 목차
 
@@ -99,19 +99,6 @@ npm run deploy
 ```
 
 ## 🎛️ Viewing Mode
-
-### 0. Single Mode 🎥
-**적합한 용도: 집중 뷰, 빠른 필터링, 방해 요소 없는 관찰**
-
-- **통합 파일 리스트**: 로드된 폴더 전반의 파일을 통합해 보여줌 (파일 매칭/확장자 무시 옵션 없음)
-- **단일 뷰어**: 뷰어 영역을 가득 채우는 1×1 레이아웃
-- **Compare급 기능**: 필터, 미니맵, 그리드, 캡처, 프리뷰 시스템 그대로 사용
-- **드래그 앤 드롭**: 비어있는 폴더가 있으면 임시 폴더 생성, 없으면 첫 이미지를 즉시 표시
-
-#### 주요 기능:
-- 폴더 필터 + 검색이 가능한 통합 파일 리스트
-- 폴더별 필터 설정 및 프리뷰
-- 라벨 오버레이 포함 캡처
 
 ### 1. Compare Mode 🔍
 **적합한 용도: Multi-folder 비교, 파일 matching, side-by-side 분석**
@@ -304,13 +291,12 @@ CompareX는 filter를 적용하기 전에 효과를 확인할 수 있는 포괄�
 ## ⌨️ Keyboard Shortcut
 
 ### Mode 전환 ✅
-- **1** - Single Mode로 전환
-- **2** - Compare Mode로 전환
-- **3** - Pinpoint Mode로 전환  
-- **4** - Analysis Mode로 전환
+- **1** - Pinpoint Mode로 전환
+- **2** - Analysis Mode로 전환
+- **3** - Compare Mode로 전환
 
 ### Navigation ✅
-- **화살표 키** - view pan (이미지 로드 시)
+- **Shift + 화살표 키** - view pan (이미지 로드 시)
 - **+/=** - zoom in
 - **-** - zoom out
 - **R** - view를 fit으로 reset
@@ -329,7 +315,7 @@ CompareX는 filter를 적용하기 전에 효과를 확인할 수 있는 포괄�
 - **G** - 그리드 오버레이 표시/숨기기
 
 ### 일반 ✅
-- **Space** - toggle modal 열기 (이미지 선택 시) *참고: 현재 버튼으로만 작동*
+- **Space** - toggle modal 열기 (해당 조건 충족 시: 뷰어 선택 및 적합한 모드)
 - **Escape** - modal 및 overlay 닫기
 - **Ctrl+Shift+P** - 필터 미리보기 modal 열기
 - **C** - 캡처 modal 열기
@@ -401,6 +387,34 @@ npm run preview  # production build preview
 npm run deploy   # GitHub Pages에 deploy
 ```
 
+### 프로젝트 구조
+```
+src/
+├── components/             # UI 컴포넌트
+│   ├── ImageCanvas.tsx         # 핵심 이미지 렌더러
+│   ├── FilterControls.tsx      # 필터 UI
+│   ├── FilterPreviewModal.tsx  # 미리보기(모달/사이드바)
+│   ├── FilterCart.tsx          # 필터 체인/프리셋/임포트/익스포트
+│   ├── LayoutGridSelector.tsx  # 그리드 레이아웃 선택기
+│   ├── FolderControl.tsx       # 폴더 선택
+│   ├── Toast*.tsx              # 토스트 알림
+│   └── ...
+├── modes/                 # 모드
+│   ├── CompareMode.tsx
+│   ├── PinpointMode.tsx
+│   └── AnalysisMode.tsx
+├── utils/                 # 유틸리티
+│   ├── filters.ts             # 필터 구현
+│   ├── filterChain.ts         # 연속 체인 처리기
+│   ├── filterChainLabel.ts    # 체인 라벨링
+│   ├── opencv.ts              # OpenCV 연동
+│   └── utif.ts                # TIFF 디코딩 헬퍼
+├── hooks/                 # 커스텀 훅
+├── store.ts               # Zustand 스토어
+├── types.ts               # 공용 타입
+└── App.tsx                # 메인 앱 컴포넌트
+```
+
 ### 기여 가이드라인
 1. repository **Fork**
 2. feature branch **생성** (`git checkout -b feature/amazing-feature`)
@@ -409,11 +423,10 @@ npm run deploy   # GitHub Pages에 deploy
 5. Pull Request **열기**
 
 ### Code Style
-- **TypeScript** - strict typing 활성화
-- **ESLint** - code 품질 강제
-- **Prettier** - code 형식화
-- **Component 구조** - hook을 사용한 함수형 component
-- **State 관리** - global state용 Zustand
+- **TypeScript** - strict 모드 (tsc로 타입 체크)
+- **ESLint/Prettier 없음** - 일관된 스타일 유지, `npm run lint` 통과 기준
+- **컴포넌트** - 함수형 컴포넌트 + 훅
+- **상태** - Zustand 중앙 집중 관리
 
 ## 🏗️ Architecture 심층 분석
 
@@ -512,9 +525,25 @@ npm run deploy   # GitHub Pages에 deploy
 - **개선된 캡처 시스템**: 스크린샷에 표시될 요소의 세밀한 제어
 - **필터 체인 관리**: 복잡한 필터 시퀀스 생성 및 관리를 위한 향상된 인터페이스
 
+#### 워크플로우 & UX
+- 단축키 최신화: 1 → Pinpoint, 2 → Analysis, 3 → Compare (모달/오버레이 활성 시 전환 차단)
+- 이동: Shift + 화살표 (팬), +/− (줌), R (Fit)
+- 미리보기/에디터: 체인 스텝 편집 시 해당 스텝까지 실시간 미리보기
+
+#### Filter Cart
+- JSON 다중 임포트: 드래그&드롭으로 여러 체인 파일을 가져오기(상세 토스트 요약)
+- 현재 카트 Export, 프리셋 관리 통합
+
+#### 안정성 & 호환성
+- 필터 체인 캐시를 Canvas 기반으로 재구성 (detached ImageBitmap drawImage 오류 방지)
+- OpenCV 감마 보정: `cv.LUT` 대신 `cv.pow` 기반으로 수정
+- UTIF 타이핑 추가; TIFF 미리보기 파이프라인 안정화
+
+#### 개발 경험
+- TypeScript strict 오류 전반 해결; 뷰어 배치/프리셋/카트 로직 타입 안정성 강화
+
 ### 곧 출시 예정
 - **추가 키보드 단축키**: UI 컨트롤을 위한 전체 키보드 접근성
-- **필터 프리셋**: 자주 사용하는 필터 조합의 저장 및 공유
 - **배치 처리**: 여러 이미지에 동일한 필터 체인 적용
 - **향상된 내보내기**: 더 많은 이미지 형식 및 품질 옵션
 

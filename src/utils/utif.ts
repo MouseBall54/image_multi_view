@@ -28,7 +28,7 @@ export async function decodeTiffWithUTIF(file: File, options: UtifOptions): Prom
 
   let page = ifds[0];
   if (options.pageStrategy === 'largest') {
-    page = ifds.reduce((a, b) => (a.width * a.height > b.width * b.height ? a : b));
+    page = ifds.reduce((a: any, b: any) => (a.width * a.height > b.width * b.height ? a : b));
   } else if (typeof options.pageStrategy === 'number') {
     page = ifds[options.pageStrategy] || ifds[0];
   }

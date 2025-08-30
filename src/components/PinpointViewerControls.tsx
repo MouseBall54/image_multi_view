@@ -1,13 +1,22 @@
-// src/components/CompareRotationControl.tsx
+// src/components/PinpointViewerControls.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
+import type { FolderKey } from '../types';
 
-export function CompareRotationControl() {
-  const { compareRotation, setCompareRotation } = useStore();
+interface Props {
+  folderKey: FolderKey;
+}
 
-  const currentAngle = compareRotation;
+export function PinpointViewerControls({ folderKey }: Props) {
+  const { 
+    pinpointRotations, 
+    setPinpointRotation,
+    startLeveling,
+  } = useStore();
+
+  const currentAngle = pinpointRotations[folderKey] || 0;
   const [angleInput, setAngleInput] = useState(currentAngle.toFixed(1));
-
+  
 
   useEffect(() => {
     if (parseFloat(angleInput) !== currentAngle) {
@@ -18,8 +27,8 @@ export function CompareRotationControl() {
   const updateRotation = useCallback((newAngle: number) => {
     const roundedAngle = Math.round(newAngle * 10) / 10;
     const normalizedAngle = (roundedAngle % 360 + 360) % 360;
-    setCompareRotation(normalizedAngle);
-  }, [setCompareRotation]);
+    setPinpointRotation(folderKey, normalizedAngle);
+  }, [folderKey, setPinpointRotation]);
 
   // Removed continuous-rotation handlers to simplify and avoid unused refs
 
@@ -44,8 +53,8 @@ export function CompareRotationControl() {
   };
 
   return (
-    <div className="pinpoint-rotation-control">
-      <div className="rotation-input-wrapper">
+    <div className="pinpoint-viewer-controls">
+      <div className="viewer-angle-input">
         <input 
           type="number" 
           step="0.1"
@@ -57,22 +66,37 @@ export function CompareRotationControl() {
         />
         <span className="degree-symbol">°</span>
       </div>
-      <button onClick={() => updateRotation(0)} title="Reset Rotation">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      
+      <button 
+        className="viewer-control-btn" 
+        onClick={() => updateRotation(0)} 
+        title="Reset Rotation"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M1 4v6h6"/>
           <path d="M23 20v-6h-6"/>
           <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
         </svg>
       </button>
-      <button onClick={() => useStore.getState().startLeveling('compare', null)} title="Level horizontally (pick 2 points)">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      
+      <button 
+        className="viewer-control-btn" 
+        onClick={() => startLeveling('pinpoint', folderKey)} 
+        title="Level horizontally"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="3" y1="12" x2="21" y2="12"></line>
           <circle cx="8" cy="12" r="2"></circle>
           <circle cx="16" cy="12" r="2"></circle>
         </svg>
       </button>
-      <button onClick={() => useStore.getState().startLeveling('compare', null, 'vertical')} title="Level vertically (pick 2 points)">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      
+      <button 
+        className="viewer-control-btn" 
+        onClick={() => startLeveling('pinpoint', folderKey, 'vertical')} 
+        title="Level vertically"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="3" x2="12" y2="21"></line>
           <circle cx="12" cy="8" r="2"></circle>
           <circle cx="12" cy="16" r="2"></circle>
@@ -81,4 +105,3 @@ export function CompareRotationControl() {
     </div>
   );
 }
-

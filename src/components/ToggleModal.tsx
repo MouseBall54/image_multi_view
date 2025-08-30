@@ -86,7 +86,7 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
     if (appMode === 'compare') {
       const currentFolder = currentViewerKey ? folders[currentViewerKey] : null;
       const currentFile = current && currentFolder ? 
-        (Array.from(currentFolder.data.files.entries()).find(([name]) => 
+        ((Array.from(currentFolder.data.files.entries()) as Array<[string, File]>).find(([name]) => 
           name === current.filename || name.replace(/\.[^/.]+$/, "") === current.filename
         )?.[1]) : undefined;
       
@@ -108,7 +108,7 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
     
     if (appMode === 'pinpoint' && pinpointImages) {
       const pinpointImage = pinpointImages[currentViewerKey];
-      const currentFolder = pinpointImage?.sourceKey ? folders[pinpointImage.sourceKey] : folders[currentViewerKey];
+      const currentFolder = pinpointImage?.sourceKey ? folders[pinpointImage.sourceKey as FolderKey] : folders[currentViewerKey as FolderKey];
       const sourceFolderAlias = pinpointImage?.sourceKey ? (currentFolder?.alias || pinpointImage.sourceKey) : (currentFolder?.alias || currentViewerKey);
       
       let label = sourceFolderAlias;

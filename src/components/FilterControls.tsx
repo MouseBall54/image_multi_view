@@ -1,11 +1,12 @@
 import React from 'react';
 import { useStore } from '../store';
-import type { FilterType } from '../types';
+import type { FilterType, FolderKey } from '../types';
 import { LAWS_KERNEL_TYPES } from '../utils/filters';
 import { 
   calculatePerformanceMetrics, 
   formatPerformanceEstimate
 } from '../utils/opencvFilters';
+import { FilterModeToggle } from './FilterModeToggle';
 
 // Inline editable number: click value to edit, blur/Enter to commit, Esc to cancel
 const InlineNumber: React.FC<{
@@ -65,6 +66,17 @@ const InlineNumber: React.FC<{
     </span>
   );
 };
+
+// Basic filters for simplified mode (7 essential filters)
+export const BASIC_FILTERS: FilterType[] = [
+  'none',
+  'brightness', 
+  'contrast',
+  'grayscale',
+  'gaussianblur',
+  'histogramequalization',
+  'sharpen'
+];
 
 export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = [
   // Tone & Basics
@@ -190,30 +202,34 @@ const filterGroups = [
 
 export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const {
-    appMode,
     activeFilterEditor,
     tempViewerFilter,
     tempViewerFilterParams,
     closeFilterEditor,
     setTempFilterType,
     setTempFilterParams,
-    applyTempFilterSettings,
     current,
     viewerImageSizes,
     analysisImageSizes,
     addToFilterCart,
     setShowFilterCart,
     showFilterCart,
-    openPreviewModal,
     updatePreviewModal,
     folders,
     analysisFile,
+    editingFilterChainItem,
+    updateFilterCartItem,
   } = useStore();
 
   const panelRef = React.useRef<HTMLDivElement>(null);
   const [panelPos, setPanelPos] = React.useState<{ left: number; top: number } | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const dragOffsetRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Filter mode state management
+  const [isAdvancedMode, setIsAdvancedMode] = React.useState(() => {
+    return localStorage.getItem('filterModalAdvancedMode') === 'true';
+  });
 
   const onHeaderMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -256,8 +272,8 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
         const base = current.filename.replace(/\.[^/.]+$/, '');
         for (const [name, file] of files) {
           if (name === current.filename) return file;
-          const nb = name.replace(/\.[^/.]+$/, '');
-          if (nb === current.filename || nb === base) return file;
+          const baseName = name.replace(/\.[^/.]+$/, '');
+          if (baseName === current.filename || baseName === base) return file;
         }
         return undefined;
       } else if (typeof activeFilterEditor === 'number') {
@@ -285,8 +301,8 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
       const base = filename.replace(/\.[^/.]+$/, '');
       for (const [name, file] of files) {
         if (name === filename) return file;
-        const nb = name.replace(/\.[^/.]+$/, '');
-        if (nb === filename || nb === base) return file;
+        const baseName: string = name.replace(/\.[^/.]+$/, '');
+        if (baseName === filename || baseName === base) return file;
       }
       return undefined;
     };
@@ -304,9 +320,9 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
         if (viaCanvas) return viaCanvas;
       }
       // Scan any folder that has the current filename
-      for (const k in current.has) {
-        if ((current.has as any)[k]) {
-          const f = findFileInFolder(folders[k as any], current.filename);
+      for (const k of Object.keys(current.has) as (keyof typeof current.has)[]) {
+        if (current.has[k]) {
+          const f = findFileInFolder(folders[k as FolderKey], current.filename);
           if (f) return f;
         }
       }
@@ -317,26 +333,113 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     }
     return undefined;
   };
+  // touch reference to avoid TS unused warning in strict mode
+  void getCurrentImageFile;
 
   const handleParamChange = (param: string, value: string) => {
     const numValue = parseFloat(value);
     if (!isNaN(numValue)) {
+      const newParams = { ...tempViewerFilterParams, [param]: numValue };
       setTempFilterParams({ [param]: numValue });
       
-      // Update preview modal if it's open with real-time updates
-      updatePreviewModal({
-        filterParams: { ...tempViewerFilterParams, [param]: numValue }
-      });
+      // Update FilterChain item if we're editing one
+      if (editingFilterChainItem) {
+        updateFilterCartItem(editingFilterChainItem, { params: newParams });
+        
+        // Update preview modal with the updated chain
+        const state = useStore.getState();
+        const updatedChain = state.filterCart.map(item => 
+          item.id === editingFilterChainItem ? { ...item, params: newParams } : item
+        );
+        
+        if (state.previewModal?.isOpen && state.previewModal.mode === 'chain') {
+          // Find the step index being edited
+          const editingStepIndex = updatedChain.findIndex(item => item.id === editingFilterChainItem);
+          // Only include filters up to the step being edited
+          const filtersUpToStep = updatedChain.slice(0, editingStepIndex + 1).filter(f => f.enabled);
+          updatePreviewModal({ chainItems: filtersUpToStep });
+        } else if (state.previewModal?.isOpen && state.previewModal.mode === 'single') {
+          updatePreviewModal({ filterParams: newParams });
+        }
+      } else {
+        // Update preview modal if it's open with real-time updates (non-chain editing)
+        const state = useStore.getState();
+        if (state.previewModal?.isOpen) {
+          updatePreviewModal({
+            filterParams: newParams
+          });
+        }
+      }
     }
   };
 
   const handleStringParamChange = (param: string, value: string) => {
+    const newParams = { ...tempViewerFilterParams, [param]: value };
     setTempFilterParams({ [param]: value });
     
-    // Update preview modal if it's open with real-time updates
-    updatePreviewModal({
-      filterParams: { ...tempViewerFilterParams, [param]: value }
-    });
+    // Update FilterChain item if we're editing one
+    if (editingFilterChainItem) {
+      updateFilterCartItem(editingFilterChainItem, { params: newParams });
+      
+      // Update preview modal with the updated chain
+      const state = useStore.getState();
+      const updatedChain = state.filterCart.map(item => 
+        item.id === editingFilterChainItem ? { ...item, params: newParams } : item
+      );
+      
+      if (state.previewModal?.isOpen && state.previewModal.mode === 'chain') {
+        // Find the step index being edited
+        const editingStepIndex = updatedChain.findIndex(item => item.id === editingFilterChainItem);
+        // Only include filters up to the step being edited
+        const filtersUpToStep = updatedChain.slice(0, editingStepIndex + 1).filter(f => f.enabled);
+        updatePreviewModal({ chainItems: filtersUpToStep });
+      } else if (state.previewModal?.isOpen && state.previewModal.mode === 'single') {
+        updatePreviewModal({ filterParams: newParams });
+      }
+    } else {
+      // Update preview modal if it's open with real-time updates (non-chain editing)
+      const state = useStore.getState();
+      if (state.previewModal?.isOpen) {
+        updatePreviewModal({
+          filterParams: newParams
+        });
+      }
+    }
+  };
+
+  // Helper for InlineNumber onCommit with preview updates
+  const handleInlineNumberCommit = (param: string, value: number) => {
+    const newParams = { ...tempViewerFilterParams, [param]: value };
+    setTempFilterParams({ [param]: value });
+    
+    // Update FilterChain item if we're editing one
+    if (editingFilterChainItem) {
+      updateFilterCartItem(editingFilterChainItem, { params: newParams });
+      
+      // Update preview modal with the updated chain
+      const state = useStore.getState();
+      const updatedChain = state.filterCart.map(item => 
+        item.id === editingFilterChainItem ? { ...item, params: newParams } : item
+      );
+      
+      if (state.previewModal?.isOpen && state.previewModal.mode === 'chain') {
+        // Find the step index being edited
+        const editingStepIndex = updatedChain.findIndex(item => item.id === editingFilterChainItem);
+        // Only include filters up to the step being edited
+        const filtersUpToStep = updatedChain.slice(0, editingStepIndex + 1).filter(f => f.enabled);
+        updatePreviewModal({ chainItems: filtersUpToStep });
+      } else if (state.previewModal?.isOpen && state.previewModal.mode === 'single') {
+        updatePreviewModal({ filterParams: newParams });
+      }
+    } else {
+      // Update preview modal if it's open with real-time updates (non-chain editing)
+      const state = useStore.getState();
+      if (state.previewModal?.isOpen) {
+        updatePreviewModal({
+          filterParams: newParams
+        });
+      }
+    }
   };
 
   // Calculate performance metrics for current filter and image
@@ -531,7 +634,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               min={-100}
               max={100}
               step={1}
-              onCommit={(v)=> setTempFilterParams({ brightness: v })}
+              onCommit={(v)=> handleInlineNumberCommit('brightness', v)}
             />
           </div>
         );
@@ -552,7 +655,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               min={0}
               max={200}
               step={1}
-              onCommit={(v)=> setTempFilterParams({ contrast: v })}
+              onCommit={(v)=> handleInlineNumberCommit('contrast', v)}
             />
           </div>
         );
@@ -644,7 +747,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 min={0.1}
                 max={10}
                 step={0.01}
-                onCommit={(v)=> setTempFilterParams({ sigma: v })}
+                onCommit={(v)=> handleInlineNumberCommit('sigma', v)}
               />
             </div>
           </>
@@ -679,7 +782,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 min={0.1}
                 max={10}
                 step={0.01}
-                onCommit={(v)=> setTempFilterParams({ sigma: v })}
+                onCommit={(v)=> handleInlineNumberCommit('sigma', v)}
               />
             </div>
           </>
@@ -887,7 +990,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 min={1}
                 max={10}
                 step={0.01}
-                onCommit={(v)=> setTempFilterParams({ clipLimit: v })}
+                onCommit={(v)=> handleInlineNumberCommit('clipLimit', v)}
               />
             </div>
             <div className="control-row">
@@ -921,7 +1024,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               min={0.2}
               max={2.2}
               step={0.01}
-              onCommit={(v)=> setTempFilterParams({ gamma: v })}
+              onCommit={(v)=> handleInlineNumberCommit('gamma', v)}
             />
           </div>
         );
@@ -955,7 +1058,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 min={0.1}
                 max={10}
                 step={0.01}
-                onCommit={(v)=> setTempFilterParams({ sigma: v })}
+                onCommit={(v)=> handleInlineNumberCommit('sigma', v)}
               />
             </div>
             <div className="control-row">
@@ -973,7 +1076,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 min={0.1}
                 max={5}
                 step={0.01}
-                onCommit={(v)=> setTempFilterParams({ sharpenAmount: v })}
+                onCommit={(v)=> handleInlineNumberCommit('sharpenAmount', v)}
               />
             </div>
           </>
@@ -989,27 +1092,27 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
             <div className="control-row">
               <label>Theta (θ)</label>
               <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.theta ?? 0} onChange={(e) => handleParamChange('theta', e.target.value)} />
-              <InlineNumber value={tempViewerFilterParams.theta ?? 0} min={0} max={3.14} step={0.01} onCommit={(v)=> setTempFilterParams({ theta: v })} />
+              <InlineNumber value={tempViewerFilterParams.theta ?? 0} min={0} max={3.14} step={0.01} onCommit={(v)=> handleInlineNumberCommit('theta', v)} />
             </div>
             <div className="control-row">
               <label>Sigma (σ)</label>
               <input type="range" min="1" max="10" step="0.5" value={tempViewerFilterParams.sigma ?? 4.0} onChange={(e) => handleParamChange('sigma', e.target.value)} />
-              <InlineNumber value={tempViewerFilterParams.sigma ?? 4.0} min={1} max={10} step={0.01} onCommit={(v)=> setTempFilterParams({ sigma: v })} />
+              <InlineNumber value={tempViewerFilterParams.sigma ?? 4.0} min={1} max={10} step={0.01} onCommit={(v)=> handleInlineNumberCommit('sigma', v)} />
             </div>
             <div className="control-row">
               <label>Lambda (λ)</label>
               <input type="range" min="3" max="20" step="1" value={tempViewerFilterParams.lambda ?? 10.0} onChange={(e) => handleParamChange('lambda', e.target.value)} />
-              <InlineNumber value={tempViewerFilterParams.lambda ?? 10.0} min={3} max={20} step={0.01} onCommit={(v)=> setTempFilterParams({ lambda: v })} />
+              <InlineNumber value={tempViewerFilterParams.lambda ?? 10.0} min={3} max={20} step={0.01} onCommit={(v)=> handleInlineNumberCommit('lambda', v)} />
             </div>
             <div className="control-row">
               <label>Gamma (γ)</label>
               <input type="range" min="0.2" max="1" step="0.1" value={tempViewerFilterParams.gamma ?? 0.5} onChange={(e) => handleParamChange('gamma', e.target.value)} />
-              <InlineNumber value={tempViewerFilterParams.gamma ?? 0.5} min={0.2} max={1} step={0.01} onCommit={(v)=> setTempFilterParams({ gamma: v })} />
+              <InlineNumber value={tempViewerFilterParams.gamma ?? 0.5} min={0.2} max={1} step={0.01} onCommit={(v)=> handleInlineNumberCommit('gamma', v)} />
             </div>
             <div className="control-row">
               <label>Psi (ψ)</label>
               <input type="range" min="0" max="3.14" step="0.1" value={tempViewerFilterParams.psi ?? 0} onChange={(e) => handleParamChange('psi', e.target.value)} />
-              <InlineNumber value={tempViewerFilterParams.psi ?? 0} min={0} max={3.14} step={0.01} onCommit={(v)=> setTempFilterParams({ psi: v })} />
+              <InlineNumber value={tempViewerFilterParams.psi ?? 0} min={0} max={3.14} step={0.01} onCommit={(v)=> handleInlineNumberCommit('psi', v)} />
             </div>
           </>
         );
@@ -1064,7 +1167,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.epsilon ?? 0.04}
                 onChange={(e) => handleParamChange('epsilon', e.target.value)}
               />
-              <InlineNumber value={tempViewerFilterParams.epsilon ?? 0.04} min={0.01} max={0.2} step={0.01} onCommit={(v)=> setTempFilterParams({ epsilon: v })} />
+              <InlineNumber value={tempViewerFilterParams.epsilon ?? 0.04} min={0.01} max={0.2} step={0.01} onCommit={(v)=> handleInlineNumberCommit('epsilon', v)} />
             </div>
           </>
         );
@@ -1200,13 +1303,23 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 title: `Filter Preview: ${ALL_FILTERS.find(f => f.type === newFilterType)?.name || newFilterType}`
               });
             }}>
-              {filterGroups.map(group => (
-                <optgroup label={group} key={group}>
-                  {ALL_FILTERS.filter(f => f.group === group).map(f => (
-                    <option key={f.type} value={f.type}>{f.name}</option>
-                  ))}
-                </optgroup>
-              ))}
+              {filterGroups.map(group => {
+                const groupFilters = ALL_FILTERS.filter(f => f.group === group);
+                const displayFilters = isAdvancedMode ? 
+                  groupFilters : 
+                  groupFilters.filter(f => BASIC_FILTERS.includes(f.type));
+                
+                // Only show groups that have filters to display
+                if (displayFilters.length === 0) return null;
+                
+                return (
+                  <optgroup label={group} key={group}>
+                    {displayFilters.map(f => (
+                      <option key={f.type} value={f.type}>{f.name}</option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </select>
           </div>
           <div className="params-container">
@@ -1301,7 +1414,13 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     return (
       <div className="filter-controls-embedded">
         <div className="panel-header">
-          <h3>Filter Editor</h3>
+          <div className="header-left">
+            <h3>Filter Editor</h3>
+            <FilterModeToggle 
+              isAdvanced={isAdvancedMode} 
+              onToggle={setIsAdvancedMode} 
+            />
+          </div>
         </div>
         {body}
       </div>
@@ -1312,7 +1431,13 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     <div className="filter-controls-overlay">
       <div className="filter-controls-panel" ref={panelRef} style={panelStyle}>
         <div className="panel-header" onMouseDown={onHeaderMouseDown} style={{ cursor: 'grab' }}>
-          <h3>Filter Editor (View {activeFilterEditor})</h3>
+          <div className="header-left">
+            <h3>Filter Editor (View {activeFilterEditor})</h3>
+            <FilterModeToggle 
+              isAdvanced={isAdvancedMode} 
+              onToggle={setIsAdvancedMode} 
+            />
+          </div>
           <button onClick={closeFilterEditor} className="close-btn">&times;</button>
         </div>
         {body}

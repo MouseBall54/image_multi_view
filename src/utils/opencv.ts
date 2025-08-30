@@ -1,3 +1,4 @@
+// @ts-nocheck
 import cv from 'opencv-ts';
 
 let opencvReady = false;
@@ -33,3 +34,4 @@ export const getOpenCV = () => {
 };
 
 export default cv;
+// @ts-nocheck

@@ -138,6 +138,9 @@ interface State {
   tempViewerFilter: FilterType;
   tempViewerFilterParams: FilterParams;
   activeFilterEditor: FolderKey | number | null; // Updated to allow number for analysis mode index
+  
+  // FilterChain editing state
+  editingFilterChainItem: string | null; // ID of the FilterChainItem being edited
 
   // Analysis Mode State
   analysisFile: File | null;
@@ -177,8 +180,6 @@ interface State {
     realTimeUpdate?: boolean;
     position?: 'modal' | 'sidebar';
     size?: 'S' | 'M' | 'L';
-    editMode?: boolean;
-    onParameterChange?: (params: FilterParams) => void;
     stepIndex?: number;
     stickySource?: boolean; // When true, don't auto-sync sourceFile
   };
@@ -245,6 +246,9 @@ interface State {
   setTempFilterType: (type: FilterType) => void;
   setTempFilterParams: (params: Partial<FilterParams>) => void;
   applyTempFilterSettings: () => void;
+  
+  // FilterChain editing actions
+  setEditingFilterChainItem: (itemId: string | null) => void;
 
   // Filter Chain actions
   addToFilterCart: () => void;
@@ -285,9 +289,8 @@ interface State {
     realTimeUpdate?: boolean;
     position?: 'modal' | 'sidebar';
     size?: 'S' | 'M' | 'L';
-    editMode?: boolean;
-    onParameterChange?: (params: FilterParams) => void;
     stepIndex?: number;
+    stickySource?: boolean;
   }) => void;
   setPreviewSize: (size: 'S' | 'M' | 'L') => void;
   closePreviewModal: () => void;
@@ -327,7 +330,7 @@ interface State {
 
 }
 
-export const useStore = create<State>((set) => ({
+export const useStore = create<State>((set, get) => ({
   appMode: "pinpoint",
   pinpointMouseMode: "pan",
   pinpointReorderMode: 'shift',
@@ -371,6 +374,7 @@ export const useStore = create<State>((set) => ({
   tempViewerFilter: 'none',
   tempViewerFilterParams: defaultFilterParams,
   activeFilterEditor: null,
+  editingFilterChainItem: null,
 
   // Analysis Mode State
   analysisFile: null,
@@ -549,10 +553,10 @@ export const useStore = create<State>((set) => ({
         if (firstFilename) {
           // Build a has-map across folders for this filename
           const has: any = {};
-          for (const k in state.folders) {
-            const f = state.folders[k as any];
-            has[k] = !!(f && f.data && f.data.files && f.data.files.has(firstFilename));
-          }
+      for (const k of Object.keys(state.folders) as (keyof typeof state.folders)[]) {
+        const f = state.folders[k as FolderKey];
+        (has as any)[k] = !!(f && (f as any).data && (f as any).data.files && (f as any).data.files.has(firstFilename));
+      }
           nextCurrent = { filename: firstFilename, has } as any;
         }
       }
@@ -581,6 +585,9 @@ export const useStore = create<State>((set) => ({
   setTempFilterParams: (params) => set(state => ({
     tempViewerFilterParams: { ...state.tempViewerFilterParams, ...params }
   })),
+  
+  // FilterChain editing actions
+  setEditingFilterChainItem: (itemId: string | null) => set({ editingFilterChainItem: itemId }),
   applyTempFilterSettings: () => set(state => {
     const key = state.activeFilterEditor;
     if (key === null) return {};
@@ -705,7 +712,7 @@ export const useStore = create<State>((set) => ({
   }),
 
   exportFilterChain: (chainId) => {
-    const state = useStore.getState();
+    const state = get();
     const chain = state.filterChains.find((c: any) => c.id === chainId);
     if (chain) {
       import('./utils/filterExport').then(({ exportFilterChain }) => {
@@ -715,7 +722,7 @@ export const useStore = create<State>((set) => ({
   },
 
   exportCurrentCart: (name, description) => {
-    const state = useStore.getState();
+    const state = get();
     if (state.filterCart.length > 0) {
       import('./utils/filterExport').then(({ exportFilterCart }) => {
         exportFilterCart(state.filterCart, name, description);
@@ -775,7 +782,7 @@ export const useStore = create<State>((set) => ({
   })),
 
   // UI controls
-  setShowFilterCart: (show) => set(state => {
+  setShowFilterCart: (show) => set(() => {
     if (show) return { showFilterCart: true };
     return {
       showFilterCart: false,
@@ -804,7 +811,8 @@ export const useStore = create<State>((set) => ({
       isOpen: false,
       realTimeUpdate: false,
       stickySource: false
-    }
+    },
+    editingFilterChainItem: null
   })),
   
   updatePreviewModal: (updates) => set(state => ({
@@ -849,13 +857,24 @@ export const useStore = create<State>((set) => ({
     const angleDeg = angleRad * 180 / Math.PI;
     const delta = cap.axis === 'vertical' ? (angleDeg - 90) : angleDeg; // rotate by -delta
 
-    if (cap.mode === 'pinpoint' && typeof targetKey === 'string') {
-      const current = state.pinpointRotations[targetKey] || 0;
-      const newAngle = current - delta;
-      return {
-        levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
-        pinpointRotations: { ...state.pinpointRotations, [targetKey]: newAngle }
-      } as any;
+    if (cap.mode === 'pinpoint') {
+      if (typeof targetKey === 'string') {
+        // Individual image rotation
+        const current = state.pinpointRotations[targetKey] || 0;
+        const newAngle = current - delta;
+        return {
+          levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
+          pinpointRotations: { ...state.pinpointRotations, [targetKey]: newAngle }
+        } as any;
+      } else if (targetKey === null) {
+        // Global rotation
+        const current = state.pinpointGlobalRotation || 0;
+        const newAngle = ((current - delta) % 360 + 360) % 360;
+        return {
+          levelingCapture: { active: false, mode: null, targetKey: null, points: [], axis: 'horizontal' },
+          pinpointGlobalRotation: newAngle
+        } as any;
+      }
     }
     if (cap.mode === 'compare') {
       const current = state.compareRotation || 0;
@@ -884,14 +903,14 @@ export const useStore = create<State>((set) => ({
     const newArrangement = { ...state.viewerArrangement };
     
     // Get the array for current mode
-    const currentArrangement = [...newArrangement[appMode]];
+    const currentArrangement = [...(newArrangement[appMode] as any)];
     
     // Move item from fromPosition to toPosition
     const [movedItem] = currentArrangement.splice(fromPosition, 1);
     currentArrangement.splice(toPosition, 0, movedItem);
     
     // Update the arrangement
-    newArrangement[appMode] = currentArrangement;
+    (newArrangement as any)[appMode] = currentArrangement as any;
     
     return {
       ...state,
@@ -900,7 +919,8 @@ export const useStore = create<State>((set) => ({
   }),
 
   // Get content (FolderKey or number) for a position in specific mode
-  getViewerContentAtPosition: (position: number, mode: AppMode) => (state: any) => {
+  getViewerContentAtPosition: (position: number, mode: AppMode): FolderKey | number => {
+    const state = get();
     return state.viewerArrangement[mode][position];
   },
 
@@ -963,7 +983,7 @@ useStore.subscribe((state, prevState) => {
     // fitScaleFn은 ResizeObserver에 의해 업데이트될 예정이므로 약간의 지연 후 적용
     setTimeout(() => {
       const currentState = useStore.getState();
-      const { fitScaleFn, pinpointScales, appMode } = currentState;
+      const { fitScaleFn, appMode } = currentState;
       const newScale = fitScaleFn ? fitScaleFn() : 1;
       
       // ✅ FIX: In pinpoint mode, preserve existing local scales as-is during layout changes

@@ -503,7 +503,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
                 params.filterChain,
                 (progress: number) => {
                   // Update progress: progress is 0-1, convert to current/total
-                  const totalFilters = params.filterChain?.filter(item => item.enabled).length || 1;
+                  const totalFilters = params.filterChain?.filter((item: any) => item.enabled).length || 1;
                   // Use Math.round for more accurate step calculation
                   const currentStep = Math.max(0, Math.min(totalFilters, Math.round(progress * totalFilters)));
                   setFilterProgress({ current: currentStep, total: totalFilters });
@@ -1304,18 +1304,117 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           if (!isTargetCanvas) return null;
           const p1 = levelingCapture.points[0] || null;
           const showMoving = mousePos != null;
+          const isFirstClick = p1 !== null;
+          
+          // Calculate angle difference for preview
+          const calculateAngleDiff = (p1: {x: number, y: number}, mousePos: {x: number, y: number}) => {
+            const dx = mousePos.x - p1.x;
+            const dy = mousePos.y - p1.y;
+            const angleRad = Math.atan2(dy, dx);
+            const angleDeg = angleRad * 180 / Math.PI;
+            
+            // Get current rotation based on mode
+            let currentAngle = 0;
+            if (appMode === 'pinpoint' && typeof folderKey === 'string') {
+              const localAngle = pinpointRotations[folderKey] || 0;
+              const globalAngle = pinpointGlobalRotation || 0;
+              currentAngle = localAngle + globalAngle;
+            } else if (appMode === 'compare') {
+              currentAngle = compareRotation;
+            } else if (appMode === 'analysis') {
+              currentAngle = rotation || 0;
+            }
+            
+            // Calculate target angle and display angle based on axis
+            let targetAngle = 0;
+            let displayAngle = angleDeg; // Angle for the visual line - always show mouse direction
+            
+            if (levelingCapture.axis === 'horizontal') {
+              targetAngle = angleDeg;
+            } else { // vertical
+              // For vertical alignment, target angle is perpendicular to mouse direction
+              targetAngle = angleDeg + 90;
+            }
+            
+            // Calculate difference for display
+            let diff = targetAngle - currentAngle;
+            
+            // For vertical mode, adjust the displayed difference to be more intuitive
+            if (levelingCapture.axis === 'vertical') {
+              // Convert to vertical reference: 
+              // - Downward (90°) should show as 0°
+              // - Upward (-90° or 270°) should show as 180°
+              let verticalAngle = angleDeg;
+              
+              // Normalize mouse angle to vertical reference
+              if (verticalAngle >= 0 && verticalAngle <= 180) {
+                // Top half: 0° to 180° becomes 90° to -90°
+                verticalAngle = 90 - verticalAngle;
+              } else {
+                // Bottom half: 180° to 360° becomes -90° to 90°
+                verticalAngle = 90 - (verticalAngle - 360);
+              }
+              
+              // Calculate difference from current rotation to this vertical reference
+              diff = verticalAngle - currentAngle;
+            }
+            
+            // Normalize to -180 to 180
+            while (diff > 180) diff -= 360;
+            while (diff < -180) diff += 360;
+            
+            return { angleDeg: displayAngle, targetAngle, diff, distance: Math.sqrt(dx * dx + dy * dy) };
+          };
+          
+          const previewData = p1 && mousePos ? calculateAngleDiff(p1, mousePos) : null;
+          
           return (
             <div className="leveling-overlay">
-              {p1 && (
-                <>
-                  <div className="crosshair fixed horiz" style={{ left: 0, right: 0, top: (p1.y) + 'px' }} />
-                  <div className="crosshair fixed vert" style={{ top: 0, bottom: 0, left: (p1.x) + 'px' }} />
-                </>
-              )}
-              {showMoving && (
+              {/* Show full crosshairs only when no point is clicked yet */}
+              {!isFirstClick && showMoving && (
                 <>
                   <div className="crosshair moving horiz" style={{ left: 0, right: 0, top: (mousePos!.y) + 'px' }} />
                   <div className="crosshair moving vert" style={{ top: 0, bottom: 0, left: (mousePos!.x) + 'px' }} />
+                </>
+              )}
+              
+              {/* Show small crosshair for fixed first point */}
+              {p1 && (
+                <>
+                  <div className="crosshair fixed small horiz" style={{ left: (p1.x) + 'px', top: (p1.y) + 'px' }} />
+                  <div className="crosshair fixed small vert" style={{ left: (p1.x) + 'px', top: (p1.y) + 'px' }} />
+                </>
+              )}
+              
+              {/* Show transparent full crosshair for second point preview */}
+              {p1 && mousePos && (
+                <>
+                  <div className="crosshair preview horiz" style={{ left: 0, right: 0, top: (mousePos.y) + 'px' }} />
+                  <div className="crosshair preview vert" style={{ top: 0, bottom: 0, left: (mousePos.x) + 'px' }} />
+                </>
+              )}
+              
+              {/* Show preview line and angle when first point is set and mouse is moving */}
+              {p1 && mousePos && previewData && previewData.distance > 5 && (
+                <>
+                  <div 
+                    className="preview-line" 
+                    style={{ 
+                      left: (p1.x) + 'px', 
+                      top: (p1.y) + 'px',
+                      width: previewData.distance + 'px',
+                      transform: `rotate(${previewData.angleDeg}deg)`
+                    }} 
+                  />
+                  <div 
+                    className="angle-display" 
+                    style={{ 
+                      left: (mousePos.x + 10) + 'px', 
+                      top: (mousePos.y - 10) + 'px',
+                    }}
+                  >
+                    {previewData.diff >= 0 ? '+' : ''}{previewData.diff.toFixed(1)}°
+                  </div>
                 </>
               )}
             </div>

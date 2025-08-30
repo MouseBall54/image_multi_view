@@ -8,6 +8,8 @@ import { generateFilterChainLabel } from '../utils/filterChainLabel';
 import { ALL_FILTERS } from '../components/FilterControls';
 import { FolderControl } from '../components/FolderControl';
 import type { DrawableImage, FolderKey, FilterType } from '../types';
+import type { FilterParams } from '../store';
+import { createFileComparator } from '../utils/naturalSort';
 
 // Helper function to check if a file is a valid image
 const isValidImageFile = (file: File): boolean => {
@@ -55,7 +57,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     // Drag counter tracking for proper leave detection
   }, [dragOverCounter]);
 
-  const activeKeys = useMemo(() => FOLDER_KEYS.slice(0, numViewers), [numViewers]);
+  // removed unused: activeKeys
 
   // Helper function to find the first empty folder for temporary storage
   const findEmptyFolder = (): FolderKey | null => {
@@ -299,14 +301,14 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     };
 
     if (folderFilter === 'all') {
-      FOLDER_KEYS.forEach(key => {
+      FOLDER_KEYS.forEach((key: FolderKey) => {
         if (allFolders[key]) addFilesFromKey(key);
       });
     } else {
       addFilesFromKey(folderFilter);
     }
 
-    return filesWithSource.sort((a, b) => a.file.name.localeCompare(b.file.name));
+    return filesWithSource.sort(createFileComparator((item: { file: File, source: string }) => item.file.name));
   }, [folderFilter, allFolders]);
 
   const filteredFileList = useMemo(() => {
@@ -380,7 +382,14 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
         ))}
         <div style={{ display: 'none' }}>
           {FOLDER_KEYS.map(key => (
-            <input key={key} ref={inputRefs[key]} type="file" webkitdirectory="" multiple onChange={(e) => onInput(key, e)} />
+            <input
+              key={key}
+              ref={inputRefs[key]}
+              type="file"
+              multiple
+              onChange={(e) => onInput(key, e)}
+              {...({ webkitdirectory: '' } as any)}
+            />
           ))}
         </div>
       </div>}
@@ -498,11 +507,10 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               const label = lines.join('\n');
 
               const isSelected = selectedViewers.includes(i.toString() as FolderKey);
-              const folderKey = FOLDER_KEYS[i]; // Convert index to FolderKey
               return (
-                <DraggableViewer 
+            <DraggableViewer 
                   key={i} 
-                  folderKey={folderKey} 
+                  position={i}
                   onReorder={reorderViewers}
                   className={`viewer-container ${isSelected ? 'selected' : ''}`}
                 >
