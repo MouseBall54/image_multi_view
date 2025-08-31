@@ -5468,7 +5468,9 @@ body:not(.viewer-dragging) .draggable-viewer:hover::after {
   margin-right: 8px;
 }
 .viewport-controls .rect-zoom-btn:hover {
-  background: #454545;
+  background: var(--accent-primary);
+  color: #fff;
+  border-color: var(--accent-primary);
 }
 .viewport-controls .rect-zoom-btn.active {
   background: var(--accent-primary);
@@ -5476,7 +5478,9 @@ body:not(.viewer-dragging) .draggable-viewer:hover::after {
   border-color: var(--accent-primary);
 }
 .pinpoint-scale-control .rect-zoom-btn:hover {
-  background: #454545;
+  background: var(--accent-primary);
+  color: #fff;
+  border-color: var(--accent-primary);
 }
 .pinpoint-scale-control .rect-zoom-btn.active {
   background: var(--accent-primary);
