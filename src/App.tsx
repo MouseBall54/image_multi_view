@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useStore } from "./store";
 import type { AppMode } from "./types";
 import { CompareMode, CompareModeHandle } from './modes/CompareMode';
@@ -23,16 +24,16 @@ type DrawableImage = ImageBitmap | HTMLImageElement;
 function ViewportControls({ imageDimensions }: {
   imageDimensions: { width: number, height: number } | null,
 }) {
-  const { viewport, setViewport, triggerIndicator } = useStore();
+  const { viewport, setViewport, triggerIndicator, appMode, rectZoomGlobalActive, setRectZoomGlobalActive } = useStore();
   const [scaleInput, setScaleInput] = useState((viewport.scale * 100).toFixed(0));
   const [xInput, setXInput] = useState("");
   const [yInput, setYInput] = useState("");
 
   useEffect(() => {
     setScaleInput((viewport.scale * 100).toFixed(0));
-    if (imageDimensions && viewport.cx && viewport.cy) {
-      setXInput(Math.round(viewport.cx * imageDimensions.width).toString());
-      setYInput(Math.round(viewport.cy * imageDimensions.height).toString());
+    if (imageDimensions && viewport.cx != null && viewport.cy != null) {
+      setXInput(Math.round((viewport.cx || 0) * imageDimensions.width).toString());
+      setYInput(Math.round((viewport.cy || 0) * imageDimensions.height).toString());
     } else {
       setXInput("");
       setYInput("");
@@ -57,7 +58,7 @@ function ViewportControls({ imageDimensions }: {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       applyChanges();
       (e.target as HTMLInputElement).blur();
@@ -66,6 +67,17 @@ function ViewportControls({ imageDimensions }: {
 
   return (
     <div className="viewport-controls">
+      {(appMode === 'compare' || appMode === 'analysis') && (
+        <button
+          className={`rect-zoom-btn${rectZoomGlobalActive ? ' active' : ''}`}
+          title="Rect Zoom (click two points)"
+          onClick={() => setRectZoomGlobalActive(!rectZoomGlobalActive)}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="1" ry="1"/>
+          </svg>
+        </button>
+      )}
       <label><span>Scale:</span><input type="text" value={scaleInput} onChange={(e) => setScaleInput(e.target.value)} onBlur={applyChanges} onKeyDown={handleKeyDown}/><span>%</span></label>
       <label><span>X:</span><input type="text" value={xInput} disabled={!imageDimensions} onChange={(e) => setXInput(e.target.value)} onBlur={applyChanges} onKeyDown={handleKeyDown}/></label>
       <label><span>Y:</span><input type="text" value={yInput} disabled={!imageDimensions} onChange={(e) => setYInput(e.target.value)} onBlur={applyChanges} onKeyDown={handleKeyDown}/></label>
@@ -144,7 +156,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    const file = primaryFileRef.current;
+    // Prefer explicit analysis file in analysis mode, otherwise use primaryFileRef
+    const file = (appMode === 'analysis' ? analysisFile : primaryFileRef.current) as File | null;
     if (file) {
       let isCancelled = false;
       const getDimensions = async () => {
@@ -169,7 +182,7 @@ export default function App() {
     } else {
       setImageDimensions(null);
     }
-  }, [current, primaryFileRef]);
+  }, [current, analysisFile, appMode]);
 
   useEffect(() => {
     initializeOpenCV().catch(console.error);
@@ -303,10 +316,10 @@ export default function App() {
         case 'i': setShowInfoPanel((prev: boolean) => !prev); break;
         case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
         case '-': setViewport({ scale: Math.max(MIN_ZOOM, (viewport.scale || 1) - 0.01) }); break;
-        case 'arrowup': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cy) setViewport({ cy: viewport.cy - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); } break;
-        case 'arrowdown': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cy) setViewport({ cy: viewport.cy + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); } break;
-        case 'arrowleft': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cx) setViewport({ cx: viewport.cx - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); } break;
-        case 'arrowright': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cx) setViewport({ cx: viewport.cx + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); } break;
+        case 'arrowup': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cy != null) setViewport({ cy: (viewport.cy || 0) - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); } break;
+        case 'arrowdown': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cy != null) setViewport({ cy: (viewport.cy || 0) + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); } break;
+        case 'arrowleft': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cx != null) setViewport({ cx: (viewport.cx || 0) - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); } break;
+        case 'arrowright': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cx != null) setViewport({ cx: (viewport.cx || 0) + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); } break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);

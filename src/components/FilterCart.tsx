@@ -122,6 +122,9 @@ export const FilterCart: React.FC = () => {
     if (!panelRef.current) return;
     const rect = panelRef.current.getBoundingClientRect();
     dragOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    // Snap to current visual position immediately to avoid transform transition jump
+    // This switches from centered transform to explicit left/top at the same position
+    setPanelPos({ left: rect.left, top: rect.top });
     setIsDragging(true);
 
     const onMove = (ev: MouseEvent) => {
@@ -744,7 +747,7 @@ export const FilterCart: React.FC = () => {
   return (
     <div 
       ref={panelRef}
-      className={`filter-cart-panel ${previewClosing ? 'preview-closing' : ''} ${isDragOver ? 'drag-over' : ''}`}
+      className={`filter-cart-panel ${previewClosing ? 'preview-closing' : ''} ${isDragOver ? 'drag-over' : ''} ${isDragging ? 'dragging' : ''}`}
       data-preview-size={previewModal.isOpen && previewModal.position === 'sidebar' ? previewSize : undefined}
       style={panelStyle}
       onDragEnter={handleDragEnter}
@@ -820,26 +823,14 @@ export const FilterCart: React.FC = () => {
                 <h4>Saved Presets</h4>
                 <div className="presets-actions">
                   <button 
-                    className="btn btn-small btn-theme-primary"
-                    onClick={() => setShowExportDialog(true)}
-                    disabled={filterCart.length === 0}
-                    title="Export filter chain as JSON file"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="7,10 12,15 17,10"/>
-                      <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                  </button>
-                  <button 
-                    className="btn btn-small btn-theme-accent"
+                    className="btn btn-small btn-import"
                     onClick={handleImportClick}
                     title="Import filter chain(s) from JSON file(s) - supports multiple files (or drag & drop JSON files here)"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="17,8 12,3 7,8"/>
-                      <line x1="12" y1="3" x2="12" y2="15"/>
+                      <polyline points="7,10 12,15 17,10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
                     </svg>
                   </button>
                 </div>
@@ -879,6 +870,18 @@ export const FilterCart: React.FC = () => {
           <div className="chain-column">
             <div className="panel-header">
               <h3>Filter Chain</h3>
+              <button 
+                className="btn btn-small btn-export"
+                onClick={() => setShowExportDialog(true)}
+                disabled={filterCart.length === 0}
+                title="Export filter chain as JSON file"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17,8 12,3 7,8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </button>
             </div>
             <div className="filter-chain-list">
             {filterCart.map((item: FilterChainItem, index: number) => (
@@ -1058,7 +1061,7 @@ export const FilterCart: React.FC = () => {
                 </svg>
               </button>
               <button 
-                className="btn btn-icon btn-theme-accent"
+                className="btn btn-icon btn-apply-chain"
                 onClick={() => {
                   const targetKey = typeof activeFilterEditor !== 'undefined' && activeFilterEditor !== null
                     ? activeFilterEditor

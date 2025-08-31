@@ -537,6 +537,38 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
                       <line x1="17" y1="16" x2="23" y2="16"></line>
                     </svg>
                   </button>
+                  {fileOf(key, current) && (
+                    <button
+                      className="viewer__download-button"
+                      title={`Download image from viewer ${key}`}
+                      onClick={() => {
+                        const handle = canvasRefs[key as FolderKey].current;
+                        const canvas = handle?.getCanvas();
+                        const srcFile = fileOf(key, current);
+                        if (!canvas || !srcFile) return;
+                        const base = srcFile.name.replace(/\.[^/.]+$/, "");
+                        const suggested = `${base}.png`;
+                        const name = (window.prompt("파일명을 입력하세요", suggested) || suggested).trim();
+                        canvas.toBlob((blob) => {
+                          if (!blob) return;
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = name.endsWith('.png') ? name : `${name}.png`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }, 'image/png');
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </DraggableViewer>
             );
