@@ -31,9 +31,9 @@ function ViewportControls({ imageDimensions }: {
 
   useEffect(() => {
     setScaleInput((viewport.scale * 100).toFixed(0));
-    if (imageDimensions && viewport.cx && viewport.cy) {
-      setXInput(Math.round(viewport.cx * imageDimensions.width).toString());
-      setYInput(Math.round(viewport.cy * imageDimensions.height).toString());
+    if (imageDimensions && viewport.cx != null && viewport.cy != null) {
+      setXInput(Math.round((viewport.cx || 0) * imageDimensions.width).toString());
+      setYInput(Math.round((viewport.cy || 0) * imageDimensions.height).toString());
     } else {
       setXInput("");
       setYInput("");
@@ -156,7 +156,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    const file = primaryFileRef.current;
+    // Prefer explicit analysis file in analysis mode, otherwise use primaryFileRef
+    const file = (appMode === 'analysis' ? analysisFile : primaryFileRef.current) as File | null;
     if (file) {
       let isCancelled = false;
       const getDimensions = async () => {
@@ -181,7 +182,7 @@ export default function App() {
     } else {
       setImageDimensions(null);
     }
-  }, [current, primaryFileRef]);
+  }, [current, analysisFile, appMode]);
 
   useEffect(() => {
     initializeOpenCV().catch(console.error);
@@ -315,10 +316,10 @@ export default function App() {
         case 'i': setShowInfoPanel((prev: boolean) => !prev); break;
         case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
         case '-': setViewport({ scale: Math.max(MIN_ZOOM, (viewport.scale || 1) - 0.01) }); break;
-        case 'arrowup': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cy) setViewport({ cy: viewport.cy - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); } break;
-        case 'arrowdown': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cy) setViewport({ cy: viewport.cy + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); } break;
-        case 'arrowleft': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cx) setViewport({ cx: viewport.cx - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); } break;
-        case 'arrowright': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cx) setViewport({ cx: viewport.cx + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); } break;
+        case 'arrowup': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cy != null) setViewport({ cy: (viewport.cy || 0) - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); } break;
+        case 'arrowdown': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cy != null) setViewport({ cy: (viewport.cy || 0) + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); } break;
+        case 'arrowleft': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cx != null) setViewport({ cx: (viewport.cx || 0) - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); } break;
+        case 'arrowright': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cx != null) setViewport({ cx: (viewport.cx || 0) + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); } break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
