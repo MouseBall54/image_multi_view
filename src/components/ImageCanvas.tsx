@@ -1649,15 +1649,32 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         const screenY = imageY + (targetImageY * scale);
         
         return (
-          <div
-            key={indicator.key}
-            className="indicator-dot"
-            style={{
-              left: `${screenX}px`,
-              top: `${screenY}px`,
-              position: 'absolute',
-            }}
-          />
+          <>
+            {/* Subtle full-length crosshair lines that fade out */}
+            <div key={`cross-h-${indicator.key}`} className="indicator-crosshair horiz" style={{ left: 0, right: 0, top: `${screenY}px` }} />
+            <div key={`cross-v-${indicator.key}`} className="indicator-crosshair vert" style={{ top: 0, bottom: 0, left: `${screenX}px` }} />
+
+            {/* Central dot and pulse ring */}
+            <div
+              key={`dot-${indicator.key}`}
+              className="indicator-dot"
+              style={{ left: `${screenX}px`, top: `${screenY}px`, position: 'absolute' }}
+            />
+            <div
+              key={`ring-${indicator.key}`}
+              className="indicator-ring"
+              style={{ left: `${screenX}px`, top: `${screenY}px`, position: 'absolute' }}
+            />
+
+            {/* Small coordinate label near the point */}
+            <div
+              key={`label-${indicator.key}`}
+              className="indicator-label"
+              style={{ left: `${screenX + 10}px`, top: `${screenY + 10}px`, position: 'absolute' }}
+            >
+              {Math.round(targetImageX)}, {Math.round(targetImageY)}
+            </div>
+          </>
         );
       })()}
       {showMinimap && sourceImage instanceof ImageBitmap && canvasSize && (

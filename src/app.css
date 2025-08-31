@@ -1007,19 +1007,19 @@ main {
 
 .indicator-dot {
   position: absolute;
-  width: 24px;
-  height: 24px;
-  background: #ff4444;
-  border: 4px solid #ffffff;
+  width: 16px; /* +33% from 12px (~30%) */
+  height: 16px; /* +33% from 12px (~30%) */
+  background: transparent; /* remove inner red fill */
+  border: 2px solid #ffffff;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 100;
   box-shadow: 
-    0 0 0 6px rgba(255, 68, 68, 0.4),
-    0 0 20px rgba(255, 68, 68, 0.8),
-    0 0 40px rgba(255, 68, 68, 0.6);
-  animation: indicatorPulse 2.5s ease-out forwards;
+    0 0 0 4px rgba(255, 68, 68, 0.35),
+    0 0 14px rgba(255, 68, 68, 0.7),
+    0 0 26px rgba(255, 68, 68, 0.5);
+  animation: indicatorPulse 4.4s ease-out forwards;
 }
 
 @keyframes indicatorPulse {
@@ -1032,36 +1032,36 @@ main {
       0 0 0 rgba(255, 68, 68, 0.6);
   }
   15% { 
-    transform: translate(-50%, -50%) scale(2.2); 
+    transform: translate(-50%, -50%) scale(2); 
     opacity: 1;
     box-shadow: 
-      0 0 0 12px rgba(255, 68, 68, 0.6),
-      0 0 40px rgba(255, 68, 68, 1),
-      0 0 80px rgba(255, 68, 68, 0.8);
+      0 0 0 10px rgba(255, 68, 68, 0.5),
+      0 0 32px rgba(255, 68, 68, 1),
+      0 0 64px rgba(255, 68, 68, 0.75);
   }
   30% { 
-    transform: translate(-50%, -50%) scale(1.4); 
+    transform: translate(-50%, -50%) scale(1.3); 
     opacity: 1;
     box-shadow: 
-      0 0 0 8px rgba(255, 68, 68, 0.5),
-      0 0 30px rgba(255, 68, 68, 0.9),
-      0 0 60px rgba(255, 68, 68, 0.7);
+      0 0 0 7px rgba(255, 68, 68, 0.45),
+      0 0 24px rgba(255, 68, 68, 0.9),
+      0 0 48px rgba(255, 68, 68, 0.65);
   }
   50% { 
     transform: translate(-50%, -50%) scale(1.1); 
     opacity: 1;
     box-shadow: 
-      0 0 0 6px rgba(255, 68, 68, 0.4),
-      0 0 25px rgba(255, 68, 68, 0.8),
-      0 0 50px rgba(255, 68, 68, 0.6);
+      0 0 0 5px rgba(255, 68, 68, 0.4),
+      0 0 22px rgba(255, 68, 68, 0.8),
+      0 0 44px rgba(255, 68, 68, 0.6);
   }
   80% { 
     transform: translate(-50%, -50%) scale(1); 
     opacity: 1;
     box-shadow: 
-      0 0 0 6px rgba(255, 68, 68, 0.4),
-      0 0 20px rgba(255, 68, 68, 0.8),
-      0 0 40px rgba(255, 68, 68, 0.6);
+      0 0 0 4px rgba(255, 68, 68, 0.35),
+      0 0 18px rgba(255, 68, 68, 0.8),
+      0 0 36px rgba(255, 68, 68, 0.55);
   }
   100% { 
     transform: translate(-50%, -50%) scale(0.8); 
@@ -1071,6 +1071,63 @@ main {
       0 0 0 rgba(255, 68, 68, 0),
       0 0 0 rgba(255, 68, 68, 0);
   }
+}
+
+/* Expanding ring accent */
+.indicator-ring {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 68, 68, 0.9);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 99;
+  animation: indicatorRingExpand 2.4s ease-out forwards;
+}
+
+@keyframes indicatorRingExpand {
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  20% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+}
+
+/* Crosshair lines */
+.indicator-crosshair {
+  position: absolute;
+  background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(34,139,34,0.95) 50%, rgba(255,255,255,0) 100%);
+  pointer-events: none;
+  z-index: 90;
+  animation: indicatorFade 4.4s ease-out forwards;
+}
+.indicator-crosshair.horiz { height: 2px; }
+.indicator-crosshair.vert { width: 2px; background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(34,139,34,0.95) 50%, rgba(255,255,255,0) 100%); }
+
+@keyframes indicatorFade {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Coordinate bubble */
+.indicator-label {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 101;
+  white-space: nowrap;
+  animation: indicatorLabelFade 3.2s ease-out forwards;
+}
+
+@keyframes indicatorLabelFade {
+  0% { opacity: 0; transform: translateY(-50%) translateX(6px); }
+  25% { opacity: 1; transform: translateY(-50%) translateX(0); }
+  100% { opacity: 0; transform: translateY(-50%) translateX(0); }
 }
 
 .minimap {
