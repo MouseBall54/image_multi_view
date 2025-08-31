@@ -968,7 +968,16 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                     </button>
                   )}
                 </div>
-                <PinpointScaleControl folderKey={key} />
+                <PinpointScaleControl 
+                  folderKey={key}
+                  onResetRefPoint={(k) => {
+                    setPinpointImages(prev => {
+                      const cur = prev[k];
+                      if (!cur) return prev;
+                      return { ...prev, [k]: { ...cur, refPoint: { x: 0.5, y: 0.5 } } };
+                    });
+                  }}
+                />
                 <PinpointViewerControls folderKey={key} />
                 </div>
               </DraggableViewer>

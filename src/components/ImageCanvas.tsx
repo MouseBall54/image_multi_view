@@ -50,8 +50,14 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator,
     levelingCapture, addLevelingPoint,
     compareRotation, minimapWidth, minimapPosition,
-    setViewerImageSize, setAnalysisImageSize
+    setViewerImageSize, setAnalysisImageSize,
+    rectZoomTarget, setRectZoomTarget, setPinpointScale, setActiveCanvasKey,
+    rectZoomGlobalActive, setRectZoomGlobalActive
   } = useStore();
+
+  // Rect-zoom overlay state (in canvas pixel coordinates)
+  const [rectStart, setRectStart] = useState<{ x: number; y: number } | null>(null);
+  const [rectEnd, setRectEnd] = useState<{ x: number; y: number } | null>(null);
 
   // Ensure cursor stays crosshair during leveling even if parent wants grab
   useEffect(() => {
@@ -929,6 +935,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !sourceImage || appMode !== 'pinpoint' || !onSetRefPoint || pinpointMouseMode !== 'pin' || typeof folderKey !== 'string') return;
+    // Disable ref-point clicks while rect-zoom is active
+    if (rectZoomTarget === folderKey) return;
     const handleClick = (e: MouseEvent) => {
       // Disable pinpoint setting when Shift is held (for viewer reordering)
       if (e.shiftKey) return;
@@ -975,7 +983,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     };
     canvas.addEventListener('click', handleClick);
     return () => canvas.removeEventListener('click', handleClick);
-  }, [sourceImage, appMode, onSetRefPoint, viewport, folderKey, refPoint, pinpointMouseMode, overrideScale, pinpointGlobalScale]);
+  }, [sourceImage, appMode, onSetRefPoint, viewport, folderKey, refPoint, pinpointMouseMode, overrideScale, pinpointGlobalScale, rectZoomTarget]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1008,6 +1016,124 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     let isDown = false;
     let lastX = 0, lastY = 0;
     let dragMode: 'pan' | 'rotate' | null = null;
+
+    const finalizeRectZoom = (endX: number, endY: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !sourceImage || typeof folderKey !== 'string') return;
+      // using viewport scale and center; bounding box not required here
+      const getState = useStore.getState;
+      const vp = getState().viewport;
+      const gScale = getState().pinpointGlobalScale || 1;
+      const localAngle = (getState().pinpointRotations[folderKey] || 0);
+      const globalAngle = (getState().pinpointGlobalRotation || 0);
+      const theta = ((localAngle + globalAngle) * Math.PI) / 180;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+      const individualScale = (typeof folderKey === 'string' ? (overrideScale ?? vp.scale) : vp.scale);
+      const scale = individualScale * gScale;
+      const currentRefPoint = refPoint || { x: 0.5, y: 0.5 };
+      const refScreenX = vp.refScreenX || (width / 2);
+      const refScreenY = vp.refScreenY || (height / 2);
+      const refImgX = currentRefPoint.x * (sourceImage as any).width;
+      const refImgY = currentRefPoint.y * (sourceImage as any).height;
+      const drawW = (sourceImage as any).width * scale;
+      const drawH = (sourceImage as any).height * scale;
+      const Sx = drawW / 2;
+      const Sy = drawH / 2;
+      const ux = refImgX * scale;
+      const uy = refImgY * scale;
+      const drawX = refScreenX - Sx - (cos * (ux - Sx) - sin * (uy - Sy));
+      const drawY = refScreenY - Sy - (sin * (ux - Sx) + cos * (uy - Sy));
+      const centerX = drawX + Sx;
+      const centerY = drawY + Sy;
+      const mapToImage = (cx: number, cy: number) => {
+        const dx = cx - centerX;
+        const dy = cy - centerY;
+        const unrotX = centerX + dx * Math.cos(-theta) - dy * Math.sin(-theta);
+        const unrotY = centerY + dx * Math.sin(-theta) + dy * Math.cos(-theta);
+        const imgX = (unrotX - drawX) / scale;
+        const imgY = (unrotY - drawY) / scale;
+        return { imgX, imgY };
+      };
+
+      const x0 = rectStart!.x, y0 = rectStart!.y;
+      const x1 = endX, y1 = endY;
+      const { imgX: ix0, imgY: iy0 } = mapToImage(x0, y0);
+      const { imgX: ix1, imgY: iy1 } = mapToImage(x1, y1);
+      const imgW = (sourceImage as any).width as number;
+      const imgH = (sourceImage as any).height as number;
+      const minX = Math.max(0, Math.min(ix0, ix1));
+      const maxX = Math.min(imgW, Math.max(ix0, ix1));
+      const minY = Math.max(0, Math.min(iy0, iy1));
+      const maxY = Math.min(imgH, Math.max(iy0, iy1));
+      const rectW = Math.max(1, maxX - minX);
+      const rectH = Math.max(1, maxY - minY);
+      const totalScaleNeeded = Math.min(canvas.width / rectW, canvas.height / rectH);
+      const nextIndividual = Math.max(MIN_ZOOM / gScale, Math.min(MAX_ZOOM / gScale, totalScaleNeeded / gScale));
+      const cxImg = (minX + maxX) / 2;
+      const cyImg = (minY + maxY) / 2;
+      const rel = { x: cxImg / imgW, y: cyImg / imgH };
+
+      if (onSetRefPoint) {
+        const rsx = vp.refScreenX || (width / 2);
+        const rsy = vp.refScreenY || (height / 2);
+        onSetRefPoint(folderKey, rel, { x: rsx, y: rsy });
+      }
+      setPinpointScale(folderKey, nextIndividual);
+      setActiveCanvasKey(folderKey);
+      setRectZoomTarget(null);
+      setRectStart(null);
+      setRectEnd(null);
+    };
+
+    const finalizeGlobalRectZoom = (endX: number, endY: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !sourceImage) return;
+      const { width, height } = canvas.getBoundingClientRect();
+      const getState = useStore.getState;
+      const vp = getState().viewport;
+      const imgW = (sourceImage as any).width as number;
+      const imgH = (sourceImage as any).height as number;
+      const scale = vp.scale;
+      const drawW = imgW * scale;
+      const drawH = imgH * scale;
+      let angleDeg = 0;
+      if (appMode === 'compare') angleDeg = getState().compareRotation || 0;
+      if (appMode === 'analysis') angleDeg = getState().analysisRotation || 0;
+      const theta = (angleDeg * Math.PI) / 180;
+      const x = (canvas.width / 2) - ((vp.cx || 0.5) * imgW * scale);
+      const y = (canvas.height / 2) - ((vp.cy || 0.5) * imgH * scale);
+      const centerX = x + drawW / 2;
+      const centerY = y + drawH / 2;
+      const mapToImage = (cx: number, cy: number) => {
+        const dx = cx - centerX;
+        const dy = cy - centerY;
+        const unrotX = centerX + dx * Math.cos(-theta) - dy * Math.sin(-theta);
+        const unrotY = centerY + dx * Math.sin(-theta) + dy * Math.cos(-theta);
+        const imgX = (unrotX - x) / scale;
+        const imgY = (unrotY - y) / scale;
+        return { imgX, imgY };
+      };
+      const x0 = rectStart!.x, y0 = rectStart!.y;
+      const x1 = endX, y1 = endY;
+      const { imgX: ix0, imgY: iy0 } = mapToImage(x0, y0);
+      const { imgX: ix1, imgY: iy1 } = mapToImage(x1, y1);
+      const minX = Math.max(0, Math.min(ix0, ix1));
+      const maxX = Math.min(imgW, Math.max(ix0, ix1));
+      const minY = Math.max(0, Math.min(iy0, iy1));
+      const maxY = Math.min(imgH, Math.max(iy0, iy1));
+      const rectW = Math.max(1, maxX - minX);
+      const rectH = Math.max(1, maxY - minY);
+      const totalScaleNeeded = Math.min(canvas.width / rectW, canvas.height / rectH);
+      const cxImg = (minX + maxX) / 2;
+      const cyImg = (minY + maxY) / 2;
+      const cx = cxImg / imgW;
+      const cy = cyImg / imgH;
+      setViewport({ scale: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, totalScaleNeeded)), cx, cy });
+      setRectZoomGlobalActive(false);
+      setRectStart(null);
+      setRectEnd(null);
+    };
     
     eventHandlersRef.current.onWheel = (e: WheelEvent) => {
       const canvas = canvasRef.current;
@@ -1090,6 +1216,35 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       // Disable panning when Shift is held (for viewer reordering)
       if (e.shiftKey) return;
       
+      // Rect-zoom selection has priority in pinpoint mode
+      if (appMode === 'pinpoint' && typeof folderKey === 'string' && rectZoomTarget === folderKey) {
+        const { left, top } = canvas.getBoundingClientRect();
+        const mx = e.clientX - left;
+        const my = e.clientY - top;
+        // Click-Click: if no start, set; else finalize
+        if (!rectStart) {
+          setRectStart({ x: mx, y: my });
+          setRectEnd({ x: mx, y: my });
+          setActiveCanvasKey(folderKey as any);
+        } else {
+          finalizeRectZoom(mx, my);
+        }
+        return; // prevent pan/rotate
+      }
+      // Global rect-zoom for compare/analysis
+      if (appMode !== 'pinpoint' && rectZoomGlobalActive) {
+        const { left, top } = canvas.getBoundingClientRect();
+        const mx = e.clientX - left;
+        const my = e.clientY - top;
+        if (!rectStart) {
+          setRectStart({ x: mx, y: my });
+          setRectEnd({ x: mx, y: my });
+        } else {
+          finalizeGlobalRectZoom(mx, my);
+        }
+        return;
+      }
+
       if (appMode === 'pinpoint' && typeof folderKey === 'string') {
         if (e.altKey) {
           dragMode = 'rotate';
@@ -1120,16 +1275,38 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     eventHandlersRef.current.onUp = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      
+
       isDown = false; 
       dragMode = null;
       setIsRotating(false);
-      canvas.style.cursor = appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab'; 
+      const activeCursor = (appMode === 'pinpoint')
+        ? ((rectZoomTarget === folderKey) ? 'crosshair' : (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab'))
+        : (rectZoomGlobalActive ? 'crosshair' : 'grab');
+      canvas.style.cursor = activeCursor; 
     };
     
     eventHandlersRef.current.onMove = (e: MouseEvent) => {
       const canvas = canvasRef.current;
-      if (!canvas || !isDown || !dragMode) return;
+      if (!canvas) return;
+
+      // Rect selection in progress
+      // Update preview after first click (pinpoint)
+      if (rectZoomTarget === folderKey && rectStart) {
+        const { left, top } = canvas.getBoundingClientRect();
+        const mx = e.clientX - left;
+        const my = e.clientY - top;
+        setRectEnd({ x: mx, y: my });
+        return; // don't pan or rotate while rect-zoom active
+      }
+      // Update preview for global rect zoom
+      if (appMode !== 'pinpoint' && rectZoomGlobalActive && rectStart) {
+        const { left, top } = canvas.getBoundingClientRect();
+        const mx = e.clientX - left;
+        const my = e.clientY - top;
+        setRectEnd({ x: mx, y: my });
+        return;
+      }
+      if (!isDown || !dragMode) return;
       
       // Disable panning when Shift is held (for viewer reordering)
       if (e.shiftKey) return;
@@ -1182,7 +1359,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         setViewport({ cx, cy });
       }
     };
-  }, [sourceImage, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey]);
+  }, [sourceImage, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, rectZoomTarget, rectStart, refPoint, rectZoomGlobalActive, compareRotation, rotation]);
 
   // ✅ FIX: Register event listeners only once with stable handlers
   useEffect(() => {
@@ -1281,7 +1458,15 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         <canvas
           ref={canvasRef}
           className="viewer__canvas"
-          style={{ cursor: ((levelingCapture.active && levelingCapture.mode === appMode && (levelingCapture.targetKey == null || levelingCapture.targetKey === (folderKey as any))) ? 'crosshair' : (appMode === 'pinpoint' ? (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab') : 'grab')) }}
+          style={{
+            cursor: ((levelingCapture.active && levelingCapture.mode === appMode && (levelingCapture.targetKey == null || levelingCapture.targetKey === (folderKey as any)))
+              ? 'crosshair'
+              : (appMode === 'pinpoint'
+                  ? ((rectZoomTarget === folderKey) ? 'crosshair' : (pinpointMouseMode === 'pin' ? 'crosshair' : 'grab'))
+                  : (rectZoomGlobalActive ? 'crosshair' : 'grab')
+                )
+            )
+          }}
           onClick={(e) => {
             if (!(levelingCapture.active && levelingCapture.mode === appMode)) return;
             // If targetKey is set and doesn't match this canvas, ignore
@@ -1299,6 +1484,20 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
             e.stopPropagation();
           }}
         />
+        {(appMode === 'pinpoint' && rectZoomTarget === folderKey && rectStart && rectEnd) || (appMode !== 'pinpoint' && rectZoomGlobalActive && rectStart && rectEnd) ? (
+          (() => {
+            const x = Math.min(rectStart.x, rectEnd.x);
+            const y = Math.min(rectStart.y, rectEnd.y);
+            const w = Math.abs(rectEnd.x - rectStart.x);
+            const h = Math.abs(rectEnd.y - rectStart.y);
+            return (
+              <div
+                className="rect-zoom-overlay"
+                style={{ left: x, top: y, width: w, height: h, position: 'absolute', pointerEvents: 'none' }}
+              />
+            );
+          })()
+        ) : null}
         {(() => {
           const active = levelingCapture.active && levelingCapture.mode === appMode;
           if (!active) return null;

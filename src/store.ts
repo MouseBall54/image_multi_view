@@ -93,6 +93,10 @@ interface State {
   appMode: AppMode;
   pinpointMouseMode: PinpointMouseMode;
   pinpointReorderMode: 'shift' | 'swap';
+  // Pinpoint: rectangle zoom target
+  rectZoomTarget: FolderKey | null;
+  // Global rect zoom for compare/analysis
+  rectZoomGlobalActive: boolean;
   stripExt: boolean;
   numViewers: number;
   viewerRows: number;
@@ -328,12 +332,17 @@ interface State {
   cancelLeveling: () => void;
   addLevelingPoint: (canvasKey: FolderKey | number, point: { x: number; y: number }) => void;
 
+  // Rect Zoom actions
+  setRectZoomTarget: (key: FolderKey | null) => void;
+  setRectZoomGlobalActive: (active: boolean) => void;
 }
 
 export const useStore = create<State>((set, get) => ({
   appMode: "pinpoint",
   pinpointMouseMode: "pan",
   pinpointReorderMode: 'shift',
+  rectZoomTarget: null,
+  rectZoomGlobalActive: false,
   stripExt: true,
   numViewers: 2,
   viewerRows: 1,
@@ -835,6 +844,10 @@ export const useStore = create<State>((set, get) => ({
   })),
 
   clearAllToasts: () => set({ toasts: [] }),
+
+  // Rect Zoom
+  setRectZoomTarget: (key) => set({ rectZoomTarget: key }),
+  setRectZoomGlobalActive: (active) => set({ rectZoomGlobalActive: active }),
 
   // Leveling state actions
   startLeveling: (mode, targetKey = null, axis = 'horizontal') => set({ levelingCapture: { active: true, mode, targetKey, points: [], axis } }),

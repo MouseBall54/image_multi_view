@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useStore } from "./store";
 import type { AppMode } from "./types";
 import { CompareMode, CompareModeHandle } from './modes/CompareMode';
@@ -23,7 +24,7 @@ type DrawableImage = ImageBitmap | HTMLImageElement;
 function ViewportControls({ imageDimensions }: {
   imageDimensions: { width: number, height: number } | null,
 }) {
-  const { viewport, setViewport, triggerIndicator } = useStore();
+  const { viewport, setViewport, triggerIndicator, appMode, rectZoomGlobalActive, setRectZoomGlobalActive } = useStore();
   const [scaleInput, setScaleInput] = useState((viewport.scale * 100).toFixed(0));
   const [xInput, setXInput] = useState("");
   const [yInput, setYInput] = useState("");
@@ -57,7 +58,7 @@ function ViewportControls({ imageDimensions }: {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       applyChanges();
       (e.target as HTMLInputElement).blur();
@@ -66,6 +67,17 @@ function ViewportControls({ imageDimensions }: {
 
   return (
     <div className="viewport-controls">
+      {(appMode === 'compare' || appMode === 'analysis') && (
+        <button
+          className={`rect-zoom-btn${rectZoomGlobalActive ? ' active' : ''}`}
+          title="Rect Zoom (click two points)"
+          onClick={() => setRectZoomGlobalActive(!rectZoomGlobalActive)}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="1" ry="1"/>
+          </svg>
+        </button>
+      )}
       <label><span>Scale:</span><input type="text" value={scaleInput} onChange={(e) => setScaleInput(e.target.value)} onBlur={applyChanges} onKeyDown={handleKeyDown}/><span>%</span></label>
       <label><span>X:</span><input type="text" value={xInput} disabled={!imageDimensions} onChange={(e) => setXInput(e.target.value)} onBlur={applyChanges} onKeyDown={handleKeyDown}/></label>
       <label><span>Y:</span><input type="text" value={yInput} disabled={!imageDimensions} onChange={(e) => setYInput(e.target.value)} onBlur={applyChanges} onKeyDown={handleKeyDown}/></label>

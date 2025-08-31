@@ -48,6 +48,11 @@ export function PinpointGlobalRotationControl() {
     }
   };
 
+  const { levelingCapture } = useStore();
+  const isLevActive = levelingCapture.active && levelingCapture.mode === 'pinpoint' && (levelingCapture.targetKey == null);
+  const horizActive = isLevActive && levelingCapture.axis === 'horizontal';
+  const vertActive = isLevActive && levelingCapture.axis === 'vertical';
+
   return (
     <div className="pinpoint-rotation-control">
       <div className="rotation-input-wrapper">
@@ -70,6 +75,7 @@ export function PinpointGlobalRotationControl() {
         </svg>
       </button>
       <button 
+        className={`viewer-control-btn${horizActive ? ' active' : ''}`}
         onClick={() => startLeveling('pinpoint', null)} 
         title="Level horizontally (pick 2 points)"
       >
@@ -80,6 +86,7 @@ export function PinpointGlobalRotationControl() {
         </svg>
       </button>
       <button 
+        className={`viewer-control-btn${vertActive ? ' active' : ''}`}
         onClick={() => startLeveling('pinpoint', null, 'vertical')} 
         title="Level vertically (pick 2 points)"
       >

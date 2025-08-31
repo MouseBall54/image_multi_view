@@ -12,6 +12,7 @@ export function PinpointViewerControls({ folderKey }: Props) {
     pinpointRotations, 
     setPinpointRotation,
     startLeveling,
+    levelingCapture,
   } = useStore();
 
   const currentAngle = pinpointRotations[folderKey] || 0;
@@ -52,6 +53,10 @@ export function PinpointViewerControls({ folderKey }: Props) {
     }
   };
 
+  const isLevelingActive = levelingCapture.active && levelingCapture.mode === 'pinpoint' && levelingCapture.targetKey === folderKey;
+  const horizActive = isLevelingActive && (levelingCapture.axis === 'horizontal');
+  const vertActive = isLevelingActive && (levelingCapture.axis === 'vertical');
+
   return (
     <div className="pinpoint-viewer-controls">
       <div className="viewer-angle-input">
@@ -80,7 +85,7 @@ export function PinpointViewerControls({ folderKey }: Props) {
       </button>
       
       <button 
-        className="viewer-control-btn" 
+        className={`viewer-control-btn${horizActive ? ' active' : ''}`} 
         onClick={() => startLeveling('pinpoint', folderKey)} 
         title="Level horizontally"
       >
@@ -92,7 +97,7 @@ export function PinpointViewerControls({ folderKey }: Props) {
       </button>
       
       <button 
-        className="viewer-control-btn" 
+        className={`viewer-control-btn${vertActive ? ' active' : ''}`} 
         onClick={() => startLeveling('pinpoint', folderKey, 'vertical')} 
         title="Level vertically"
       >
