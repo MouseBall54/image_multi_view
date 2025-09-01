@@ -3485,9 +3485,21 @@ main {
   min-width: 0; /* Allow content to shrink */
 }
 
-.filter-chain-item:hover {
+.filter-chain-item:hover:not(.dragging) {
   border-color: var(--accent-primary);
   background: rgba(0, 123, 255, 0.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Smooth transitions for filter items */
+.filter-chain-list {
+  position: relative;
+}
+
+.filter-chain-item {
+  transition: all 0.2s ease;
+  position: relative;
 }
 
 .filter-chain-item.disabled {
@@ -3496,14 +3508,64 @@ main {
 }
 
 .filter-chain-item.dragging {
-  opacity: 0.5;
-  transform: rotate(5deg);
+  opacity: 0.7;
+  transform: rotate(2deg) scale(1.02);
   z-index: 1000;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(0, 123, 255, 0.2);
+  border-color: var(--accent-primary);
+  transition: all 0.2s ease;
 }
 
-.filter-chain-item:dragover {
-  border-color: var(--accent-primary);
-  background: rgba(0, 123, 255, 0.1);
+
+/* Simplified drop target highlighting */
+.filter-chain-item.drop-target {
+  background: linear-gradient(135deg, rgba(0, 123, 255, 0.1), rgba(0, 123, 255, 0.05));
+  border: 2px solid var(--accent-primary);
+  transform: scale(1.02);
+  box-shadow: 
+    0 0 0 2px rgba(0, 123, 255, 0.2),
+    0 4px 12px rgba(0, 123, 255, 0.15);
+  animation: dropTargetPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dropTargetPulse {
+  0%, 100% { 
+    box-shadow: 
+      0 0 0 2px rgba(0, 123, 255, 0.2),
+      0 4px 12px rgba(0, 123, 255, 0.15);
+  }
+  50% { 
+    box-shadow: 
+      0 0 0 4px rgba(0, 123, 255, 0.3),
+      0 6px 20px rgba(0, 123, 255, 0.25);
+  }
+}
+
+/* Empty drop zone for when list is empty */
+.empty-drop-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  margin: 8px 0;
+  border: 2px dashed var(--accent-primary);
+  border-radius: 8px;
+  background: rgba(0, 123, 255, 0.03);
+  color: var(--accent-primary);
+  font-size: 14px;
+  font-weight: 500;
+  animation: emptyZonePulse 2s ease-in-out infinite;
+}
+
+@keyframes emptyZonePulse {
+  0%, 100% { 
+    border-color: var(--accent-primary);
+    background: rgba(0, 123, 255, 0.03);
+  }
+  50% { 
+    border-color: rgba(0, 123, 255, 0.8);
+    background: rgba(0, 123, 255, 0.08);
+  }
 }
 
 .chain-item-header {
