@@ -1,6 +1,7 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +18,42 @@ process.on('unhandledRejection', (reason, promise) => {
 
 let mainWindow;
 
+// IPC handler for saving images
+ipcMain.handle('save-image', async (event, imageData, defaultFileName) => {
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: defaultFileName,
+      filters: [
+        { name: 'PNG Images', extensions: ['png'] },
+        { name: 'JPEG Images', extensions: ['jpg', 'jpeg'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    
+    if (!canceled && filePath) {
+      // Remove data URL prefix if present
+      const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      await fs.promises.writeFile(filePath, buffer);
+      
+      return { 
+        success: true, 
+        path: filePath,
+        message: 'File saved successfully!' 
+      };
+    }
+    
+    return { success: false, message: 'Save operation was canceled' };
+  } catch (error) {
+    console.error('Error saving file:', error);
+    return { 
+      success: false, 
+      message: 'Failed to save file: ' + error.message 
+    };
+  }
+});
+
 function createWindow() {
   // Create the browser window
   mainWindow = new BrowserWindow({
@@ -29,6 +66,7 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: false, // Allow file:// protocol for local images
       allowRunningInsecureContent: false,
+      preload: path.join(__dirname, 'preload.js'),
     },
     icon: path.join(__dirname, 'assets/icon.png'),
   });

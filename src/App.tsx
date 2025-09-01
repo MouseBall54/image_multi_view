@@ -143,6 +143,41 @@ export default function App() {
       setClipboardStatus('error');
     }
   };
+
+  const handleSaveFile = async () => {
+    if (!capturedImage) return;
+    
+    const fileName = `capture-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+    
+    // Check if running in Electron
+    if (window.electronAPI) {
+      try {
+        const result = await window.electronAPI.saveImage(capturedImage, fileName);
+        if (result.success) {
+          addToast({ message: result.message, type: 'success' });
+        } else {
+          addToast({ message: result.message, type: 'error' });
+        }
+      } catch (error) {
+        console.error('Failed to save file:', error);
+        addToast({ message: 'Failed to save file', type: 'error' });
+      }
+    } else {
+      // Fallback for web environment
+      try {
+        const link = document.createElement('a');
+        link.href = capturedImage;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        addToast({ message: 'Download started', type: 'success' });
+      } catch (error) {
+        console.error('Failed to download file:', error);
+        addToast({ message: 'Failed to download file', type: 'error' });
+      }
+    }
+  };
   
   const resetView = () => {
     const newScale = fitScaleFn ? fitScaleFn() : 1;
@@ -507,7 +542,7 @@ export default function App() {
                 {clipboardStatus === 'success' && 'Copied!'}
                 {clipboardStatus === 'error' && 'Error!'}
               </button>
-              {capturedImage && <a href={capturedImage} download={`capture-${new Date().toISOString()}.png`}>Save as File...</a>}
+              <button onClick={handleSaveFile} disabled={!capturedImage}>Save as File...</button>
               <button onClick={() => setCaptureModalOpen(false)} className="close-button">Close</button>
             </div>
           </div>

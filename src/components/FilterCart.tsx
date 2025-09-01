@@ -46,6 +46,7 @@ export const FilterCart: React.FC = () => {
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
+  const [dropZoneIndex, setDropZoneIndex] = useState<number | null>(null);
   const [presetName, setPresetName] = useState('');
   const [showPresetDialog, setShowPresetDialog] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -405,22 +406,50 @@ export const FilterCart: React.FC = () => {
     setDraggedItem({ index, id: item.id });
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', item.id);
+    
+    // Create a transparent 1x1 pixel image to eliminate the drag ghost
+    const transparentImg = new Image();
+    transparentImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=';
+    e.dataTransfer.setDragImage(transparentImg, 0, 0);
   };
 
-  const handleFilterDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleFilterDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    // Only clear if we're actually leaving the container, not a child element
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDropZoneIndex(null);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDropZoneIndex(null);
+  };
+
+  const handleFilterDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
+    
+    if (!draggedItem) return;
+    
+    // Simple approach: just highlight the target item
+    setDropZoneIndex(index);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (draggedItem && draggedItem.index !== dropIndex) {
-      reorderFilterCart(draggedItem.index, dropIndex);
+    if (draggedItem) {
+      // Simple reordering: drop at the target index
+      if (draggedItem.index !== dropIndex) {
+        reorderFilterCart(draggedItem.index, dropIndex);
+      }
     }
+    
+    // Clear drag states
     setDraggedItem(null);
+    setDropZoneIndex(null);
   };
 
   const getFilterDisplayName = (filterType: string) => {
@@ -887,10 +916,12 @@ export const FilterCart: React.FC = () => {
             {filterCart.map((item: FilterChainItem, index: number) => (
                 <div
                   key={item.id}
-                  className={`filter-chain-item ${!item.enabled ? 'disabled' : ''} ${draggedItem?.id === item.id ? 'dragging' : ''}`}
+                  className={`filter-chain-item ${!item.enabled ? 'disabled' : ''} ${draggedItem?.id === item.id ? 'dragging' : ''} ${dropZoneIndex === index ? 'drop-target' : ''}`}
                   draggable
                   onDragStart={(e) => handleDragStart(e, index, item)}
-                  onDragOver={handleFilterDragOver}
+                  onDragOver={(e) => handleFilterDragOver(e, index)}
+                  onDragLeave={handleFilterDragLeave}
+                  onDragEnd={handleDragEnd}
                   onDrop={(e) => handleDrop(e, index)}
                 >
                   <div className="chain-item-header">
@@ -999,6 +1030,13 @@ export const FilterCart: React.FC = () => {
                   })()}
                 </div>
               ))}
+              
+              {/* Simple drop zone for empty list */}
+              {filterCart.length === 0 && draggedItem && (
+                <div className="empty-drop-zone">
+                  Drop here to add filter
+                </div>
+              )}
             </div>
 
             {/* Filter Cart Actions - all buttons in single row */}

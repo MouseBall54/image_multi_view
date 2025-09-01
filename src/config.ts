@@ -1,6 +1,6 @@
 // src/config.ts
-export const MIN_ZOOM = 0.01; // 5%
-export const MAX_ZOOM = 30; // 2000%
+export const MIN_ZOOM = 0.1; // 10%
+export const MAX_ZOOM = 30; // 3000%
 export const WHEEL_ZOOM_STEP = 1.1;   // 휠 한 칸당 10% 증가/감소
 export const PAN_SPEED = 2.0;         // drag 거리 보정
 export const DEFAULT_VIEWPORT: { scale: number } = { scale: 1 };
