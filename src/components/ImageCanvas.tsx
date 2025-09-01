@@ -1020,6 +1020,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const finalizeRectZoom = (endX: number, endY: number) => {
       const canvas = canvasRef.current;
       if (!canvas || !sourceImage || typeof folderKey !== 'string') return;
+      // Get canvas dimensions
+      const { width, height } = canvas.getBoundingClientRect();
+
       // using viewport scale and center; bounding box not required here
       const getState = useStore.getState;
       const vp = getState().viewport;
@@ -1089,7 +1092,6 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const finalizeGlobalRectZoom = (endX: number, endY: number) => {
       const canvas = canvasRef.current;
       if (!canvas || !sourceImage) return;
-      const { width, height } = canvas.getBoundingClientRect();
       const getState = useStore.getState;
       const vp = getState().viewport;
       const imgW = (sourceImage as any).width as number;
