@@ -7,6 +7,7 @@ import { AppMode, FolderKey, FilterType, DrawableImage } from "../types";
 import { decodeTiffWithUTIF } from '../utils/utif';
 import * as Filters from "../utils/filters";
 import { applyFilterChain } from "../utils/filterChain";
+import { computePinpointTransform, computeStandardTransform, screenToImage } from "../utils/viewTransforms";
 import { FilterParams } from "../store";
 
 type Props = {
@@ -723,7 +724,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
             }
             const angleRad = angleDeg * Math.PI / 180;
             minimapCtx.save();
-            if ((appMode === 'pinpoint' || appMode === 'analysis') && angleRad !== 0) {
+            if ((appMode === 'pinpoint' || appMode === 'analysis' || appMode === 'compare') && angleRad !== 0) {
               minimapCtx.translate(MINIMAP_WIDTH / 2, minimapHeight / 2);
               minimapCtx.rotate(angleRad);
               minimapCtx.translate(-MINIMAP_WIDTH / 2, -minimapHeight / 2);
@@ -786,36 +787,77 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
               minimapCtx.stroke();
               minimapCtx.fill();
             } else {
-              // 일반 모드: 기존 로직
+              // 일반 모드: 회전 시 폴리곤, 평시 사각형
               const { scale, cx = 0.5, cy = 0.5 } = viewport;
               if (scale) {
                 const imageWidth = sourceImage.width;
                 const imageHeight = sourceImage.height;
                 const scaledImageWidth = imageWidth * scale;
                 const scaledImageHeight = imageHeight * scale;
-                const visibleWidthRatio = Math.min(1, canvasSize.width / scaledImageWidth);
-                const visibleHeightRatio = Math.min(1, canvasSize.height / scaledImageHeight);
-                const rectWidth = MINIMAP_WIDTH * visibleWidthRatio;
-                const rectHeight = minimapHeight * visibleHeightRatio;
-                const rectX = (cx * MINIMAP_WIDTH) - (rectWidth / 2);
-                const rectY = (cy * minimapHeight) - (rectHeight / 2);
 
-                minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
-                minimapCtx.lineWidth = 2;
-                minimapCtx.strokeRect(
-                  Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
-                  Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
-                  Math.min(rectWidth, MINIMAP_WIDTH),
-                  Math.min(rectHeight, minimapHeight)
-                );
-                
-                minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-                minimapCtx.fillRect(
-                  Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
-                  Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
-                  Math.min(rectWidth, MINIMAP_WIDTH),
-                  Math.min(rectHeight, minimapHeight)
-                );
+                if ((angleDeg || 0) !== 0 && (appMode === 'analysis' || appMode === 'compare')) {
+                  const canvasW = canvasSize.width;
+                  const canvasH = canvasSize.height;
+                  const drawX = (canvasW / 2) - (cx * imageWidth * scale);
+                  const drawY = (canvasH / 2) - (cy * imageHeight * scale);
+                  const centerX = drawX + (scaledImageWidth / 2);
+                  const centerY = drawY + (scaledImageHeight / 2);
+                  const ang = (angleDeg || 0) * Math.PI / 180;
+                  const cos = Math.cos(-ang);
+                  const sin = Math.sin(-ang);
+
+                  const cornersCanvas = [
+                    { x: 0, y: 0 },
+                    { x: canvasW, y: 0 },
+                    { x: canvasW, y: canvasH },
+                    { x: 0, y: canvasH },
+                  ];
+                  const cornersMini = cornersCanvas.map(({ x: cxp, y: cyp }) => {
+                    const dx = cxp - centerX;
+                    const dy = cyp - centerY;
+                    const rx = centerX + dx * cos - dy * sin;
+                    const ry = centerY + dx * sin + dy * cos;
+                    const imgX = (rx - drawX) / scale;
+                    const imgY = (ry - drawY) / scale;
+                    return {
+                      x: (imgX / imageWidth) * MINIMAP_WIDTH,
+                      y: (imgY / imageHeight) * minimapHeight,
+                    };
+                  });
+
+                  minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+                  minimapCtx.lineWidth = 2;
+                  minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                  minimapCtx.beginPath();
+                  minimapCtx.moveTo(cornersMini[0].x, cornersMini[0].y);
+                  for (let i = 1; i < cornersMini.length; i++) minimapCtx.lineTo(cornersMini[i].x, cornersMini[i].y);
+                  minimapCtx.closePath();
+                  minimapCtx.stroke();
+                  minimapCtx.fill();
+                } else {
+                  const visibleWidthRatio = Math.min(1, canvasSize.width / scaledImageWidth);
+                  const visibleHeightRatio = Math.min(1, canvasSize.height / scaledImageHeight);
+                  const rectWidth = MINIMAP_WIDTH * visibleWidthRatio;
+                  const rectHeight = minimapHeight * visibleHeightRatio;
+                  const rectX = (cx * MINIMAP_WIDTH) - (rectWidth / 2);
+                  const rectY = (cy * minimapHeight) - (rectHeight / 2);
+
+                  minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+                  minimapCtx.lineWidth = 2;
+                  minimapCtx.strokeRect(
+                    Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
+                    Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
+                    Math.min(rectWidth, MINIMAP_WIDTH),
+                    Math.min(rectHeight, minimapHeight)
+                  );
+                  minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                  minimapCtx.fillRect(
+                    Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
+                    Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
+                    Math.min(rectWidth, MINIMAP_WIDTH),
+                    Math.min(rectHeight, minimapHeight)
+                  );
+                }
               }
             }
             
@@ -1059,23 +1101,26 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         return { imgX, imgY };
       };
 
+      // Compute next scale from screen-space selection (rotation-safe)
       const x0 = rectStart!.x, y0 = rectStart!.y;
       const x1 = endX, y1 = endY;
-      const { imgX: ix0, imgY: iy0 } = mapToImage(x0, y0);
-      const { imgX: ix1, imgY: iy1 } = mapToImage(x1, y1);
+      const selW = Math.max(1, Math.abs(x1 - x0));
+      const selH = Math.max(1, Math.abs(y1 - y0));
+      const preTotalScale = scale;
+      const scaleFactor = Math.min(canvas.width / selW, canvas.height / selH);
+      const nextTotalScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, preTotalScale * scaleFactor));
+      const nextIndividual = Math.max(MIN_ZOOM / gScale, Math.min(MAX_ZOOM / gScale, nextTotalScale / gScale));
+
+      // New center is the selection center mapped back to image space
+      const selCx = (x0 + x1) / 2;
+      const selCy = (y0 + y1) / 2;
+      const { imgX: cxImg, imgY: cyImg } = mapToImage(selCx, selCy);
       const imgW = (sourceImage as any).width as number;
       const imgH = (sourceImage as any).height as number;
-      const minX = Math.max(0, Math.min(ix0, ix1));
-      const maxX = Math.min(imgW, Math.max(ix0, ix1));
-      const minY = Math.max(0, Math.min(iy0, iy1));
-      const maxY = Math.min(imgH, Math.max(iy0, iy1));
-      const rectW = Math.max(1, maxX - minX);
-      const rectH = Math.max(1, maxY - minY);
-      const totalScaleNeeded = Math.min(canvas.width / rectW, canvas.height / rectH);
-      const nextIndividual = Math.max(MIN_ZOOM / gScale, Math.min(MAX_ZOOM / gScale, totalScaleNeeded / gScale));
-      const cxImg = (minX + maxX) / 2;
-      const cyImg = (minY + maxY) / 2;
-      const rel = { x: cxImg / imgW, y: cyImg / imgH };
+      const rel = {
+        x: Math.max(0, Math.min(1, cxImg / imgW)),
+        y: Math.max(0, Math.min(1, cyImg / imgH)),
+      };
 
       if (onSetRefPoint) {
         const rsx = vp.refScreenX || (width / 2);
@@ -1118,20 +1163,19 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       };
       const x0 = rectStart!.x, y0 = rectStart!.y;
       const x1 = endX, y1 = endY;
-      const { imgX: ix0, imgY: iy0 } = mapToImage(x0, y0);
-      const { imgX: ix1, imgY: iy1 } = mapToImage(x1, y1);
-      const minX = Math.max(0, Math.min(ix0, ix1));
-      const maxX = Math.min(imgW, Math.max(ix0, ix1));
-      const minY = Math.max(0, Math.min(iy0, iy1));
-      const maxY = Math.min(imgH, Math.max(iy0, iy1));
-      const rectW = Math.max(1, maxX - minX);
-      const rectH = Math.max(1, maxY - minY);
-      const totalScaleNeeded = Math.min(canvas.width / rectW, canvas.height / rectH);
-      const cxImg = (minX + maxX) / 2;
-      const cyImg = (minY + maxY) / 2;
-      const cx = cxImg / imgW;
-      const cy = cyImg / imgH;
-      setViewport({ scale: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, totalScaleNeeded)), cx, cy });
+      // Scale from screen-space selection size (rotation-safe)
+      const selW = Math.max(1, Math.abs(x1 - x0));
+      const selH = Math.max(1, Math.abs(y1 - y0));
+      const preScale = vp.scale;
+      const scaleFactor = Math.min(canvas.width / selW, canvas.height / selH);
+      const nextScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, preScale * scaleFactor));
+      // Center from selection center mapped with inverse rotation
+      const selCx = (x0 + x1) / 2;
+      const selCy = (y0 + y1) / 2;
+      const { imgX: cxImg, imgY: cyImg } = mapToImage(selCx, selCy);
+      const cx = Math.max(0, Math.min(1, cxImg / imgW));
+      const cy = Math.max(0, Math.min(1, cyImg / imgH));
+      setViewport({ scale: nextScale, cx, cy });
       setRectZoomGlobalActive(false);
       setRectStart(null);
       setRectEnd(null);
@@ -1322,7 +1366,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         if (appMode === 'pinpoint' && typeof folderKey === 'string') {
           const { pinpointRotations, setPinpointRotation } = useStore.getState();
           const currentAngle = pinpointRotations[folderKey] || 0;
-          const newAngle = currentAngle + dx / 2;
+          const newAngle = currentAngle + dx / 10;
           const roundedAngle = Math.round(newAngle * 10) / 10;
           const normalizedAngle = (roundedAngle % 360 + 360) % 360;
           setPinpointRotation(folderKey, normalizedAngle);
@@ -1330,7 +1374,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         }
         if (appMode === 'compare') {
           const { compareRotation, setCompareRotation } = useStore.getState();
-          const newAngle = (compareRotation || 0) + dx / 2;
+          const newAngle = (compareRotation || 0) + dx / 10;
           const roundedAngle = Math.round(newAngle * 10) / 10;
           const normalizedAngle = (roundedAngle % 360 + 360) % 360;
           setCompareRotation(normalizedAngle);
@@ -1338,7 +1382,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         }
         if (appMode === 'analysis') {
           const { analysisRotation, setAnalysisRotation } = useStore.getState();
-          const newAngle = (analysisRotation || 0) + dx / 2;
+          const newAngle = (analysisRotation || 0) + dx / 10;
           const roundedAngle = Math.round(newAngle * 10) / 10;
           const normalizedAngle = (roundedAngle % 360 + 360) % 360;
           setAnalysisRotation(normalizedAngle);
@@ -1361,7 +1405,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         setViewport({ cx, cy });
       }
     };
-  }, [sourceImage, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, rectZoomTarget, rectStart, refPoint, rectZoomGlobalActive, compareRotation, rotation]);
+  }, [sourceImage, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, rectZoomTarget, rectStart, refPoint, rectZoomGlobalActive]);
 
   // ✅ FIX: Register event listeners only once with stable handlers
   useEffect(() => {

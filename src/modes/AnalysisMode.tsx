@@ -557,19 +557,17 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                       <button
                         className="viewer__download-button"
                         title={`Download image from viewer ${i + 1}`}
-                        onClick={() => {
+                        onClick={async () => {
                           const handle = imageCanvasRefs.current.get(i);
                           const canvas = handle?.getCanvas();
                           if (!canvas) return;
-                          const base = analysisFile.name.replace(/\.[^/.]+$/, "");
-                          const suggested = `${base}.png`;
-                          const name = (window.prompt("파일명을 입력하세요", suggested) || suggested).trim();
+                          const name = analysisFile.name;
                           canvas.toBlob((blob) => {
                             if (!blob) return;
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = name.endsWith('.png') ? name : `${name}.png`;
+                            a.download = name;
                             document.body.appendChild(a);
                             a.click();
                             document.body.removeChild(a);

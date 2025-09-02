@@ -541,20 +541,18 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
                     <button
                       className="viewer__download-button"
                       title={`Download image from viewer ${key}`}
-                      onClick={() => {
+                      onClick={async () => {
                         const handle = canvasRefs[key as FolderKey].current;
                         const canvas = handle?.getCanvas();
                         const srcFile = fileOf(key, current);
                         if (!canvas || !srcFile) return;
-                        const base = srcFile.name.replace(/\.[^/.]+$/, "");
-                        const suggested = `${base}.png`;
-                        const name = (window.prompt("파일명을 입력하세요", suggested) || suggested).trim();
+                        const name = srcFile.name;
                         canvas.toBlob((blob) => {
                           if (!blob) return;
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement('a');
                           a.href = url;
-                          a.download = name.endsWith('.png') ? name : `${name}.png`;
+                          a.download = name;
                           document.body.appendChild(a);
                           a.click();
                           document.body.removeChild(a);

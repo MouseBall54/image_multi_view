@@ -13,7 +13,9 @@
       "Bash(sudo dpkg:*)",
       "Bash(npx electron-builder:*)",
       "Bash(node:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(npx asar list:*)",
+      "Bash(electron-builder:*)"
     ],
     "deny": [],
     "ask": []
