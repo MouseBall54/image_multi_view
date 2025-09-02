@@ -723,7 +723,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
             }
             const angleRad = angleDeg * Math.PI / 180;
             minimapCtx.save();
-            if ((appMode === 'pinpoint' || appMode === 'analysis') && angleRad !== 0) {
+            if ((appMode === 'pinpoint' || appMode === 'analysis' || appMode === 'compare') && angleRad !== 0) {
               minimapCtx.translate(MINIMAP_WIDTH / 2, minimapHeight / 2);
               minimapCtx.rotate(angleRad);
               minimapCtx.translate(-MINIMAP_WIDTH / 2, -minimapHeight / 2);
@@ -786,36 +786,77 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
               minimapCtx.stroke();
               minimapCtx.fill();
             } else {
-              // 일반 모드: 기존 로직
+              // 일반 모드: 회전 시 폴리곤, 평시 사각형
               const { scale, cx = 0.5, cy = 0.5 } = viewport;
               if (scale) {
                 const imageWidth = sourceImage.width;
                 const imageHeight = sourceImage.height;
                 const scaledImageWidth = imageWidth * scale;
                 const scaledImageHeight = imageHeight * scale;
-                const visibleWidthRatio = Math.min(1, canvasSize.width / scaledImageWidth);
-                const visibleHeightRatio = Math.min(1, canvasSize.height / scaledImageHeight);
-                const rectWidth = MINIMAP_WIDTH * visibleWidthRatio;
-                const rectHeight = minimapHeight * visibleHeightRatio;
-                const rectX = (cx * MINIMAP_WIDTH) - (rectWidth / 2);
-                const rectY = (cy * minimapHeight) - (rectHeight / 2);
 
-                minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
-                minimapCtx.lineWidth = 2;
-                minimapCtx.strokeRect(
-                  Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
-                  Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
-                  Math.min(rectWidth, MINIMAP_WIDTH),
-                  Math.min(rectHeight, minimapHeight)
-                );
-                
-                minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-                minimapCtx.fillRect(
-                  Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
-                  Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
-                  Math.min(rectWidth, MINIMAP_WIDTH),
-                  Math.min(rectHeight, minimapHeight)
-                );
+                if ((angleDeg || 0) !== 0 && (appMode === 'analysis' || appMode === 'compare')) {
+                  const canvasW = canvasSize.width;
+                  const canvasH = canvasSize.height;
+                  const drawX = (canvasW / 2) - (cx * imageWidth * scale);
+                  const drawY = (canvasH / 2) - (cy * imageHeight * scale);
+                  const centerX = drawX + (scaledImageWidth / 2);
+                  const centerY = drawY + (scaledImageHeight / 2);
+                  const ang = (angleDeg || 0) * Math.PI / 180;
+                  const cos = Math.cos(-ang);
+                  const sin = Math.sin(-ang);
+
+                  const cornersCanvas = [
+                    { x: 0, y: 0 },
+                    { x: canvasW, y: 0 },
+                    { x: canvasW, y: canvasH },
+                    { x: 0, y: canvasH },
+                  ];
+                  const cornersMini = cornersCanvas.map(({ x: cxp, y: cyp }) => {
+                    const dx = cxp - centerX;
+                    const dy = cyp - centerY;
+                    const rx = centerX + dx * cos - dy * sin;
+                    const ry = centerY + dx * sin + dy * cos;
+                    const imgX = (rx - drawX) / scale;
+                    const imgY = (ry - drawY) / scale;
+                    return {
+                      x: (imgX / imageWidth) * MINIMAP_WIDTH,
+                      y: (imgY / imageHeight) * minimapHeight,
+                    };
+                  });
+
+                  minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+                  minimapCtx.lineWidth = 2;
+                  minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                  minimapCtx.beginPath();
+                  minimapCtx.moveTo(cornersMini[0].x, cornersMini[0].y);
+                  for (let i = 1; i < cornersMini.length; i++) minimapCtx.lineTo(cornersMini[i].x, cornersMini[i].y);
+                  minimapCtx.closePath();
+                  minimapCtx.stroke();
+                  minimapCtx.fill();
+                } else {
+                  const visibleWidthRatio = Math.min(1, canvasSize.width / scaledImageWidth);
+                  const visibleHeightRatio = Math.min(1, canvasSize.height / scaledImageHeight);
+                  const rectWidth = MINIMAP_WIDTH * visibleWidthRatio;
+                  const rectHeight = minimapHeight * visibleHeightRatio;
+                  const rectX = (cx * MINIMAP_WIDTH) - (rectWidth / 2);
+                  const rectY = (cy * minimapHeight) - (rectHeight / 2);
+
+                  minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+                  minimapCtx.lineWidth = 2;
+                  minimapCtx.strokeRect(
+                    Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
+                    Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
+                    Math.min(rectWidth, MINIMAP_WIDTH),
+                    Math.min(rectHeight, minimapHeight)
+                  );
+                  minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                  minimapCtx.fillRect(
+                    Math.max(0, Math.min(MINIMAP_WIDTH - rectWidth, rectX)),
+                    Math.max(0, Math.min(minimapHeight - rectHeight, rectY)),
+                    Math.min(rectWidth, MINIMAP_WIDTH),
+                    Math.min(rectHeight, minimapHeight)
+                  );
+                }
               }
             }
             
