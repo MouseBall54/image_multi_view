@@ -1322,7 +1322,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         if (appMode === 'pinpoint' && typeof folderKey === 'string') {
           const { pinpointRotations, setPinpointRotation } = useStore.getState();
           const currentAngle = pinpointRotations[folderKey] || 0;
-          const newAngle = currentAngle + dx / 2;
+          const newAngle = currentAngle + dx / 10;
           const roundedAngle = Math.round(newAngle * 10) / 10;
           const normalizedAngle = (roundedAngle % 360 + 360) % 360;
           setPinpointRotation(folderKey, normalizedAngle);
@@ -1330,7 +1330,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         }
         if (appMode === 'compare') {
           const { compareRotation, setCompareRotation } = useStore.getState();
-          const newAngle = (compareRotation || 0) + dx / 2;
+          const newAngle = (compareRotation || 0) + dx / 10;
           const roundedAngle = Math.round(newAngle * 10) / 10;
           const normalizedAngle = (roundedAngle % 360 + 360) % 360;
           setCompareRotation(normalizedAngle);
@@ -1338,7 +1338,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         }
         if (appMode === 'analysis') {
           const { analysisRotation, setAnalysisRotation } = useStore.getState();
-          const newAngle = (analysisRotation || 0) + dx / 2;
+          const newAngle = (analysisRotation || 0) + dx / 10;
           const roundedAngle = Math.round(newAngle * 10) / 10;
           const normalizedAngle = (roundedAngle % 360 + 360) % 360;
           setAnalysisRotation(normalizedAngle);
