@@ -1361,7 +1361,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         setViewport({ cx, cy });
       }
     };
-  }, [sourceImage, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, rectZoomTarget, rectStart, refPoint, rectZoomGlobalActive, compareRotation, rotation]);
+  }, [sourceImage, setViewport, appMode, pinpointMouseMode, overrideScale, folderKey, rectZoomTarget, rectStart, refPoint, rectZoomGlobalActive]);
 
   // ✅ FIX: Register event listeners only once with stable handlers
   useEffect(() => {
