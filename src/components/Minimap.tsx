@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import type { Viewport, AppMode, FolderKey } from '../types';
+import { computePinpointTransform, computeStandardTransform, screenToImage } from '../utils/viewTransforms';
 
 type Props = {
   bitmap: ImageBitmap | null;
@@ -52,53 +53,31 @@ export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode
       if (appMode === 'pinpoint' && typeof folderKey === 'string' && pinpointGlobalScale !== undefined) {
         // Pinpoint mode: complex calculations
         const individualScale = overrideScale ?? viewport.scale;
-        const totalScale = individualScale * pinpointGlobalScale;
         const currentRefPoint = refPoint || { x: 0.5, y: 0.5 };
-        const refScreenX = viewport.refScreenX || (canvasSize.width / 2);
-        const refScreenY = viewport.refScreenY || (canvasSize.height / 2);
-        
-        // Calculate visible area in pinpoint mode
-        const imageWidth = bitmap.width;
-        const imageHeight = bitmap.height;
-        const scaledImageWidth = imageWidth * totalScale;
-        const scaledImageHeight = imageHeight * totalScale;
-        
-        // Reference point image coordinates
-        const refImgX = currentRefPoint.x * imageWidth;
-        const refImgY = currentRefPoint.y * imageHeight;
-        
-        // Where image is drawn in canvas
-        const drawX = refScreenX - (refImgX * totalScale);
-        const drawY = refScreenY - (refImgY * totalScale);
-        
-        // Calculate visible portion ratios (values not used directly below)
-        
-        // Compute rotated viewport polygon corners in minimap coordinates
-        const angle = (rotationDeg || 0) * Math.PI / 180;
-        const canvasW = canvasSize.width;
-        const canvasH = canvasSize.height;
-        const centerX = drawX + (scaledImageWidth / 2);
-        const centerY = drawY + (scaledImageHeight / 2);
-        const cos = Math.cos(-angle); // inverse rotation for mapping canvas->image
-        const sin = Math.sin(-angle);
+        const xform = computePinpointTransform({
+          imageW: bitmap.width,
+          imageH: bitmap.height,
+          viewport,
+          individualScale,
+          globalScale: pinpointGlobalScale,
+          refPoint: currentRefPoint,
+          totalAngleDeg: rotationDeg || 0,
+          canvasW: canvasSize.width,
+          canvasH: canvasSize.height,
+        });
 
         const cornersCanvas = [
           { x: 0, y: 0 },
-          { x: canvasW, y: 0 },
-          { x: canvasW, y: canvasH },
-          { x: 0, y: canvasH },
+          { x: canvasSize.width, y: 0 },
+          { x: canvasSize.width, y: canvasSize.height },
+          { x: 0, y: canvasSize.height },
         ];
 
         const cornersMini = cornersCanvas.map(({ x: cx, y: cy }) => {
-          const dx = cx - centerX;
-          const dy = cy - centerY;
-          const rx = centerX + dx * cos - dy * sin;
-          const ry = centerY + dx * sin + dy * cos;
-          const imgX = (rx - drawX) / totalScale; // in image px
-          const imgY = (ry - drawY) / totalScale;
+          const { imgX, imgY } = screenToImage(cx, cy, xform);
           return {
-            x: (imgX / imageWidth) * MINIMAP_WIDTH,
-            y: (imgY / imageHeight) * minimapHeight,
+            x: (imgX / bitmap.width) * MINIMAP_WIDTH,
+            y: (imgY / bitmap.height) * minimapHeight,
           };
         });
 
@@ -118,34 +97,24 @@ export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode
         if (scale) {
           const imageWidth = bitmap.width;
           const imageHeight = bitmap.height;
-          const scaledImageWidth = imageWidth * scale;
-          const scaledImageHeight = imageHeight * scale;
-
           if ((rotationDeg || 0) !== 0 && (appMode === 'analysis' || appMode === 'compare')) {
-            // Map canvas viewport corners to image, compensating rotation
-            const canvasW = canvasSize.width;
-            const canvasH = canvasSize.height;
-            const drawX = (canvasW / 2) - (cx * imageWidth * scale);
-            const drawY = (canvasH / 2) - (cy * imageHeight * scale);
-            const centerX = drawX + (scaledImageWidth / 2);
-            const centerY = drawY + (scaledImageHeight / 2);
-            const ang = (rotationDeg || 0) * Math.PI / 180;
-            const cos = Math.cos(-ang);
-            const sin = Math.sin(-ang);
-
+            const xform = computeStandardTransform({
+              imageW: imageWidth,
+              imageH: imageHeight,
+              viewport: { ...viewport, cx, cy },
+              scale,
+              angleDeg: rotationDeg || 0,
+              canvasW: canvasSize.width,
+              canvasH: canvasSize.height,
+            });
             const cornersCanvas = [
               { x: 0, y: 0 },
-              { x: canvasW, y: 0 },
-              { x: canvasW, y: canvasH },
-              { x: 0, y: canvasH },
+              { x: canvasSize.width, y: 0 },
+              { x: canvasSize.width, y: canvasSize.height },
+              { x: 0, y: canvasSize.height },
             ];
             const cornersMini = cornersCanvas.map(({ x: cxp, y: cyp }) => {
-              const dx = cxp - centerX;
-              const dy = cyp - centerY;
-              const rx = centerX + dx * cos - dy * sin;
-              const ry = centerY + dx * sin + dy * cos;
-              const imgX = (rx - drawX) / scale;
-              const imgY = (ry - drawY) / scale;
+              const { imgX, imgY } = screenToImage(cxp, cyp, xform);
               return {
                 x: (imgX / imageWidth) * MINIMAP_WIDTH,
                 y: (imgY / imageHeight) * minimapHeight,
@@ -163,6 +132,8 @@ export const Minimap: React.FC<Props> = ({ bitmap, viewport, canvasSize, appMode
             ctx.fill();
           } else {
             // No rotation: simple axis-aligned rectangle
+            const scaledImageWidth = imageWidth * scale;
+            const scaledImageHeight = imageHeight * scale;
             const visibleWidthRatio = Math.min(1, canvasSize.width / scaledImageWidth);
             const visibleHeightRatio = Math.min(1, canvasSize.height / scaledImageHeight);
             const rectWidth = MINIMAP_WIDTH * visibleWidthRatio;

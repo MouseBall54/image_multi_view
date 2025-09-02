@@ -7,6 +7,7 @@ import { AppMode, FolderKey, FilterType, DrawableImage } from "../types";
 import { decodeTiffWithUTIF } from '../utils/utif';
 import * as Filters from "../utils/filters";
 import { applyFilterChain } from "../utils/filterChain";
+import { computePinpointTransform, computeStandardTransform, screenToImage } from "../utils/viewTransforms";
 import { FilterParams } from "../store";
 
 type Props = {
@@ -1100,23 +1101,26 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         return { imgX, imgY };
       };
 
+      // Compute next scale from screen-space selection (rotation-safe)
       const x0 = rectStart!.x, y0 = rectStart!.y;
       const x1 = endX, y1 = endY;
-      const { imgX: ix0, imgY: iy0 } = mapToImage(x0, y0);
-      const { imgX: ix1, imgY: iy1 } = mapToImage(x1, y1);
+      const selW = Math.max(1, Math.abs(x1 - x0));
+      const selH = Math.max(1, Math.abs(y1 - y0));
+      const preTotalScale = scale;
+      const scaleFactor = Math.min(canvas.width / selW, canvas.height / selH);
+      const nextTotalScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, preTotalScale * scaleFactor));
+      const nextIndividual = Math.max(MIN_ZOOM / gScale, Math.min(MAX_ZOOM / gScale, nextTotalScale / gScale));
+
+      // New center is the selection center mapped back to image space
+      const selCx = (x0 + x1) / 2;
+      const selCy = (y0 + y1) / 2;
+      const { imgX: cxImg, imgY: cyImg } = mapToImage(selCx, selCy);
       const imgW = (sourceImage as any).width as number;
       const imgH = (sourceImage as any).height as number;
-      const minX = Math.max(0, Math.min(ix0, ix1));
-      const maxX = Math.min(imgW, Math.max(ix0, ix1));
-      const minY = Math.max(0, Math.min(iy0, iy1));
-      const maxY = Math.min(imgH, Math.max(iy0, iy1));
-      const rectW = Math.max(1, maxX - minX);
-      const rectH = Math.max(1, maxY - minY);
-      const totalScaleNeeded = Math.min(canvas.width / rectW, canvas.height / rectH);
-      const nextIndividual = Math.max(MIN_ZOOM / gScale, Math.min(MAX_ZOOM / gScale, totalScaleNeeded / gScale));
-      const cxImg = (minX + maxX) / 2;
-      const cyImg = (minY + maxY) / 2;
-      const rel = { x: cxImg / imgW, y: cyImg / imgH };
+      const rel = {
+        x: Math.max(0, Math.min(1, cxImg / imgW)),
+        y: Math.max(0, Math.min(1, cyImg / imgH)),
+      };
 
       if (onSetRefPoint) {
         const rsx = vp.refScreenX || (width / 2);
@@ -1159,20 +1163,19 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       };
       const x0 = rectStart!.x, y0 = rectStart!.y;
       const x1 = endX, y1 = endY;
-      const { imgX: ix0, imgY: iy0 } = mapToImage(x0, y0);
-      const { imgX: ix1, imgY: iy1 } = mapToImage(x1, y1);
-      const minX = Math.max(0, Math.min(ix0, ix1));
-      const maxX = Math.min(imgW, Math.max(ix0, ix1));
-      const minY = Math.max(0, Math.min(iy0, iy1));
-      const maxY = Math.min(imgH, Math.max(iy0, iy1));
-      const rectW = Math.max(1, maxX - minX);
-      const rectH = Math.max(1, maxY - minY);
-      const totalScaleNeeded = Math.min(canvas.width / rectW, canvas.height / rectH);
-      const cxImg = (minX + maxX) / 2;
-      const cyImg = (minY + maxY) / 2;
-      const cx = cxImg / imgW;
-      const cy = cyImg / imgH;
-      setViewport({ scale: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, totalScaleNeeded)), cx, cy });
+      // Scale from screen-space selection size (rotation-safe)
+      const selW = Math.max(1, Math.abs(x1 - x0));
+      const selH = Math.max(1, Math.abs(y1 - y0));
+      const preScale = vp.scale;
+      const scaleFactor = Math.min(canvas.width / selW, canvas.height / selH);
+      const nextScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, preScale * scaleFactor));
+      // Center from selection center mapped with inverse rotation
+      const selCx = (x0 + x1) / 2;
+      const selCy = (y0 + y1) / 2;
+      const { imgX: cxImg, imgY: cyImg } = mapToImage(selCx, selCy);
+      const cx = Math.max(0, Math.min(1, cxImg / imgW));
+      const cy = Math.max(0, Math.min(1, cyImg / imgH));
+      setViewport({ scale: nextScale, cx, cy });
       setRectZoomGlobalActive(false);
       setRectStart(null);
       setRectEnd(null);
