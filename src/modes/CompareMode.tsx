@@ -10,7 +10,6 @@ import { ALL_FILTERS } from '../components/FilterControls';
 import type { FolderKey, MatchedItem, FilterType } from '../types';
 import type { FilterParams } from '../store';
 import { generateFilterChainLabel } from '../utils/filterChainLabel';
-import { getInputFromUser } from '../utils/electronHelpers';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -547,15 +546,13 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
                         const canvas = handle?.getCanvas();
                         const srcFile = fileOf(key, current);
                         if (!canvas || !srcFile) return;
-                        const base = srcFile.name.replace(/\.[^/.]+$/, "");
-                        const suggested = `${base}.png`;
-                        const name = ((await getInputFromUser("파일명을 입력하세요", suggested)) || suggested).trim();
+                        const name = srcFile.name;
                         canvas.toBlob((blob) => {
                           if (!blob) return;
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement('a');
                           a.href = url;
-                          a.download = name.endsWith('.png') ? name : `${name}.png`;
+                          a.download = name;
                           document.body.appendChild(a);
                           a.click();
                           document.body.removeChild(a);

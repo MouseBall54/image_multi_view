@@ -10,7 +10,6 @@ import { FolderControl } from '../components/FolderControl';
 import type { DrawableImage, FolderKey, FilterType } from '../types';
 import type { FilterParams } from '../store';
 import { createFileComparator } from '../utils/naturalSort';
-import { getInputFromUser } from '../utils/electronHelpers';
 
 // Helper function to check if a file is a valid image
 const isValidImageFile = (file: File): boolean => {
@@ -562,15 +561,13 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                           const handle = imageCanvasRefs.current.get(i);
                           const canvas = handle?.getCanvas();
                           if (!canvas) return;
-                          const base = analysisFile.name.replace(/\.[^/.]+$/, "");
-                          const suggested = `${base}.png`;
-                          const name = ((await getInputFromUser("파일명을 입력하세요", suggested)) || suggested).trim();
+                          const name = analysisFile.name;
                           canvas.toBlob((blob) => {
                             if (!blob) return;
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = name.endsWith('.png') ? name : `${name}.png`;
+                            a.download = name;
                             document.body.appendChild(a);
                             a.click();
                             document.body.removeChild(a);
