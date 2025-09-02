@@ -18,6 +18,30 @@ process.on('unhandledRejection', (reason, promise) => {
 
 let mainWindow;
 
+// IPC handler for input dialog
+ipcMain.handle('show-input-dialog', async (event, title, placeholder) => {
+  try {
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      buttons: ['확인', '취소'],
+      defaultId: 0,
+      title: title || '입력',
+      message: title || '파일명을 입력하세요',
+      detail: `기본값: ${placeholder || ''}`,
+    });
+    
+    if (response === 0) {
+      // 확인을 클릭한 경우, 기본값 반환 (실제 input은 추후 구현)
+      return { success: true, value: placeholder || '' };
+    }
+    
+    return { success: false, value: null };
+  } catch (error) {
+    console.error('Error showing input dialog:', error);
+    return { success: false, value: null };
+  }
+});
+
 // IPC handler for saving images
 ipcMain.handle('save-image', async (event, imageData, defaultFileName) => {
   try {

@@ -10,6 +10,7 @@ import { ALL_FILTERS } from '../components/FilterControls';
 import type { FolderKey, MatchedItem, FilterType } from '../types';
 import type { FilterParams } from '../store';
 import { generateFilterChainLabel } from '../utils/filterChainLabel';
+import { getInputFromUser } from '../utils/electronHelpers';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -541,14 +542,14 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
                     <button
                       className="viewer__download-button"
                       title={`Download image from viewer ${key}`}
-                      onClick={() => {
+                      onClick={async () => {
                         const handle = canvasRefs[key as FolderKey].current;
                         const canvas = handle?.getCanvas();
                         const srcFile = fileOf(key, current);
                         if (!canvas || !srcFile) return;
                         const base = srcFile.name.replace(/\.[^/.]+$/, "");
                         const suggested = `${base}.png`;
-                        const name = (window.prompt("파일명을 입력하세요", suggested) || suggested).trim();
+                        const name = ((await getInputFromUser("파일명을 입력하세요", suggested)) || suggested).trim();
                         canvas.toBlob((blob) => {
                           if (!blob) return;
                           const url = URL.createObjectURL(blob);

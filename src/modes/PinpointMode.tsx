@@ -12,6 +12,7 @@ import { FolderControl } from '../components/FolderControl';
 import { ALL_FILTERS } from '../components/FilterControls';
 import { createFileComparator } from '../utils/naturalSort';
 import { PinpointViewerControls } from '../components/PinpointViewerControls';
+import { getInputFromUser } from '../utils/electronHelpers';
 
 // Helper function to check if a file is a valid image
 const isValidImageFile = (file: File): boolean => {
@@ -925,14 +926,14 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                     <button
                       className="viewer__download-button"
                       title={`Download image from viewer ${key}`}
-                      onClick={() => {
+                      onClick={async () => {
                         const handle = canvasRefs[key as FolderKey].current;
                         const canvas = handle?.getCanvas();
                         const srcFile = pinpointImages[key as FolderKey]?.file || null;
                         if (!canvas || !srcFile) return;
                         const base = srcFile.name.replace(/\.[^/.]+$/, "");
                         const suggested = `${base}.png`;
-                        const name = (window.prompt("파일명을 입력하세요", suggested) || suggested).trim();
+                        const name = ((await getInputFromUser("파일명을 입력하세요", suggested)) || suggested).trim();
                         canvas.toBlob((blob) => {
                           if (!blob) return;
                           const url = URL.createObjectURL(blob);
