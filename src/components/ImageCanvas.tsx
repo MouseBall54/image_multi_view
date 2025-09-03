@@ -7,7 +7,6 @@ import { AppMode, FolderKey, FilterType, DrawableImage } from "../types";
 import { decodeTiffWithUTIF } from '../utils/utif';
 import * as Filters from "../utils/filters";
 import { applyFilterChain } from "../utils/filterChain";
-import { screenToImage } from "../utils/viewTransforms";
 import { FilterParams } from "../store";
 
 type Props = {

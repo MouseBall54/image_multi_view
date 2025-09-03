@@ -77,6 +77,45 @@ const FILTER_PARAMETER_MAP: Partial<Record<FilterType, string[]>> = {
   'edgepreserving': ['kernelSize', 'sigmaColor', 'sigmaSpace'],
   'anisotropicdiffusion': ['iterations', 'kappa', 'epsilon'],
   'lbp': ['radius', 'neighbors'],
+  
+  // Colormap - Perceptually Uniform (Recommended)
+  'colormap_viridis': ['gamma'],
+  'colormap_inferno': ['gamma'],
+  'colormap_plasma': ['gamma'],
+  'colormap_magma': ['gamma'],
+  'colormap_parula': ['gamma'],
+  
+  // Colormap - Rainbow/Legacy
+  'colormap_jet': ['gamma'],
+  'colormap_hsv': ['gamma'],
+  'colormap_hot': ['gamma'],
+  
+  // Colormap - Aesthetic Gradients
+  'colormap_cool': ['gamma'],
+  'colormap_warm': ['gamma'],
+  'colormap_spring': ['gamma'],
+  'colormap_summer': ['gamma'],
+  'colormap_autumn': ['gamma'],
+  'colormap_winter': ['gamma'],
+  
+  // Colormap - Specialized
+  'colormap_bone': ['gamma'],
+  'colormap_copper': ['gamma'],
+  'colormap_pink': ['gamma'],
+  
+  // Colormap - Diverging (Change-based)
+  'colormap_rdbu': ['gamma'],
+  'colormap_rdylbu': ['gamma'],
+  'colormap_bwr': ['gamma'],
+  'colormap_seismic': ['gamma'],
+  'colormap_coolwarm': ['gamma'],
+  'colormap_spectral': ['gamma'],
+  
+  // Colormap - Gradient-based
+  'colormap_gradient_magnitude': ['gamma', 'sensitivity'],
+  'colormap_edge_intensity': ['gamma', 'threshold'],
+  'colormap_difference': ['gamma', 'centerValue'],
+  
   'filterchain': []
 };
 
