@@ -18,6 +18,7 @@ import { ViewToggleControls } from "./components/ViewToggleControls";
 import { LayoutGridSelector } from "./components/LayoutGridSelector";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
 import { decodeTiffWithUTIF } from "./utils/utif";
+// Custom menu bar removed; actions moved to title bar
 import { initializeOpenCV } from "./utils/opencv";
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
@@ -394,6 +395,53 @@ export default function App() {
             showControls={showControls} 
             onToggleControls={() => setShowControls(!showControls)} 
           />
+          <div className="title-right-actions">
+            <button
+              className="controls-main-button"
+              title="Check for Updates"
+              onClick={async () => {
+                try {
+                  const api: any = (window as any).electronAPI;
+                  if (api?.updater) await api.updater.checkForUpdates();
+                } catch (e) {
+                  console.error(e);
+                }
+              }}
+              disabled={!(window as any).electronAPI?.updater}
+            >
+              Check for Updates
+            </button>
+            <button
+              className="controls-main-button"
+              title="Toggle DevTools"
+              onClick={() => {
+                const api: any = (window as any).electronAPI;
+                api?.windowActions?.toggleDevTools?.();
+              }}
+              disabled={!(window as any).electronAPI?.windowActions}
+            >
+              DevTools
+            </button>
+            <button
+              className="controls-main-button"
+              title="Toggle Fullscreen"
+              onClick={() => {
+                const api: any = (window as any).electronAPI;
+                if (api?.windowActions?.toggleFullscreen) {
+                  api.windowActions.toggleFullscreen();
+                } else {
+                  const doc: any = document;
+                  if (!document.fullscreenElement) {
+                    doc.documentElement.requestFullscreen?.();
+                  } else {
+                    document.exitFullscreen?.();
+                  }
+                }
+              }}
+            >
+              Fullscreen
+            </button>
+          </div>
         </div>
         <div className="top-controls-wrapper">
           <div className="controls-main">

@@ -60,7 +60,7 @@
     ],
     "publish": {
       "provider": "generic",
-      "url": "http://localhost:8000/updates/", // ip:port or domain name where updates are hosted
+      "url": "http://localhost:8000/updates/",
       "channel": "latest"
     },
     "win": {

@@ -60,5 +60,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeAllListeners('update-download-progress');
       ipcRenderer.removeAllListeners('update-downloaded');
     }
+  },
+  // Window/App actions for custom menu
+  windowActions: {
+    quit: () => ipcRenderer.invoke('app-quit'),
+    toggleDevTools: () => ipcRenderer.invoke('window-toggle-devtools'),
+    toggleFullscreen: () => ipcRenderer.invoke('window-toggle-fullscreen')
   }
 });

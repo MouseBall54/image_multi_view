@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useStore } from '../store';
 import { electronUpdater, UpdateInfo, DownloadProgress, VersionInfo } from '../utils/electron-updater';
 
 interface ElectronUpdateManagerProps {
@@ -18,16 +19,20 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { addToast } = useStore.getState();
 
   useEffect(() => {
+    let intervalId: number | undefined;
+
     // Initialize version info
     electronUpdater.getVersion().then(version => {
       setVersionInfo(version);
     });
 
-    // Setup event listeners
+    // Ensure no duplicate listeners, then wire listeners once per effect run
     if (window.electronAPI?.updater) {
       const { updater } = window.electronAPI;
+      updater.removeAllListeners();
 
       updater.onUpdateChecking(() => {
         setIsChecking(true);
@@ -43,6 +48,13 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
       updater.onUpdateNotAvailable(() => {
         setUpdateInfo(null);
         setIsChecking(false);
+        if (addToast) {
+          addToast({
+            type: 'info',
+            title: 'Update Check',
+            message: 'You are on the latest version.'
+          });
+        }
       });
 
       updater.onUpdateError((error: string) => {
@@ -62,22 +74,23 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
       });
     }
 
-    // Auto check for updates
+    // Auto check for updates (renderer-owned schedule)
     if (autoCheck && !versionInfo?.isDev) {
       checkForUpdates();
-      
-      // Set up periodic checks
-      const interval = setInterval(() => {
-        if (!versionInfo?.isDev) {
-          checkForUpdates();
-        }
+      intervalId = window.setInterval(() => {
+        checkForUpdates();
       }, checkIntervalMs);
-
-      return () => clearInterval(interval);
     }
 
+    // Unified cleanup to avoid duplicates
     return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
       electronUpdater.cleanup();
+      if (window.electronAPI?.updater) {
+        window.electronAPI.updater.removeAllListeners();
+      }
     };
   }, [autoCheck, checkIntervalMs, versionInfo?.isDev]);
 
@@ -434,7 +447,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
                   <line x1="15" y1="9" x2="9" y2="15"/>
                   <line x1="9" y1="9" x2="15" y2="15"/>
                 </svg>
-                <h3 className="update-modal-title error">업데이트 오류</h3>
+                <h3 className="update-modal-title error">Update Error</h3>
               </div>
               
               <div className="update-error-message">
@@ -443,7 +456,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
 
               <div className="update-modal-actions">
                 <button className="update-btn primary" onClick={() => setError(null)}>
-                  확인
+                  OK
                 </button>
               </div>
             </>
@@ -453,13 +466,13 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
                 <svg className="update-modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
                 </svg>
-                <h3 className="update-modal-title">업데이트 확인 중...</h3>
+                <h3 className="update-modal-title">Checking for updates...</h3>
               </div>
               
               <div className="update-progress-container">
                 <div className="update-progress-status">
                   <div className="update-progress-spinner" />
-                  서버에서 새로운 업데이트를 확인하고 있습니다...
+                  Checking the server for updates...
                 </div>
               </div>
             </>
@@ -470,19 +483,19 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
                   <path d="M14.828 14.828a4 4 0 0 1-5.656 0M9 10h1m4 0h1"/>
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                 </svg>
-                <h3 className="update-modal-title">CompareX 업데이트 ({updateInfo.version})</h3>
+                <h3 className="update-modal-title">CompareX Update ({updateInfo.version})</h3>
               </div>
               
               <div className="update-info-grid">
-                <span className="update-info-label">새 버전:</span>
+                <span className="update-info-label">New version:</span>
                 <span className="update-info-value">{updateInfo.version}</span>
                 
                 {updateInfo.releaseDate && (
                   <>
-                    <span className="update-info-label">릴리즈 날짜:</span>
+                    <span className="update-info-label">Release date:</span>
                     <span className="update-info-value">
-                      {new Date(updateInfo.releaseDate).toLocaleDateString('ko-KR')}
-                    </span>
+                      {new Date(updateInfo.releaseDate).toLocaleDateString('en-US')}
+                </span>
                   </>
                 )}
               </div>
@@ -490,7 +503,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
               {updateInfo.releaseNotes && (
                 <>
                   <div className="update-info-label" style={{ marginBottom: '8px' }}>
-                    <strong>변경사항:</strong>
+                    <strong>Release notes:</strong>
                   </div>
                   <div className="update-changelog">
                     {updateInfo.releaseNotes}
@@ -503,7 +516,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
                   <div className="update-progress-header">
                     <div className="update-progress-status">
                       <div className="update-progress-spinner" />
-                      다운로드 중...
+                      Downloading...
                     </div>
                     <div className="update-progress-percent">
                       {downloadProgress.percent.toFixed(1)}%
@@ -532,7 +545,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
                   onClick={handleCancel}
                   disabled={isDownloading}
                 >
-                  {isDownloading ? '다운로드 중...' : '나중에'}
+                  {isDownloading ? 'Downloading...' : 'Later'}
                 </button>
                 
                 {!isDownloaded ? (
@@ -546,7 +559,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
                       <polyline points="7,10 12,15 17,10"/>
                       <line x1="12" y1="15" x2="12" y2="3"/>
                     </svg>
-                    {isDownloading ? '다운로드 중...' : '다운로드'}
+                    {isDownloading ? 'Downloading...' : 'Download'}
                   </button>
                 ) : (
                   <button
@@ -557,7 +570,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
                       <path d="M9 12l2 2 4-4"/>
                       <path d="M12 2v20"/>
                     </svg>
-                    지금 설치 및 재시작
+                    Install and Restart Now
                   </button>
                 )}
               </div>

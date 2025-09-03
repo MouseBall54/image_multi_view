@@ -1,4 +1,6 @@
 # Generic Server Setup for CompareX Auto-Updates
+npm install
+npm run build:deploy
 
 ## 서버 요구사항
 
