@@ -11,6 +11,7 @@ import { FilterPreviewModal } from "./components/FilterPreviewModal";
 import ToastContainer from "./components/ToastContainer";
 import { AnalysisRotationControl } from "./components/AnalysisRotationControl";
 import { CompareRotationControl } from "./components/CompareRotationControl";
+import ElectronUpdateManager from "./components/ElectronUpdateManager";
 import { PinpointGlobalRotationControl } from "./components/PinpointGlobalRotationControl";
 import { PinpointGlobalScaleControl } from "./components/PinpointGlobalScaleControl";
 import { ViewToggleControls } from "./components/ViewToggleControls";
@@ -619,6 +620,7 @@ export default function App() {
       )}
       
       <ToastContainer />
+      <ElectronUpdateManager autoCheck={true} checkIntervalMs={4 * 60 * 60 * 1000} />
     </div>
   );
 }

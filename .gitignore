@@ -6,7 +6,7 @@ dist/
 dist-electron/
 dist-ssr/
 build/
-
+updates/
 # TypeScript
 *.tsbuildinfo
 
