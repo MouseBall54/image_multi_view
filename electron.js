@@ -1,4 +1,6 @@
 import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
+import pkg from 'electron-updater';
+const { autoUpdater } = pkg;
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -18,7 +20,151 @@ process.on('unhandledRejection', (reason, promise) => {
 
 let mainWindow;
 
-// IPC handler for input dialog
+// Configure electron-updater
+autoUpdater.checkForUpdatesAndNotify = false; // We'll handle notifications manually
+autoUpdater.autoDownload = false; // We'll control when to download
+autoUpdater.autoInstallOnAppQuit = true; // Install on app quit
+
+// Development mode: disable updater
+if (isDev) {
+  autoUpdater.updateConfigPath = path.join(__dirname, 'dev-app-update.yml');
+  // Disable updater in development
+  Object.defineProperty(autoUpdater, 'isUpdaterActive', {
+    get() { return false; }
+  });
+}
+
+// Auto-updater event handlers
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for update...');
+  sendToRenderer('update-checking');
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('Update available:', info);
+  sendToRenderer('update-available', {
+    version: info.version,
+    releaseDate: info.releaseDate,
+    releaseNotes: info.releaseNotes,
+    files: info.files
+  });
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('Update not available:', info);
+  sendToRenderer('update-not-available');
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('Update error:', err);
+  sendToRenderer('update-error', err.message);
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  const { bytesPerSecond, percent, transferred, total } = progressObj;
+  console.log(`Download progress: ${percent.toFixed(2)}%`);
+  sendToRenderer('update-download-progress', {
+    percent: Math.round(percent),
+    transferred,
+    total,
+    bytesPerSecond
+  });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('Update downloaded:', info);
+  sendToRenderer('update-downloaded', {
+    version: info.version,
+    releaseDate: info.releaseDate
+  });
+});
+
+// Helper function to send messages to renderer
+function sendToRenderer(channel, data) {
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send(channel, data);
+  }
+}
+
+// Auto-updater IPC handlers
+ipcMain.handle('updater-check-for-updates', async () => {
+  if (isDev) {
+    return { error: 'Updates disabled in development mode' };
+  }
+  
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, updateInfo: result?.updateInfo };
+  } catch (error) {
+    console.error('Check for updates failed:', error);
+    return { error: error.message };
+  }
+});
+
+ipcMain.handle('updater-download-update', async () => {
+  if (isDev) {
+    return { error: 'Updates disabled in development mode' };
+  }
+  
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    console.error('Download update failed:', error);
+    return { error: error.message };
+  }
+});
+
+ipcMain.handle('updater-quit-and-install', async () => {
+  if (isDev) {
+    return { error: 'Updates disabled in development mode' };
+  }
+  
+  try {
+    // Show confirmation dialog
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      buttons: ['지금 재시작', '나중에'],
+      defaultId: 0,
+      title: 'CompareX 업데이트',
+      message: '업데이트가 준비되었습니다.',
+      detail: '지금 재시작하여 업데이트를 완료하시겠습니까?'
+    });
+
+    if (response === 0) {
+      setImmediate(() => autoUpdater.quitAndInstall());
+      return { success: true, action: 'restart' };
+    } else {
+      return { success: true, action: 'later' };
+    }
+  } catch (error) {
+    console.error('Quit and install failed:', error);
+    return { error: error.message };
+  }
+});
+
+ipcMain.handle('updater-get-version', async () => {
+  return {
+    current: app.getVersion(),
+    isDev: isDev
+  };
+});
+
+ipcMain.handle('updater-set-feed-url', async (event, feedUrl) => {
+  if (isDev) {
+    return { error: 'Updates disabled in development mode' };
+  }
+  
+  try {
+    autoUpdater.setFeedURL(feedUrl);
+    return { success: true };
+  } catch (error) {
+    console.error('Set feed URL failed:', error);
+    return { error: error.message };
+  }
+});
+
+// Legacy IPC handlers for compatibility
 ipcMain.handle('show-input-dialog', async (event, title, placeholder) => {
   try {
     const { response } = await dialog.showMessageBox(mainWindow, {
@@ -31,7 +177,6 @@ ipcMain.handle('show-input-dialog', async (event, title, placeholder) => {
     });
     
     if (response === 0) {
-      // 확인을 클릭한 경우, 기본값 반환 (실제 input은 추후 구현)
       return { success: true, value: placeholder || '' };
     }
     
@@ -42,7 +187,6 @@ ipcMain.handle('show-input-dialog', async (event, title, placeholder) => {
   }
 });
 
-// IPC handler for saving images
 ipcMain.handle('save-image', async (event, imageData, defaultFileName) => {
   try {
     const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
@@ -55,7 +199,6 @@ ipcMain.handle('save-image', async (event, imageData, defaultFileName) => {
     });
     
     if (!canceled && filePath) {
-      // Remove data URL prefix if present
       const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
       const buffer = Buffer.from(base64Data, 'base64');
       
@@ -93,6 +236,12 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
     },
     icon: path.join(__dirname, 'assets/icon.png'),
+    show: false, // Don't show until ready
+  });
+
+  // Show window when ready to prevent visual flash
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
   });
 
   // Load the app
@@ -101,7 +250,6 @@ function createWindow() {
     // Open DevTools in development
     mainWindow.webContents.openDevTools();
   } else {
-    // In production, try to load from dist folder relative to electron.js
     const distPath = path.join(__dirname, 'dist', 'index.html');
     console.log('Loading from:', distPath);
     mainWindow.loadFile(distPath).catch(error => {
@@ -113,12 +261,37 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // Handle window minimize/restore for update notifications
+  mainWindow.on('minimize', () => {
+    if (process.platform === 'win32') {
+      // Continue update checks even when minimized
+    }
+  });
 }
 
-// This method will be called when Electron has finished initialization
-app.whenReady().then(createWindow);
+// App event handlers
+app.whenReady().then(() => {
+  createWindow();
+  
+  // Check for updates after app is ready (not in dev mode)
+  if (!isDev) {
+    // Initial check after 3 seconds
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch(err => {
+        console.error('Initial update check failed:', err);
+      });
+    }, 3000);
+    
+    // Periodic checks every 4 hours
+    setInterval(() => {
+      autoUpdater.checkForUpdates().catch(err => {
+        console.error('Periodic update check failed:', err);
+      });
+    }, 4 * 60 * 60 * 1000);
+  }
+});
 
-// Quit when all windows are closed
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
@@ -131,11 +304,30 @@ app.on('activate', () => {
   }
 });
 
-// Set up application menu (optional)
+// Handle app quit for updates
+app.on('before-quit', (event) => {
+  if (autoUpdater.downloadedVersion) {
+    console.log('Update will be installed on quit');
+  }
+});
+
+// Set up application menu
 const template = [
   {
     label: 'File',
     submenu: [
+      {
+        label: 'Check for Updates...',
+        enabled: !isDev,
+        click: async () => {
+          try {
+            await autoUpdater.checkForUpdates();
+          } catch (error) {
+            dialog.showErrorBox('Update Check Failed', error.message);
+          }
+        }
+      },
+      { type: 'separator' },
       {
         label: 'Exit',
         accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
@@ -158,8 +350,40 @@ const template = [
       { type: 'separator' },
       { role: 'togglefullscreen' }
     ]
+  },
+  {
+    label: 'Help',
+    submenu: [
+      {
+        label: 'About CompareX',
+        click: () => {
+          dialog.showMessageBox(mainWindow, {
+            type: 'info',
+            title: 'About CompareX',
+            message: `CompareX v${app.getVersion()}`,
+            detail: 'Advanced image comparison and analysis tool\n\nBuilt with Electron and React'
+          });
+        }
+      }
+    ]
   }
 ];
 
 const menu = Menu.buildFromTemplate(template);
 Menu.setApplicationMenu(menu);
+
+// Error handling for unhandled promise rejections
+process.on('unhandledRejection', (error) => {
+  console.error('Unhandled promise rejection:', error);
+});
+
+// Prevent default behavior of dragging files into the window
+app.on('web-contents-created', (event, contents) => {
+  contents.on('will-navigate', (event, navigationUrl) => {
+    const parsedUrl = new URL(navigationUrl);
+    
+    if (parsedUrl.origin !== 'http://localhost:5173' && parsedUrl.origin !== 'file://') {
+      event.preventDefault();
+    }
+  });
+});

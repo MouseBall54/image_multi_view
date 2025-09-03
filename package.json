@@ -17,9 +17,12 @@
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "electron:pack": "cross-env ELECTRON=1 npm run build && electron-builder --publish=never",
     "electron:pack:win": "cross-env ELECTRON=1 npm run build && electron-builder --win --publish=never",
-    "electron:dist": "npm run build && electron-builder --publish=always"
+    "electron:dist": "cross-env ELECTRON=1 npm run build && electron-builder --win --publish=always",
+    "electron:dist:generic": "cross-env ELECTRON=1 npm run build && electron-builder --win --publish=onTagOrDraft",
+    "build:deploy": "node build/build-and-deploy.cjs"
   },
   "dependencies": {
+    "electron-updater": "^6.3.4",
     "opencv-ts": "^1.3.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -36,6 +39,7 @@
     "electron": "^37.3.1",
     "electron-builder": "^26.0.12",
     "gh-pages": "^6.3.0",
+    "rimraf": "^5.0.5",
     "sharp": "^0.34.3",
     "svg2img": "^1.0.0-beta.2",
     "typescript": "^5.2.2",
@@ -54,8 +58,18 @@
       "preload.js",
       "package.json"
     ],
+    "publish": {
+      "provider": "generic",
+      "url": "http://localhost:8000/updates/", // ip:port or domain name where updates are hosted
+      "channel": "latest"
+    },
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
       "icon": "assets/icon.ico",
       "requestedExecutionLevel": "asInvoker",
       "artifactName": "${productName}-${version}-setup.${ext}"
