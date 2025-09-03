@@ -39,10 +39,93 @@ header {
   background-color: var(--bg-med);
 }
 
+/* Themed menu bar (replaces native Electron menu) */
+.menu-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  user-select: none;
+}
+
+.menu-item {
+  position: relative;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item.open {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
+
+.menu-item .dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+  z-index: 1000;
+}
+
+.dropdown-item {
+  width: 100%;
+  text-align: left;
+  display: block;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.dropdown-item:hover:not(:disabled) {
+  background-color: var(--accent-primary);
+  color: #fff;
+}
+
+.dropdown-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dropdown-item.danger {
+  color: var(--danger-color);
+}
+
+.dropdown-item.danger:hover:not(:disabled) {
+  background-color: rgba(220, 53, 69, 0.1);
+  color: var(--danger-color);
+}
+
+.menu-separator {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 6px 4px;
+}
+
 .title-container {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.title-right-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 8px;
 }
 
 .logo path {

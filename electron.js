@@ -124,11 +124,11 @@ ipcMain.handle('updater-quit-and-install', async () => {
     // Show confirmation dialog
     const { response } = await dialog.showMessageBox(mainWindow, {
       type: 'question',
-      buttons: ['지금 재시작', '나중에'],
+      buttons: ['Restart now', 'Later'],
       defaultId: 0,
-      title: 'CompareX 업데이트',
-      message: '업데이트가 준비되었습니다.',
-      detail: '지금 재시작하여 업데이트를 완료하시겠습니까?'
+      title: 'CompareX Update',
+      message: 'An update is ready to install.',
+      detail: 'Would you like to restart now to complete the update?'
     });
 
     if (response === 0) {
@@ -237,6 +237,7 @@ function createWindow() {
     },
     icon: path.join(__dirname, 'assets/icon.png'),
     show: false, // Don't show until ready
+    autoHideMenuBar: true,
   });
 
   // Show window when ready to prevent visual flash
@@ -268,28 +269,16 @@ function createWindow() {
       // Continue update checks even when minimized
     }
   });
+
+  // Hide OS native menu bar to use custom themed menu
+  mainWindow.setMenuBarVisibility(false);
 }
 
 // App event handlers
 app.whenReady().then(() => {
   createWindow();
   
-  // Check for updates after app is ready (not in dev mode)
-  if (!isDev) {
-    // Initial check after 3 seconds
-    setTimeout(() => {
-      autoUpdater.checkForUpdates().catch(err => {
-        console.error('Initial update check failed:', err);
-      });
-    }, 3000);
-    
-    // Periodic checks every 4 hours
-    setInterval(() => {
-      autoUpdater.checkForUpdates().catch(err => {
-        console.error('Periodic update check failed:', err);
-      });
-    }, 4 * 60 * 60 * 1000);
-  }
+  // Renderer manages update checks (schedules + UI). Avoid double checks here.
 });
 
 app.on('window-all-closed', () => {
@@ -312,6 +301,7 @@ app.on('before-quit', (event) => {
 });
 
 // Set up application menu
+// Keep a minimal template for macOS role integration, but hide on Windows/Linux
 const template = [
   {
     label: 'File',
@@ -370,7 +360,12 @@ const template = [
 ];
 
 const menu = Menu.buildFromTemplate(template);
-Menu.setApplicationMenu(menu);
+// Only set app menu on macOS to keep native feel; hidden on others
+if (process.platform === 'darwin') {
+  Menu.setApplicationMenu(menu);
+} else {
+  Menu.setApplicationMenu(null);
+}
 
 // Error handling for unhandled promise rejections
 process.on('unhandledRejection', (error) => {
@@ -386,4 +381,25 @@ app.on('web-contents-created', (event, contents) => {
       event.preventDefault();
     }
   });
+});
+
+// IPC: Window/app control for custom menu
+ipcMain.handle('app-quit', () => {
+  app.quit();
+});
+
+ipcMain.handle('window-toggle-devtools', () => {
+  if (mainWindow && mainWindow.webContents) {
+    if (mainWindow.webContents.isDevToolsOpened()) {
+      mainWindow.webContents.closeDevTools();
+    } else {
+      mainWindow.webContents.openDevTools();
+    }
+  }
+});
+
+ipcMain.handle('window-toggle-fullscreen', () => {
+  if (mainWindow) {
+    mainWindow.setFullScreen(!mainWindow.isFullScreen());
+  }
 });
