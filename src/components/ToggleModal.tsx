@@ -30,8 +30,8 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
 
   // Calculate modal size based on viewers layout
   const calculateModalSize = useCallback(() => {
-    // Wait a bit for DOM to be ready
-    setTimeout(() => {
+    // Use requestAnimationFrame for immediate DOM measurement
+    requestAnimationFrame(() => {
       const viewersElement = document.querySelector('.viewers');
       if (viewersElement) {
         const rect = viewersElement.getBoundingClientRect();
@@ -57,7 +57,7 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
         width: Math.min(viewersWidth, availableWidth * 0.9),
         height: Math.min(availableHeight, window.innerHeight * 0.9)
       });
-    }, 100);
+    });
   }, [appMode]);
 
   // Recalculate size when modal opens
@@ -166,12 +166,29 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
     }
   };
 
-  // Load current image dimensions (for X/Y input in compare/analysis)
+  // Load current image dimensions (for X/Y input in compare/analysis) with caching
   useEffect(() => {
     let cancelled = false;
+    
+    // Early return for null currentFile
+    if (!currentFile) { 
+      setImageDims(null); 
+      return; 
+    }
+
+    // Check if we already have cached dimensions from the image cache
+    const cacheKey = `${String(folderKey)}|${currentFile.name}|${(currentFile as any).size ?? 'na'}|${(currentFile as any).lastModified ?? 'na'}`;
+    const cachedImage = bitmapCache.current.get(cacheKey);
+    
+    if (cachedImage) {
+      // Use cached image dimensions immediately
+      setImageDims({ width: cachedImage.width as number, height: cachedImage.height as number });
+      return;
+    }
+
+    // Background loading for dimensions only when not cached
     (async () => {
       try {
-        if (!currentFile) { setImageDims(null); return; }
         const ext = (currentFile.name.split('.').pop() || '').toLowerCase();
         if (ext === 'tif' || ext === 'tiff') {
           const img = await decodeTiffWithUTIF(currentFile, UTIF_OPTIONS);
@@ -186,7 +203,7 @@ export function ToggleModal({ bitmapCache, pinpointImages }: ToggleModalProps) {
       }
     })();
     return () => { cancelled = true; };
-  }, [currentFile]);
+  }, [currentFile, folderKey, bitmapCache]);
 
   // Sync inputs with viewport and image dimensions
   useEffect(() => {

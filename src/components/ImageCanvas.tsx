@@ -7,7 +7,7 @@ import { AppMode, FolderKey, FilterType, DrawableImage } from "../types";
 import { decodeTiffWithUTIF } from '../utils/utif';
 import * as Filters from "../utils/filters";
 import { applyFilterChain } from "../utils/filterChain";
-import { computePinpointTransform, computeStandardTransform, screenToImage } from "../utils/viewTransforms";
+import { screenToImage } from "../utils/viewTransforms";
 import { FilterParams } from "../store";
 
 type Props = {
@@ -194,8 +194,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
       // All filters proceed; frequency-domain ones are implemented without external readiness
       
-      // Add a small delay to ensure the loading animation is visible
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // Use requestAnimationFrame to yield to the browser before heavy processing
+      await new Promise(resolve => requestAnimationFrame(resolve));
 
       const offscreenCanvas = document.createElement('canvas');
       offscreenCanvas.width = sourceImage.width;
@@ -947,31 +947,49 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    let resizeTimeout: NodeJS.Timeout | null = null;
+
     const resizeObserver = new ResizeObserver(() => {
-      const ctx = canvas.getContext("2d")!;
-      const { width, height } = canvas.getBoundingClientRect();
-      canvas.width = Math.round(width);
-      canvas.height = Math.round(height);
+      // Debounce resize operations to avoid excessive redraws during modal opening
+      if (resizeTimeout) clearTimeout(resizeTimeout);
       
-      // 캔버스 크기 상태 업데이트 (미니맵용)
-      setCanvasSize({ width: Math.round(width), height: Math.round(height) });
-      
-      if (processedImage) {
-        drawImage(ctx, processedImage, true);
-      } else {
-        // Draw black background when no image
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-      
-      // Update fit scale function if this is a reference canvas
-      if (isReference && sourceImage) {
-        setFitScaleFn(calculateFitScale);
-      }
+      resizeTimeout = setTimeout(() => {
+        const ctx = canvas.getContext("2d")!;
+        const { width, height } = canvas.getBoundingClientRect();
+        const newWidth = Math.round(width);
+        const newHeight = Math.round(height);
+        
+        // Skip redraw if dimensions haven't actually changed
+        if (canvas.width === newWidth && canvas.height === newHeight) {
+          return;
+        }
+        
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+        
+        // 캔버스 크기 상태 업데이트 (미니맵용)
+        setCanvasSize({ width: newWidth, height: newHeight });
+        
+        if (processedImage) {
+          drawImage(ctx, processedImage, true);
+        } else {
+          // Draw black background when no image
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        // Update fit scale function if this is a reference canvas
+        if (isReference && sourceImage) {
+          setFitScaleFn(calculateFitScale);
+        }
+      }, 16); // Single frame delay to batch multiple resize events
     });
 
     resizeObserver.observe(canvas);
-    return () => resizeObserver.disconnect();
+    return () => {
+      resizeObserver.disconnect();
+      if (resizeTimeout) clearTimeout(resizeTimeout);
+    };
   }, [processedImage, drawImage, isReference, sourceImage, calculateFitScale, setFitScaleFn]);
 
   useEffect(() => {
