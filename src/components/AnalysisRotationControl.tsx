@@ -66,7 +66,7 @@ export function AnalysisRotationControl() {
         />
         <span className="degree-symbol">°</span>
       </div>
-      <button onClick={() => updateRotation(0)} title="Reset Rotation">
+      <button className="reset-rotation-button" onClick={() => updateRotation(0)} title="Reset Rotation">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M1 4v6h6"/>
           <path d="M23 20v-6h-6"/>

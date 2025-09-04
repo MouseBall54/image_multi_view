@@ -501,12 +501,12 @@ export default function App() {
                 </div>
               </>
             )}
-            <button onClick={handleOpenCaptureModal}>
+            <button className="controls-main-button capture-button" onClick={handleOpenCaptureModal}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
               Capture
             </button>
             <div className="minimap-button-unified">
-              <button onClick={() => setShowMinimap(!showMinimap)} className={showMinimap ? 'active' : ''}>
+              <button onClick={() => setShowMinimap(!showMinimap)} className={`minimap-toggle-button ${showMinimap ? 'active' : ''}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="4" height="4" rx="1" ry="1"></rect></svg>
                 Minimap
               </button>
@@ -591,12 +591,12 @@ export default function App() {
               )}
             </div>
             <div className="capture-modal-actions">
-              <button onClick={handleCopyToClipboard}>
+              <button className="capture-copy-button" onClick={handleCopyToClipboard}>
                 {clipboardStatus === 'idle' && 'Copy to Clipboard'}
                 {clipboardStatus === 'success' && 'Copied!'}
                 {clipboardStatus === 'error' && 'Error!'}
               </button>
-              <button onClick={handleSaveFile} disabled={!capturedImage}>Save as File...</button>
+              <button className="capture-save-button" onClick={handleSaveFile} disabled={!capturedImage}>Save as File...</button>
               <button onClick={() => setCaptureModalOpen(false)} className="close-button">Close</button>
             </div>
           </div>
@@ -640,10 +640,10 @@ export default function App() {
                 <div className={`preview-corner br ${minimapPosition==='bottom-right' ? 'active':''}`} onClick={() => setMinimapPosition('bottom-right')} />
               </div>
               <div className="minimap-size-buttons">
-                <button className={minimapWidth===120? 'active':''} onClick={() => setMinimapWidth(120)}>Small</button>
-                <button className={minimapWidth===150? 'active':''} onClick={() => setMinimapWidth(150)}>Medium</button>
-                <button className={minimapWidth===200? 'active':''} onClick={() => setMinimapWidth(200)}>Large</button>
-                <button className={minimapWidth===240? 'active':''} onClick={() => setMinimapWidth(240)}>XL</button>
+                <button className={`minimap-size-button ${minimapWidth===120? 'active':''}`} onClick={() => setMinimapWidth(120)}>Small</button>
+                <button className={`minimap-size-button ${minimapWidth===150? 'active':''}`} onClick={() => setMinimapWidth(150)}>Medium</button>
+                <button className={`minimap-size-button ${minimapWidth===200? 'active':''}`} onClick={() => setMinimapWidth(200)}>Large</button>
+                <button className={`minimap-size-button ${minimapWidth===240? 'active':''}`} onClick={() => setMinimapWidth(240)}>XL</button>
               </div>
             </div>
             <div className="minimap-options-actions">
