@@ -11,6 +11,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
   autoCheck = true,
   checkIntervalMs = 4 * 60 * 60 * 1000 // 4 hours
 }) => {
+  const subscribedRef = React.useRef(false);
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isChecking, setIsChecking] = useState(false);
@@ -20,10 +21,10 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { addToast } = useStore.getState();
+  const lastNotAvailableToastAt = React.useRef<number>(0);
 
   useEffect(() => {
     let intervalId: number | undefined;
-    const subscribedRef: { current?: boolean } = { current: false } as any;
 
     // Initialize version info
     electronUpdater.getVersion().then(version => {
@@ -46,15 +47,18 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
         });
 
         updater.onUpdateNotAvailable(() => {
-        setUpdateInfo(null);
-        setIsChecking(false);
-        if (addToast) {
-          addToast({
-            type: 'info',
-            title: 'Update Check',
-            message: 'You are on the latest version.'
-          });
-        }
+          setUpdateInfo(null);
+          setIsChecking(false);
+          // Throttle duplicate "not available" toasts within 2 seconds
+          const now = Date.now();
+          if (addToast && now - lastNotAvailableToastAt.current > 2000) {
+            lastNotAvailableToastAt.current = now;
+            addToast({
+              type: 'info',
+              title: 'Update Check',
+              message: 'You are on the latest version.'
+            });
+          }
         });
 
         updater.onUpdateError((error: string) => {
