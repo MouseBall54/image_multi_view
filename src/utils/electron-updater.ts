@@ -213,9 +213,7 @@ export class ElectronUpdater {
    * Clean up event listeners
    */
   cleanup() {
-    if (window.electronAPI?.updater) {
-      window.electronAPI.updater.removeAllListeners();
-    }
+    // No-op: avoid removing listeners that may be used elsewhere
   }
 }
 

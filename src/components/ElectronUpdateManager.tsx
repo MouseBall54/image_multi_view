@@ -23,6 +23,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
 
   useEffect(() => {
     let intervalId: number | undefined;
+    const subscribedRef: { current?: boolean } = { current: false } as any;
 
     // Initialize version info
     electronUpdater.getVersion().then(version => {
@@ -32,20 +33,19 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
     // Ensure no duplicate listeners, then wire listeners once per effect run
     if (window.electronAPI?.updater) {
       const { updater } = window.electronAPI;
-      updater.removeAllListeners();
-
-      updater.onUpdateChecking(() => {
+      if (!subscribedRef.current) {
+        updater.onUpdateChecking(() => {
         setIsChecking(true);
         setError(null);
-      });
+        });
 
-      updater.onUpdateAvailable((info: UpdateInfo) => {
+        updater.onUpdateAvailable((info: UpdateInfo) => {
         setUpdateInfo(info);
         setIsChecking(false);
         setShowUpdateDialog(true);
-      });
+        });
 
-      updater.onUpdateNotAvailable(() => {
+        updater.onUpdateNotAvailable(() => {
         setUpdateInfo(null);
         setIsChecking(false);
         if (addToast) {
@@ -55,23 +55,26 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
             message: 'You are on the latest version.'
           });
         }
-      });
+        });
 
-      updater.onUpdateError((error: string) => {
+        updater.onUpdateError((error: string) => {
         setError(error);
         setIsChecking(false);
         setIsDownloading(false);
-      });
+        });
 
-      updater.onDownloadProgress((progress: DownloadProgress) => {
+        updater.onDownloadProgress((progress: DownloadProgress) => {
         setDownloadProgress(progress);
-      });
+        });
 
-      updater.onUpdateDownloaded((info: UpdateInfo) => {
+        updater.onUpdateDownloaded((info: UpdateInfo) => {
         setIsDownloading(false);
         setIsDownloaded(true);
         setDownloadProgress(null);
-      });
+        });
+
+        subscribedRef.current = true;
+      }
     }
 
     // Auto check for updates (renderer-owned schedule)
@@ -87,10 +90,8 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
       if (intervalId) {
         clearInterval(intervalId);
       }
-      electronUpdater.cleanup();
-      if (window.electronAPI?.updater) {
-        window.electronAPI.updater.removeAllListeners();
-      }
+      // Do not remove global updater listeners here to avoid interfering
+      // with other parts (e.g., electronUpdater singleton)
     };
   }, [autoCheck, checkIntervalMs, versionInfo?.isDev]);
 
