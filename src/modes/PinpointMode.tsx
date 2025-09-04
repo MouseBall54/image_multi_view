@@ -566,6 +566,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     e.preventDefault();
     setDragOverViewer(null);
     
+    // Case 1: Drag from in-app file list
     if (draggedFile) {
       loadFileToViewer(draggedFile.file, draggedFile.sourceKey, viewerKey);
       setDraggedFile(null);
@@ -578,6 +579,33 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
           duration: 2000
         });
       }
+      return;
+    }
+
+    // Case 2: External drag (from OS) directly onto a viewer
+    const dtFiles = Array.from(e.dataTransfer?.files || []);
+    const imageFiles = dtFiles.filter(f => isValidImageFile(f));
+    if (imageFiles.length > 0) {
+      // Merge into the viewer's folder (create if absent), then show first dropped file on the viewer
+      const existing = allFolders[viewerKey];
+      const merged = new Map<string, File>(existing?.data.files ?? []);
+      imageFiles.forEach(f => merged.set(f.name, f));
+
+      const alias = existing?.alias || `Temp ${viewerKey}`;
+      const name = existing?.data.name || alias;
+      setFolder(viewerKey, { data: { name, files: merged }, alias });
+
+      // Show the first dropped image on this viewer
+      const first = imageFiles[0];
+      loadFileToViewer(first, viewerKey, viewerKey);
+
+      addToast?.({
+        type: 'success',
+        title: 'Image(s) Added',
+        message: `Added ${imageFiles.length} image${imageFiles.length>1?'s':''} to ${alias}`,
+        details: imageFiles.map(f => f.name),
+        duration: 3000,
+      });
     }
   };
 
