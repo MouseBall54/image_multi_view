@@ -409,7 +409,9 @@ export default function App() {
               }}
               disabled={!(window as any).electronAPI?.updater}
             >
-              Check for Updates
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3L22 2M22 12.5a10 10 0 0 1-18.8 4.3L2 22"/>
+              </svg>
             </button>
             <button
               className="controls-main-button"
@@ -424,7 +426,7 @@ export default function App() {
             </button>
             <button
               className="controls-main-button"
-              title="Toggle Fullscreen"
+              title="Toggle Fullscreen (F11)"
               onClick={() => {
                 const api: any = (window as any).electronAPI;
                 if (api?.windowActions?.toggleFullscreen) {
@@ -439,7 +441,10 @@ export default function App() {
                 }
               }}
             >
-              Fullscreen
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+              </svg>
+              <span style={{ fontSize: '0.7rem', marginLeft: '4px', opacity: '0.8' }}>(F11)</span>
             </button>
           </div>
         </div>
