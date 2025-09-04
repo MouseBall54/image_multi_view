@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useStore } from "./store";
 import type { AppMode } from "./types";
