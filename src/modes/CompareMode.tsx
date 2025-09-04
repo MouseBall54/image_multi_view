@@ -66,50 +66,90 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     return null;
   };
 
-  // Helper function to create a temporary folder with images
-  const createTemporaryFolder = async (folderKey: FolderKey, imageFiles: File[]): Promise<void> => {
+  // Find folder by alias (case-insensitive)
+  const findFolderByAlias = (alias: string): FolderKey | null => {
+    const target = alias.toLowerCase();
+    for (const key of FOLDER_KEYS) {
+      const f = allFolders[key];
+      if (f && f.alias && f.alias.toLowerCase() === target) return key;
+    }
+    return null;
+  };
+
+  // Place images into TEMP; on filename conflict spill to TEMP_2, TEMP_3, ...
+  const placeImagesIntoTempFolders = async (imageFiles: File[]): Promise<void> => {
     try {
-      const fileMap = new Map<string, File>();
-      imageFiles.forEach(file => {
-        fileMap.set(file.name, file);
+      if (imageFiles.length === 0) return;
+
+      // Local alias->key map and reservation to avoid relying on async state updates
+      const aliasToKey = new Map<string, FolderKey>();
+      const reservedKeys = new Set<FolderKey>();
+      for (const k of FOLDER_KEYS) {
+        const f = allFolders[k];
+        if (f?.alias) { aliasToKey.set(f.alias, k); reservedKeys.add(k); }
+      }
+      const getAliasForIndex = (i: number) => (i <= 1 ? 'TEMP' : `TEMP_${i}`);
+      const getOrReserve = (alias: string): FolderKey | null => {
+        const exist = aliasToKey.get(alias);
+        if (exist) return exist;
+        let candidate: FolderKey | null = null;
+        for (const key of FOLDER_KEYS) {
+          if (!allFolders[key] && !reservedKeys.has(key)) { candidate = key; break; }
+        }
+        if (!candidate) return null;
+        aliasToKey.set(alias, candidate);
+        reservedKeys.add(candidate);
+        return candidate;
+      };
+
+      // Ensure TEMP exists/reserved
+      if (!getOrReserve('TEMP')) {
+        addToast?.({ type: 'error', title: 'No Empty Folders', message: 'All folders are in use', duration: 5000 });
+        return;
+      }
+
+      // Prepare buckets
+      const buckets = new Map<FolderKey, File[]>();
+      const getFilesMap = (key: FolderKey) => allFolders[key]?.data.files ?? new Map<string, File>();
+
+      for (const file of imageFiles) {
+        let idx = 1;
+        while (true) {
+          const key = getOrReserve(getAliasForIndex(idx));
+          if (!key) break;
+          const existing = getFilesMap(key);
+          const pending = buckets.get(key) ?? [];
+          const conflict = existing.has(file.name) || pending.some(f => f.name === file.name);
+          if (!conflict) {
+            pending.push(file);
+            buckets.set(key, pending);
+            break;
+          }
+          idx++;
+        }
+      }
+
+      // Persist buckets
+      for (const [key, files] of buckets.entries()) {
+        const current = allFolders[key];
+        const alias = current?.alias || [...aliasToKey.entries()].find(([,v]) => v === key)?.[0] || (key as string);
+        const name = current?.data.name || alias;
+        const merged = new Map<string, File>(current?.data.files ?? []);
+        for (const f of files) merged.set(f.name, f);
+        setFolder(key, { data: { name, files: merged }, alias });
+      }
+
+      // Toast summary
+      const total = imageFiles.length;
+      addToast?.({
+        type: 'success',
+        title: 'Images Added',
+        message: `${total} image${total>1?'s':''} placed into TEMP folders`,
+        details: Array.from(buckets.entries()).map(([key, files]) => `${allFolders[key]?.alias || key}: ${files.length}`),
+        duration: 5000
       });
-
-      // Create folder data manually since FolderData is not directly available
-      const folderData = { 
-        name: `Temporary ${folderKey}`,
-        files: fileMap,
-        path: '' // temporary folder doesn't have real path
-      };
-      const folderState = {
-        data: folderData,
-        alias: `Temp ${folderKey} (${imageFiles.length})`
-      };
-
-      setFolder(folderKey, folderState);
-
-      // Show success message
-      if (addToast) {
-        addToast({
-          type: 'success',
-          title: 'Images Added',
-          message: `Created temporary folder ${folderKey}`,
-          details: [
-            `Added ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''}`,
-            `Files: ${imageFiles.map(f => f.name).join(', ')}`
-          ],
-          duration: 5000
-        });
-      }
     } catch (error) {
-      if (addToast) {
-        addToast({
-          type: 'error',
-          title: 'Failed to Create Temporary Folder',
-          message: `Could not create folder ${folderKey}`,
-          details: [error instanceof Error ? error.message : 'Unknown error'],
-          duration: 5000
-        });
-      }
+      addToast?.({ type: 'error', title: 'Failed to Load Images', message: 'Could not process dropped images', details: [error instanceof Error ? error.message : 'Unknown error'], duration: 5000 });
     }
   };
 
@@ -179,23 +219,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
       return;
     }
 
-    // Find first empty folder
-    const emptyFolder = findEmptyFolder();
-    if (!emptyFolder) {
-      if (addToast) {
-        addToast({
-          type: 'error',
-          title: 'No Empty Folders',
-          message: 'All folders are already in use',
-          details: ['Please clear a folder first or use fewer folders'],
-          duration: 5000
-        });
-      }
-      return;
-    }
-
-    // Create temporary folder with the images
-    await createTemporaryFolder(emptyFolder, imageFiles);
+    // Place into TEMP with collision handling
+    await placeImagesIntoTempFolders(imageFiles);
   };
 
   useImperativeHandle(ref, () => ({

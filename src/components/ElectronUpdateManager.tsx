@@ -11,6 +11,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
   autoCheck = true,
   checkIntervalMs = 4 * 60 * 60 * 1000 // 4 hours
 }) => {
+  const subscribedRef = React.useRef(false);
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isChecking, setIsChecking] = useState(false);
@@ -20,6 +21,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { addToast } = useStore.getState();
+  const lastNotAvailableToastAt = React.useRef<number>(0);
 
   useEffect(() => {
     let intervalId: number | undefined;
@@ -32,46 +34,51 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
     // Ensure no duplicate listeners, then wire listeners once per effect run
     if (window.electronAPI?.updater) {
       const { updater } = window.electronAPI;
-      updater.removeAllListeners();
-
-      updater.onUpdateChecking(() => {
+      if (!subscribedRef.current) {
+        updater.onUpdateChecking(() => {
         setIsChecking(true);
         setError(null);
-      });
+        });
 
-      updater.onUpdateAvailable((info: UpdateInfo) => {
+        updater.onUpdateAvailable((info: UpdateInfo) => {
         setUpdateInfo(info);
         setIsChecking(false);
         setShowUpdateDialog(true);
-      });
+        });
 
-      updater.onUpdateNotAvailable(() => {
-        setUpdateInfo(null);
-        setIsChecking(false);
-        if (addToast) {
-          addToast({
-            type: 'info',
-            title: 'Update Check',
-            message: 'You are on the latest version.'
-          });
-        }
-      });
+        updater.onUpdateNotAvailable(() => {
+          setUpdateInfo(null);
+          setIsChecking(false);
+          // Throttle duplicate "not available" toasts within 2 seconds
+          const now = Date.now();
+          if (addToast && now - lastNotAvailableToastAt.current > 2000) {
+            lastNotAvailableToastAt.current = now;
+            addToast({
+              type: 'info',
+              title: 'Update Check',
+              message: 'You are on the latest version.'
+            });
+          }
+        });
 
-      updater.onUpdateError((error: string) => {
+        updater.onUpdateError((error: string) => {
         setError(error);
         setIsChecking(false);
         setIsDownloading(false);
-      });
+        });
 
-      updater.onDownloadProgress((progress: DownloadProgress) => {
+        updater.onDownloadProgress((progress: DownloadProgress) => {
         setDownloadProgress(progress);
-      });
+        });
 
-      updater.onUpdateDownloaded((info: UpdateInfo) => {
+        updater.onUpdateDownloaded((info: UpdateInfo) => {
         setIsDownloading(false);
         setIsDownloaded(true);
         setDownloadProgress(null);
-      });
+        });
+
+        subscribedRef.current = true;
+      }
     }
 
     // Auto check for updates (renderer-owned schedule)
@@ -87,10 +94,8 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
       if (intervalId) {
         clearInterval(intervalId);
       }
-      electronUpdater.cleanup();
-      if (window.electronAPI?.updater) {
-        window.electronAPI.updater.removeAllListeners();
-      }
+      // Do not remove global updater listeners here to avoid interfering
+      // with other parts (e.g., electronUpdater singleton)
     };
   }, [autoCheck, checkIntervalMs, versionInfo?.isDev]);
 

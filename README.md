@@ -5,13 +5,16 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](#)
 [![React](https://img.shields.io/badge/React-18-blue)](#)
 
-**CompareX** is a powerful, browser-based image comparison and analysis application designed for professionals who need to compare, analyze, and process multiple images simultaneously. Built with React and TypeScript, it offers four specialized viewing modes with advanced filtering capabilities and complete privacy through client-side processing.
+**CompareX** is a powerful Electron desktop application for professional image comparison and analysis. It offers three specialized viewing modes, advanced OpenCV-accelerated filtering, and privacy by processing everything locally on your machine. A lightweight web demo is also available for trials, but the desktop app is the primary experience.
 
-## 🌐 Live Demo
+## 💻 Desktop App (Primary)
 
-Experience CompareX directly in your browser: **[https://mouseball54.github.io/image_multi_view/](https://mouseball54.github.io/image_multi_view/)**
+- Download the latest packaged app or build locally (see Build & Package below).
+- Auto-update support is built-in (electron-updater).
 
-No installation required - all processing happens locally in your browser!
+## 🌐 Optional Web Demo
+
+Try CompareX in the browser (feature-limited vs desktop): **[https://mouseball54.github.io/image_multi_view/](https://mouseball54.github.io/image_multi_view/)**
 
 ## ✨ Key Features
 
@@ -77,11 +80,11 @@ No installation required - all processing happens locally in your browser!
 
 ## 🚀 Getting Started
 
-### Quick Start
-1. Visit the [live demo](https://mouseball54.github.io/image_multi_view/)
-2. Select your desired viewing mode (Single/Compare/Pinpoint/Analysis)
-3. Click folder buttons to load your images
-4. Start comparing and analyzing!
+### Quick Start (Desktop)
+1. Install the CompareX desktop app (or build it locally).
+2. Launch the app and select a viewing mode (Compare/Pinpoint/Analysis).
+3. Load folders or drag images into the file list or directly onto viewers (Pinpoint).
+4. Start comparing and analyzing.
 
 ### Local Development
 ```bash
@@ -153,6 +156,7 @@ npm run deploy
 - **Global Rotation Controls**: Maintain consistent orientation
 - **Leveling Tools**: Horizontal/Vertical leveling with two-point click (applies to global rotation in this mode)
 - **Filter Chain Management**: Create and save complex filter sequences
+ - **Consistent Grid View**: The viewer grid is rendered at startup (even before selecting an image), matching other modes.
 
 #### Key Features:
 - 40+ professional-grade filters
@@ -304,10 +308,10 @@ CompareX features a comprehensive filter preview system that allows you to see f
 - **Batch Operations**: Process multiple files simultaneously
 
 #### Drag & Drop Details
-- **Single**: Drop images to create a temporary folder in the first empty slot. If none available, the first image is selected for viewing.
-- **Compare**: Drop images to create a temporary folder in the first empty slot; compare via matched filenames across folders.
-- **Pinpoint**: Drop images to create a temporary folder in the first empty slot; select any image into any viewer.
-- **Analysis**: Drop images to create a temporary folder and auto-load the first image for analysis (others are available in the list).
+- **Unified TEMP handling (All modes)**: When dropping files into the file list panel, files go into `TEMP`. Only if a filename already exists there do we spill over to `TEMP_2`, `TEMP_3`, … (per filename conflict). This keeps drops organized by default.
+- **Analysis**: As above, files go to `TEMP` (with collision spillover); the first dropped image is auto-selected for analysis.
+- **Pinpoint (External-to-Viewer)**: You can drag files directly from your OS onto a specific viewer. The file is immediately shown in that viewer and also added to that viewer’s folder (creating `Temp <Slot>` if missing).
+- **Compare/Pinpoint (Filelist-to-Viewer)**: Drag from the in-app file list and drop onto any viewer to load that file there.
 
 ## ⌨️ Keyboard Shortcuts
 
@@ -444,6 +448,31 @@ CompareX features a comprehensive filter preview system that allows you to see f
 - **Vite Plugin System** - React refresh, TypeScript integration
 - **ESLint Configuration** - Code quality and consistency
 - **Modern Bundling** - Tree shaking, code splitting, dynamic imports
+
+### Electron App & Auto-Update
+- **Desktop Packaging**: Electron-based desktop build with custom title bar actions.
+- **Auto-Updates (electron-updater)**: Generic provider backed; downloads and installs updates with a simple flow.
+- **Release Notes Automation**: `build/build-and-deploy.cjs` generates `latest.yml` with release notes assembled from git commits since the last PR merge (grouped by (Add)/(Mod)/(Fix)/(Del)).
+
+#### Build & Package
+```bash
+# Development (web)
+npm run dev
+
+# Pack Electron (Windows)
+npm run electron:pack:win
+
+# Full distribution (publish configured)
+npm run electron:dist
+
+# Build updater payloads + latest.yml
+node build/build-and-deploy.cjs
+```
+
+#### Update Flow
+- Title bar “Check for Updates” triggers a check; a dialog shows when an update is available.
+- “Download” fetches the installer; “Install and Restart Now” applies it.
+- Latest notes are read from `latest.yml`; ensure server URL matches your deployment.
 
 ### Desktop Application Features (Electron)
 

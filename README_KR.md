@@ -5,13 +5,16 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](#)
 [![React](https://img.shields.io/badge/React-18-blue)](#)
 
-**CompareX**는 여러 이미지를 동시에 비교, 분석, 처리해야 하는 전문가를 위해 설계된 강력한 브라우저 기반 이미지 비교 및 분석 애플리케이션입니다. React와 TypeScript로 구축되어 고급 Filter 기능을 갖춘 네 가지 전문 viewing mode를 제공하며, 클라이언트 사이드 처리를 통해 완전한 프라이버시를 보장합니다.
+**CompareX**는 여러 이미지를 동시에 비교·분석·처리해야 하는 전문가를 위한 Electron 데스크톱 애플리케이션입니다. 세 가지 전문 viewing mode와 OpenCV 가속 필터를 제공하며, 모든 처리를 로컬에서 수행해 프라이버시를 보장합니다. 웹 데모도 제공되지만, 데스크톱 앱 사용이 기본 경험입니다.
 
-## 🌐 Live Demo
+## 💻 데스크톱 앱 (기본)
 
-브라우저에서 CompareX를 직접 체험해보세요: **[https://mouseball54.github.io/image_multi_view/](https://mouseball54.github.io/image_multi_view/)**
+- 최신 패키지 앱을 설치하거나 로컬에서 빌드해 사용할 수 있습니다(아래 빌드 & 패키지 참고).
+- 자동 업데이트(electron-updater) 지원.
 
-설치가 필요 없습니다 - 모든 처리는 브라우저에서 로컬로 진행됩니다!
+## 🌐 선택적 웹 데모
+
+브라우저 체험(데스크톱 대비 일부 기능 제한): **[https://mouseball54.github.io/image_multi_view/](https://mouseball54.github.io/image_multi_view/)**
 
 ## ✨ 주요 특징
 
@@ -80,11 +83,11 @@
 
 ## 🚀 시작하기
 
-### 빠른 시작
-1. [live demo](https://mouseball54.github.io/image_multi_view/)에 접속
-2. 원하는 viewing mode 선택 (Single/Compare/Pinpoint/Analysis)
-3. folder button을 클릭하여 이미지 로드
-4. 비교 및 분석 시작!
+### 빠른 시작 (데스크톱)
+1. CompareX 데스크톱 앱을 설치하거나 로컬에서 빌드합니다.
+2. 앱을 실행하고 viewing mode를 선택합니다(Compare/Pinpoint/Analysis).
+3. 폴더를 로드하거나, 파일리스트/특정 뷰어로 이미지를 드래그 앤 드롭합니다(Pinpoint는 뷰어 직접 드롭 지원).
+4. 비교 및 분석을 시작합니다.
 
 ### Local Development
 ```bash
@@ -148,12 +151,13 @@ npm run deploy
 ### 3. Analysis Mode 🔬
 **적합한 용도: Filter 비교, single 이미지 분석, processing workflow**
 
-- **Single 이미지 집중**: 하나의 source 이미지에 여러 filter 적용
+- **단일 이미지 집중**: 하나의 source 이미지에 여러 filter 적용
 - **Side-by-Side Filter 비교**: 서로 다른 filter 효과 동시 확인
 - **실시간 Parameter 조정**: 즉각적인 filter parameter 업데이트
 - **Global Rotation 제어**: 일관된 방향 유지
 - **레벨링 도구**: 수평/수직 두 점 정렬(글로벌 회전에 적용)
 - **Filter Chain 관리**: 복잡한 filter sequence 생성 및 저장
+ - **일관된 그리드 뷰**: 다른 모드와 동일하게 시작 시 뷰어 그리드를 렌더링합니다(이미지 선택 전에도 표시).
 
 #### 주요 기능:
 - 40가지 이상의 전문 grade filter
@@ -292,10 +296,10 @@ CompareX는 filter를 적용하기 전에 효과를 확인할 수 있는 포괄�
 - **Batch 작업**: 여러 파일 동시 처리
 
 #### 드래그 앤 드롭 상세
-- **Single**: 이미지를 드롭하면 첫 빈 폴더에 임시 폴더 생성. 빈 폴더가 없으면 첫 이미지를 즉시 선택하여 표시.
-- **Compare**: 이미지를 드롭하면 첫 빈 폴더에 임시 폴더 생성, 폴더 간 파일명으로 매칭하여 비교.
-- **Pinpoint**: 이미지를 드롭하면 첫 빈 폴더에 임시 폴더 생성, 어느 뷰어에도 임의 이미지 로드 가능.
-- **Analysis**: 이미지를 드롭하면 임시 폴더 생성 후 첫 이미지를 자동 로드(나머지는 리스트에서 선택 가능).
+- **통합 TEMP 동작(모든 모드)**: 파일리스트 영역에 드롭하면 기본적으로 `TEMP` 폴더에 추가됩니다. 같은 파일명이 이미 있으면 `TEMP_2`, `TEMP_3` … 순으로 분산합니다(파일명 충돌 시에만).
+- **Analysis**: 위와 동일하며, 첫 번째 드롭 이미지는 자동으로 분석 대상으로 선택됩니다.
+- **Pinpoint (바탕화면 → 특정 뷰어)**: OS에서 특정 뷰어로 직접 드롭할 수 있습니다. 해당 뷰어에 즉시 표시되고, 해당 뷰어 폴더에도 추가됩니다(필요 시 `Temp <슬롯>` 생성).
+- **Compare/Pinpoint (파일리스트 → 특정 뷰어)**: 앱 내부 파일리스트에서 끌어 특정 뷰어에 드롭하면 그 뷰어로 로드됩니다.
 
 ## ⌨️ Keyboard Shortcut
 
@@ -470,6 +474,30 @@ CompareX는 filter를 적용하기 전에 효과를 확인할 수 있는 포괄�
 - **electron**: ^37.3.1 - Desktop application framework
 - **electron-builder**: ^26.0.12 - Application packaging 및 distribution
 
+### Electron 앱 & 자동 업데이트
+- **자동 업데이트 (electron-updater)**: Generic provider 기반 업데이트 확인/다운로드/설치 지원
+- **릴리즈 노트 자동화**: `build/build-and-deploy.cjs`가 마지막 PR 머지 이후 커밋을 분석하여 `latest.yml`에 릴리즈 노트를 자동 생성합니다((Add)/(Mod)/(Fix)/(Del) 분류).
+
+#### 빌드 & 패키지
+```bash
+# 웹 개발
+npm run dev
+
+# Electron 패키징(Windows)
+npm run electron:pack:win
+
+# 전체 배포(퍼블리시 설정 시)
+npm run electron:dist
+
+# 업데이트 산출물 + latest.yml 생성
+node build/build-and-deploy.cjs
+```
+
+#### 업데이트 플로우
+- 상단 타이틀바의 “Check for Updates” 버튼으로 확인
+- 사용 가능 시 다이얼로그에서 다운로드 → “Install and Restart Now”로 적용
+- 최신 변경사항은 `latest.yml` 기반으로 표시(서버 URL 일치 확인 필요)
+
 #### 선택적 Dependency
 - **sharp**: ^0.34.3 - 이미지 processing (build-time 최적화)
 - **svg2img**: ^1.0.0 - SVG to raster 변환 (development)
@@ -494,10 +522,9 @@ src/
 │   ├── FolderControl.tsx   # 파일 browser
 │   └── ...
 ├── modes/              # Application mode
-│   ├── SingleMode.tsx      # 집중 단일 뷰
 │   ├── CompareMode.tsx     # Multi-folder 비교
 │   ├── PinpointMode.tsx    # Reference 기반 alignment
-│   └── AnalysisMode.tsx    # Single 이미지 분석
+│   └── AnalysisMode.tsx    # 단일 이미지 분석
 ├── utils/              # Utility 함수
 │   ├── filters.ts          # Filter 구현
 │   ├── opencv.ts           # OpenCV 통합

@@ -8,6 +8,7 @@ import { decodeTiffWithUTIF } from '../utils/utif';
 import * as Filters from "../utils/filters";
 import { applyFilterChain } from "../utils/filterChain";
 import { FilterParams } from "../store";
+import { PinpointScaleDisplay } from "./PinpointScaleDisplay";
 
 type Props = {
   file?: File;
@@ -1490,6 +1491,10 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         {SHOW_FOLDER_LABEL && <div className="viewer__label">{label}</div>}
         
       </div>
+      
+      {appMode === 'pinpoint' && typeof folderKey === 'string' && (
+        <PinpointScaleDisplay folderKey={folderKey} />
+      )}
       
       {appMode === 'pinpoint' && rotationAngle !== 0 && (
         <div className="viewer__rotation-angle">

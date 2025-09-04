@@ -67,73 +67,119 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     return null;
   };
 
-  // Helper function to create a temporary folder and set the first image for analysis
-  const createTemporaryFolderAndSetImage = async (imageFiles: File[]): Promise<void> => {
+  // Find folder by alias (case-insensitive)
+  const findFolderByAlias = (alias: string): FolderKey | null => {
+    const target = alias.toLowerCase();
+    for (const key of FOLDER_KEYS) {
+      const f = allFolders[key];
+      if (f && f.alias && f.alias.toLowerCase() === target) return key;
+    }
+    return null;
+  };
+
+  // Place dropped images into TEMP; if filename conflicts, spill to TEMP_2, TEMP_3, ...
+  const placeImagesIntoTempFolders = async (imageFiles: File[]): Promise<void> => {
     try {
-      const emptyFolder = findEmptyFolder();
-      if (!emptyFolder) {
-        // If no empty folder, directly set the first image
-        if (imageFiles.length > 0) {
-          setAnalysisFile(imageFiles[0], 'Dropped Image');
-          if (addToast) {
-            addToast({
-              type: 'success',
-              title: 'Image Loaded',
-              message: `Loaded "${imageFiles[0].name}" for analysis`,
-              details: imageFiles.length > 1 
-                ? [`Note: Only the first image was loaded. ${imageFiles.length - 1} other image${imageFiles.length > 2 ? 's were' : ' was'} ignored.`]
-                : [],
-              duration: 5000
-            });
-          }
+      if (imageFiles.length === 0) return;
+
+      // Buckets per destination folder key
+      const buckets = new Map<FolderKey, File[]>();
+      // Track aliases for folders we provision during this run (key -> alias)
+      const createdAliases = new Map<FolderKey, string>();
+      // Local alias -> key map to avoid relying on async state updates
+      const aliasToKey = new Map<string, FolderKey>();
+      for (const k of FOLDER_KEYS) {
+        const f = allFolders[k];
+        if (f?.alias) aliasToKey.set(f.alias, k);
+      }
+      const reservedKeys = new Set<FolderKey>(Array.from(aliasToKey.values()));
+      const getOrReserve = (alias: string): FolderKey | null => {
+        const existing = aliasToKey.get(alias);
+        if (existing) return existing;
+        // find first empty unreserved key
+        let candidate: FolderKey | null = null;
+        for (const key of FOLDER_KEYS) {
+          if (!allFolders[key] && !reservedKeys.has(key)) { candidate = key; break; }
         }
+        if (!candidate) return null;
+        aliasToKey.set(alias, candidate);
+        reservedKeys.add(candidate);
+        createdAliases.set(candidate, alias);
+        return candidate;
+      };
+
+      // Ensure base TEMP exists
+      if (!getOrReserve('TEMP')) {
+        // No slots at all; fallback to only first image
+        setAnalysisFile(imageFiles[0], 'TEMP');
+        addToast?.({
+          type: 'warning',
+          title: 'No Empty Slot',
+          message: 'No empty folder slots available. Loaded first image only.',
+          duration: 5000
+        });
         return;
       }
 
-      // Create temporary folder with all images
-      const fileMap = new Map<string, File>();
-      imageFiles.forEach(file => {
-        fileMap.set(file.name, file);
+      // Helper to get current files Map snapshot
+      const getFilesMap = (key: FolderKey) => allFolders[key]?.data.files ?? new Map<string, File>();
+      const getAliasForIndex = (index: number) => (index <= 1 ? 'TEMP' : `TEMP_${index}`);
+
+      for (const file of imageFiles) {
+        let idx = 1;
+        while (true) {
+          const key = getOrReserve(getAliasForIndex(idx));
+          if (!key) break;
+          const existing = getFilesMap(key);
+          const pending = buckets.get(key) ?? [];
+          const conflict = existing.has(file.name) || pending.some(f => f.name === file.name);
+          if (!conflict) {
+            pending.push(file);
+            buckets.set(key, pending);
+            break;
+          }
+          idx++;
+        }
+      }
+
+      // Merge and persist
+      for (const [key, files] of buckets.entries()) {
+        const current = allFolders[key];
+        const merged = new Map<string, File>(current?.data.files ?? []);
+        for (const f of files) merged.set(f.name, f);
+        const alias = current?.alias || createdAliases.get(key) || (key as string);
+        const name = current?.data.name || alias;
+        setFolder(key, { data: { name, files: merged }, alias });
+      }
+
+      // Set first image as analysis source (use its actual destination alias)
+      const first = imageFiles[0];
+      let firstSource = 'TEMP';
+      for (const [key, files] of buckets.entries()) {
+        if (files.some(f => f.name === first.name)) {
+          firstSource = allFolders[key]?.alias || createdAliases.get(key) || 'TEMP';
+          break;
+        }
+      }
+      setAnalysisFile(first, firstSource);
+
+      // Toast summary
+      const total = imageFiles.length;
+      addToast?.({
+        type: 'success',
+        title: 'Images Added',
+        message: `${total} image${total > 1 ? 's' : ''} placed into TEMP folders`,
+        details: Array.from(buckets.entries()).map(([key, files]) => `${allFolders[key]?.alias || key}: ${files.length}`),
+        duration: 6000
       });
-
-      const folderData = { 
-        name: `Temporary ${emptyFolder}`,
-        files: fileMap,
-        path: '' // temporary folder doesn't have real path
-      };
-      const folderState = {
-        data: folderData,
-        alias: `Temp ${emptyFolder} (${imageFiles.length})`
-      };
-
-      setFolder(emptyFolder, folderState);
-
-      // Set the first image for analysis
-      setAnalysisFile(imageFiles[0], folderState.alias);
-
-      // Show success message
-      if (addToast) {
-        addToast({
-          type: 'success',
-          title: 'Images Added',
-          message: `Created temporary folder ${emptyFolder} and loaded "${imageFiles[0].name}" for analysis`,
-          details: [
-            `Added ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} to folder`,
-            imageFiles.length > 1 ? 'You can select other images from the file list' : ''
-          ].filter(Boolean),
-          duration: 6000
-        });
-      }
     } catch (error) {
-      if (addToast) {
-        addToast({
-          type: 'error',
-          title: 'Failed to Load Images',
-          message: 'Could not process the dropped images',
-          details: [error instanceof Error ? error.message : 'Unknown error'],
-          duration: 5000
-        });
-      }
+      addToast?.({
+        type: 'error',
+        title: 'Failed to Load Images',
+        message: 'Could not process the dropped images',
+        details: [error instanceof Error ? error.message : 'Unknown error'],
+        duration: 5000
+      });
     }
   };
 
@@ -203,8 +249,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
       return;
     }
 
-    // Create temporary folder and set first image for analysis
-    await createTemporaryFolderAndSetImage(imageFiles);
+    // Place into TEMP (and TEMP_2, ...) with filename-collision handling
+    await placeImagesIntoTempFolders(imageFiles);
   };
 
   useImperativeHandle(ref, () => ({
@@ -419,13 +465,13 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                 </h3>
                 <p>
                   {(() => {
-                    const emptyFolder = findEmptyFolder();
+                    const hasSlot = !!findEmptyFolder();
                     if (draggedFileCount === 1) {
-                      return 'Load image for analysis';
-                    } else if (emptyFolder) {
-                      return `Create folder ${emptyFolder} and load first image for analysis`;
+                      return 'Add to TEMP folder';
+                    } else if (hasSlot) {
+                      return 'Add to TEMP (same names → TEMP_2, TEMP_3, ...)';
                     } else {
-                      return 'Load first image for analysis (others ignored)';
+                      return 'No empty slots: only first image will load';
                     }
                   })()}
                 </p>
@@ -487,12 +533,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               ))}
             </div>
           )}
-          {!analysisFile ? (
-             <div className="analysis-mode-placeholder--inline">
-                <p>Select a folder and then choose an image from the list to begin.</p>
-             </div>
-          ) : (
-            Array.from({ length: numViewers }).map((_, i) => {
+          {Array.from({ length: numViewers }).map((_, i) => {
               const filterName = getFilterName(analysisFilters[i], analysisFilterParams[i]);
               const lines: string[] = [];
               if (analysisFileSource) {
@@ -585,8 +626,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                   </div>
                 </DraggableViewer>
               );
-            })
-          )}
+            })}
         </section>
       </main>
       
