@@ -224,8 +224,8 @@ ipcMain.handle('save-image', async (event, imageData, defaultFileName) => {
 function createWindow() {
   // Create the browser window
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1800,
+    height: 1200,
     minWidth: 800,
     minHeight: 600,
     webPreferences: {

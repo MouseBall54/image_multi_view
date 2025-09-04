@@ -63,18 +63,17 @@ function generateReleaseNotes() {
   // In real scenario, this could read from CHANGELOG.md or git commits
   return `## CompareX v${CONFIG.version} 업데이트
 
-### 새로운 기능
-- electron-updater 기반 자동 업데이트 시스템
-- 향상된 다운로드 진행률 표시
-- 백그라운드 업데이트 지원
 
 ### 개선사항
-- 업데이트 프로세스 안정성 향상
-- 사용자 인터페이스 개선
-- 메모리 사용량 최적화
+- pinpoint 모드 배율 UI 변경, 최종 배율 정보 독립적으로 표시
+- 메인 메뉴 아이콘화 및 툴팁 추가
+- class 부재 UI 개선
+- 주요 기능 UI 프로그램 최상단으로 배치
+- analysis 모드 초기 화면 다른 모드와 동일하게 변경
+- pinpoint 모드 D&D 이미지뷰에 적용
 
 ### 버그 수정
-- 업데이트 확인 중 크래시 문제 해결
+- 이미지 추가 시 temp 폴더 배치 로직 개선
 - 네트워크 연결 오류 처리 개선`;
 }
 

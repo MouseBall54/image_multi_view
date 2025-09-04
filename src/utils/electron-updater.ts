@@ -92,6 +92,10 @@ export class ElectronUpdater {
         return { success: false, error: result.error };
       }
 
+      // Ensure internal state is populated even if external listeners were reset
+      if (result.updateInfo) {
+        this.updateInfo = result.updateInfo;
+      }
       return { success: true, updateInfo: result.updateInfo };
     } catch (error) {
       this.isChecking = false;
@@ -120,6 +124,10 @@ export class ElectronUpdater {
         return { success: false, error: result.error };
       }
 
+      // In case renderer-level listeners were removed and we miss the
+      // 'update-downloaded' event, mark state here on successful completion.
+      this.isDownloading = false;
+      this.isDownloaded = true;
       return { success: true };
     } catch (error) {
       this.isDownloading = false;
