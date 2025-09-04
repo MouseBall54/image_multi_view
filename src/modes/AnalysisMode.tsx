@@ -487,12 +487,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               ))}
             </div>
           )}
-          {!analysisFile ? (
-             <div className="analysis-mode-placeholder--inline">
-                <p>Select a folder and then choose an image from the list to begin.</p>
-             </div>
-          ) : (
-            Array.from({ length: numViewers }).map((_, i) => {
+          {Array.from({ length: numViewers }).map((_, i) => {
               const filterName = getFilterName(analysisFilters[i], analysisFilterParams[i]);
               const lines: string[] = [];
               if (analysisFileSource) {
@@ -585,8 +580,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                   </div>
                 </DraggableViewer>
               );
-            })
-          )}
+            })}
         </section>
       </main>
       
