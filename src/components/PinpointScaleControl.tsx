@@ -7,7 +7,6 @@ import { MAX_ZOOM, MIN_ZOOM, WHEEL_ZOOM_STEP } from '../config';
 export function PinpointScaleControl({ folderKey, onResetRefPoint }: { folderKey: FolderKey, onResetRefPoint?: (key: FolderKey) => void }) {
   const { pinpointScales, setPinpointScale, viewport, pinpointGlobalScale, rectZoomTarget, setRectZoomTarget } = useStore();
   const individualScale = pinpointScales[folderKey] ?? viewport.scale;
-  const totalScale = individualScale * pinpointGlobalScale;
   
   const [scaleInput, setScaleInput] = useState((individualScale * 100).toFixed(0));
 
@@ -16,7 +15,7 @@ export function PinpointScaleControl({ folderKey, onResetRefPoint }: { folderKey
     if (Math.round(parseFloat(scaleInput)) !== Math.round(individualScale * 100)) {
       setScaleInput((individualScale * 100).toFixed(0));
     }
-  }, [individualScale, totalScale]);
+  }, [individualScale]);
 
   const applyScale = (newIndividualScale: number) => {
     const clampedScale = Math.max(MIN_ZOOM / pinpointGlobalScale, Math.min(MAX_ZOOM / pinpointGlobalScale, newIndividualScale));
@@ -67,16 +66,16 @@ export function PinpointScaleControl({ folderKey, onResetRefPoint }: { folderKey
         </svg>
       </button>
       <button onClick={() => adjustScale(1 / WHEEL_ZOOM_STEP)} title="Zoom Out">-</button>
-      <div className="scale-inputs">
+      <div className="scale-input-wrapper">
         <input 
           type="number"
           value={scaleInput}
           onChange={handleInputChange}
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}
-          title="Individual Scale"
+          title="Individual Scale (%)"
         />
-        <span className="total-scale" title="Total Scale (Individual × Global)">/ {(totalScale * 100).toFixed(0)}%</span>
+        <span className="percent-symbol">%</span>
       </div>
       <button onClick={() => adjustScale(WHEEL_ZOOM_STEP)} title="Zoom In">+</button>
       <button onClick={resetScale} title="Reset Zoom (center ref-point)" aria-label="Reset Zoom">
