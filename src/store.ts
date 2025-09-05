@@ -188,6 +188,7 @@ interface State {
     stickySource?: boolean; // When true, don't auto-sync sourceFile
   };
   previewSize: 'S' | 'M' | 'L';
+  originalResolution: boolean;
 
   // Toast notification states
   toasts: ToastMessage[];
@@ -297,6 +298,7 @@ interface State {
     stickySource?: boolean;
   }) => void;
   setPreviewSize: (size: 'S' | 'M' | 'L') => void;
+  setOriginalResolution: (originalResolution: boolean) => void;
   closePreviewModal: () => void;
   updatePreviewModal: (updates: Partial<{
     isOpen: boolean;
@@ -417,6 +419,7 @@ export const useStore = create<State>((set, get) => ({
     stickySource: false,
   },
   previewSize: 'M',
+  originalResolution: false,
   
   // Toast notification states
   toasts: [],
@@ -813,6 +816,7 @@ export const useStore = create<State>((set, get) => ({
   })),
 
   setPreviewSize: (size) => set({ previewSize: size }),
+  setOriginalResolution: (originalResolution) => set({ originalResolution }),
   
   closePreviewModal: () => set(state => ({
     previewModal: {

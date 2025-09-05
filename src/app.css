@@ -4323,6 +4323,43 @@ main {
   transform: none;
 }
 
+.original-btn {
+  background: var(--warning-color) !important;
+  color: #000 !important;
+  border-color: var(--warning-color) !important;
+  font-weight: 600;
+}
+
+.original-btn:hover {
+  background: #e6a800 !important;
+  border-color: #e6a800 !important;
+  transform: translateY(-1px);
+}
+
+.original-btn.active {
+  background: var(--warning-color) !important;
+  color: #000 !important;
+  border-color: var(--warning-color) !important;
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
+}
+
+.preview-warning {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid var(--warning-color);
+  color: var(--warning-color);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  z-index: 10;
+  border-radius: 4px 4px 0 0;
+  backdrop-filter: blur(4px);
+}
+
 .preview-sidebar-panel .preview-modal-header h3 {
   font-size: 14px;
   margin: 0;
