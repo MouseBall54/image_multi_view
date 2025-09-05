@@ -553,7 +553,50 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
             <DraggableViewer 
                   key={i} 
                   position={i}
-                  onReorder={reorderViewers}
+                  onReorder={(fromPosition, toPosition) => {
+                    if (fromPosition === toPosition) return;
+                    const st = useStore.getState();
+                    const count = st.numViewers;
+                    // Snapshot current ordered filters/params by index 0..count-1
+                    const filtersByPos = Array.from({ length: count }).map((_, idx) => st.analysisFilters[idx]);
+                    const paramsByPos = Array.from({ length: count }).map((_, idx) => st.analysisFilterParams[idx]);
+
+                    if (st.pinpointReorderMode === 'swap') {
+                      const tf = filtersByPos[fromPosition];
+                      const tp = paramsByPos[fromPosition];
+                      filtersByPos[fromPosition] = filtersByPos[toPosition];
+                      paramsByPos[fromPosition] = paramsByPos[toPosition];
+                      filtersByPos[toPosition] = tf;
+                      paramsByPos[toPosition] = tp;
+                    } else {
+                      const [mf] = filtersByPos.splice(fromPosition, 1);
+                      filtersByPos.splice(toPosition, 0, mf);
+                      const [mp] = paramsByPos.splice(fromPosition, 1);
+                      paramsByPos.splice(toPosition, 0, mp);
+                    }
+
+                    const nextFilters: Partial<Record<number, FilterType>> = { ...st.analysisFilters } as any;
+                    const nextParams: Partial<Record<number, FilterParams>> = { ...st.analysisFilterParams } as any;
+                    for (let idx = 0; idx < count; idx++) {
+                      const f = filtersByPos[idx];
+                      const p = paramsByPos[idx];
+                      if (f == null) {
+                        delete (nextFilters as any)[idx];
+                      } else {
+                        (nextFilters as any)[idx] = f;
+                      }
+                      if (p == null) {
+                        delete (nextParams as any)[idx];
+                      } else {
+                        (nextParams as any)[idx] = p as any;
+                      }
+                    }
+
+                    useStore.setState({
+                      analysisFilters: nextFilters,
+                      analysisFilterParams: nextParams,
+                    } as any);
+                  }}
                   className={`viewer-container ${isSelected ? 'selected' : ''}`}
                 >
                   {syncCapture.active && syncCapture.mode === 'analysis' && (

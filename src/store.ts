@@ -977,20 +977,26 @@ export const useStore = create<State>((set, get) => ({
   // Position-based viewer reordering
   reorderViewers: (fromPosition: number, toPosition: number) => set((state) => {
     if (fromPosition === toPosition) return state;
-    
-    const { appMode } = state;
-    const newArrangement = { ...state.viewerArrangement };
-    
+
+    const { appMode, pinpointReorderMode } = state;
+    const newArrangement = { ...state.viewerArrangement } as any;
+
     // Get the array for current mode
     const currentArrangement = [...(newArrangement[appMode] as any)];
-    
-    // Move item from fromPosition to toPosition
-    const [movedItem] = currentArrangement.splice(fromPosition, 1);
-    currentArrangement.splice(toPosition, 0, movedItem);
-    
-    // Update the arrangement
-    (newArrangement as any)[appMode] = currentArrangement as any;
-    
+
+    if (pinpointReorderMode === 'swap') {
+      // Swap two positions
+      const tmp = currentArrangement[fromPosition];
+      currentArrangement[fromPosition] = currentArrangement[toPosition];
+      currentArrangement[toPosition] = tmp;
+    } else {
+      // Shift/move the item
+      const [movedItem] = currentArrangement.splice(fromPosition, 1);
+      currentArrangement.splice(toPosition, 0, movedItem);
+    }
+
+    newArrangement[appMode] = currentArrangement as any;
+
     return {
       ...state,
       viewerArrangement: newArrangement

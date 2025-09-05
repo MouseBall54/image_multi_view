@@ -512,29 +512,27 @@ export default function App() {
               />
             )}
             {appMode === 'pinpoint' && (
-              <>
-                <label><span>Mouse:</span>
-                  <select value={pinpointMouseMode} onChange={e => setPinpointMouseMode(e.target.value as any)}>
-                    <option value="pin">Pin</option>
-                    <option value="pan">Pan</option>
-                  </select>
-                </label>
-                <div className="pinpoint-reorder-controls" title="Reorder behavior for Pinpoint drag">
-                  <button
-                    className={`controls-main-button ${pinpointReorderMode === 'shift' ? 'active' : ''}`}
-                    onClick={() => setPinpointReorderMode('shift')}
-                  >
-                    Shift
-                  </button>
-                  <button
-                    className={`controls-main-button ${pinpointReorderMode === 'swap' ? 'active' : ''}`}
-                    onClick={() => setPinpointReorderMode('swap')}
-                  >
-                    Swap
-                  </button>
-                </div>
-              </>
+              <label><span>Mouse:</span>
+                <select value={pinpointMouseMode} onChange={e => setPinpointMouseMode(e.target.value as any)}>
+                  <option value="pin">Pin</option>
+                  <option value="pan">Pan</option>
+                </select>
+              </label>
             )}
+            <div className="pinpoint-reorder-controls" title="Reorder behavior for viewer drag">
+              <button
+                className={`controls-main-button ${pinpointReorderMode === 'shift' ? 'active' : ''}`}
+                onClick={() => setPinpointReorderMode('shift')}
+              >
+                Shift
+              </button>
+              <button
+                className={`controls-main-button ${pinpointReorderMode === 'swap' ? 'active' : ''}`}
+                onClick={() => setPinpointReorderMode('swap')}
+              >
+                Swap
+              </button>
+            </div>
             
           </div>
           <div className="controls-right">
