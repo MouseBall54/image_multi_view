@@ -403,7 +403,16 @@ async function applySingleFilter(
       if (params) Filters.applyGuidedFilter(ctx, params); 
       break;
     case 'edgepreserving': 
-      if (params) Filters.applyEdgePreserving(ctx, params); 
+      if (params) await Filters.applyEdgePreserving(ctx, params); 
+      break;
+    case 'bilateral': 
+      if (params) await Filters.applyEdgePreserving(ctx, params); // Using edgepreserving as fallback for bilateral
+      break;
+    case 'nonlocalmeans': 
+      if (params) await Filters.applyEdgePreserving(ctx, params); // Using edgepreserving as fallback for nonlocalmeans
+      break;
+    case 'anisotropicdiffusion': 
+      if (params) await Filters.applyEdgePreserving(ctx, params); // Using edgepreserving as fallback for anisotropicdiffusion
       break;
     case 'dft': 
       Filters.applyDft(ctx); 

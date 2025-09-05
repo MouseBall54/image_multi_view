@@ -14,6 +14,8 @@ interface FilterParameterControlsProps {
 // Reusable parameter control components
 
 
+type ConstraintType = 'integer' | 'positive' | 'odd' | 'even' | 'float';
+
 const RangeInput: React.FC<{
   label: string;
   value: number;
@@ -22,7 +24,8 @@ const RangeInput: React.FC<{
   step?: number;
   onChange: (value: number) => void;
   compact?: boolean;
-}> = ({ label, value, min, max, step = 1, onChange, compact = false }) => {
+  constraint?: ConstraintType;
+}> = ({ label, value, min, max, step = 1, onChange, compact = false, constraint = 'float' }) => {
   const [editing, setEditing] = React.useState(false);
   const [text, setText] = React.useState(String(value));
 
@@ -31,25 +34,70 @@ const RangeInput: React.FC<{
   }, [value, editing]);
 
   const fmt = (v: number) => {
-    // Show up to 2 decimals without trailing zeros
-    const s = Number.isFinite(v) ? Number(v.toFixed(2)).toString() : String(v);
-    return s;
+    // Format display based on constraint type
+    if (constraint === 'integer' || constraint === 'positive' || constraint === 'odd' || constraint === 'even') {
+      return Math.round(v).toString();
+    } else {
+      // Show up to 2 decimals without trailing zeros
+      const s = Number.isFinite(v) ? Number(v.toFixed(2)).toString() : String(v);
+      return s;
+    }
+  };
+
+  const applyConstraint = (num: number): number => {
+    switch (constraint) {
+      case 'integer':
+        return Math.round(num);
+      case 'positive':
+        return Math.max(0, Math.round(Math.abs(num)));
+      case 'odd': {
+        const rounded = Math.round(num);
+        return rounded % 2 === 0 ? rounded + 1 : rounded;
+      }
+      case 'even': {
+        const rounded = Math.round(num);
+        return rounded % 2 === 1 ? rounded + 1 : rounded;
+      }
+      case 'float':
+      default:
+        return num;
+    }
   };
 
   const commit = () => {
     const num = parseFloat(text);
     if (!isNaN(num)) {
-      // clamp to [min, max]
-      const clamped = Math.min(max, Math.max(min, num));
-      onChange(clamped);
+      // Apply constraint first, then clamp to [min, max]
+      let constrained = applyConstraint(num);
+      constrained = Math.min(max, Math.max(min, constrained));
+      
+      // For odd/even constraints, ensure the clamped value still satisfies the constraint
+      if (constraint === 'odd' && constrained % 2 === 0) {
+        constrained = constrained > num ? constrained - 1 : constrained + 1;
+        constrained = Math.min(max, Math.max(min, constrained));
+      } else if (constraint === 'even' && constrained % 2 === 1) {
+        constrained = constrained > num ? constrained - 1 : constrained + 1;
+        constrained = Math.min(max, Math.max(min, constrained));
+      }
+      
+      onChange(constrained);
     }
     setEditing(false);
   };
 
   return (
-    <div className={`param-control ${compact ? 'compact' : ''}`}>
-      <label className="param-label">
-        {label}: {editing ? (
+    <div className={`control-row ${compact ? 'compact' : ''}`}>
+      <label>{label}</label>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+      />
+      <span className="inline-number-wrap">
+        {editing ? (
           <input
             className="inline-number-input"
             type="number"
@@ -67,23 +115,14 @@ const RangeInput: React.FC<{
           />
         ) : (
           <span
-            className="param-value"
-            title="Double-click to edit"
-            onDoubleClick={() => setEditing(true)}
+            className="inline-number"
+            title="Click to edit"
+            onClick={() => setEditing(true)}
           >
             {fmt(value)}
           </span>
         )}
-      </label>
-      <input
-        type="range"
-        className="param-range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-      />
+      </span>
     </div>
   );
 };
@@ -111,6 +150,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={1}
               onChange={(value) => updateParam('brightness', value)}
               compact={compact}
+              constraint="integer"
             />
           </>
         );
@@ -125,6 +165,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={1}
               onChange={(value) => updateParam('contrast', value)}
               compact={compact}
+              constraint="positive"
             />
           </>
         );
@@ -139,6 +180,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={2}
               onChange={(value) => updateParam('kernelSize', value)}
               compact={compact}
+              constraint="odd"
             />
             <RangeInput
               label="Sigma"
@@ -163,6 +205,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={2}
               onChange={(value) => updateParam('kernelSize', value)}
               compact={compact}
+              constraint="odd"
             />
           </>
         );
@@ -178,6 +221,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={1}
               onChange={(value) => updateParam('lowThreshold', value)}
               compact={compact}
+              constraint="positive"
             />
             <RangeInput
               label="High Threshold"
@@ -187,6 +231,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={1}
               onChange={(value) => updateParam('highThreshold', value)}
               compact={compact}
+              constraint="positive"
             />
           </>
         );
@@ -202,6 +247,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={2}
               onChange={(value) => updateParam('kernelSize', value)}
               compact={compact}
+              constraint="odd"
             />
           </>
         );
@@ -217,6 +263,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={2}
               onChange={(value) => updateParam('kernelSize', value)}
               compact={compact}
+              constraint="odd"
             />
           </>
         );
@@ -254,7 +301,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
       case 'histogramequalization':
         // No adjustable params in params-container
         return (
-          <div className="param-control">
+          <div className="control-row">
             <p className="no-params-message">No adjustable parameters.</p>
           </div>
         );
@@ -279,6 +326,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={1}
               onChange={(value) => updateParam('gridSize', value)}
               compact={compact}
+              constraint="positive"
             />
           </>
         );
@@ -294,32 +342,117 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={1}
               onChange={(value) => updateParam('gridSize', value)}
               compact={compact}
+              constraint="positive"
             />
           </>
         );
 
       case 'bilateral':
-        // Not exposed in params-container; fallback to no params
         return (
-          <div className="param-control">
-            <p className="no-params-message">No adjustable parameters.</p>
-          </div>
+          <>
+            <RangeInput
+              label="Kernel Size"
+              value={(filterParams as any).kernelSize ?? 5}
+              min={3}
+              max={21}
+              step={2}
+              onChange={(value) => updateParam('kernelSize', value)}
+              compact={compact}
+              constraint="odd"
+            />
+            <RangeInput
+              label="Sigma Color"
+              value={(filterParams as any).sigmaColor ?? 25}
+              min={1}
+              max={100}
+              step={1}
+              onChange={(value) => updateParam('sigmaColor', value)}
+              compact={compact}
+              constraint="positive"
+            />
+            <RangeInput
+              label="Sigma Space"
+              value={(filterParams as any).sigmaSpace ?? 25}
+              min={1}
+              max={100}
+              step={1}
+              onChange={(value) => updateParam('sigmaSpace', value)}
+              compact={compact}
+              constraint="positive"
+            />
+          </>
         );
 
       case 'nonlocalmeans':
-        // Not exposed in params-container; fallback to no params
         return (
-          <div className="param-control">
-            <p className="no-params-message">No adjustable parameters.</p>
-          </div>
+          <>
+            <RangeInput
+              label="Filter Strength"
+              value={(filterParams as any).h ?? 10}
+              min={1}
+              max={30}
+              step={1}
+              onChange={(value) => updateParam('h', value)}
+              compact={compact}
+              constraint="positive"
+            />
+            <RangeInput
+              label="Template Window Size"
+              value={(filterParams as any).templateWindowSize ?? 7}
+              min={3}
+              max={15}
+              step={2}
+              onChange={(value) => updateParam('templateWindowSize', value)}
+              compact={compact}
+              constraint="odd"
+            />
+            <RangeInput
+              label="Search Window Size"
+              value={(filterParams as any).searchWindowSize ?? 21}
+              min={7}
+              max={35}
+              step={2}
+              onChange={(value) => updateParam('searchWindowSize', value)}
+              compact={compact}
+              constraint="odd"
+            />
+          </>
         );
 
       case 'anisotropicdiffusion':
-        // Not exposed in params-container; fallback to no params
         return (
-          <div className="param-control">
-            <p className="no-params-message">No adjustable parameters.</p>
-          </div>
+          <>
+            <RangeInput
+              label="Iterations"
+              value={(filterParams as any).iterations ?? 10}
+              min={1}
+              max={50}
+              step={1}
+              onChange={(value) => updateParam('iterations', value)}
+              compact={compact}
+              constraint="positive"
+            />
+            <RangeInput
+              label="Lambda"
+              value={(filterParams as any).lambda ?? 0.2}
+              min={0.05}
+              max={0.5}
+              step={0.05}
+              onChange={(value) => updateParam('lambda', value)}
+              compact={compact}
+              constraint="float"
+            />
+            <RangeInput
+              label="Kappa"
+              value={(filterParams as any).kappa ?? 30}
+              min={10}
+              max={100}
+              step={5}
+              onChange={(value) => updateParam('kappa', value)}
+              compact={compact}
+              constraint="positive"
+            />
+          </>
         );
 
       case 'gabor':
@@ -383,11 +516,29 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
         );
 
       case 'lbp':
-        // Not exposed in params-container; fallback to no params
         return (
-          <div className="param-control">
-            <p className="no-params-message">No adjustable parameters.</p>
-          </div>
+          <>
+            <RangeInput
+              label="Radius"
+              value={(filterParams as any).radius ?? 3}
+              min={1}
+              max={10}
+              step={1}
+              onChange={(value) => updateParam('radius', value)}
+              compact={compact}
+              constraint="positive"
+            />
+            <RangeInput
+              label="Neighbors"
+              value={(filterParams as any).neighbors ?? 8}
+              min={4}
+              max={16}
+              step={1}
+              onChange={(value) => updateParam('neighbors', value)}
+              compact={compact}
+              constraint="positive"
+            />
+          </>
         );
 
       case 'morph_open':
@@ -405,6 +556,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={2}
               onChange={(value) => updateParam('kernelSize', value)}
               compact={compact}
+              constraint="odd"
             />
           </>
         );
@@ -567,6 +719,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={1}
               onChange={(value) => updateParam('threshold', value)}
               compact={compact}
+              constraint="integer"
             />
           </>
         );
@@ -631,7 +784,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
       case 'linearstretch':
         // No adjustable params in params-container
         return (
-          <div className="param-control">
+          <div className="control-row">
             <p className="no-params-message">No adjustable parameters.</p>
           </div>
         );
@@ -639,10 +792,9 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
       case 'lawstextureenergy':
         return (
           <>
-            <div className={`param-control ${compact ? 'compact' : ''}`}>
-              <label className="param-label">Kernel Type</label>
+            <div className={`control-row ${compact ? 'compact' : ''}`}>
+              <label>Kernel Type</label>
               <select
-                className="param-range"
                 value={(filterParams as any).lawsKernelType ?? 'L5E5'}
                 onChange={(e) => updateParam('lawsKernelType', e.target.value)}
               >
@@ -659,16 +811,35 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               step={2}
               onChange={(value) => updateParam('kernelSize', value)}
               compact={compact}
+              constraint="odd"
             />
           </>
         );
 
       case 'wavelet':
-        // Not exposed in params-container; fallback to no params
         return (
-          <div className="param-control">
-            <p className="no-params-message">No adjustable parameters.</p>
-          </div>
+          <>
+            <RangeInput
+              label="Levels"
+              value={(filterParams as any).levels ?? 3}
+              min={1}
+              max={6}
+              step={1}
+              onChange={(value) => updateParam('levels', value)}
+              compact={compact}
+              constraint="positive"
+            />
+            <RangeInput
+              label="Sigma"
+              value={(filterParams as any).sigma ?? 1.0}
+              min={0.1}
+              max={5.0}
+              step={0.1}
+              onChange={(value) => updateParam('sigma', value)}
+              compact={compact}
+              constraint="float"
+            />
+          </>
         );
       case 'laplacian':
         return (
@@ -812,7 +983,7 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
 
       default:
         return (
-          <div className="param-control">
+          <div className="control-row">
             <p className="no-params-message">
               This filter has no adjustable parameters or parameter editing is not yet implemented.
             </p>
