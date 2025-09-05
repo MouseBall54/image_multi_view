@@ -2099,7 +2099,7 @@ main {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-  width: 400px;
+  width: 520px; /* +30% for wider controls */
   display: flex;
   flex-direction: column;
 }
@@ -2139,24 +2139,36 @@ main {
 }
 
 .control-row {
-  display: flex;
+  /* Grid with dynamic third column: only when a number box exists */
+  display: grid;
+  grid-template-columns: 110px 1fr; /* tighten label to grow slider */
   align-items: center;
   gap: 12px;
 }
+/* When a numeric editor is present, create a right value column */
+.control-row:has(.inline-number-wrap) {
+  grid-template-columns: 110px 1fr 40px; /* halve numeric width for compact display */
+}
 
 .control-row label {
-  flex-basis: 120px;
   color: var(--text-secondary);
 }
 
 .control-row input[type="range"] {
-  flex-grow: 1;
+  width: 100%;
 }
+.control-row select,
+.control-row input[type="range"] { min-width: 0; }
 
-.control-row span {
-  flex-basis: 40px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+/* Right column: numeric value/editor area (when present) */
+.control-row .inline-number-wrap { width: 100%; justify-self: end; }
+
+/* When authors wrapped <InlineNumber/> with an extra .inline-number-wrap,
+   keep the inner one from adding width/margins */
+.control-row .inline-number-wrap .inline-number-wrap {
+  width: 100%;
+  margin: 0;
+  display: block;
 }
 
 .control-row select {
@@ -2962,15 +2974,13 @@ main {
   cursor: not-allowed;
   background: var(--bg-secondary);
 }
-.inline-number-wrap {
-  display: inline-block;
-  width: 72px; /* fixed to avoid layout shift */
-  margin-left: 8px;
-}
+/* Default style; refined within .control-row above */
+.inline-number-wrap { display: inline-block; }
 .inline-number {
   display: inline-block;
   width: 100%;
   text-align: right;
+  font-variant-numeric: tabular-nums;
   cursor: text;
 }
 .inline-number-input {
@@ -5624,6 +5634,7 @@ body:not(.viewer-dragging) .draggable-viewer:hover::after {
 .filter-mode-toggle {
   display: inline-flex;
   gap: 0; /* segments should touch */
+  flex-shrink: 0; /* don't compress on small widths */
 }
 
 .filter-mode-toggle .controls-main-button {
@@ -5659,10 +5670,19 @@ body:not(.viewer-dragging) .draggable-viewer:hover::after {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 1;                     /* take remaining space between left edge and close button */
+  justify-content: space-between; /* title on left, toggle on right */
+  flex-wrap: nowrap;           /* keep on one line */
+  min-width: 0;                /* allow inner flex items to shrink */
 }
 
 .panel-header .header-left h3 {
   margin: 0;
+  flex: 1 1 auto;              /* let title use available space */
+  min-width: 0;                /* enable ellipsis */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 /* Rect Zoom additions */
 .pinpoint-scale-control .rect-zoom-btn {
