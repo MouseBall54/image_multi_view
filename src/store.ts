@@ -337,6 +337,15 @@ interface State {
   // Rect Zoom actions
   setRectZoomTarget: (key: FolderKey | null) => void;
   setRectZoomGlobalActive: (active: boolean) => void;
+
+  // Sync-capture to propagate filter settings
+  syncCapture: {
+    active: boolean;
+    mode: AppMode | null;
+  };
+  startSync: (mode: AppMode) => void;
+  cancelSync: () => void;
+  confirmSyncFromTarget: (target: FolderKey | number) => void;
 }
 
 export const useStore = create<State>((set, get) => ({
@@ -418,6 +427,9 @@ export const useStore = create<State>((set, get) => ({
     mode: 'single',
     stickySource: false,
   },
+  
+  // Sync-capture defaults
+  syncCapture: { active: false, mode: null },
   previewSize: 'M',
   originalResolution: false,
   
@@ -852,6 +864,56 @@ export const useStore = create<State>((set, get) => ({
   // Rect Zoom
   setRectZoomTarget: (key) => set({ rectZoomTarget: key }),
   setRectZoomGlobalActive: (active) => set({ rectZoomGlobalActive: active }),
+
+  // Sync-capture actions
+  startSync: (mode) => set({ syncCapture: { active: true, mode } }),
+  cancelSync: () => set({ syncCapture: { active: false, mode: null } }),
+  confirmSyncFromTarget: (target) => set((state) => {
+    if (!state.syncCapture.active || !state.syncCapture.mode) return state as any;
+    const mode = state.syncCapture.mode;
+
+    if (mode === 'analysis') {
+      const idx = typeof target === 'number' ? target : 0;
+      const type = state.analysisFilters[idx] || 'none';
+      const params = state.analysisFilterParams[idx];
+      const nextFilters: Partial<Record<number, any>> = { ...state.analysisFilters };
+      const nextParams: Partial<Record<number, any>> = { ...state.analysisFilterParams };
+      for (let i = 0; i < state.numViewers; i++) {
+        (nextFilters as any)[i] = type;
+        if (params == null) {
+          delete (nextParams as any)[i];
+        } else {
+          (nextParams as any)[i] = params;
+        }
+      }
+      return {
+        analysisFilters: nextFilters,
+        analysisFilterParams: nextParams,
+        syncCapture: { active: false, mode: null },
+      } as any;
+    } else {
+      const key = String(target) as FolderKey;
+      const type = state.viewerFilters[key] || 'none';
+      const params = state.viewerFilterParams[key];
+      const nextFilters: Partial<Record<FolderKey, any>> = { ...state.viewerFilters };
+      const nextParams: Partial<Record<FolderKey, any>> = { ...state.viewerFilterParams };
+      const arrangement = state.viewerArrangement[mode] as FolderKey[];
+      const activeKeys = arrangement.slice(0, state.numViewers);
+      for (const k of activeKeys) {
+        (nextFilters as any)[k] = type;
+        if (params == null) {
+          delete (nextParams as any)[k];
+        } else {
+          (nextParams as any)[k] = params;
+        }
+      }
+      return {
+        viewerFilters: nextFilters,
+        viewerFilterParams: nextParams,
+        syncCapture: { active: false, mode: null },
+      } as any;
+    }
+  }),
 
   // Leveling state actions
   startLeveling: (mode, targetKey = null, axis = 'horizontal') => set({ levelingCapture: { active: true, mode, targetKey, points: [], axis } }),

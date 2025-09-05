@@ -56,7 +56,8 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     openPreviewModal,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels,
     selectedFiles, toggleFileSelection, clearFileSelection, selectAllFiles, setActiveCanvasKey, setPinpoint,
-    viewerArrangement
+    viewerArrangement,
+    syncCapture, confirmSyncFromTarget
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -906,7 +907,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                     } as any);
                   });
                 }}
-                className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''} ${dragOverViewer === key ? 'drag-over' : ''}`}
+              className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''} ${dragOverViewer === key ? 'drag-over' : ''}`}
               >
                 <div 
                   data-viewer-key={key}
@@ -914,6 +915,18 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                   onDragLeave={handleViewerDragLeave}
                   onDrop={(e) => handleViewerDrop(e, key)}
                 >
+                {syncCapture.active && syncCapture.mode === 'pinpoint' && (
+                  <div
+                    className="sync-select-overlay"
+                    title="Click to sync filters from this viewer"
+                    onClick={() => { 
+                      confirmSyncFromTarget(key);
+                      addToast?.({ type: 'success', title: 'Synced', message: `Filters copied from ${allFolders[key]?.alias || key} to all viewers`, duration: 2500 });
+                    }}
+                  >
+                    <div className="sync-select-hint">Click to sync from {allFolders[key]?.alias || key}</div>
+                  </div>
+                )}
                 <ImageCanvas 
                   ref={canvasRefs[key as FolderKey]}
                   label={label}

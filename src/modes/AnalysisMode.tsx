@@ -41,6 +41,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     viewerRows, viewerCols,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, showFilelist, showFilterLabels,
     previewLayout, reorderViewers,
+    syncCapture, confirmSyncFromTarget,
   } = useStore();
   const { pick, inputRefs, onInput, allFolders, updateAlias } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
@@ -555,6 +556,18 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                   onReorder={reorderViewers}
                   className={`viewer-container ${isSelected ? 'selected' : ''}`}
                 >
+                  {syncCapture.active && syncCapture.mode === 'analysis' && (
+                    <div
+                      className="sync-select-overlay"
+                      title="Click to sync filters from this viewer"
+                      onClick={() => { 
+                        confirmSyncFromTarget(i);
+                        addToast?.({ type: 'success', title: 'Synced', message: `Filters copied from Viewer ${i + 1} to all viewers`, duration: 2500 });
+                      }}
+                    >
+                      <div className="sync-select-hint">Click to sync from Viewer {i + 1}</div>
+                    </div>
+                  )}
                   <ImageCanvas
                     ref={el => el ? imageCanvasRefs.current.set(i, el) : imageCanvasRefs.current.delete(i)}
                     file={analysisFile}

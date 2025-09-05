@@ -88,7 +88,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, showFilterLabels, setShowFilterLabels, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart, pinpointReorderMode, setPinpointReorderMode } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, showFilterLabels, setShowFilterLabels, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart, pinpointReorderMode, setPinpointReorderMode, syncCapture, startSync, cancelSync } = useStore();
   const { setShowFilelist, openPreviewModal, closeToggleModal, addToast } = useStore.getState();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
@@ -307,6 +307,7 @@ export default function App() {
       // Global Escape: close modals/overlays
       if (key === 'escape') {
         let handled = false;
+        if (useStore.getState().syncCapture.active) { useStore.getState().cancelSync(); handled = true; }
         if (previewModal.isOpen) { closePreviewModal(); handled = true; }
         if (isCaptureModalOpen) { setCaptureModalOpen(false); handled = true; }
         if (showColorPalette) { setShowColorPalette(false); handled = true; }
@@ -545,7 +546,26 @@ export default function App() {
                 <PinpointGlobalScaleControl />
               </div>
             )}
-            {appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
+          {appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
+            <button
+              onClick={() => {
+                if (syncCapture.active) {
+                  cancelSync();
+                } else {
+                  startSync(appMode);
+                  addToast({ type: 'info', title: 'Sync Filters', message: 'Choose a source viewer to sync from', duration: 3000 });
+                }
+              }}
+              title={syncCapture.active ? 'Cancel Sync' : 'Sync filters from a viewer to all'}
+              className={`controls-main-button sync-button ${syncCapture.active ? 'active' : ''}`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              Sync
+            </button>
             <button onClick={resetView} title="Reset View" className="controls-main-button">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4M12 12l-8 8M12 12l8 8M12 12l-8-8M12 12l8-8"/></svg>
             </button>

@@ -39,7 +39,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   const { 
     current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, viewerFilterParams, clearFolder, viewerRows, viewerCols,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels, 
-    reorderViewers, viewerArrangement
+    reorderViewers, viewerArrangement,
+    syncCapture, confirmSyncFromTarget
   } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -526,6 +527,18 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
                 onReorder={reorderViewers}
                 className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''}`}
               >
+                {syncCapture.active && syncCapture.mode === 'compare' && (
+                  <div
+                    className="sync-select-overlay"
+                    title="Click to sync filters from this viewer"
+                    onClick={() => { 
+                      confirmSyncFromTarget(key);
+                      addToast?.({ type: 'success', title: 'Synced', message: `Filters copied from ${allFolders[key]?.alias || key} to all viewers`, duration: 2500 });
+                    }}
+                  >
+                    <div className="sync-select-hint">Click to sync from {allFolders[key]?.alias || key}</div>
+                  </div>
+                )}
                 <ImageCanvas
                   ref={canvasRefs[key as FolderKey]}
                   label={finalLabel}
