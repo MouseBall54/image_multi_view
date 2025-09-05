@@ -3539,12 +3539,14 @@ main {
   overflow: auto;
 }
 
+/* Deprecated (old grid layout) - removed to avoid confusion
 .filter-cart-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px 12px;
   align-items: center;
 }
+*/
 
 .filter-presets-section h4 {
   margin: 8px 0;
@@ -4552,13 +4554,17 @@ main {
   border-color: var(--accent-hover);
 }
 
-.btn-icon.btn-theme-success {
+.btn-icon.btn-theme-success,
+.save-preset-btn,
+.add-to-cart-btn {
   background: var(--success-color);
   color: white;
   border: 1px solid var(--success-color);
 }
 
-.btn-icon.btn-theme-success:hover:not(:disabled) {
+.btn-icon.btn-theme-success:hover:not(:disabled),
+.save-preset-btn:hover:not(:disabled),
+.add-to-cart-btn:hover:not(:disabled) {
   background: #218838;
   border-color: #218838;
 }
@@ -4586,24 +4592,32 @@ main {
   border-color: #218838;
 }
 
-.btn-apply-chain {
+.btn-apply-chain,
+.apply-chain-btn {
   background: var(--accent-primary);
   color: white;
   border: 1px solid var(--accent-primary);
 }
 
-.btn-apply-chain:hover:not(:disabled) {
+.btn-apply-chain:hover:not(:disabled),
+.apply-chain-btn:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }
 
-.btn-icon.btn-theme-secondary {
+.btn-icon.btn-theme-secondary,
+.reset-original-btn,
+.clear-chain-btn,
+.show-cart-btn {
   background: var(--bg-light);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
 }
 
-.btn-icon.btn-theme-secondary:hover:not(:disabled) {
+.btn-icon.btn-theme-secondary:hover:not(:disabled),
+.reset-original-btn:hover:not(:disabled),
+.clear-chain-btn:hover:not(:disabled),
+.show-cart-btn:hover:not(:disabled) {
   background: var(--bg-dark);
   border-color: var(--accent-primary);
 }

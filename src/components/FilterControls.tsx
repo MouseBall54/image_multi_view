@@ -1611,7 +1611,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                   setShowFilterCart(true);
                 }
               }} 
-              className="btn btn-icon btn-theme-success"
+              className="btn btn-icon add-to-cart-btn"
               disabled={tempViewerFilter === 'none'}
               title="Add current filter to chain"
             >
@@ -1626,7 +1626,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
             {!showFilterCart && (
               <button 
                 onClick={() => setShowFilterCart(true)}
-                className="btn btn-icon btn-theme-secondary"
+                className="btn btn-icon show-cart-btn"
                 title="Show filter chain panel"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
