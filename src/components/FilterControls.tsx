@@ -202,6 +202,7 @@ const filterGroups = [
 
 export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const {
+    // appMode,
     activeFilterEditor,
     tempViewerFilter,
     tempViewerFilterParams,
@@ -215,9 +216,11 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     setShowFilterCart,
     showFilterCart,
     updatePreviewModal,
+    openPreviewModal,
     folders,
     analysisFile,
     editingFilterChainItem,
+    setEditingFilterChainItem,
     updateFilterCartItem,
   } = useStore();
 
@@ -1609,6 +1612,63 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 addToFilterCart();
                 if (!showFilterCart) {
                   setShowFilterCart(true);
+                }
+
+                // Auto-preview chain up to newly added step
+                try {
+                  const state = useStore.getState();
+                  const cart = state.filterCart || [];
+                  if (cart.length === 0) return;
+                  const stepIndex = cart.length - 1;
+                  const newItem = cart[stepIndex];
+
+                  // Select and sync editor to the new item
+                  setTempFilterType(newItem.filterType);
+                  setTempFilterParams(newItem.params as any);
+                  setEditingFilterChainItem(newItem.id);
+
+                  const chainUpToThis = cart.slice(0, stepIndex + 1).filter((f: any) => f.enabled);
+
+                  // Resolve a sensible preview source
+                  let source: File | undefined = undefined;
+                  // 1) Respect stickySource (Pinpoint viewer-specific source)
+                  if (state.previewModal?.stickySource && state.previewModal?.sourceFile) {
+                    source = state.previewModal.sourceFile as File;
+                  } else if (state.appMode === 'analysis' && state.analysisFile) {
+                    source = state.analysisFile as File;
+                  } else if (state.current && state.current.filename) {
+                    const filename = state.current.filename;
+                    const preferKeys: (keyof typeof state.folders)[] = state.activeCanvasKey ? [state.activeCanvasKey] as any : [];
+                    const allKeys = Object.keys(state.folders) as (keyof typeof state.folders)[];
+                    const keysToCheck = [...preferKeys, ...allKeys.filter(k => !preferKeys.includes(k))];
+                    for (const k of keysToCheck) {
+                      const folder = state.folders[k];
+                      const files = folder?.data?.files;
+                      if (!files) continue;
+                      let file = files.get(filename);
+                      if (!file) {
+                        const base = filename.replace(/\.[^/.]+$/, '');
+                        for (const name of files.keys()) {
+                          const nb = (name as string).replace(/\.[^/.]+$/, '');
+                          if (nb === base) { file = files.get(name as string); break; }
+                        }
+                      }
+                      if (file) { source = file; break; }
+                    }
+                  }
+
+                  if (!source) return;
+
+                  openPreviewModal({
+                    mode: 'chain',
+                    chainItems: chainUpToThis,
+                    title: `Preview (Steps 1-${stepIndex + 1})`,
+                    sourceFile: source,
+                    position: 'sidebar',
+                    stickySource: state.previewModal?.stickySource || state.appMode === 'pinpoint',
+                  });
+                } catch (e) {
+                  console.warn('Auto-preview after add failed:', e);
                 }
               }} 
               className="btn btn-icon add-to-cart-btn"

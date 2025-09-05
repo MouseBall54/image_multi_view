@@ -42,6 +42,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, showFilelist, showFilterLabels,
     previewLayout, reorderViewers,
     syncCapture, confirmSyncFromTarget,
+    openPreviewModal,
   } = useStore();
   const { pick, inputRefs, onInput, allFolders, updateAlias } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
@@ -634,7 +635,23 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                     <button 
                       className="viewer__filter-button" 
                       title={`Filter Settings for Viewer ${i + 1}`}
-                      onClick={() => openFilterEditor(i)}
+                      onClick={() => {
+                        openFilterEditor(i);
+                        if (analysisFile) {
+                          const type = analysisFilters[i] || 'none';
+                          const params = analysisFilterParams[i] || ({} as any);
+                          openPreviewModal({
+                            mode: 'single',
+                            filterType: type,
+                            filterParams: params,
+                            title: 'Filter Preview',
+                            sourceFile: analysisFile as File,
+                            position: 'sidebar',
+                            realTimeUpdate: true,
+                            stickySource: true,
+                          });
+                        }
+                      }}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" 
                         viewBox="0 0 24 24" fill="none" stroke="currentColor" 
