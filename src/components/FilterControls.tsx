@@ -202,6 +202,7 @@ const filterGroups = [
 
 export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const {
+    // appMode,
     activeFilterEditor,
     tempViewerFilter,
     tempViewerFilterParams,
@@ -215,9 +216,11 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     setShowFilterCart,
     showFilterCart,
     updatePreviewModal,
+    openPreviewModal,
     folders,
     analysisFile,
     editingFilterChainItem,
+    setEditingFilterChainItem,
     updateFilterCartItem,
   } = useStore();
 
@@ -665,17 +668,17 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
             <div className="control-row">
               <label>Kernel Size</label>
               <input type="range" min="3" max="21" step="2" value={tempViewerFilterParams.kernelSize ?? 5} onChange={(e)=>handleParamChange('kernelSize', e.target.value)} />
-              <span>{tempViewerFilterParams.kernelSize ?? 5}</span>
+              <InlineNumber value={tempViewerFilterParams.kernelSize ?? 5} min={3} max={21} step={1} onCommit={(v)=> handleInlineNumberCommit('kernelSize', v)} />
             </div>
             <div className="control-row">
               <label>Sigma Color</label>
               <input type="range" min="1" max="100" step="1" value={tempViewerFilterParams.sigmaColor ?? 25} onChange={(e)=>handleParamChange('sigmaColor', e.target.value)} />
-              <span>{tempViewerFilterParams.sigmaColor ?? 25}</span>
+              <InlineNumber value={tempViewerFilterParams.sigmaColor ?? 25} min={1} max={100} step={1} onCommit={(v)=> handleInlineNumberCommit('sigmaColor', v)} />
             </div>
             <div className="control-row">
               <label>Sigma Space</label>
               <input type="range" min="1" max="100" step="1" value={tempViewerFilterParams.sigmaSpace ?? 25} onChange={(e)=>handleParamChange('sigmaSpace', e.target.value)} />
-              <span>{tempViewerFilterParams.sigmaSpace ?? 25}</span>
+              <InlineNumber value={tempViewerFilterParams.sigmaSpace ?? 25} min={1} max={100} step={1} onCommit={(v)=> handleInlineNumberCommit('sigmaSpace', v)} />
             </div>
           </>
         );
@@ -688,7 +691,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
           <div className="control-row">
             <label>Kernel Size</label>
             <input type="range" min="3" max="25" step="2" value={tempViewerFilterParams.kernelSize ?? 3} onChange={(e)=>handleParamChange('kernelSize', e.target.value)} />
-            <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+            <InlineNumber value={tempViewerFilterParams.kernelSize ?? 3} min={3} max={25} step={1} onCommit={(v)=> handleInlineNumberCommit('kernelSize', v)} />
           </div>
         );
       case 'distancetransform':
@@ -696,7 +699,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
           <div className="control-row">
             <label>Threshold</label>
             <input type="range" min="0" max="255" step="1" value={tempViewerFilterParams.lowThreshold ?? 128} onChange={(e)=>handleParamChange('lowThreshold', e.target.value)} />
-            <span>{tempViewerFilterParams.lowThreshold ?? 128}</span>
+            <div className="inline-number-wrap">
+              <InlineNumber
+                value={tempViewerFilterParams.lowThreshold ?? 128}
+                onCommit={(value) => handleInlineNumberCommit('lowThreshold', value)}
+                min={0}
+                max={255}
+                step={1}
+              />
+            </div>
           </div>
         );
       case 'boxblur':
@@ -714,7 +725,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               value={tempViewerFilterParams.kernelSize ?? 3}
               onChange={(e) => handleParamChange('kernelSize', e.target.value)}
             />
-            <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+            <div className="inline-number-wrap">
+              <InlineNumber
+                value={tempViewerFilterParams.kernelSize ?? 3}
+                onCommit={(value) => handleInlineNumberCommit('kernelSize', value)}
+                min={3}
+                max={21}
+                step={1}
+              />
+            </div>
           </div>
         );
       case 'gaussianblur':
@@ -730,7 +749,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.kernelSize ?? 3}
                 onChange={(e) => handleParamChange('kernelSize', e.target.value)}
               />
-              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.kernelSize ?? 3}
+                  onCommit={(value) => handleInlineNumberCommit('kernelSize', value)}
+                  min={3}
+                  max={21}
+                  step={1}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Sigma</label>
@@ -765,7 +792,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.kernelSize ?? 3}
                 onChange={(e) => handleParamChange('kernelSize', e.target.value)}
               />
-              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.kernelSize ?? 3}
+                  onCommit={(value) => handleInlineNumberCommit('kernelSize', value)}
+                  min={3}
+                  max={21}
+                  step={1}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Sigma</label>
@@ -800,7 +835,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.kernelSize ?? 3}
                 onChange={(e) => handleParamChange('kernelSize', e.target.value)}
               />
-              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.kernelSize ?? 3}
+                  onCommit={(value) => handleInlineNumberCommit('kernelSize', value)}
+                  min={3}
+                  max={21}
+                  step={1}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Sigma 1</label>
@@ -812,7 +855,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.sigma ?? 1.0}
                 onChange={(e) => handleParamChange('sigma', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.sigma ?? 1.0).toFixed(1)}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.sigma ?? 1.0}
+                  onCommit={(value) => handleInlineNumberCommit('sigma', value)}
+                  min={0.1}
+                  max={10}
+                  step={0.01}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Sigma 2</label>
@@ -824,7 +875,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.sigma2 ?? 2.0}
                 onChange={(e) => handleParamChange('sigma2', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.sigma2 ?? 2.0).toFixed(1)}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.sigma2 ?? 2.0}
+                  onCommit={(value) => handleInlineNumberCommit('sigma2', value)}
+                  min={0.1}
+                  max={10}
+                  step={0.01}
+                />
+              </div>
             </div>
           </>
         );
@@ -841,7 +900,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.kernelSize ?? 9}
                 onChange={(e) => handleParamChange('kernelSize', e.target.value)}
               />
-              <span>{tempViewerFilterParams.kernelSize ?? 9}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.kernelSize ?? 9}
+                  onCommit={(value) => handleInlineNumberCommit('kernelSize', value)}
+                  min={3}
+                  max={21}
+                  step={1}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Sigma</label>
@@ -853,7 +920,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.sigma ?? 1.4}
                 onChange={(e) => handleParamChange('sigma', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.sigma ?? 1.4).toFixed(1)}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.sigma ?? 1.4}
+                  onCommit={(value) => handleInlineNumberCommit('sigma', value)}
+                  min={0.1}
+                  max={10}
+                  step={0.01}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Threshold</label>
@@ -865,7 +940,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.threshold ?? 10}
                 onChange={(e) => handleParamChange('threshold', e.target.value)}
               />
-              <span>{tempViewerFilterParams.threshold ?? 10}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.threshold ?? 10}
+                  onCommit={(value) => handleInlineNumberCommit('threshold', value)}
+                  min={0}
+                  max={255}
+                  step={1}
+                />
+              </div>
             </div>
           </>
         );
@@ -882,7 +965,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.kernelSize ?? 3}
                 onChange={(e) => handleParamChange('kernelSize', e.target.value)}
               />
-              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.kernelSize ?? 3}
+                  onCommit={(value) => handleInlineNumberCommit('kernelSize', value)}
+                  min={3}
+                  max={21}
+                  step={1}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Alpha</label>
@@ -894,7 +985,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.alpha ?? 0.0}
                 onChange={(e) => handleParamChange('alpha', e.target.value)}
               />
-              <span>{(tempViewerFilterParams.alpha ?? 0.0).toFixed(2)}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.alpha ?? 0.0}
+                  onCommit={(value) => handleInlineNumberCommit('alpha', value)}
+                  min={0}
+                  max={0.5}
+                  step={0.01}
+                />
+              </div>
             </div>
           </>
         );
@@ -910,7 +1009,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               value={tempViewerFilterParams.sharpenAmount ?? 1.0}
               onChange={(e) => handleParamChange('sharpenAmount', e.target.value)}
             />
-            <span>{(tempViewerFilterParams.sharpenAmount ?? 1.0).toFixed(1)}</span>
+            <div className="inline-number-wrap">
+              <InlineNumber
+                value={tempViewerFilterParams.sharpenAmount ?? 1.0}
+                onCommit={(value) => handleInlineNumberCommit('sharpenAmount', value)}
+                min={0.1}
+                max={5}
+                step={0.01}
+              />
+            </div>
           </div>
         );
       case 'laplacian':
@@ -926,7 +1033,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.kernelSize ?? 3}
                 onChange={(e) => handleParamChange('kernelSize', e.target.value)}
               />
-              <span>{tempViewerFilterParams.kernelSize ?? 3}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.kernelSize ?? 3}
+                  onCommit={(value) => handleInlineNumberCommit('kernelSize', value)}
+                  min={1}
+                  max={7}
+                  step={1}
+                />
+              </div>
             </div>
           </>
         );
@@ -942,7 +1057,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.lowThreshold ?? 20}
                 onChange={(e) => handleParamChange('lowThreshold', e.target.value)}
               />
-              <span>{tempViewerFilterParams.lowThreshold ?? 20}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.lowThreshold ?? 20}
+                  onCommit={(value) => handleInlineNumberCommit('lowThreshold', value)}
+                  min={1}
+                  max={254}
+                  step={1}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>High Threshold</label>
@@ -953,7 +1076,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.highThreshold ?? 50}
                 onChange={(e) => handleParamChange('highThreshold', e.target.value)}
               />
-              <span>{tempViewerFilterParams.highThreshold ?? 50}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.highThreshold ?? 50}
+                  onCommit={(value) => handleInlineNumberCommit('highThreshold', value)}
+                  min={1}
+                  max={254}
+                  step={1}
+                />
+              </div>
             </div>
           </>
         );
@@ -969,7 +1100,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               value={tempViewerFilterParams.gridSize ?? 8}
               onChange={(e) => handleParamChange('gridSize', e.target.value)}
             />
-            <span>{tempViewerFilterParams.gridSize ?? 8}</span>
+            <div className="inline-number-wrap">
+              <InlineNumber
+                value={tempViewerFilterParams.gridSize ?? 8}
+                onCommit={(value) => handleInlineNumberCommit('gridSize', value)}
+                min={2}
+                max={16}
+                step={1}
+              />
+            </div>
           </div>
         );
       case 'clahe':
@@ -1003,7 +1142,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.gridSize ?? 8}
                 onChange={(e) => handleParamChange('gridSize', e.target.value)}
               />
-              <span>{tempViewerFilterParams.gridSize ?? 8}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.gridSize ?? 8}
+                  onCommit={(value) => handleInlineNumberCommit('gridSize', value)}
+                  min={2}
+                  max={16}
+                  step={1}
+                />
+              </div>
             </div>
           </>
         );
@@ -1041,7 +1188,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.kernelSize ?? 5}
                 onChange={(e) => handleParamChange('kernelSize', e.target.value)}
               />
-              <span>{tempViewerFilterParams.kernelSize ?? 5}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.kernelSize ?? 5}
+                  onCommit={(value) => handleInlineNumberCommit('kernelSize', value)}
+                  min={3}
+                  max={21}
+                  step={1}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Sigma</label>
@@ -1087,7 +1242,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
             <div className="control-row">
               <label>Kernel Size</label>
               <input type="range" min="3" max="31" step="2" value={tempViewerFilterParams.kernelSize ?? 15} onChange={(e) => handleParamChange('kernelSize', e.target.value)} />
-              <span>{tempViewerFilterParams.kernelSize ?? 15}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.kernelSize ?? 15}
+                  onCommit={(value) => handleInlineNumberCommit('kernelSize', value)}
+                  min={3}
+                  max={31}
+                  step={1}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Theta (θ)</label>
@@ -1138,7 +1301,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.kernelSize ?? 15}
                 onChange={(e) => handleParamChange('kernelSize', e.target.value)}
               />
-              <span>{tempViewerFilterParams.kernelSize ?? 15}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.kernelSize ?? 15}
+                  onCommit={(value) => handleInlineNumberCommit('kernelSize', value)}
+                  min={3}
+                  max={25}
+                  step={1}
+                />
+              </div>
             </div>
           </>
         );
@@ -1155,7 +1326,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilterParams.kernelSize ?? 5}
                 onChange={(e) => handleParamChange('kernelSize', e.target.value)}
               />
-              <span>{tempViewerFilterParams.kernelSize ?? 5}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.kernelSize ?? 5}
+                  onCommit={(value) => handleInlineNumberCommit('kernelSize', value)}
+                  min={1}
+                  max={20}
+                  step={1}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Epsilon</label>
@@ -1179,12 +1358,28 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
             <div className="control-row">
               <label>Intensity</label>
               <input type="range" min="0.1" max="3.0" step="0.1" value={tempViewerFilterParams.gamma ?? 1.0} onChange={(e)=>handleParamChange('gamma', e.target.value)} />
-              <span>{tempViewerFilterParams.gamma ?? 1.0}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.gamma ?? 1.0}
+                  onCommit={(value) => handleInlineNumberCommit('gamma', value)}
+                  min={0.1}
+                  max={3.0}
+                  step={0.01}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Sensitivity</label>
               <input type="range" min="0.1" max="5.0" step="0.1" value={tempViewerFilterParams.sensitivity ?? 1.0} onChange={(e)=>handleParamChange('sensitivity', e.target.value)} />
-              <span>{tempViewerFilterParams.sensitivity ?? 1.0}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.sensitivity ?? 1.0}
+                  onCommit={(value) => handleInlineNumberCommit('sensitivity', value)}
+                  min={0.1}
+                  max={5.0}
+                  step={0.01}
+                />
+              </div>
             </div>
           </>
         );
@@ -1195,12 +1390,28 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
             <div className="control-row">
               <label>Intensity</label>
               <input type="range" min="0.1" max="3.0" step="0.1" value={tempViewerFilterParams.gamma ?? 1.0} onChange={(e)=>handleParamChange('gamma', e.target.value)} />
-              <span>{tempViewerFilterParams.gamma ?? 1.0}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.gamma ?? 1.0}
+                  onCommit={(value) => handleInlineNumberCommit('gamma', value)}
+                  min={0.1}
+                  max={3.0}
+                  step={0.01}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Threshold</label>
               <input type="range" min="0.01" max="0.5" step="0.01" value={tempViewerFilterParams.threshold ?? 0.1} onChange={(e)=>handleParamChange('threshold', e.target.value)} />
-              <span>{tempViewerFilterParams.threshold ?? 0.1}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.threshold ?? 0.1}
+                  onCommit={(value) => handleInlineNumberCommit('threshold', value)}
+                  min={0.01}
+                  max={0.5}
+                  step={0.01}
+                />
+              </div>
             </div>
           </>
         );
@@ -1211,12 +1422,28 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
             <div className="control-row">
               <label>Intensity</label>
               <input type="range" min="0.1" max="3.0" step="0.1" value={tempViewerFilterParams.gamma ?? 1.0} onChange={(e)=>handleParamChange('gamma', e.target.value)} />
-              <span>{tempViewerFilterParams.gamma ?? 1.0}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.gamma ?? 1.0}
+                  onCommit={(value) => handleInlineNumberCommit('gamma', value)}
+                  min={0.1}
+                  max={3.0}
+                  step={0.01}
+                />
+              </div>
             </div>
             <div className="control-row">
               <label>Center Value</label>
               <input type="range" min="0" max="255" step="1" value={tempViewerFilterParams.centerValue ?? 128} onChange={(e)=>handleParamChange('centerValue', e.target.value)} />
-              <span>{tempViewerFilterParams.centerValue ?? 128}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.centerValue ?? 128}
+                  onCommit={(value) => handleInlineNumberCommit('centerValue', value)}
+                  min={0}
+                  max={255}
+                  step={1}
+                />
+              </div>
             </div>
           </>
         );
@@ -1250,7 +1477,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
             <div className="control-row">
               <label>Intensity</label>
               <input type="range" min="0.1" max="3.0" step="0.1" value={tempViewerFilterParams.gamma ?? 1.0} onChange={(e)=>handleParamChange('gamma', e.target.value)} />
-              <span>{tempViewerFilterParams.gamma ?? 1.0}</span>
+              <div className="inline-number-wrap">
+                <InlineNumber
+                  value={tempViewerFilterParams.gamma ?? 1.0}
+                  onCommit={(value) => handleInlineNumberCommit('gamma', value)}
+                  min={0.1}
+                  max={3.0}
+                  step={0.01}
+                />
+              </div>
             </div>
           </>
         );
@@ -1378,8 +1613,65 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 if (!showFilterCart) {
                   setShowFilterCart(true);
                 }
+
+                // Auto-preview chain up to newly added step
+                try {
+                  const state = useStore.getState();
+                  const cart = state.filterCart || [];
+                  if (cart.length === 0) return;
+                  const stepIndex = cart.length - 1;
+                  const newItem = cart[stepIndex];
+
+                  // Select and sync editor to the new item
+                  setTempFilterType(newItem.filterType);
+                  setTempFilterParams(newItem.params as any);
+                  setEditingFilterChainItem(newItem.id);
+
+                  const chainUpToThis = cart.slice(0, stepIndex + 1).filter((f: any) => f.enabled);
+
+                  // Resolve a sensible preview source
+                  let source: File | undefined = undefined;
+                  // 1) Respect stickySource (Pinpoint viewer-specific source)
+                  if (state.previewModal?.stickySource && state.previewModal?.sourceFile) {
+                    source = state.previewModal.sourceFile as File;
+                  } else if (state.appMode === 'analysis' && state.analysisFile) {
+                    source = state.analysisFile as File;
+                  } else if (state.current && state.current.filename) {
+                    const filename = state.current.filename;
+                    const preferKeys: (keyof typeof state.folders)[] = state.activeCanvasKey ? [state.activeCanvasKey] as any : [];
+                    const allKeys = Object.keys(state.folders) as (keyof typeof state.folders)[];
+                    const keysToCheck = [...preferKeys, ...allKeys.filter(k => !preferKeys.includes(k))];
+                    for (const k of keysToCheck) {
+                      const folder = state.folders[k];
+                      const files = folder?.data?.files;
+                      if (!files) continue;
+                      let file = files.get(filename);
+                      if (!file) {
+                        const base = filename.replace(/\.[^/.]+$/, '');
+                        for (const name of files.keys()) {
+                          const nb = (name as string).replace(/\.[^/.]+$/, '');
+                          if (nb === base) { file = files.get(name as string); break; }
+                        }
+                      }
+                      if (file) { source = file; break; }
+                    }
+                  }
+
+                  if (!source) return;
+
+                  openPreviewModal({
+                    mode: 'chain',
+                    chainItems: chainUpToThis,
+                    title: `Preview (Steps 1-${stepIndex + 1})`,
+                    sourceFile: source,
+                    position: 'sidebar',
+                    stickySource: state.previewModal?.stickySource || state.appMode === 'pinpoint',
+                  });
+                } catch (e) {
+                  console.warn('Auto-preview after add failed:', e);
+                }
               }} 
-              className="btn btn-icon btn-theme-success"
+              className="btn btn-icon add-to-cart-btn"
               disabled={tempViewerFilter === 'none'}
               title="Add current filter to chain"
             >
@@ -1394,7 +1686,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
             {!showFilterCart && (
               <button 
                 onClick={() => setShowFilterCart(true)}
-                className="btn btn-icon btn-theme-secondary"
+                className="btn btn-icon show-cart-btn"
                 title="Show filter chain panel"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

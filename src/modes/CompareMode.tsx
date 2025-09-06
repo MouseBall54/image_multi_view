@@ -39,7 +39,9 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   const { 
     current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, viewerFilterParams, clearFolder, viewerRows, viewerCols,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels, 
-    reorderViewers, viewerArrangement
+    reorderViewers, viewerArrangement,
+    openPreviewModal,
+    syncCapture, confirmSyncFromTarget
   } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -526,6 +528,18 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
                 onReorder={reorderViewers}
                 className={`viewer-container ${selectedViewers.includes(key) ? 'selected' : ''}`}
               >
+                {syncCapture.active && syncCapture.mode === 'compare' && (
+                  <div
+                    className="sync-select-overlay"
+                    title="Click to sync filters from this viewer"
+                    onClick={() => { 
+                      confirmSyncFromTarget(key);
+                      addToast?.({ type: 'success', title: 'Synced', message: `Filters copied from ${allFolders[key]?.alias || key} to all viewers`, duration: 2500 });
+                    }}
+                  >
+                    <div className="sync-select-hint">Click to sync from {allFolders[key]?.alias || key}</div>
+                  </div>
+                )}
                 <ImageCanvas
                   ref={canvasRefs[key as FolderKey]}
                   label={finalLabel}
@@ -546,7 +560,24 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
                   <button 
                     className="viewer__filter-button" 
                     title={`Filter Settings for ${allFolders[key]?.alias || key}`}
-                    onClick={() => openFilterEditor(key)}
+                    onClick={() => {
+                      openFilterEditor(key);
+                      const src = fileOf(key, current);
+                      if (src) {
+                        const type = viewerFilters[key as FolderKey] || 'none';
+                        const params = viewerFilterParams[key as FolderKey] || {} as any;
+                        openPreviewModal({
+                          mode: 'single',
+                          filterType: type,
+                          filterParams: params,
+                          title: 'Filter Preview',
+                          sourceFile: src,
+                          position: 'sidebar',
+                          realTimeUpdate: true,
+                          stickySource: true,
+                        });
+                      }
+                    }}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" 
                       viewBox="0 0 24 24" fill="none" stroke="currentColor" 

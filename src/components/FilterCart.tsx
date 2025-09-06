@@ -1042,7 +1042,7 @@ export const FilterCart: React.FC = () => {
             {/* Filter Cart Actions - all buttons in single row */}
             <div className="filter-cart-actions">
               <button 
-                className="btn btn-icon btn-theme-success"
+                className="btn btn-icon save-preset-btn"
                 onClick={() => setShowPresetDialog(true)}
                 disabled={filterCart.length === 0}
                 title="Save as preset"
@@ -1052,7 +1052,7 @@ export const FilterCart: React.FC = () => {
                 </svg>
               </button>
               <button 
-                className="btn btn-icon btn-theme-secondary"
+                className="btn btn-icon reset-original-btn"
                 onClick={() => {
                   // Compute a target viewer key (editor target, active canvas, or analysis)
                   const targetKey = typeof activeFilterEditor !== 'undefined' && activeFilterEditor !== null
@@ -1086,7 +1086,7 @@ export const FilterCart: React.FC = () => {
                 </svg>
               </button>
               <button 
-                className="btn btn-icon btn-theme-secondary"
+                className="btn btn-icon clear-chain-btn"
                 onClick={clearFilterCart}
                 disabled={filterCart.length === 0}
                 title="Clear all filters from chain"
@@ -1099,7 +1099,7 @@ export const FilterCart: React.FC = () => {
                 </svg>
               </button>
               <button 
-                className="btn btn-icon btn-apply-chain"
+                className="btn btn-icon apply-chain-btn"
                 onClick={() => {
                   const targetKey = typeof activeFilterEditor !== 'undefined' && activeFilterEditor !== null
                     ? activeFilterEditor

@@ -32,7 +32,7 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
   realTimeUpdate = false,
   position = 'modal'
 }) => {
-  const { previewSize, setPreviewSize } = useStore();
+  const { previewSize, setPreviewSize, originalResolution, setOriginalResolution } = useStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -136,21 +136,39 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
     const aspectRatio = img.width / img.height;
     let previewWidth = img.width;
     let previewHeight = img.height;
-    const cap = maxPreviewSize;
-    if (img.width > cap || img.height > cap) {
-      if (img.width > img.height) {
-        previewWidth = cap;
-        previewHeight = cap / aspectRatio;
-      } else {
-        previewHeight = cap;
-        previewWidth = cap * aspectRatio;
+    
+    // In original resolution mode, keep L size display dimensions but don't scale down the source
+    if (!originalResolution) {
+      const cap = maxPreviewSize;
+      if (img.width > cap || img.height > cap) {
+        if (img.width > img.height) {
+          previewWidth = cap;
+          previewHeight = cap / aspectRatio;
+        } else {
+          previewHeight = cap;
+          previewWidth = cap * aspectRatio;
+        }
+      }
+    } else {
+      // For original resolution, use L size for display but keep track of original
+      const lSizeConfig = getSizeConfig('L');
+      const cap = lSizeConfig.maxSize;
+      if (img.width > cap || img.height > cap) {
+        if (img.width > img.height) {
+          previewWidth = cap;
+          previewHeight = cap / aspectRatio;
+        } else {
+          previewHeight = cap;
+          previewWidth = cap * aspectRatio;
+        }
       }
     }
+    
     // Only update state if changed to avoid loops
     if (Math.round(previewWidth) !== Math.round(previewDimensions.width) || Math.round(previewHeight) !== Math.round(previewDimensions.height)) {
       setPreviewDimensions({ width: previewWidth, height: previewHeight });
     }
-  }, [maxPreviewSize, sourceImage]);
+  }, [maxPreviewSize, sourceImage, originalResolution]);
 
   // Apply filters to preview
   const applyPreview = useCallback(async () => {
@@ -162,22 +180,34 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Set canvas size
+      // Set canvas size (always use preview dimensions for display)
       canvas.width = previewDimensions.width;
       canvas.height = previewDimensions.height;
 
-      // Create source canvas with scaled image
+      // Create source canvas - use original resolution if O mode is active
       const sourceCanvas = document.createElement('canvas');
-      sourceCanvas.width = previewDimensions.width;
-      sourceCanvas.height = previewDimensions.height;
+      let processWidth, processHeight;
+      
+      if (originalResolution) {
+        // Process at original resolution
+        processWidth = sourceImage.width;
+        processHeight = sourceImage.height;
+      } else {
+        // Process at preview resolution
+        processWidth = previewDimensions.width;
+        processHeight = previewDimensions.height;
+      }
+      
+      sourceCanvas.width = processWidth;
+      sourceCanvas.height = processHeight;
       const sourceCtx = sourceCanvas.getContext('2d');
       if (!sourceCtx) return;
 
-      // Draw scaled source image
+      // Draw source image at processing resolution
       sourceCtx.drawImage(
         sourceImage,
         0, 0, sourceImage.width, sourceImage.height,
-        0, 0, previewDimensions.width, previewDimensions.height
+        0, 0, processWidth, processHeight
       );
 
       if (previewMode === 'single' && filterType && filterParams) {
@@ -190,16 +220,44 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
         }];
 
         const resultCanvas = await applyFilterChain(sourceCanvas, singleFilterItems);
-        ctx.drawImage(resultCanvas, 0, 0);
+        
+        // If we processed at original resolution, scale down for display
+        if (originalResolution) {
+          ctx.drawImage(
+            resultCanvas,
+            0, 0, resultCanvas.width, resultCanvas.height,
+            0, 0, previewDimensions.width, previewDimensions.height
+          );
+        } else {
+          ctx.drawImage(resultCanvas, 0, 0);
+        }
 
       } else if (previewMode === 'chain' && chainItems) {
         // Filter chain preview
         const resultCanvas = await applyFilterChain(sourceCanvas, chainItems);
-        ctx.drawImage(resultCanvas, 0, 0);
+        
+        // If we processed at original resolution, scale down for display
+        if (originalResolution) {
+          ctx.drawImage(
+            resultCanvas,
+            0, 0, resultCanvas.width, resultCanvas.height,
+            0, 0, previewDimensions.width, previewDimensions.height
+          );
+        } else {
+          ctx.drawImage(resultCanvas, 0, 0);
+        }
 
       } else {
         // No filter, just show the source
-        ctx.drawImage(sourceCanvas, 0, 0);
+        if (originalResolution) {
+          ctx.drawImage(
+            sourceCanvas,
+            0, 0, sourceCanvas.width, sourceCanvas.height,
+            0, 0, previewDimensions.width, previewDimensions.height
+          );
+        } else {
+          ctx.drawImage(sourceCanvas, 0, 0);
+        }
       }
 
     } catch (error) {
@@ -217,14 +275,14 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [sourceImage, previewDimensions, previewMode, filterType, filterParams, chainItems]);
+  }, [sourceImage, previewDimensions, previewMode, filterType, filterParams, chainItems, originalResolution]);
 
   // Apply preview when parameters change
   useEffect(() => {
     if (sourceImage && previewDimensions.width > 0) {
       applyPreview();
     }
-  }, [sourceImage, previewDimensions, filterType, filterParams, chainItems, applyPreview]);
+  }, [sourceImage, previewDimensions, filterType, filterParams, chainItems, originalResolution, applyPreview]);
 
   // Real-time updates for filter editor
   useEffect(() => {
@@ -269,12 +327,13 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
               {(['S', 'M', 'L'] as const).map(size => (
                 <button
                   key={size}
-                  className={`size-btn ${previewSize === size ? 'active' : ''} ${sizeTransitioning ? 'transitioning' : ''}`}
+                  className={`size-btn ${previewSize === size && !originalResolution ? 'active' : ''} ${sizeTransitioning ? 'transitioning' : ''}`}
                   onClick={() => {
-                    if (size !== previewSize) {
+                    if (size !== previewSize || originalResolution) {
                       // Apply size immediately for snappier response
                       setSizeTransitioning(true);
                       setPreviewSize(size);
+                      setOriginalResolution(false);
                       // End transition state after short duration for CSS animations
                       setTimeout(() => setSizeTransitioning(false), 200);
                     }
@@ -285,12 +344,31 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
                   {size}
                 </button>
               ))}
+              <button
+                className={`size-btn original-btn ${originalResolution ? 'active' : ''} ${sizeTransitioning ? 'transitioning' : ''}`}
+                onClick={() => {
+                  if (!originalResolution) {
+                    setSizeTransitioning(true);
+                    setOriginalResolution(true);
+                    setTimeout(() => setSizeTransitioning(false), 200);
+                  }
+                }}
+                title="Original Resolution - Uses full image resolution for processing"
+                disabled={sizeTransitioning}
+              >
+                O
+              </button>
             </div>
           )}
         </div>
 
         <div className="preview-modal-body" ref={bodyRef}>
           <div className="preview-container">
+            {originalResolution && (
+              <div className="preview-warning">
+                ⚠️ Original resolution processing may take longer to compute
+              </div>
+            )}
             {isProcessing && (
               <div className="preview-loading">
                 <div className="preview-spinner"></div>
