@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요 (Project Overview)
 
-**CompareX**는 전문적인 이미지 비교 및 분석을 위한 Electron 기반 데스크톱 애플리케이션입니다. 현재 상업화를 준비 중인 프로젝트로, MIT 오픈소스에서 듀얼 라이센싱 모델로 전환을 계획하고 있습니다.
+**Comparix**는 전문적인 이미지 비교 및 분석을 위한 Electron 기반 데스크톱 애플리케이션입니다. 현재 상업화를 준비 중인 프로젝트로, MIT 오픈소스에서 듀얼 라이센싱 모델로 전환을 계획하고 있습니다.
 
 ### 핵심 특징 및 경쟁력
 - **3가지 전문 모드**: Compare, Pinpoint, Analysis - 각각 다른 사용 시나리오에 최적화

@@ -68,7 +68,7 @@ export function AppMenuBar() {
 
   const handleAbout = () => {
     // For now, simple alert in web; in Electron, native dialog already exists in main menu
-    alert("CompareX\nAdvanced image comparison and analysis tool");
+    alert("Comparix\nAdvanced image comparison and analysis tool");
   };
 
   const menus: MenuGroup[] = [
@@ -92,7 +92,7 @@ export function AppMenuBar() {
     {
       label: "Help",
       items: [
-        { label: "About CompareX", action: handleAbout },
+        { label: "About Comparix", action: handleAbout },
       ],
     },
   ];

@@ -390,7 +390,7 @@ export default function App() {
             onClick={() => window.location.reload()}
             title="Reset (refresh)"
           >
-            CompareX
+            Comparix
           </h1>
           <ViewToggleControls 
             showControls={showControls} 

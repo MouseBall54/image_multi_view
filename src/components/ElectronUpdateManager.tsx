@@ -488,7 +488,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
                   <path d="M14.828 14.828a4 4 0 0 1-5.656 0M9 10h1m4 0h1"/>
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                 </svg>
-                <h3 className="update-modal-title">CompareX Update ({updateInfo.version})</h3>
+                <h3 className="update-modal-title">Comparix Update ({updateInfo.version})</h3>
               </div>
               
               <div className="update-info-grid">

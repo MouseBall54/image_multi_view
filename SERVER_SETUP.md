@@ -1,4 +1,4 @@
-# Generic Server Setup for CompareX Auto-Updates
+# Generic Server Setup for Comparix Auto-Updates
 npm install
 npm run build:deploy
 
@@ -13,8 +13,8 @@ npm run build:deploy
 ```
 /updates/
 ├── latest.yml          # 최신 버전 메타데이터
-├── CompareX-1.0.0-setup.exe
-├── CompareX-1.0.1-setup.exe
+├── Comparix-1.0.0-setup.exe
+├── Comparix-1.0.1-setup.exe
 └── ...
 ```
 
@@ -22,10 +22,10 @@ npm run build:deploy
 ```yaml
 version: 1.0.1
 files:
-  - url: CompareX-1.0.1-setup.exe
+  - url: Comparix-1.0.1-setup.exe
     sha512: [SHA512 해시값]
     size: 45234567
-path: CompareX-1.0.1-setup.exe
+path: Comparix-1.0.1-setup.exe
 sha512: [SHA512 해시값]
 releaseDate: '2025-09-03T10:30:00.000Z'
 releaseNotes: |
