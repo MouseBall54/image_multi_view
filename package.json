@@ -1,10 +1,10 @@
 {
-  "name": "compareX",
+  "name": "Comparix",
   "private": true,
   "version": "1.1.1",
   "type": "module",
   "description": "Advanced image comparison and analysis tool",
-  "author": "CompareX Team",
+  "author": "Comparix Team",
   "main": "electron.js",
   "homepage": "https://mouseball54.github.io/image_multi_view/",
   "scripts": {
@@ -47,8 +47,8 @@
     "wait-on": "^8.0.4"
   },
   "build": {
-    "appId": "com.example.compareX",
-    "productName": "CompareX",
+    "appId": "com.example.Comparix",
+    "productName": "Comparix",
     "directories": {
       "output": "dist-electron"
     },
@@ -84,7 +84,7 @@
       "uninstallerIcon": "assets/icon.ico",
       "installerHeaderIcon": "assets/icon.ico",
       "deleteAppDataOnUninstall": false,
-      "shortcutName": "CompareX"
+      "shortcutName": "Comparix"
     },
     "linux": {
       "target": "AppImage",

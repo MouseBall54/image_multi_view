@@ -21,6 +21,31 @@ body {
   margin: 0;
 }
 
+/* 기본적으로 텍스트 선택 가능 */
+* {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* 특정 UI 요소들은 선택 불가능하게 유지 */
+button,
+.controls-main,
+.viewer-actions,
+.menu-bar,
+.file-item,
+canvas,
+svg,
+.minimap,
+.crosshair,
+.grid-overlay {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
 /* When Toggle Modal is open, background is fully covered by overlay (no blur needed) */
 
 .app { 

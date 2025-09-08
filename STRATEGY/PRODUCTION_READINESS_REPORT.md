@@ -1,8 +1,8 @@
-# CompareX 상용화 준비 및 완성도 분석 보고서
+# Comparix 상용화 준비 및 완성도 분석 보고서
 
 ## 🎯 Executive Summary
 
-CompareX는 **기술적으로 뛰어난 완성도**를 가진 Electron 기반 이미지 분석 도구입니다. 그러나 상업적 판매를 위해서는 **보안 강화, 테스팅 인프라 구축, 그리고 품질 보증 시스템**의 도입이 필수적입니다.
+Comparix는 **기술적으로 뛰어난 완성도**를 가진 Electron 기반 이미지 분석 도구입니다. 그러나 상업적 판매를 위해서는 **보안 강화, 테스팅 인프라 구축, 그리고 품질 보증 시스템**의 도입이 필수적입니다.
 
 ### 현재 상태 평가
 - **전체 점수**: 75/100점
@@ -80,7 +80,7 @@ protocol.registerFileProtocol('secure-local', (request, callback) => {
 "publish": {
   "provider": "github",
   "owner": "your-company",
-  "repo": "comparex",
+  "repo": "Comparix",
   "releaseType": "release",
   "publishAutoUpdate": true
 }
@@ -88,7 +88,7 @@ protocol.registerFileProtocol('secure-local', (request, callback) => {
 // 또는 AWS S3 + CloudFront
 "publish": {
   "provider": "s3",
-  "bucket": "comparex-updates",
+  "bucket": "Comparix-updates",
   "region": "us-east-1",
   "acl": "public-read",
   "storageClass": "STANDARD"
@@ -938,7 +938,7 @@ const BUSINESS_KPI = {
 ## 💡 결론 및 권고사항
 
 ### 종합 평가
-CompareX는 **견고한 기술적 기반**과 **차별화된 가치 제안**을 가진 우수한 소프트웨어입니다. 현재 상태에서도 기본적인 기능은 잘 작동하지만, **상업적 성공을 위해서는 보안, 테스팅, 그리고 품질 보증 시스템의 구축이 필수**입니다.
+Comparix는 **견고한 기술적 기반**과 **차별화된 가치 제안**을 가진 우수한 소프트웨어입니다. 현재 상태에서도 기본적인 기능은 잘 작동하지만, **상업적 성공을 위해서는 보안, 테스팅, 그리고 품질 보증 시스템의 구축이 필수**입니다.
 
 ### 핵심 권고사항
 
@@ -967,6 +967,6 @@ CompareX는 **견고한 기술적 기반**과 **차별화된 가치 제안**을 
 - **순이익률**: 40-60% (SaaS 평균)
 
 ### 최종 결론
-권장 개선사항을 실행할 경우, **CompareX의 상업적 성공 확률은 85%**로 매우 높습니다. 특히 보안과 품질 이슈를 해결하면, 이미 구축된 뛰어난 기술적 기반을 바탕으로 시장에서 경쟁력 있는 제품으로 자리잡을 수 있을 것입니다.
+권장 개선사항을 실행할 경우, **Comparix의 상업적 성공 확률은 85%**로 매우 높습니다. 특히 보안과 품질 이슈를 해결하면, 이미 구축된 뛰어난 기술적 기반을 바탕으로 시장에서 경쟁력 있는 제품으로 자리잡을 수 있을 것입니다.
 
-**CompareX는 상업화할 가치가 충분한 프로젝트입니다.** 🚀
+**Comparix는 상업화할 가치가 충분한 프로젝트입니다.** 🚀

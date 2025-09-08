@@ -545,7 +545,7 @@ export const FilterCart: React.FC = () => {
         details: [
           `${itemCount} filter${itemCount > 1 ? 's' : ''}: ${filterNames}`,
           'Added to Saved Presets - you can now load it from the presets list',
-          'Note: When exporting, files use the format: [name]-compareX-filter-[yyyy-mm-dd].json'
+          'Note: When exporting, files use the format: [name]-Comparix-filter-[yyyy-mm-dd].json'
         ],
         duration: 8000
       });
@@ -663,7 +663,7 @@ export const FilterCart: React.FC = () => {
     if (successful.length > 0) {
       details.push('');
       details.push('All successful imports have been added to Saved Presets');
-      details.push('Files are now saved with format: [name]-compareX-filter-[yyyy-mm-dd].json');
+      details.push('Files are now saved with format: [name]-Comparix-filter-[yyyy-mm-dd].json');
     }
 
     // Determine toast type based on results

@@ -163,7 +163,7 @@ export const exportFilterChain = (chain: FilterChain, description?: string): voi
   
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${chain.name.replace(/[^a-zA-Z0-9]/g, '_')}-compareX-filter-${new Date().toISOString().split('T')[0]}.json`;
+  link.download = `${chain.name.replace(/[^a-zA-Z0-9]/g, '_')}-Comparix-filter-${new Date().toISOString().split('T')[0]}.json`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

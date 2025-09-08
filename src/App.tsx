@@ -235,8 +235,20 @@ export default function App() {
 
       const key = e.key.toLowerCase();
 
-      // UI Controls
-      if (key === 'f') {
+      // Ctrl+C: 텍스트 복사 (기본 브라우저 동작 허용)
+      if (e.ctrlKey && key === 'c') {
+        // 텍스트가 선택된 경우 기본 복사 동작을 허용
+        const selection = window.getSelection();
+        if (selection && selection.toString().trim()) {
+          // 선택된 텍스트가 있으면 기본 복사 동작 허용
+          return;
+        }
+        // 선택된 텍스트가 없으면 캡처 기능 대신 아무 동작 안 함
+        return;
+      }
+
+      // UI Controls - 조합키로 변경하여 텍스트 입력과 충돌 방지
+      if (e.ctrlKey && key === 'f') {
         e.preventDefault();
         setShowControls((prev: boolean) => !prev);
         return;
@@ -246,63 +258,31 @@ export default function App() {
         setShowFilterLabels(!showFilterLabels);
         return;
       }
-      if (key === 'l') {
+      if (e.altKey && key === 'l') {
         e.preventDefault();
         setShowFilelist(!state.showFilelist);
         return;
       }
-      if (key === 'm') {
+      if (e.altKey && key === 'm') {
         e.preventDefault();
         setShowMinimap(!showMinimap);
         return;
       }
-      if (key === 'g') {
+      if (e.altKey && key === 'g') {
         e.preventDefault();
         setShowGrid(!showGrid);
         return;
       }
 
-      // Open capture modal
-      if (key === 'c') {
-        e.preventDefault();
-        handleOpenCaptureModal();
-        return;
-      }
+      // Open capture modal - 단축키 제거됨 (텍스트 복사 기능과 충돌 방지)
+      // if (key === 'c') {
+      //   e.preventDefault();
+      //   handleOpenCaptureModal();
+      //   return;
+      // }
 
-      // Open filter preview modal
-      if (e.ctrlKey && e.shiftKey && key === 'p') {
-        e.preventDefault();
-        // Resolve a source file: analysis file first, otherwise from current match
-        let source: File | undefined = undefined;
-        if (appMode === 'analysis' && analysisFile) {
-          source = analysisFile as File;
-        } else if (state.current && state.current.filename) {
-          const filename = state.current.filename;
-          // Prefer active canvas key if available
-          const preferKeys: (keyof typeof state.folders)[] = state.activeCanvasKey ? [state.activeCanvasKey] as any : [];
-          // Fallback to any folder containing the file
-          const allKeys = Object.keys(state.folders) as (keyof typeof state.folders)[];
-          const keysToCheck = [...preferKeys, ...allKeys.filter(k => !preferKeys.includes(k))];
-          for (const k of keysToCheck) {
-            const folder = state.folders[k];
-            const file = folder?.data?.files?.get(filename);
-            if (file) { source = file; break; }
-          }
-        }
-
-        if (!source) {
-          addToast({ type: 'info', title: 'No Image Selected', message: 'Load/select an image first.' });
-          return;
-        }
-
-        openPreviewModal({
-          mode: 'single',
-          position: 'modal',
-          title: 'Filter Preview',
-          sourceFile: source,
-        });
-        return;
-      }
+      // Filter preview modal 단축키 제거됨
+      // 사용자가 필요시 FilterCart에서 버튼으로 접근 가능
 
       // Global Escape: close modals/overlays
       if (key === 'escape') {
@@ -327,7 +307,7 @@ export default function App() {
       );
       const previewBlocks = !!(state.previewModal?.isOpen && state.previewModal?.position !== 'sidebar');
       const modalActive = state.toggleModalOpen || previewBlocks || state.activeFilterEditor !== null || isCaptureModalOpen || overlayPresent;
-      if (modalActive && (key === '1' || key === '2' || key === '3' || key === '4')) {
+      if (modalActive && e.ctrlKey && (key === '1' || key === '2' || key === '3' || key === '4')) {
         e.preventDefault();
         return;
       }
@@ -346,14 +326,38 @@ export default function App() {
         return;
       }
 
+      // Mode switching - Ctrl + 숫자로 변경
+      if (e.ctrlKey && (key === '1' || key === '2' || key === '3')) {
+        e.preventDefault();
+        switch (key) {
+          case '1': setAppMode('pinpoint'); break;
+          case '2': setAppMode('analysis'); break;
+          case '3': setAppMode('compare'); break;
+        }
+        return;
+      }
+      
+      // View controls - Alt + 키로 변경
+      if (e.altKey) {
+        e.preventDefault();
+        switch (key) {
+          case 'r': resetView(); break;
+          case 'i': setShowInfoPanel((prev: boolean) => !prev); break;
+        }
+        return;
+      }
+      
+      // Zoom controls - 단일 키로 복원 (더 빠른 접근성)
+      if (key === '=' || key === '+' || key === '-') {
+        e.preventDefault();
+        switch (key) {
+          case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
+          case '-': setViewport({ scale: Math.max(MIN_ZOOM, (viewport.scale || 1) - 0.01) }); break;
+        }
+        return;
+      }
+      
       switch (key) {
-        case '1': setAppMode('pinpoint'); break;
-        case '2': setAppMode('analysis'); break;
-        case '3': setAppMode('compare'); break;
-        case 'r': resetView(); break;
-        case 'i': setShowInfoPanel((prev: boolean) => !prev); break;
-        case '=': case '+': setViewport({ scale: Math.min(MAX_ZOOM, (viewport.scale || 1) + 0.01) }); break;
-        case '-': setViewport({ scale: Math.max(MIN_ZOOM, (viewport.scale || 1) - 0.01) }); break;
         case 'arrowup': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cy != null) setViewport({ cy: (viewport.cy || 0) - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); } break;
         case 'arrowdown': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cy != null) setViewport({ cy: (viewport.cy || 0) + (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.height)) }); } break;
         case 'arrowleft': if (e.shiftKey) { e.preventDefault(); if (imageDimensions && viewport.cx != null) setViewport({ cx: (viewport.cx || 0) - (KEY_PAN_AMOUNT / ((viewport.scale || 1) * imageDimensions.width)) }); } break;
@@ -390,7 +394,7 @@ export default function App() {
             onClick={() => window.location.reload()}
             title="Reset (refresh)"
           >
-            CompareX
+            Comparix
           </h1>
           <ViewToggleControls 
             showControls={showControls} 
@@ -410,12 +414,20 @@ export default function App() {
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
             Toggle ({selectedViewers.length})
           </button>
-          <button className="controls-main-button capture-button" onClick={handleOpenCaptureModal}>
+          <button 
+            className="controls-main-button capture-button" 
+            onClick={handleOpenCaptureModal}
+            title="Capture screenshot"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
             Capture
           </button>
           <div className="minimap-button-unified">
-            <button onClick={() => setShowMinimap(!showMinimap)} className={`minimap-toggle-button ${showMinimap ? 'active' : ''}`}>
+            <button 
+              onClick={() => setShowMinimap(!showMinimap)} 
+              className={`minimap-toggle-button ${showMinimap ? 'active' : ''}`}
+              title="Toggle Minimap (Alt+M)"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="4" height="4" rx="1" ry="1"></rect></svg>
               Minimap
             </button>
@@ -431,7 +443,7 @@ export default function App() {
             <button
               className={`grid-button-toggle ${showGrid ? 'active' : ''}`}
               onClick={() => setShowGrid(!showGrid)}
-              title={showGrid ? 'Hide Grid' : 'Show Grid'}
+              title={showGrid ? 'Hide Grid (Alt+G)' : 'Show Grid (Alt+G)'}
             >
               <svg xmlns="http://www.w.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
             </button>
@@ -498,10 +510,15 @@ export default function App() {
         <div className="top-controls-wrapper">
           <div className="controls-main">
             <label><span>Mode:</span>
-              <select value={appMode} onChange={e => setAppMode(e.target.value as AppMode)}>
-                <option value="pinpoint">Pinpoint</option>
-                <option value="analysis">Analysis</option>
-                <option value="compare">Compare</option>
+              <select 
+                className="mode-selector" 
+                value={appMode} 
+                onChange={e => setAppMode(e.target.value as AppMode)}
+                title="Select app mode (Ctrl+1/2/3)"
+              >
+                <option value="pinpoint" className="mode-option">🎯 Pinpoint</option>
+                <option value="analysis" className="mode-option">🔬 Analysis</option>
+                <option value="compare" className="mode-option">📚 Compare</option>
               </select>
             </label>
             {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'analysis') && (
@@ -564,7 +581,11 @@ export default function App() {
               </svg>
               Sync
             </button>
-            <button onClick={resetView} title="Reset View" className="controls-main-button">
+            <button 
+              onClick={resetView} 
+              title="Reset View (Alt+R)" 
+              className="controls-main-button"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4M12 12l-8 8M12 12l8 8M12 12l-8-8M12 12l8-8"/></svg>
             </button>
           </div>

@@ -7,6 +7,8 @@ import {
   formatPerformanceEstimate
 } from '../utils/opencvFilters';
 import { FilterModeToggle } from './FilterModeToggle';
+import { throttle } from '../utils/performance';
+import { PERFORMANCE } from '../config';
 
 // Inline editable number: click value to edit, blur/Enter to commit, Esc to cancel
 const InlineNumber: React.FC<{
@@ -339,7 +341,17 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   // touch reference to avoid TS unused warning in strict mode
   void getCurrentImageFile;
 
-  const handleParamChange = (param: string, value: string) => {
+  // 무거운 필터 목록 (더 긴 throttle 적용)
+  const heavyFilters = ['bilateral', 'morphology', 'morph_open', 'morph_close', 'morph_gradient', 'morph_tophat', 'morph_blackhat'];
+  
+  // 현재 필터에 따른 throttle delay 결정
+  const throttleDelay = React.useMemo(() => {
+    return heavyFilters.includes(tempViewerFilter) 
+      ? PERFORMANCE.HEAVY_FILTER_THROTTLE 
+      : PERFORMANCE.FILTER_PARAM_THROTTLE;
+  }, [tempViewerFilter]);
+  
+  const handleParamChangeImmediate = React.useCallback((param: string, value: string) => {
     const numValue = parseFloat(value);
     if (!isNaN(numValue)) {
       const newParams = { ...tempViewerFilterParams, [param]: numValue };
@@ -374,7 +386,13 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
         }
       }
     }
-  };
+  }, [tempViewerFilterParams, editingFilterChainItem, updateFilterCartItem, updatePreviewModal]);
+
+  // Throttled version
+  const handleParamChange = React.useMemo(
+    () => throttle(handleParamChangeImmediate, throttleDelay),
+    [handleParamChangeImmediate, throttleDelay]
+  );
 
   const handleStringParamChange = (param: string, value: string) => {
     const newParams = { ...tempViewerFilterParams, [param]: value };
@@ -411,6 +429,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   };
 
   // Helper for InlineNumber onCommit with preview updates
+  // InlineNumber는 즉시 적용 (사용자가 직접 값 입력하고 커밋했으므로)
   const handleInlineNumberCommit = (param: string, value: number) => {
     const newParams = { ...tempViewerFilterParams, [param]: value };
     setTempFilterParams({ [param]: value });

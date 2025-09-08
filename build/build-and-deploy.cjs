@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * CompareX Build and Deploy Script
+ * Comparix Build and Deploy Script
  * Builds the application and prepares update files for the Generic Server
  */
 
@@ -16,10 +16,10 @@ const CONFIG = {
   serverUrl: 'http://192.168.0.88:8000/updates/',
   buildDir: 'dist-electron',
   outputDir: 'updates',
-  productName: 'CompareX'
+  productName: 'Comparix'
 };
 
-console.log(`🚀 Building CompareX v${CONFIG.version}...`);
+console.log(`🚀 Building Comparix v${CONFIG.version}...`);
 
 // Helper functions
 function calculateSHA512(filePath) {
@@ -61,7 +61,7 @@ function createUpdateMetadata(setupFile) {
 
 function generateReleaseNotes() {
   // In real scenario, this could read from CHANGELOG.md or git commits
-  return `## CompareX v${CONFIG.version} 업데이트
+  return `## Comparix v${CONFIG.version} 업데이트
 
 
 ### 개선사항
