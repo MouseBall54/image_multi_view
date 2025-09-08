@@ -235,6 +235,18 @@ export default function App() {
 
       const key = e.key.toLowerCase();
 
+      // Ctrl+C: 텍스트 복사 (기본 브라우저 동작 허용)
+      if (e.ctrlKey && key === 'c') {
+        // 텍스트가 선택된 경우 기본 복사 동작을 허용
+        const selection = window.getSelection();
+        if (selection && selection.toString().trim()) {
+          // 선택된 텍스트가 있으면 기본 복사 동작 허용
+          return;
+        }
+        // 선택된 텍스트가 없으면 캡처 기능 대신 아무 동작 안 함
+        return;
+      }
+
       // UI Controls
       if (key === 'f') {
         e.preventDefault();
@@ -262,12 +274,12 @@ export default function App() {
         return;
       }
 
-      // Open capture modal
-      if (key === 'c') {
-        e.preventDefault();
-        handleOpenCaptureModal();
-        return;
-      }
+      // Open capture modal - 단축키 제거됨 (텍스트 복사 기능과 충돌 방지)
+      // if (key === 'c') {
+      //   e.preventDefault();
+      //   handleOpenCaptureModal();
+      //   return;
+      // }
 
       // Open filter preview modal
       if (e.ctrlKey && e.shiftKey && key === 'p') {
