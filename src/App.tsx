@@ -414,12 +414,20 @@ export default function App() {
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
             Toggle ({selectedViewers.length})
           </button>
-          <button className="controls-main-button capture-button" onClick={handleOpenCaptureModal}>
+          <button 
+            className="controls-main-button capture-button" 
+            onClick={handleOpenCaptureModal}
+            title="Capture screenshot"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
             Capture
           </button>
           <div className="minimap-button-unified">
-            <button onClick={() => setShowMinimap(!showMinimap)} className={`minimap-toggle-button ${showMinimap ? 'active' : ''}`}>
+            <button 
+              onClick={() => setShowMinimap(!showMinimap)} 
+              className={`minimap-toggle-button ${showMinimap ? 'active' : ''}`}
+              title="Toggle Minimap (Alt+M)"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="4" height="4" rx="1" ry="1"></rect></svg>
               Minimap
             </button>
@@ -435,7 +443,7 @@ export default function App() {
             <button
               className={`grid-button-toggle ${showGrid ? 'active' : ''}`}
               onClick={() => setShowGrid(!showGrid)}
-              title={showGrid ? 'Hide Grid' : 'Show Grid'}
+              title={showGrid ? 'Hide Grid (Alt+G)' : 'Show Grid (Alt+G)'}
             >
               <svg xmlns="http://www.w.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
             </button>
@@ -502,10 +510,15 @@ export default function App() {
         <div className="top-controls-wrapper">
           <div className="controls-main">
             <label><span>Mode:</span>
-              <select value={appMode} onChange={e => setAppMode(e.target.value as AppMode)}>
-                <option value="pinpoint">Pinpoint</option>
-                <option value="analysis">Analysis</option>
-                <option value="compare">Compare</option>
+              <select 
+                className="mode-selector" 
+                value={appMode} 
+                onChange={e => setAppMode(e.target.value as AppMode)}
+                title="Select app mode (Ctrl+1/2/3)"
+              >
+                <option value="pinpoint" className="mode-option">🎯 Pinpoint</option>
+                <option value="analysis" className="mode-option">🔬 Analysis</option>
+                <option value="compare" className="mode-option">📚 Compare</option>
               </select>
             </label>
             {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'analysis') && (
@@ -568,7 +581,11 @@ export default function App() {
               </svg>
               Sync
             </button>
-            <button onClick={resetView} title="Reset View" className="controls-main-button">
+            <button 
+              onClick={resetView} 
+              title="Reset View (Alt+R)" 
+              className="controls-main-button"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4M12 12l-8 8M12 12l8 8M12 12l-8-8M12 12l8-8"/></svg>
             </button>
           </div>

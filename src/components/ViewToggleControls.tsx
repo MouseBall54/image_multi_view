@@ -20,7 +20,7 @@ export const ViewToggleControls: React.FC<ViewToggleControlsProps> = ({
       <button
         onClick={onToggleControls}
         className={`toggle-btn folder-toggle ${!showControls ? 'active' : ''}`}
-        title={`${showControls ? 'Hide' : 'Show'} folder controls`}
+        title={`${showControls ? 'Hide' : 'Show'} folder controls (Ctrl+F)`}
         aria-label={`${showControls ? 'Hide' : 'Show'} folder controls`}
       >
         <div className="toggle-icon">
@@ -45,7 +45,7 @@ export const ViewToggleControls: React.FC<ViewToggleControlsProps> = ({
       <button
         onClick={() => setShowFilelist(!showFilelist)}
         className={`toggle-btn file-toggle ${!showFilelist ? 'active' : ''}`}
-        title={`${showFilelist ? 'Hide' : 'Show'} file list`}
+        title={`${showFilelist ? 'Hide' : 'Show'} file list (Alt+L)`}
         aria-label={`${showFilelist ? 'Hide' : 'Show'} file list`}
       >
         <div className="toggle-icon">
@@ -76,7 +76,7 @@ export const ViewToggleControls: React.FC<ViewToggleControlsProps> = ({
       <button
         onClick={() => setShowFilterLabels(!showFilterLabels)}
         className={`toggle-btn filter-labels-toggle ${!showFilterLabels ? 'active' : ''}`}
-        title={`${showFilterLabels ? 'Hide' : 'Show'} filter labels`}
+        title={`${showFilterLabels ? 'Hide' : 'Show'} filter labels (Ctrl+L)`}
         aria-label={`${showFilterLabels ? 'Hide' : 'Show'} filter labels`}
       >
         <div className="toggle-icon">
