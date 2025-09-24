@@ -29,7 +29,7 @@ type Props = {
 };
 
 export interface ImageCanvasHandle {
-  drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean, withMinimap?: boolean) => void;
+  drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean, withMinimap?: boolean, withGrid?: boolean) => void;
   getCanvas: () => HTMLCanvasElement | null;
 }
 
@@ -47,7 +47,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   const { 
     viewport, setViewport, setFitScaleFn, 
     pinpointMouseMode, 
-    pinpointGlobalScale, showMinimap, showGrid, gridColor,
+    pinpointGlobalScale, showMinimap, showGrid, gridColor, captureWithGrid,
     pinpointRotations, pinpointGlobalRotation, viewerFilters, viewerFilterParams, indicator,
     levelingCapture, addLevelingPoint,
     compareRotation, minimapWidth, minimapPosition,
@@ -566,7 +566,7 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
   }, [sourceImage, file, viewerFilters, viewerFilterParams, folderKey, overrideFilterType, overrideFilterParams, filteredCache]);
 
-  const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean) => {
+  const drawImage = useCallback((ctx: CanvasRenderingContext2D, currentImage: DrawableImage, withCrosshair: boolean, forceGridState?: boolean) => {
     const { width, height } = ctx.canvas;
     ctx.clearRect(0, 0, width, height);
     ctx.save();
@@ -632,7 +632,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     
     ctx.restore();
 
-    if (showGrid) {
+    const shouldShowGrid = forceGridState !== undefined ? forceGridState : showGrid;
+    if (shouldShowGrid) {
       ctx.save();
       ctx.strokeStyle = gridColor;
       ctx.globalAlpha = 0.8;
@@ -694,9 +695,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   }, [viewport, appMode, refPoint, overrideScale, pinpointGlobalScale, pinpointRotations, pinpointGlobalRotation, folderKey, isRotating, showGrid, gridColor, rotation, compareRotation]);
 
   useImperativeHandle(ref, () => ({
-    drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean, withMinimap: boolean = false) => {
+    drawToContext: (ctx: CanvasRenderingContext2D, withCrosshair: boolean, withMinimap: boolean = false, withGrid?: boolean) => {
       if (processedImage) {
-        drawImage(ctx, processedImage, withCrosshair);
+        drawImage(ctx, processedImage, withCrosshair, withGrid !== undefined ? withGrid : captureWithGrid);
         
         // 미니맵도 캡처에 포함
         if (withMinimap && showMinimap && sourceImage instanceof ImageBitmap && canvasSize) {

@@ -10,15 +10,7 @@ import { FolderControl } from '../components/FolderControl';
 import type { DrawableImage, FolderKey, FilterType } from '../types';
 import type { FilterParams } from '../store';
 import { createFileComparator } from '../utils/naturalSort';
-
-// Helper function to check if a file is a valid image
-const isValidImageFile = (file: File): boolean => {
-  const validTypes = [
-    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
-    'image/bmp', 'image/svg+xml', 'image/tiff', 'image/tif'
-  ];
-  return validTypes.includes(file.type) || /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|tif)$/i.test(file.name);
-};
+import { handleFolderDrop, isValidImageFile } from '../utils/dragDrop';
 
 type Props = {
   numViewers: number;
@@ -28,7 +20,7 @@ type Props = {
 };
 
 export interface AnalysisModeHandle {
-  capture: (options: { showLabels: boolean; showMinimap: boolean; showFilterLabels?: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean; showMinimap: boolean; showFilterLabels?: boolean; showGrid?: boolean }) => Promise<string | null>;
 }
 
 export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
@@ -77,6 +69,61 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
       if (f && f.alias && f.alias.toLowerCase() === target) return key;
     }
     return null;
+  };
+
+  // Place folder as a new folder in the controls
+  const placeFolderAsNewFolder = async (folderName: string, imageFiles: File[]): Promise<void> => {
+    try {
+      if (imageFiles.length === 0) {
+        addToast?.({
+          type: 'warning',
+          title: 'Empty Folder',
+          message: `Folder "${folderName}" contains no valid images`,
+          duration: 5000
+        });
+        return;
+      }
+
+      // Find the first empty folder key
+      const emptyKey = findEmptyFolder();
+      if (!emptyKey) {
+        addToast?.({
+          type: 'error',
+          title: 'No Empty Slots',
+          message: 'All folder slots are in use. Please clear a folder first.',
+          duration: 5000
+        });
+        return;
+      }
+
+      // Create file map from the image files
+      const filesMap = new Map<string, File>();
+      for (const file of imageFiles) {
+        filesMap.set(file.name, file);
+      }
+
+      // Set the folder in the store with the folder name as alias
+      setFolder(emptyKey, {
+        data: { name: folderName, files: filesMap },
+        alias: folderName
+      });
+
+      addToast?.({
+        type: 'success',
+        title: 'Folder Added',
+        message: `Folder "${folderName}" added with ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''}`,
+        details: [`Assigned to slot ${emptyKey}`, `Images: ${imageFiles.map(f => f.name).slice(0, 5).join(', ')}${imageFiles.length > 5 ? ` and ${imageFiles.length - 5} more...` : ''}`],
+        duration: 5000
+      });
+    } catch (error) {
+      addToast?.({
+        type: 'error',
+        title: 'Failed to Add Folder',
+        message: `Could not add folder "${folderName}"`,
+        details: [error instanceof Error ? error.message : 'Unknown error'],
+        duration: 5000
+      });
+    }
   };
 
   // Place dropped images into TEMP; if filename conflicts, spill to TEMP_2, TEMP_3, ...
@@ -230,33 +277,22 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     setIsDragOver(false);
     setDragOverCounter(0);
     setDraggedFileCount(0);
 
-    const files = Array.from(e.dataTransfer.files);
-    const imageFiles = files.filter(file => isValidImageFile(file));
-
-    if (imageFiles.length === 0) {
-      if (addToast) {
-        addToast({
-          type: 'warning',
-          title: 'No Valid Images',
-          message: 'No valid image files found in the dropped items',
-          details: ['Please drop image files (JPG, PNG, GIF, WebP, BMP, SVG, TIFF)'],
-          duration: 5000
-        });
-      }
-      return;
-    }
-
-    // Place into TEMP (and TEMP_2, ...) with filename-collision handling
-    await placeImagesIntoTempFolders(imageFiles);
+    // Use common folder drop handler
+    await handleFolderDrop(
+      e,
+      placeFolderAsNewFolder,
+      placeImagesIntoTempFolders,
+      addToast
+    );
   };
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels, showMinimap, showFilterLabels = true }) => {
+    capture: async ({ showLabels, showMinimap, showFilterLabels = true, showGrid = true }) => {
       const firstCanvasHandle = imageCanvasRefs.current.get(0);
       if (!firstCanvasHandle) return null;
       const firstCanvas = firstCanvasHandle.getCanvas();
@@ -271,7 +307,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
         tempCanvas.height = height;
         const tempCtx = tempCanvas.getContext('2d');
         if (!tempCtx) return null;
-        handle.drawToContext(tempCtx, false, showMinimap); // No crosshair in analysis mode
+        handle.drawToContext(tempCtx, false, showMinimap, showGrid); // No crosshair in analysis mode
         return tempCanvas;
       }).filter((c): c is HTMLCanvasElement => !!c);
 
@@ -509,13 +545,21 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                 </div>
               </li>
             ) : (
-              filteredFileList.map(({ file, source }) => (
-                <li key={`${source}-${file.name}`}
-                    className={analysisFile?.name === file.name ? "active": ""}
-                    onClick={()=> handleFileSelect(file, source)}>
-                  {file.name}
-                </li>
-              ))
+              filteredFileList.map(({ file, source }) => {
+                const isActive = (analysisFile === file) || (analysisFile?.name === file.name && analysisFileSource === source);
+                return (
+                  <li
+                    key={`${source}-${file.name}`}
+                    className={isActive ? "active" : ""}
+                    onClick={() => handleFileSelect(file, source)}
+                  >
+                    <div className="file-info">
+                      <div className="file-name">{file.name}</div>
+                      <div className="file-source">{source}</div>
+                    </div>
+                  </li>
+                );
+              })
             )}
           </ul>
           </aside>

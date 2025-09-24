@@ -1,11 +1,11 @@
-# Comparix - Advanced Image Comparison & Analysis Tool
+# compareX - Advanced Image Comparison & Analysis Tool
 
 [![Live Demo](https://img.shields.io/badge/Demo-Live-brightgreen)](https://mouseball54.github.io/image_multi_view/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](#license)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](#)
 [![React](https://img.shields.io/badge/React-18-blue)](#)
 
-**Comparix** is a powerful Electron desktop application for professional image comparison and analysis. It offers three specialized viewing modes, advanced OpenCV-accelerated filtering, and privacy by processing everything locally on your machine. A lightweight web demo is also available for trials, but the desktop app is the primary experience.
+**compareX** is a powerful Electron desktop application for professional image comparison and analysis. It offers three specialized viewing modes, advanced OpenCV-accelerated filtering, and privacy by processing everything locally on your machine. A lightweight web demo is also available for trials, but the desktop app is the primary experience.
 
 ## 💻 Desktop App (Primary)
 
@@ -14,7 +14,7 @@
 
 ## 🌐 Optional Web Demo
 
-Try Comparix in the browser (feature-limited vs desktop): **[https://mouseball54.github.io/image_multi_view/](https://mouseball54.github.io/image_multi_view/)**
+Try compareX in the browser (feature-limited vs desktop): **[https://mouseball54.github.io/image_multi_view/](https://mouseball54.github.io/image_multi_view/)**
 
 ## ✨ Key Features
 
@@ -81,7 +81,7 @@ Try Comparix in the browser (feature-limited vs desktop): **[https://mouseball54
 ## 🚀 Getting Started
 
 ### Quick Start (Desktop)
-1. Install the Comparix desktop app (or build it locally).
+1. Install the compareX desktop app (or build it locally).
 2. Launch the app and select a viewing mode (Compare/Pinpoint/Analysis).
 3. Load folders or drag images into the file list or directly onto viewers (Pinpoint).
 4. Start comparing and analyzing.
@@ -168,7 +168,7 @@ npm run deploy
 ## 🔍 Filter Preview System
 
 ### Advanced Preview Capabilities
-Comparix features a comprehensive filter preview system that allows you to see filter effects before applying them:
+compareX features a comprehensive filter preview system that allows you to see filter effects before applying them:
 
 - **Side-by-Side Comparison**: Preview original vs filtered images simultaneously
 - **Real-Time Parameter Adjustment**: See changes instantly as you modify filter parameters
@@ -701,4 +701,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-*Comparix - Where image analysis meets professional workflow*
+*compareX - Where image analysis meets professional workflow*

@@ -15,7 +15,12 @@
       "Bash(node:*)",
       "Bash(cp:*)",
       "Bash(npx asar list:*)",
-      "Bash(electron-builder:*)"
+      "Bash(electron-builder:*)",
+      "Read(//mnt/c/Git/**)",
+      "Bash(tree:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

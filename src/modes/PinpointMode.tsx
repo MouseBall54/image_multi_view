@@ -12,15 +12,7 @@ import { FolderControl } from '../components/FolderControl';
 import { ALL_FILTERS } from '../components/FilterControls';
 import { createFileComparator } from '../utils/naturalSort';
 import { PinpointViewerControls } from '../components/PinpointViewerControls';
-
-// Helper function to check if a file is a valid image
-const isValidImageFile = (file: File): boolean => {
-  const validTypes = [
-    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
-    'image/bmp', 'image/svg+xml', 'image/tiff', 'image/tif'
-  ];
-  return validTypes.includes(file.type) || /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|tif)$/i.test(file.name);
-};
+import { handleFolderDrop, isValidImageFile } from '../utils/dragDrop';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -35,7 +27,7 @@ import { PinpointScaleControl } from '../components/PinpointScaleControl';
 import { generateFilterChainLabel } from '../utils/filterChainLabel';
 
 export interface PinpointModeHandle {
-  capture: (options: { showLabels: boolean, showCrosshair: boolean, showMinimap: boolean, showFilterLabels?: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean, showCrosshair: boolean, showMinimap: boolean, showFilterLabels?: boolean, showGrid?: boolean }) => Promise<string | null>;
 }
 
 interface PinpointModeProps {
@@ -43,9 +35,10 @@ interface PinpointModeProps {
   bitmapCache: React.MutableRefObject<Map<string, DrawableImage>>;
   setPrimaryFile: (file: File | null) => void;
   showControls: boolean;
+  setIsInternalDragActive: (active: boolean) => void;
 }
 
-export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
+export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({ numViewers, bitmapCache, setPrimaryFile, showControls, setIsInternalDragActive }, ref) => {
   const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { 
@@ -93,6 +86,61 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       if (f && f.alias && f.alias.toLowerCase() === target) return key;
     }
     return null;
+  };
+
+  // Place folder as a new folder in the controls
+  const placeFolderAsNewFolder = async (folderName: string, imageFiles: File[]): Promise<void> => {
+    try {
+      if (imageFiles.length === 0) {
+        addToast?.({
+          type: 'warning',
+          title: 'Empty Folder',
+          message: `Folder "${folderName}" contains no valid images`,
+          duration: 5000
+        });
+        return;
+      }
+
+      // Find the first empty folder key
+      const emptyKey = findEmptyFolder();
+      if (!emptyKey) {
+        addToast?.({
+          type: 'error',
+          title: 'No Empty Slots',
+          message: 'All folder slots are in use. Please clear a folder first.',
+          duration: 5000
+        });
+        return;
+      }
+
+      // Create file map from the image files
+      const filesMap = new Map<string, File>();
+      for (const file of imageFiles) {
+        filesMap.set(file.name, file);
+      }
+
+      // Set the folder in the store with the folder name as alias
+      setFolder(emptyKey, {
+        data: { name: folderName, files: filesMap },
+        alias: folderName
+      });
+
+      addToast?.({
+        type: 'success',
+        title: 'Folder Added',
+        message: `Folder "${folderName}" added with ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''}`,
+        details: [`Assigned to slot ${emptyKey}`, `Images: ${imageFiles.map(f => f.name).slice(0, 5).join(', ')}${imageFiles.length > 5 ? ` and ${imageFiles.length - 5} more...` : ''}`],
+        duration: 5000
+      });
+    } catch (error) {
+      addToast?.({
+        type: 'error',
+        title: 'Failed to Add Folder',
+        message: `Could not add folder "${folderName}"`,
+        details: [error instanceof Error ? error.message : 'Unknown error'],
+        duration: 5000
+      });
+    }
   };
 
   // Place images into TEMP; on filename conflict spill to TEMP_2, TEMP_3, ...
@@ -217,29 +265,18 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     setIsDragOver(false);
     setDragOverCounter(0);
     setDraggedFileCount(0);
 
-    const files = Array.from(e.dataTransfer.files);
-    const imageFiles = files.filter(file => isValidImageFile(file));
-
-    if (imageFiles.length === 0) {
-      if (addToast) {
-        addToast({
-          type: 'warning',
-          title: 'No Valid Images',
-          message: 'No valid image files found in the dropped items',
-          details: ['Please drop image files (JPG, PNG, GIF, WebP, BMP, SVG, TIFF)'],
-          duration: 5000
-        });
-      }
-      return;
-    }
-
-    // Place into TEMP with collision handling
-    await placeImagesIntoTempFolders(imageFiles);
+    // Use common folder drop handler
+    await handleFolderDrop(
+      e,
+      placeFolderAsNewFolder,
+      placeImagesIntoTempFolders,
+      addToast
+    );
   };
 
   const getFilterName = (type: FilterType | undefined, params?: FilterParams) => {
@@ -285,7 +322,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   }, {} as Record<FolderKey, React.RefObject<ImageCanvasHandle>>);
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels, showCrosshair, showMinimap, showFilterLabels = true }) => {
+    capture: async ({ showLabels, showCrosshair, showMinimap, showFilterLabels = true, showGrid = true }) => {
       const firstKey = viewerArrangement.pinpoint[0] as FolderKey;
       const firstCanvas = canvasRefs[firstKey as FolderKey]?.current?.getCanvas();
       if (!firstCanvas) return null;
@@ -300,7 +337,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         tempCanvas.height = height;
         const tempCtx = tempCanvas.getContext('2d');
         if (!tempCtx) return null;
-        handle.drawToContext(tempCtx, showCrosshair, showMinimap);
+        handle.drawToContext(tempCtx, showCrosshair, showMinimap, showGrid);
         return tempCanvas;
       }).filter((c): c is HTMLCanvasElement => !!c);
 
@@ -545,9 +582,12 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
   // Handle drag start from file list
   const handleFileDragStart = (e: React.DragEvent, file: File, sourceKey: FolderKey) => {
+    console.log('🎯 Internal drag started:', file.name);
     setDraggedFile({ file, sourceKey });
+    setIsInternalDragActive(true); // Set flag to prevent global overlay
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData('text/plain', `${sourceKey}-${file.name}`);
+    e.dataTransfer.setData('application/x-compareX-internal', 'true'); // Mark as internal drag
   };
 
   // Handle drag over viewer
@@ -565,13 +605,15 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   // Handle drop on viewer
   const handleViewerDrop = (e: React.DragEvent, viewerKey: FolderKey) => {
     e.preventDefault();
+    e.stopPropagation(); // 중요: 이벤트 전파 차단으로 글로벌 드롭 방지
     setDragOverViewer(null);
-    
-    // Case 1: Drag from in-app file list
+
+    // Case 1: Drag from in-app file list (최우선 처리)
     if (draggedFile) {
       loadFileToViewer(draggedFile.file, draggedFile.sourceKey, viewerKey);
       setDraggedFile(null);
-      
+      setIsInternalDragActive(false); // Reset flag when drop succeeds
+
       if (addToast) {
         addToast({
           type: 'success',
@@ -580,32 +622,68 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
           duration: 2000
         });
       }
-      return;
+      return; // 처리 완료, 글로벌 핸들러 실행 방지
     }
 
     // Case 2: External drag (from OS) directly onto a viewer
     const dtFiles = Array.from(e.dataTransfer?.files || []);
+
+    // 폴더나 다중 파일 드롭은 글로벌 핸들러로 위임하지 않고 여기서 처리
     const imageFiles = dtFiles.filter(f => isValidImageFile(f));
     if (imageFiles.length > 0) {
-      // Merge into the viewer's folder (create if absent), then show first dropped file on the viewer
-      const existing = allFolders[viewerKey];
-      const merged = new Map<string, File>(existing?.data.files ?? []);
-      imageFiles.forEach(f => merged.set(f.name, f));
+      // 단일 이미지 파일: 뷰어에 직접 로드
+      if (imageFiles.length === 1) {
+        const file = imageFiles[0];
+        const existing = allFolders[viewerKey];
+        const merged = new Map<string, File>(existing?.data.files ?? []);
+        merged.set(file.name, file);
 
-      const alias = existing?.alias || `Temp ${viewerKey}`;
-      const name = existing?.data.name || alias;
-      setFolder(viewerKey, { data: { name, files: merged }, alias });
+        const alias = existing?.alias || `Temp ${viewerKey}`;
+        const name = existing?.data.name || alias;
+        setFolder(viewerKey, { data: { name, files: merged }, alias });
 
-      // Show the first dropped image on this viewer
-      const first = imageFiles[0];
-      loadFileToViewer(first, viewerKey, viewerKey);
+        // Show the dropped image on this viewer
+        loadFileToViewer(file, viewerKey, viewerKey);
 
+        addToast?.({
+          type: 'success',
+          title: 'Image Loaded',
+          message: `Loaded ${file.name} into viewer ${viewerKey}`,
+          duration: 2000,
+        });
+      } else {
+        // 다중 이미지 파일: 폴더에 추가하고 첫 번째 이미지만 뷰어에 표시
+        const existing = allFolders[viewerKey];
+        const merged = new Map<string, File>(existing?.data.files ?? []);
+        imageFiles.forEach(f => merged.set(f.name, f));
+
+        const alias = existing?.alias || `Temp ${viewerKey}`;
+        const name = existing?.data.name || alias;
+        setFolder(viewerKey, { data: { name, files: merged }, alias });
+
+        // Show the first dropped image on this viewer
+        const first = imageFiles[0];
+        loadFileToViewer(first, viewerKey, viewerKey);
+
+        addToast?.({
+          type: 'success',
+          title: 'Images Added',
+          message: `Added ${imageFiles.length} images to ${alias}, showing ${first.name} in viewer ${viewerKey}`,
+          details: imageFiles.map(f => f.name),
+          duration: 3000,
+        });
+      }
+      return; // 처리 완료
+    }
+
+    // Case 3: 잘못된 파일 형식이나 빈 드롭
+    if (dtFiles.length > 0) {
       addToast?.({
-        type: 'success',
-        title: 'Image(s) Added',
-        message: `Added ${imageFiles.length} image${imageFiles.length>1?'s':''} to ${alias}`,
-        details: imageFiles.map(f => f.name),
-        duration: 3000,
+        type: 'warning',
+        title: 'Invalid Files',
+        message: 'Please drop image files only',
+        details: ['Supported formats: JPG, PNG, GIF, WebP, BMP, SVG, TIFF'],
+        duration: 3000
       });
     }
   };
@@ -755,7 +833,11 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
                       className={`${isFileActive ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
                       draggable
                       onDragStart={(e) => handleFileDragStart(e, file, folderKey)}
-                      onDragEnd={() => setDraggedFile(null)}>
+                      onDragEnd={() => {
+                        console.log('🏁 Internal drag ended');
+                        setDraggedFile(null);
+                        setIsInternalDragActive(false); // Reset flag when drag ends
+                      }}>
                     <div 
                       className="file-item-content"
                       onClick={() => toggleFileSelection(fileId)}
