@@ -545,13 +545,21 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                 </div>
               </li>
             ) : (
-              filteredFileList.map(({ file, source }) => (
-                <li key={`${source}-${file.name}`}
-                    className={analysisFile?.name === file.name ? "active": ""}
-                    onClick={()=> handleFileSelect(file, source)}>
-                  {file.name}
-                </li>
-              ))
+              filteredFileList.map(({ file, source }) => {
+                const isActive = (analysisFile === file) || (analysisFile?.name === file.name && analysisFileSource === source);
+                return (
+                  <li
+                    key={`${source}-${file.name}`}
+                    className={isActive ? "active" : ""}
+                    onClick={() => handleFileSelect(file, source)}
+                  >
+                    <div className="file-info">
+                      <div className="file-name">{file.name}</div>
+                      <div className="file-source">{source}</div>
+                    </div>
+                  </li>
+                );
+              })
             )}
           </ul>
           </aside>
