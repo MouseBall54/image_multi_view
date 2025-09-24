@@ -14,7 +14,7 @@ import { generateFilterChainLabel } from '../utils/filterChainLabel';
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
 export interface CompareModeHandle {
-  capture: (options: { showLabels: boolean; showMinimap: boolean; showFilterLabels?: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean; showMinimap: boolean; showFilterLabels?: boolean; showGrid?: boolean }) => Promise<string | null>;
 }
 
 interface CompareModeProps {
@@ -226,7 +226,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   };
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels, showMinimap, showFilterLabels = true }) => {
+    capture: async ({ showLabels, showMinimap, showFilterLabels = true, showGrid = true }) => {
       const activeKeys = FOLDER_KEYS.slice(0, numViewers);
       const firstCanvas = canvasRefs[activeKeys[0]]?.current?.getCanvas();
       if (!firstCanvas) return null;
@@ -240,7 +240,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
         tempCanvas.height = height;
         const tempCtx = tempCanvas.getContext('2d');
         if (!tempCtx) return null;
-        handle.drawToContext(tempCtx, false, showMinimap); // No crosshair in compare mode
+        handle.drawToContext(tempCtx, false, showMinimap, showGrid); // No crosshair in compare mode
         return tempCanvas;
       }).filter((c): c is HTMLCanvasElement => !!c);
 

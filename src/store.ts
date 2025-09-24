@@ -114,6 +114,7 @@ interface State {
   showMinimap: boolean;
   showGrid: boolean;
   gridColor: GridColor;
+  captureWithGrid: boolean;
   showFilelist: boolean;
   showFilterLabels: boolean;
   // Minimap options
@@ -370,6 +371,7 @@ export const useStore = create<State>((set, get) => ({
   showMinimap: false,
   showGrid: false,
   gridColor: 'white',
+  captureWithGrid: true,
   showFilelist: true,
   showFilterLabels: true,
   minimapPosition: 'bottom-right',
@@ -451,6 +453,7 @@ export const useStore = create<State>((set, get) => ({
   setShowMinimap: (show) => set({ showMinimap: show }),
   setShowGrid: (show) => set({ showGrid: show }),
   setGridColor: (color) => set({ gridColor: color }),
+  setCaptureWithGrid: (withGrid: boolean) => set({ captureWithGrid: withGrid }),
   setShowFilelist: (show) => set({ showFilelist: show }),
   setShowFilterLabels: (show) => set({ showFilterLabels: show }),
   setMinimapPosition: (pos) => set({ minimapPosition: pos }),

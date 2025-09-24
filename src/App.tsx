@@ -104,7 +104,7 @@ export default function App() {
 
   const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true, showMinimap: false, showFilterLabels: true });
+  const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true, showMinimap: false, showFilterLabels: true, showGrid: true });
   const [clipboardStatus, setClipboardStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
 
@@ -628,6 +628,12 @@ export default function App() {
                 <label>
                   <input type="checkbox" checked={captureOptions.showMinimap} onChange={(e) => setCaptureOptions(o => ({...o, showMinimap: e.target.checked}))} />
                   Show Minimap
+                </label>
+              )}
+              {showGrid && (
+                <label>
+                  <input type="checkbox" checked={captureOptions.showGrid} onChange={(e) => setCaptureOptions(o => ({...o, showGrid: e.target.checked}))} />
+                  Show Grid
                 </label>
               )}
             </div>

@@ -35,7 +35,7 @@ import { PinpointScaleControl } from '../components/PinpointScaleControl';
 import { generateFilterChainLabel } from '../utils/filterChainLabel';
 
 export interface PinpointModeHandle {
-  capture: (options: { showLabels: boolean, showCrosshair: boolean, showMinimap: boolean, showFilterLabels?: boolean }) => Promise<string | null>;
+  capture: (options: { showLabels: boolean, showCrosshair: boolean, showMinimap: boolean, showFilterLabels?: boolean, showGrid?: boolean }) => Promise<string | null>;
 }
 
 interface PinpointModeProps {
@@ -285,7 +285,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
   }, {} as Record<FolderKey, React.RefObject<ImageCanvasHandle>>);
 
   useImperativeHandle(ref, () => ({
-    capture: async ({ showLabels, showCrosshair, showMinimap, showFilterLabels = true }) => {
+    capture: async ({ showLabels, showCrosshair, showMinimap, showFilterLabels = true, showGrid = true }) => {
       const firstKey = viewerArrangement.pinpoint[0] as FolderKey;
       const firstCanvas = canvasRefs[firstKey as FolderKey]?.current?.getCanvas();
       if (!firstCanvas) return null;
@@ -300,7 +300,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         tempCanvas.height = height;
         const tempCtx = tempCanvas.getContext('2d');
         if (!tempCtx) return null;
-        handle.drawToContext(tempCtx, showCrosshair, showMinimap);
+        handle.drawToContext(tempCtx, showCrosshair, showMinimap, showGrid);
         return tempCanvas;
       }).filter((c): c is HTMLCanvasElement => !!c);
 
