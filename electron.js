@@ -126,7 +126,7 @@ ipcMain.handle('updater-quit-and-install', async () => {
       type: 'question',
       buttons: ['Restart now', 'Later'],
       defaultId: 0,
-      title: 'Comparix Update',
+      title: 'compareX Update',
       message: 'An update is ready to install.',
       detail: 'Would you like to restart now to complete the update?'
     });
@@ -345,12 +345,12 @@ const template = [
     label: 'Help',
     submenu: [
       {
-        label: 'About Comparix',
+        label: 'About compareX',
         click: () => {
           dialog.showMessageBox(mainWindow, {
             type: 'info',
-            title: 'About Comparix',
-            message: `Comparix v${app.getVersion()}`,
+            title: 'About compareX',
+            message: `compareX v${app.getVersion()}`,
             detail: 'Advanced image comparison and analysis tool\n\nBuilt with Electron and React'
           });
         }

@@ -1,11 +1,11 @@
-# Comparix - 고급 이미지 비교 및 분석 도구
+# compareX - 고급 이미지 비교 및 분석 도구
 
 [![Live Demo](https://img.shields.io/badge/Demo-Live-brightgreen)](https://mouseball54.github.io/image_multi_view/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](#license)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](#)
 [![React](https://img.shields.io/badge/React-18-blue)](#)
 
-**Comparix**는 여러 이미지를 동시에 비교·분석·처리해야 하는 전문가를 위한 Electron 데스크톱 애플리케이션입니다. 세 가지 전문 viewing mode와 OpenCV 가속 필터를 제공하며, 모든 처리를 로컬에서 수행해 프라이버시를 보장합니다. 웹 데모도 제공되지만, 데스크톱 앱 사용이 기본 경험입니다.
+**compareX**는 여러 이미지를 동시에 비교·분석·처리해야 하는 전문가를 위한 Electron 데스크톱 애플리케이션입니다. 세 가지 전문 viewing mode와 OpenCV 가속 필터를 제공하며, 모든 처리를 로컬에서 수행해 프라이버시를 보장합니다. 웹 데모도 제공되지만, 데스크톱 앱 사용이 기본 경험입니다.
 
 ## 💻 데스크톱 앱 (기본)
 
@@ -84,7 +84,7 @@
 ## 🚀 시작하기
 
 ### 빠른 시작 (데스크톱)
-1. Comparix 데스크톱 앱을 설치하거나 로컬에서 빌드합니다.
+1. compareX 데스크톱 앱을 설치하거나 로컬에서 빌드합니다.
 2. 앱을 실행하고 viewing mode를 선택합니다(Compare/Pinpoint/Analysis).
 3. 폴더를 로드하거나, 파일리스트/특정 뷰어로 이미지를 드래그 앤 드롭합니다(Pinpoint는 뷰어 직접 드롭 지원).
 4. 비교 및 분석을 시작합니다.
@@ -169,7 +169,7 @@ npm run deploy
 ## 🔍 Filter 미리보기 시스템
 
 ### 고급 미리보기 기능
-Comparix는 filter를 적용하기 전에 효과를 확인할 수 있는 포괄적인 filter 미리보기 시스템을 제공합니다:
+compareX는 filter를 적용하기 전에 효과를 확인할 수 있는 포괄적인 filter 미리보기 시스템을 제공합니다:
 
 - **Side-by-Side 비교**: 원본과 필터 적용된 이미지를 동시에 미리보기
 - **실시간 Parameter 조정**: filter parameter를 수정하면서 즉시 변화 확인
@@ -711,7 +711,7 @@ src/
 ## 📞 지원
 
 - **Issue** - [GitHub Issues](https://github.com/MouseBall54/image_multi_view/issues)
--Comparixssion** - [GitHub Discussions](https://github.com/MouseBall54/image_multi_view/discussions)
+-compareXssion** - [GitHub Discussions](https://github.com/MouseBall54/image_multi_view/discussions)
 - **Wiki** - [Project Wiki](https://github.com/MouseBall54/image_multi_view/wiki)
 
 
