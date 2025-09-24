@@ -5810,3 +5810,69 @@ body:not(.viewer-dragging) .draggable-viewer:hover::after {
   background: rgba(255, 0, 0, 0.25);
   z-index: 3; /* above canvas (z-index:1) and leveling overlay (z-index:2) */
 }
+
+
+/* Global Drag and Drop Overlay */
+.global-drag-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.global-drag-overlay-content {
+  text-align: center;
+  color: #fff;
+  padding: 2rem;
+  border: 2px dashed #007bff;
+  border-radius: 12px;
+  background: rgba(0, 123, 255, 0.1);
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.global-drag-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  line-height: 1;
+}
+
+.global-drag-overlay-content h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #007bff;
+}
+
+.global-drag-overlay-content p {
+  margin: 0.25rem 0;
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+/* Global drag over state */
+.app.global-drag-over {
+  position: relative;
+}
+
+.app.global-drag-over::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 4px dashed #007bff;
+  border-radius: 8px;
+  z-index: 999;
+  pointer-events: none;
+  margin: 8px;
+}

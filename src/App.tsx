@@ -20,6 +20,8 @@ import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
 import { decodeTiffWithUTIF } from "./utils/utif";
 // Custom menu bar removed; actions moved to title bar
 import { initializeOpenCV } from "./utils/opencv";
+import { handleFolderDrop } from "./utils/dragDrop";
+import type { FolderKey } from "./types";
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -88,7 +90,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, showFilterLabels, setShowFilterLabels, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart, pinpointReorderMode, setPinpointReorderMode, syncCapture, startSync, cancelSync } = useStore();
+  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, showFilterLabels, setShowFilterLabels, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart, pinpointReorderMode, setPinpointReorderMode, syncCapture, startSync, cancelSync, setFolder, folders } = useStore();
   const { setShowFilelist, openPreviewModal, closeToggleModal, addToast } = useStore.getState();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
@@ -96,6 +98,11 @@ export default function App() {
   const [showColorPalette, setShowColorPalette] = useState(false);
   const [showMinimapOptionsModal, setShowMinimapOptionsModal] = useState(false);
   const bitmapCache = useRef(new Map<string, DrawableImage>());
+
+  // Global drag and drop state
+  const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
+  const [globalDragCounter, setGlobalDragCounter] = useState(0);
+  const [isInternalDragActive, setIsInternalDragActive] = useState(false);
   
   const primaryFileRef = useRef<File | null>(null);
   const compareModeRef = useRef<CompareModeHandle>(null);
@@ -190,6 +197,204 @@ export default function App() {
     } else {
       setViewport({ scale: newScale, cx: 0.5, cy: 0.5 });
     }
+  };
+
+  // Helper functions for global folder drag-drop
+  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
+
+  const findEmptyFolder = (): FolderKey | null => {
+    for (const key of FOLDER_KEYS) {
+      if (!folders[key]) return key;
+    }
+    return null;
+  };
+
+  const placeFolderAsNewFolder = async (folderName: string, imageFiles: File[]): Promise<void> => {
+    try {
+      if (imageFiles.length === 0) {
+        addToast({
+          type: 'warning',
+          title: 'Empty Folder',
+          message: `Folder "${folderName}" contains no valid images`,
+          duration: 5000
+        });
+        return;
+      }
+
+      const emptyKey = findEmptyFolder();
+      if (!emptyKey) {
+        addToast({
+          type: 'error',
+          title: 'No Empty Slots',
+          message: 'All folder slots are in use. Please clear a folder first.',
+          duration: 5000
+        });
+        return;
+      }
+
+      const filesMap = new Map<string, File>();
+      for (const file of imageFiles) {
+        filesMap.set(file.name, file);
+      }
+
+      setFolder(emptyKey, {
+        data: { name: folderName, files: filesMap },
+        alias: folderName
+      });
+
+      addToast({
+        type: 'success',
+        title: 'Folder Added',
+        message: `Folder "${folderName}" added with ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''}`,
+        details: [`Assigned to slot ${emptyKey}`, `Images: ${imageFiles.map(f => f.name).slice(0, 5).join(', ')}${imageFiles.length > 5 ? ` and ${imageFiles.length - 5} more...` : ''}`],
+        duration: 5000
+      });
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Failed to Add Folder',
+        message: `Could not add folder "${folderName}"`,
+        details: [error instanceof Error ? error.message : 'Unknown error'],
+        duration: 5000
+      });
+    }
+  };
+
+  const placeImagesIntoTempFolders = async (imageFiles: File[]): Promise<void> => {
+    // Use a simplified TEMP folder logic for global drop
+    try {
+      if (imageFiles.length === 0) return;
+
+      const emptyKey = findEmptyFolder();
+      if (!emptyKey) {
+        addToast({
+          type: 'error',
+          title: 'No Empty Slots',
+          message: 'All folder slots are in use. Please clear a folder first.',
+          duration: 5000
+        });
+        return;
+      }
+
+      const filesMap = new Map<string, File>();
+      for (const file of imageFiles) {
+        filesMap.set(file.name, file);
+      }
+
+      setFolder(emptyKey, {
+        data: { name: 'TEMP', files: filesMap },
+        alias: 'TEMP'
+      });
+
+      addToast({
+        type: 'success',
+        title: 'Images Added',
+        message: `${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} added to TEMP folder`,
+        details: [`Assigned to slot ${emptyKey}`],
+        duration: 5000
+      });
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Failed to Load Images',
+        message: 'Could not process dropped images',
+        details: [error instanceof Error ? error.message : 'Unknown error'],
+        duration: 5000
+      });
+    }
+  };
+
+  // Global drag and drop handlers
+  const handleGlobalDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // If internal drag is active, ignore global drag handling
+    if (isInternalDragActive) {
+      console.log('🚫 Global drag blocked - internal drag active');
+      return;
+    }
+
+    // Check if this is an internal drag from file list (fallback check)
+    const isInternalDrag = e.dataTransfer.types.includes('application/x-compareX-internal');
+
+    if (isInternalDrag) {
+      return; // Ignore internal drags
+    }
+
+    setGlobalDragCounter(prev => prev + 1);
+
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsGlobalDragOver(true);
+    }
+  };
+
+  const handleGlobalDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // If internal drag is active, ignore global drag handling
+    if (isInternalDragActive) {
+      return;
+    }
+
+    // Check if this is an internal drag from file list (fallback check)
+    const isInternalDrag = e.dataTransfer.types.includes('application/x-compareX-internal');
+
+    if (isInternalDrag) {
+      return; // Ignore internal drags
+    }
+
+    setGlobalDragCounter(prev => {
+      const newCount = prev - 1;
+      if (newCount <= 0) {
+        setIsGlobalDragOver(false);
+        return 0;
+      }
+      return newCount;
+    });
+  };
+
+  const handleGlobalDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // If internal drag is active, ignore global drag handling
+    if (isInternalDragActive) {
+      return;
+    }
+
+    // Check if this is an internal drag from file list (fallback check)
+    const isInternalDrag = e.dataTransfer.types.includes('application/x-compareX-internal');
+
+    if (isInternalDrag) {
+      return; // Ignore internal drags
+    }
+
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleGlobalDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Check if this is an internal drag from file list
+    const isInternalDrag = e.dataTransfer.types.includes('application/x-compareX-internal');
+
+    setIsGlobalDragOver(false);
+    setGlobalDragCounter(0);
+
+    // If internal drag is active, ignore global drag handling
+    if (isInternalDragActive || isInternalDrag) {
+      return; // Ignore internal drags
+    }
+
+    await handleFolderDrop(
+      e,
+      placeFolderAsNewFolder,
+      placeImagesIntoTempFolders,
+      addToast
+    );
   };
 
   useEffect(() => {
@@ -377,7 +582,7 @@ export default function App() {
       case 'compare':
         return <CompareMode ref={compareModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       case 'pinpoint':
-        return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
+        return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} setIsInternalDragActive={setIsInternalDragActive} />;
       case 'analysis':
         return <AnalysisMode ref={analysisModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
       default:
@@ -386,7 +591,13 @@ export default function App() {
   };
 
   return (
-    <div className={`app ${showFilterCart ? 'filter-cart-open' : ''} ${previewModal.isOpen && previewModal.position === 'sidebar' ? 'preview-active' : ''}`}>
+    <div
+      className={`app ${showFilterCart ? 'filter-cart-open' : ''} ${previewModal.isOpen && previewModal.position === 'sidebar' ? 'preview-active' : ''} ${isGlobalDragOver ? 'global-drag-over' : ''}`}
+      onDragEnter={handleGlobalDragEnter}
+      onDragLeave={handleGlobalDragLeave}
+      onDragOver={handleGlobalDragOver}
+      onDrop={handleGlobalDrop}
+    >
       <header>
         <div className="title-container">
           <h1
@@ -719,6 +930,18 @@ export default function App() {
         />
       )}
       
+      {/* Global Drag and Drop Overlay */}
+      {isGlobalDragOver && (
+        <div className="global-drag-overlay">
+          <div className="global-drag-overlay-content">
+            <div className="global-drag-icon">📁</div>
+            <h2>Drop Folders or Images Anywhere</h2>
+            <p>Folders will be added as new slots</p>
+            <p>Images will be added to TEMP folder</p>
+          </div>
+        </div>
+      )}
+
       <ToastContainer />
       <ElectronUpdateManager autoCheck={true} checkIntervalMs={4 * 60 * 60 * 1000} />
     </div>
