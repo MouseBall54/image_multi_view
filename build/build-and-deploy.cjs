@@ -65,16 +65,7 @@ function generateReleaseNotes() {
 
 
 ### 개선사항
-- pinpoint 모드 배율 UI 변경, 최종 배율 정보 독립적으로 표시
-- 메인 메뉴 아이콘화 및 툴팁 추가
-- class 부재 UI 개선
-- 주요 기능 UI 프로그램 최상단으로 배치
-- analysis 모드 초기 화면 다른 모드와 동일하게 변경
-- pinpoint 모드 D&D 이미지뷰에 적용
-
-### 버그 수정
-- 이미지 추가 시 temp 폴더 배치 로직 개선
-- 네트워크 연결 오류 처리 개선`;
+-프로그램 아이콘 변경`;
 }
 
 function yamlStringify(obj, indent = 0) {
