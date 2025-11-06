@@ -66,6 +66,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowActions: {
     quit: () => ipcRenderer.invoke('app-quit'),
     toggleDevTools: () => ipcRenderer.invoke('window-toggle-devtools'),
-    toggleFullscreen: () => ipcRenderer.invoke('window-toggle-fullscreen')
+    toggleFullscreen: () => ipcRenderer.invoke('window-toggle-fullscreen'),
+    reload: () => ipcRenderer.invoke('window-reload')
   }
 });

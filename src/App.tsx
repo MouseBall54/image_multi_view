@@ -810,7 +810,13 @@ export default function App() {
         <div className="title-container">
           <h1
             className="app-title"
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              if (electronApi?.windowActions?.reload) {
+                electronApi.windowActions.reload();
+              } else {
+                window.location.reload();
+              }
+            }}
             title="Reset (refresh)"
           >
             compareX

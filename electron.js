@@ -370,6 +370,14 @@ ipcMain.handle('open-tutorial-asset', async (_event, target) => {
   }
 });
 
+ipcMain.handle('window-reload', async () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.reload();
+    return { success: true };
+  }
+  return { success: false, error: 'Main window not available' };
+});
+
 function createWindow() {
   // Create the browser window
   mainWindow = new BrowserWindow({

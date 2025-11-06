@@ -25,6 +25,7 @@ export interface ElectronAPI {
     quit: () => Promise<void> | void;
     toggleDevTools: () => Promise<void> | void;
     toggleFullscreen: () => Promise<void> | void;
+    reload: () => Promise<void> | void;
   };
 }
 
