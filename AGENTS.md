@@ -13,7 +13,8 @@
 - .github/workflows/gh-pages.yml: GitHub Pages deploy.
 
 ## Build, Test, and Development Commands
-- npm run dev: Start Vite dev server with HMR.
+- npm run dev: Start Vite dev server (dev channel) with HMR.
+- npm run dev:prod: Start Vite dev server with release env variables.
 - npm run build: Build to dist/.
 - npm run preview: Serve the built app locally.
 - npm run lint: Type-check with tsc (strict mode).

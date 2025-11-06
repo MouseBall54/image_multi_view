@@ -24,7 +24,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 웹 개발 (Vite + React)
 ```bash
-npm run dev          # 개발 서버 시작 (localhost:5173)
+npm run dev          # 개발 채널 서버 시작 (localhost:5173)
+npm run dev:prod     # 배포 환경 변수로 서버 시작
 npm run build        # 프로덕션 빌드
 npm run preview      # 빌드 결과 미리보기
 npm run lint         # TypeScript 타입 체크

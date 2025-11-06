@@ -19,6 +19,8 @@ import { LayoutGridSelector } from "./components/LayoutGridSelector";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
 import { tutorialItems } from "./config/tutorials";
 import { decodeTiffWithUTIF } from "./utils/utif";
+import { electronUpdater } from "./utils/electron-updater";
+import { isDevChannel } from "./utils/environment";
 // Custom menu bar removed; actions moved to title bar
 import { initializeOpenCV } from "./utils/opencv";
 import { handleFolderDrop } from "./utils/dragDrop";
@@ -91,8 +93,52 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, showFilterLabels, setShowFilterLabels, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart, pinpointReorderMode, setPinpointReorderMode, syncCapture, startSync, cancelSync, setFolder, folders } = useStore();
+  const {
+    appMode,
+    setAppMode,
+    pinpointMouseMode,
+    setPinpointMouseMode,
+    setViewport,
+    fitScaleFn,
+    current,
+    clearPinpointScales,
+    setPinpointGlobalScale,
+    numViewers,
+    viewerRows,
+    viewerCols,
+    setViewerLayout,
+    showMinimap,
+    setShowMinimap,
+    showGrid,
+    setShowGrid,
+    gridColor,
+    setGridColor,
+    showFilterLabels,
+    setShowFilterLabels,
+    selectedViewers,
+    openToggleModal,
+    analysisFile,
+    minimapPosition,
+    setMinimapPosition,
+    minimapWidth,
+    setMinimapWidth,
+    previewModal,
+    closePreviewModal,
+    showFilterCart,
+    pinpointReorderMode,
+    setPinpointReorderMode,
+    syncCapture,
+    startSync,
+    cancelSync,
+    setFolder,
+    folders
+  } = useStore();
   const { setShowFilelist, closeToggleModal, addToast } = useStore.getState();
+  const electronApi = typeof window !== "undefined" ? (window as any).electronAPI : undefined;
+  const hasUpdater = Boolean(electronApi?.updater);
+  const canToggleDevTools = Boolean(electronApi?.windowActions?.toggleDevTools);
+  const defaultDevChannel = isDevChannel();
+  const [isDevBuild, setIsDevBuild] = useState<boolean>(!!defaultDevChannel);
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -109,6 +155,35 @@ export default function App() {
   const compareModeRef = useRef<CompareModeHandle>(null);
   const pinpointModeRef = useRef<PinpointModeHandle>(null);
   const analysisModeRef = useRef<AnalysisModeHandle>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!hasUpdater) {
+      setIsDevBuild(Boolean(defaultDevChannel));
+      return;
+    }
+
+    electronUpdater.getVersion()
+      .then((info) => {
+        if (!cancelled) {
+          const resolvedDev = Boolean(info?.isDev) || Boolean(defaultDevChannel);
+          setIsDevBuild(resolvedDev);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIsDevBuild(Boolean(defaultDevChannel));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [defaultDevChannel, hasUpdater]);
+
+  const showDevControls = isDevBuild;
+  const canUseUpdater = hasUpdater;
 
   const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -810,34 +885,47 @@ export default function App() {
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
             </button>
-            <button
-              className="controls-main-button"
-              title="Check for Updates"
-              onClick={async () => {
-                try {
-                  const api: any = (window as any).electronAPI;
-                  if (api?.updater) await api.updater.checkForUpdates();
-                } catch (e) {
-                  console.error(e);
-                }
-              }}
-              disabled={!(window as any).electronAPI?.updater}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3L22 2M22 12.5a10 10 0 0 1-18.8 4.3L2 22"/>
-              </svg>
-            </button>
-            <button
-              className="controls-main-button"
-              title="Toggle DevTools"
-              onClick={() => {
-                const api: any = (window as any).electronAPI;
-                api?.windowActions?.toggleDevTools?.();
-              }}
-              disabled={!(window as any).electronAPI?.windowActions}
-            >
-              DevTools
-            </button>
+            {showDevControls && (
+              <button
+                className="controls-main-button"
+                title={canUseUpdater ? "Check for Updates" : "Check for Updates (Electron only)"}
+                onClick={async () => {
+                  try {
+                    if (electronApi?.updater) {
+                      await electronApi.updater.checkForUpdates();
+                    }
+                  } catch (e) {
+                    const message = e instanceof Error ? e.message : 'Failed to start update check';
+                    console.error(e);
+                    if (!electronApi?.updater) {
+                      addToast?.({
+                        type: 'error',
+                        title: 'Update',
+                        message,
+                        duration: 5000
+                      });
+                    }
+                  }
+                }}
+                disabled={!canUseUpdater}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3L22 2M22 12.5a10 10 0 0 1-18.8 4.3L2 22"/>
+                </svg>
+              </button>
+            )}
+            {showDevControls && (
+              <button
+                className="controls-main-button"
+                title={canToggleDevTools ? "Toggle DevTools" : "Toggle DevTools (Electron only)"}
+                onClick={() => {
+                  electronApi?.windowActions?.toggleDevTools?.();
+                }}
+                disabled={!canToggleDevTools}
+              >
+                DevTools
+              </button>
+            )}
             <button
               className="controls-main-button"
               title="Toggle Fullscreen (F11)"
@@ -1144,7 +1232,9 @@ export default function App() {
       )}
 
       <ToastContainer />
-      <ElectronUpdateManager autoCheck={true} checkIntervalMs={4 * 60 * 60 * 1000} />
+      {hasUpdater && (
+        <ElectronUpdateManager autoCheck={true} checkIntervalMs={4 * 60 * 60 * 1000} />
+      )}
     </div>
   );
 }

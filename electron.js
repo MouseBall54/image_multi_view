@@ -342,44 +342,58 @@ app.on('before-quit', (event) => {
 
 // Set up application menu
 // Keep a minimal template for macOS role integration, but hide on Windows/Linux
+const fileSubmenu = [];
+
+if (isDev) {
+  fileSubmenu.push({
+    label: 'Check for Updates...',
+    click: async () => {
+      try {
+        await autoUpdater.checkForUpdates();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('Manual update check failed:', error);
+        sendToRenderer('update-error', message);
+      }
+    }
+  });
+  fileSubmenu.push({ type: 'separator' });
+}
+
+fileSubmenu.push({
+  label: 'Exit',
+  accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
+  click: () => {
+    app.quit();
+  }
+});
+
+const viewSubmenu = [
+  { role: 'reload' },
+  { role: 'forceReload' },
+];
+
+if (isDev) {
+  viewSubmenu.push({ role: 'toggleDevTools' });
+}
+
+viewSubmenu.push(
+  { type: 'separator' },
+  { role: 'actualSize' },
+  { role: 'zoomIn' },
+  { role: 'zoomOut' },
+  { type: 'separator' },
+  { role: 'togglefullscreen' }
+);
+
 const template = [
   {
     label: 'File',
-    submenu: [
-      {
-        label: 'Check for Updates...',
-        enabled: !isDev,
-        click: async () => {
-          try {
-            await autoUpdater.checkForUpdates();
-          } catch (error) {
-            dialog.showErrorBox('Update Check Failed', error.message);
-          }
-        }
-      },
-      { type: 'separator' },
-      {
-        label: 'Exit',
-        accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
-        click: () => {
-          app.quit();
-        }
-      }
-    ]
+    submenu: fileSubmenu
   },
   {
     label: 'View',
-    submenu: [
-      { role: 'reload' },
-      { role: 'forceReload' },
-      { role: 'toggleDevTools' },
-      { type: 'separator' },
-      { role: 'actualSize' },
-      { role: 'zoomIn' },
-      { role: 'zoomOut' },
-      { type: 'separator' },
-      { role: 'togglefullscreen' }
-    ]
+    submenu: viewSubmenu
   },
   {
     label: 'Help',

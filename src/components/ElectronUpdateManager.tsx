@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store';
 import { electronUpdater, UpdateInfo, DownloadProgress, VersionInfo } from '../utils/electron-updater';
+import { isDevChannel } from '../utils/environment';
 
 interface ElectronUpdateManagerProps {
   autoCheck?: boolean;
@@ -9,7 +10,7 @@ interface ElectronUpdateManagerProps {
 
 export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
   autoCheck = true,
-  checkIntervalMs = 4 * 60 * 60 * 1000 // 4 hours
+  checkIntervalMs: _checkIntervalMs = 4 * 60 * 60 * 1000 // 4 hours
 }) => {
   const subscribedRef = React.useRef(false);
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
@@ -19,16 +20,89 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { addToast } = useStore.getState();
-  const lastNotAvailableToastAt = React.useRef<number>(0);
+  const addToastRef = useRef(addToast);
+  const versionInfoRef = useRef<VersionInfo | null>(null);
+  const lastNotAvailableToastAt = useRef<number>(0);
+  const lastToastRef = useRef<{ type: 'error' | 'info'; message: string; timestamp: number } | null>(null);
+  const isElectron = typeof window !== 'undefined' && Boolean(window.electronAPI?.updater);
+  const defaultDevChannel = isDevChannel();
+  const hasAutoCheckedRef = useRef(false);
+  void _checkIntervalMs;
 
   useEffect(() => {
-    let intervalId: number | undefined;
+    addToastRef.current = addToast;
+  }, [addToast]);
+
+  const shouldShowToast = useCallback((type: 'error' | 'info', message: string) => {
+    if (!message) return false;
+    const now = Date.now();
+    const last = lastToastRef.current;
+    if (last && last.type === type && last.message === message && now - last.timestamp < 1000) {
+      return false;
+    }
+    lastToastRef.current = { type, message, timestamp: now };
+    return true;
+  }, []);
+
+  const showErrorToast = useCallback((message: string) => {
+    if (!shouldShowToast('error', message)) return;
+    addToastRef.current?.({
+      type: 'error',
+      title: 'Update Failed',
+      message,
+      duration: 5000
+    });
+  }, [shouldShowToast]);
+
+  const showInfoToast = useCallback((message: string) => {
+    if (!shouldShowToast('info', message)) return;
+    addToastRef.current?.({
+      type: 'info',
+      title: 'Update',
+      message,
+      duration: 4000
+    });
+  }, [shouldShowToast]);
+
+  const checkForUpdates = useCallback(async () => {
+    const isDevBuild = Boolean(versionInfoRef.current?.isDev) || defaultDevChannel;
+    if (!isElectron || isChecking || isDevBuild) return;
+    
+    setIsChecking(true);
+    
+    try {
+      const result = await electronUpdater.checkForUpdates();
+      if (result.error) {
+        if (result.error === 'Updates disabled in development mode') {
+          showInfoToast('Updates are disabled in development builds.');
+        } else {
+          showErrorToast(result.error);
+        }
+      }
+    } catch (error) {
+      showErrorToast(error instanceof Error ? error.message : 'Update check failed');
+    } finally {
+      setIsChecking(false);
+    }
+  }, [defaultDevChannel, isChecking, isElectron, showErrorToast, showInfoToast]);
+
+  useEffect(() => {
+    if (!isElectron) {
+      return;
+    }
+    let cancelled = false;
 
     // Initialize version info
     electronUpdater.getVersion().then(version => {
+      if (cancelled) return;
+      versionInfoRef.current = version;
       setVersionInfo(version);
+      const isDevBuild = Boolean(version?.isDev) || defaultDevChannel;
+      if (autoCheck && !isDevBuild && !hasAutoCheckedRef.current) {
+        hasAutoCheckedRef.current = true;
+        checkForUpdates();
+      }
     });
 
     // Ensure no duplicate listeners, then wire listeners once per effect run
@@ -36,14 +110,13 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
       const { updater } = window.electronAPI;
       if (!subscribedRef.current) {
         updater.onUpdateChecking(() => {
-        setIsChecking(true);
-        setError(null);
+          setIsChecking(true);
         });
 
         updater.onUpdateAvailable((info: UpdateInfo) => {
-        setUpdateInfo(info);
-        setIsChecking(false);
-        setShowUpdateDialog(true);
+          setUpdateInfo(info);
+          setIsChecking(false);
+          setShowUpdateDialog(true);
         });
 
         updater.onUpdateNotAvailable(() => {
@@ -51,9 +124,10 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
           setIsChecking(false);
           // Throttle duplicate "not available" toasts within 2 seconds
           const now = Date.now();
-          if (addToast && now - lastNotAvailableToastAt.current > 2000) {
+          const toastFn = addToastRef.current;
+          if (toastFn && now - lastNotAvailableToastAt.current > 2000) {
             lastNotAvailableToastAt.current = now;
-            addToast({
+            toastFn({
               type: 'info',
               title: 'Update Check',
               message: 'You are on the latest version.'
@@ -62,76 +136,49 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
         });
 
         updater.onUpdateError((error: string) => {
-        setError(error);
-        setIsChecking(false);
-        setIsDownloading(false);
+          showErrorToast(error);
+          setIsChecking(false);
+          setIsDownloading(false);
+          setShowUpdateDialog(false);
+          setUpdateInfo(null);
         });
 
         updater.onDownloadProgress((progress: DownloadProgress) => {
-        setDownloadProgress(progress);
+          setDownloadProgress(progress);
         });
 
         updater.onUpdateDownloaded(() => {
-        setIsDownloading(false);
-        setIsDownloaded(true);
-        setDownloadProgress(null);
+          setIsDownloading(false);
+          setIsDownloaded(true);
+          setDownloadProgress(null);
         });
 
         subscribedRef.current = true;
       }
     }
 
-    // Auto check for updates (renderer-owned schedule)
-    if (autoCheck && !versionInfo?.isDev) {
-      checkForUpdates();
-      intervalId = window.setInterval(() => {
-        checkForUpdates();
-      }, checkIntervalMs);
-    }
-
     // Unified cleanup to avoid duplicates
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      cancelled = true;
       // Do not remove global updater listeners here to avoid interfering
       // with other parts (e.g., electronUpdater singleton)
     };
-  }, [autoCheck, checkIntervalMs, versionInfo?.isDev]);
-
-  const checkForUpdates = async () => {
-    if (isChecking || versionInfo?.isDev) return;
-    
-    setIsChecking(true);
-    setError(null);
-    
-    try {
-      const result = await electronUpdater.checkForUpdates();
-      if (result.error) {
-        setError(result.error);
-      }
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Update check failed');
-    } finally {
-      setIsChecking(false);
-    }
-  };
+  }, [autoCheck, checkForUpdates, defaultDevChannel, isElectron, showErrorToast]);
 
   const handleDownloadUpdate = async () => {
     if (!updateInfo || isDownloading) return;
     
     setIsDownloading(true);
-    setError(null);
     
     try {
       const result = await electronUpdater.downloadUpdate();
       if (result.error) {
-        setError(result.error);
+        showErrorToast(result.error);
         setIsDownloading(false);
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Download failed');
       setIsDownloading(false);
+      showErrorToast(error instanceof Error ? error.message : 'Download failed');
     }
   };
 
@@ -141,13 +188,13 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
     try {
       const result = await electronUpdater.quitAndInstall();
       if (result.error) {
-        setError(result.error);
+        showErrorToast(result.error);
       } else if (result.action === 'later') {
         setShowUpdateDialog(false);
       }
       // If action is 'restart', the app will restart automatically
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Installation failed');
+      showErrorToast(error instanceof Error ? error.message : 'Installation failed');
     }
   };
 
@@ -155,7 +202,6 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
     if (!isDownloading) {
       setShowUpdateDialog(false);
       setUpdateInfo(null);
-      setError(null);
     }
   };
 
@@ -171,8 +217,8 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
     return `${formatBytes(bytesPerSecond)}/s`;
   };
 
-  // Don't show anything in development mode
-  if (versionInfo?.isDev || (!showUpdateDialog && !error)) {
+  // Don't show anything in development mode or when no update UI is needed
+  if (!isElectron || versionInfo?.isDev || !showUpdateDialog) {
     return null;
   }
 
@@ -225,10 +271,6 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
           font-size: 1.25rem;
           font-weight: 700;
           color: var(--text-primary);
-        }
-
-        .update-modal-title.error {
-          color: var(--danger-color);
         }
 
         .update-info-grid {
@@ -404,17 +446,6 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
           border-color: var(--border-color);
         }
 
-        .update-error-message {
-          background-color: rgba(220, 53, 69, 0.1);
-          border: 1px solid var(--danger-color);
-          border-radius: 8px;
-          padding: 16px;
-          margin-bottom: 20px;
-          color: var(--danger-color);
-          font-size: 0.9rem;
-          line-height: 1.5;
-        }
-
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -444,28 +475,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
 
       <div className="update-modal-overlay" onClick={(e) => e.target === e.currentTarget && handleCancel()}>
         <div className="update-modal-content">
-          {error ? (
-            <>
-              <div className="update-modal-header">
-                <svg className="update-modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="15" y1="9" x2="9" y2="15"/>
-                  <line x1="9" y1="9" x2="15" y2="15"/>
-                </svg>
-                <h3 className="update-modal-title error">Update Error</h3>
-              </div>
-              
-              <div className="update-error-message">
-                {error}
-              </div>
-
-              <div className="update-modal-actions">
-                <button className="update-btn primary" onClick={() => setError(null)}>
-                  OK
-                </button>
-              </div>
-            </>
-          ) : isChecking ? (
+          {isChecking ? (
             <>
               <div className="update-modal-header">
                 <svg className="update-modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

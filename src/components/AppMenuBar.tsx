@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { isDevChannel } from "../utils/environment";
 
 type MenuItem = {
   label: string;
@@ -13,10 +14,41 @@ type MenuGroup = {
   items: MenuItem[];
 };
 
-const isElectron = typeof window !== "undefined" && (window as any).electronAPI;
-
 export function AppMenuBar() {
+  const electronApi = typeof window !== "undefined" ? (window as any).electronAPI : undefined;
+  const isElectron = Boolean(electronApi);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [isDevBuild, setIsDevBuild] = useState(false);
+  const devChannelFallback = useMemo(() => isDevChannel(), []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!electronApi?.updater) {
+      setIsDevBuild(devChannelFallback);
+      return;
+    }
+
+    (async () => {
+      try {
+        const info = await electronApi.updater.getVersion();
+        if (!cancelled) {
+          const resolvedDev = Boolean(info?.isDev) || devChannelFallback;
+          setIsDevBuild(resolvedDev);
+        }
+      } catch {
+        if (!cancelled) {
+          setIsDevBuild(devChannelFallback);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [devChannelFallback, electronApi]);
+
+  const showDevControls = isDevBuild || devChannelFallback;
 
   useEffect(() => {
     const onDocClick = () => setOpenMenu(null);
@@ -30,8 +62,8 @@ export function AppMenuBar() {
 
   const handleCheckUpdates = async () => {
     try {
-      if (isElectron) {
-        await (window as any).electronAPI.updater.checkForUpdates();
+      if (electronApi?.updater) {
+        await electronApi.updater.checkForUpdates();
       }
     } catch (e) {
       // no-op
@@ -75,8 +107,8 @@ export function AppMenuBar() {
     {
       label: "File",
       items: [
-        { label: "Check for Updates...", action: handleCheckUpdates, disabled: !isElectron },
-        { separator: true, label: "sep" },
+        ...(showDevControls ? [{ label: "Check for Updates...", action: handleCheckUpdates, disabled: !electronApi?.updater }] : []),
+        ...(showDevControls ? [{ separator: true, label: "sep" }] : []),
         { label: "Exit", action: handleQuit, danger: true },
       ],
     },
@@ -84,8 +116,8 @@ export function AppMenuBar() {
       label: "View",
       items: [
         { label: "Reload", action: handleReload },
-        { label: "Toggle DevTools", action: handleToggleDevTools, disabled: !isElectron },
-        { separator: true, label: "sep" },
+        ...(showDevControls ? [{ label: "Toggle DevTools", action: handleToggleDevTools, disabled: !electronApi?.windowActions }] : []),
+        ...(showDevControls ? [{ separator: true, label: "sep" }] : []),
         { label: "Toggle Fullscreen", action: handleToggleFullscreen },
       ],
     },
