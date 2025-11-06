@@ -5907,6 +5907,7 @@ body:not(.viewer-dragging) .draggable-viewer:hover::after {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 .tutorial-panel-header {
@@ -5915,6 +5916,8 @@ body:not(.viewer-dragging) .draggable-viewer:hover::after {
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
+  cursor: move;
+  user-select: none;
 }
 
 .tutorial-panel-header h3 {

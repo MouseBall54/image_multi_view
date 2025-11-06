@@ -120,7 +120,64 @@ export default function App() {
     ? tutorialItems.find(item => item.id === activeTutorialId) ?? (tutorialItems.length ? tutorialItems[0] : null)
     : (tutorialItems.length ? tutorialItems[0] : null);
   const hasTutorials = tutorialItems.length > 0;
+  const [tutorialPanelPosition, setTutorialPanelPosition] = useState<{ x: number; y: number } | null>(null);
+  const tutorialPanelRef = useRef<HTMLDivElement | null>(null);
+  const tutorialDragOffsetRef = useRef<{ x: number; y: number } | null>(null);
+  const tutorialPanelSizeRef = useRef<{ width: number; height: number } | null>(null);
+  const tutorialDraggingRef = useRef(false);
 
+  const handleTutorialDrag = useCallback((event: MouseEvent) => {
+    if (!tutorialDraggingRef.current || !tutorialDragOffsetRef.current || !tutorialPanelSizeRef.current) {
+      return;
+    }
+    const { x: offsetX, y: offsetY } = tutorialDragOffsetRef.current;
+    const { width, height } = tutorialPanelSizeRef.current;
+    const rawX = event.clientX - offsetX;
+    const rawY = event.clientY - offsetY;
+    const maxX = Math.max(window.innerWidth - width, 0);
+    const maxY = Math.max(window.innerHeight - height, 0);
+    const nextX = Math.min(Math.max(rawX, 0), maxX);
+    const nextY = Math.min(Math.max(rawY, 0), maxY);
+    setTutorialPanelPosition({ x: nextX, y: nextY });
+  }, []);
+
+  const stopTutorialDrag = useCallback(() => {
+    if (!tutorialDraggingRef.current) {
+      return;
+    }
+    tutorialDraggingRef.current = false;
+    tutorialDragOffsetRef.current = null;
+    tutorialPanelSizeRef.current = null;
+    window.removeEventListener('mousemove', handleTutorialDrag);
+    window.removeEventListener('mouseup', stopTutorialDrag);
+  }, [handleTutorialDrag]);
+
+  const handleTutorialHeaderMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('.tutorial-close-btn')) {
+      return;
+    }
+    if (!tutorialPanelRef.current) {
+      return;
+    }
+    event.preventDefault();
+    const rect = tutorialPanelRef.current.getBoundingClientRect();
+    tutorialDragOffsetRef.current = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
+    tutorialPanelSizeRef.current = { width: rect.width, height: rect.height };
+    tutorialDraggingRef.current = true;
+    setTutorialPanelPosition(position => position ?? { x: rect.left, y: rect.top });
+    window.addEventListener('mousemove', handleTutorialDrag);
+    window.addEventListener('mouseup', stopTutorialDrag);
+  }, [handleTutorialDrag, stopTutorialDrag]);
+
+  useEffect(() => {
+    return () => {
+      stopTutorialDrag();
+    };
+  }, [stopTutorialDrag]);
 
   const runCapture = useCallback(async () => {
     if (!isCaptureModalOpen) return;
@@ -161,10 +218,13 @@ export default function App() {
     if (!activeTutorialId && tutorialItems.length) {
       setActiveTutorialId(tutorialItems[0].id);
     }
+    setTutorialPanelPosition(null);
     setShowTutorialPanel(true);
   };
 
   const handleCloseTutorials = () => {
+    stopTutorialDrag();
+    setTutorialPanelPosition(null);
     setShowTutorialPanel(false);
   };
   
@@ -949,8 +1009,13 @@ export default function App() {
 
       {showTutorialPanel && (
         <div className="tutorial-overlay" onClick={handleCloseTutorials}>
-          <div className="tutorial-panel" onClick={e => e.stopPropagation()}>
-            <div className="tutorial-panel-header">
+          <div
+            className="tutorial-panel"
+            ref={tutorialPanelRef}
+            style={tutorialPanelPosition ? { position: 'absolute', top: tutorialPanelPosition.y, left: tutorialPanelPosition.x } : undefined}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="tutorial-panel-header" onMouseDown={handleTutorialHeaderMouseDown}>
               <h3>Tutorials</h3>
               <button type="button" className="tutorial-close-btn" onClick={handleCloseTutorials}>
                 ×
