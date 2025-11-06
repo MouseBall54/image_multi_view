@@ -17,6 +17,7 @@ import { PinpointGlobalScaleControl } from "./components/PinpointGlobalScaleCont
 import { ViewToggleControls } from "./components/ViewToggleControls";
 import { LayoutGridSelector } from "./components/LayoutGridSelector";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
+import { tutorialItems } from "./config/tutorials";
 import { decodeTiffWithUTIF } from "./utils/utif";
 // Custom menu bar removed; actions moved to title bar
 import { initializeOpenCV } from "./utils/opencv";
@@ -91,7 +92,7 @@ function ViewportControls({ imageDimensions }: {
 
 export default function App() {
   const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, showFilterLabels, setShowFilterLabels, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart, pinpointReorderMode, setPinpointReorderMode, syncCapture, startSync, cancelSync, setFolder, folders } = useStore();
-  const { setShowFilelist, openPreviewModal, closeToggleModal, addToast } = useStore.getState();
+  const { setShowFilelist, closeToggleModal, addToast } = useStore.getState();
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -101,7 +102,7 @@ export default function App() {
 
   // Global drag and drop state
   const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
-  const [globalDragCounter, setGlobalDragCounter] = useState(0);
+  const globalDragCounterRef = useRef(0);
   const [isInternalDragActive, setIsInternalDragActive] = useState(false);
   
   const primaryFileRef = useRef<File | null>(null);
@@ -113,6 +114,12 @@ export default function App() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true, showMinimap: false, showFilterLabels: true, showGrid: true });
   const [clipboardStatus, setClipboardStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [showTutorialPanel, setShowTutorialPanel] = useState(false);
+  const [activeTutorialId, setActiveTutorialId] = useState<string | null>(tutorialItems[0]?.id ?? null);
+  const activeTutorial = activeTutorialId
+    ? tutorialItems.find(item => item.id === activeTutorialId) ?? (tutorialItems.length ? tutorialItems[0] : null)
+    : (tutorialItems.length ? tutorialItems[0] : null);
+  const hasTutorials = tutorialItems.length > 0;
 
 
   const runCapture = useCallback(async () => {
@@ -140,6 +147,26 @@ export default function App() {
     setClipboardStatus('idle');
     setCaptureModalOpen(true);
   };
+
+  const handleOpenTutorials = () => {
+    if (!hasTutorials) {
+      addToast?.({
+        type: 'info',
+        title: 'Tutorials',
+        message: 'No tutorial videos are configured yet.',
+        duration: 3000
+      });
+      return;
+    }
+    if (!activeTutorialId && tutorialItems.length) {
+      setActiveTutorialId(tutorialItems[0].id);
+    }
+    setShowTutorialPanel(true);
+  };
+
+  const handleCloseTutorials = () => {
+    setShowTutorialPanel(false);
+  };
   
   const handleCopyToClipboard = async () => {
     if (!capturedImage) return;
@@ -163,13 +190,13 @@ export default function App() {
       try {
         const result = await window.electronAPI.saveImage(capturedImage, fileName);
         if (result.success) {
-          addToast({ message: result.message, type: 'success' });
+          addToast({ title: 'Save Image', message: result.message, type: 'success' });
         } else {
-          addToast({ message: result.message, type: 'error' });
+          addToast({ title: 'Save Image', message: result.message, type: 'error' });
         }
       } catch (error) {
         console.error('Failed to save file:', error);
-        addToast({ message: 'Failed to save file', type: 'error' });
+        addToast({ title: 'Save Image', message: 'Failed to save file', type: 'error' });
       }
     } else {
       // Fallback for web environment
@@ -180,10 +207,10 @@ export default function App() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        addToast({ message: 'Download started', type: 'success' });
+        addToast({ title: 'Download', message: 'Download started', type: 'success' });
       } catch (error) {
         console.error('Failed to download file:', error);
-        addToast({ message: 'Failed to download file', type: 'error' });
+        addToast({ title: 'Download', message: 'Failed to download file', type: 'error' });
       }
     }
   };
@@ -322,7 +349,7 @@ export default function App() {
       return; // Ignore internal drags
     }
 
-    setGlobalDragCounter(prev => prev + 1);
+    globalDragCounterRef.current += 1;
 
     if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
       setIsGlobalDragOver(true);
@@ -345,14 +372,12 @@ export default function App() {
       return; // Ignore internal drags
     }
 
-    setGlobalDragCounter(prev => {
-      const newCount = prev - 1;
-      if (newCount <= 0) {
-        setIsGlobalDragOver(false);
-        return 0;
-      }
-      return newCount;
-    });
+    const newCount = globalDragCounterRef.current - 1;
+    globalDragCounterRef.current = newCount;
+    if (newCount <= 0) {
+      globalDragCounterRef.current = 0;
+      setIsGlobalDragOver(false);
+    }
   };
 
   const handleGlobalDragOver = (e: React.DragEvent) => {
@@ -382,7 +407,7 @@ export default function App() {
     const isInternalDrag = e.dataTransfer.types.includes('application/x-compareX-internal');
 
     setIsGlobalDragOver(false);
-    setGlobalDragCounter(0);
+    globalDragCounterRef.current = 0;
 
     // If internal drag is active, ignore global drag handling
     if (isInternalDragActive || isInternalDrag) {
@@ -667,6 +692,17 @@ export default function App() {
           </div>
           <div className="title-right-actions">
             <button
+              className={`controls-main-button tutorial-button${showTutorialPanel ? ' active' : ''}`}
+              title="Open Tutorials"
+              onClick={handleOpenTutorials}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </button>
+            <button
               className="controls-main-button"
               title="Check for Updates"
               onClick={async () => {
@@ -907,6 +943,59 @@ export default function App() {
             <div className="minimap-options-actions">
               <button onClick={() => setShowMinimapOptionsModal(false)} className="apply-btn">OK</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showTutorialPanel && (
+        <div className="tutorial-overlay" onClick={handleCloseTutorials}>
+          <div className="tutorial-panel" onClick={e => e.stopPropagation()}>
+            <div className="tutorial-panel-header">
+              <h3>Tutorials</h3>
+              <button type="button" className="tutorial-close-btn" onClick={handleCloseTutorials}>
+                ×
+              </button>
+            </div>
+            {hasTutorials ? (
+              <div className="tutorial-panel-body">
+                <div className="tutorial-list">
+                  {tutorialItems.map(item => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      className={`tutorial-list-item${activeTutorial?.id === item.id ? ' active' : ''}`}
+                      onClick={() => setActiveTutorialId(item.id)}
+                    >
+                      <span className="tutorial-list-item-title">{item.title}</span>
+                      <span className="tutorial-list-item-desc">{item.description}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="tutorial-preview">
+                  {activeTutorial ? (
+                    <>
+                      <h4>{activeTutorial.title}</h4>
+                      <p>{activeTutorial.description}</p>
+                      <div className="tutorial-preview-media">
+                        <img src={activeTutorial.src} alt={activeTutorial.title} />
+                      </div>
+                      <a
+                        className="tutorial-open-link"
+                        href={activeTutorial.src}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Open in new tab
+                      </a>
+                    </>
+                  ) : (
+                    <div className="tutorial-empty">Select a tutorial from the list.</div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="tutorial-empty">No tutorials configured.</div>
+            )}
           </div>
         </div>
       )}

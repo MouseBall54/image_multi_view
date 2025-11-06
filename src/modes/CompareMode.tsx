@@ -10,7 +10,7 @@ import { ALL_FILTERS } from '../components/FilterControls';
 import type { FolderKey, MatchedItem, FilterType } from '../types';
 import type { FilterParams } from '../store';
 import { generateFilterChainLabel } from '../utils/filterChainLabel';
-import { handleFolderDrop, isValidImageFile } from '../utils/dragDrop';
+import { handleFolderDrop } from '../utils/dragDrop';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
