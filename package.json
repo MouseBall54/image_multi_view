@@ -1,7 +1,7 @@
 {
   "name": "compareX",
   "private": true,
-  "version": "25.11.2",
+  "version": "25.11.6",
   "type": "module",
   "description": "Advanced image comparison and analysis tool",
   "author": "compareX Team",

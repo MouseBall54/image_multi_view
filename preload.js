@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showInputDialog: (title, placeholder) => ipcRenderer.invoke('show-input-dialog', title, placeholder),
   isElectron: () => true,
   platform: process.platform,
+  openTutorialAsset: (target) => ipcRenderer.invoke('open-tutorial-asset', target),
   
   // New electron-updater APIs
   updater: {

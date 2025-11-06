@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import path from 'path';
@@ -218,6 +218,46 @@ ipcMain.handle('save-image', async (event, imageData, defaultFileName) => {
       success: false, 
       message: 'Failed to save file: ' + error.message 
     };
+  }
+});
+
+ipcMain.handle('open-tutorial-asset', async (_event, target) => {
+  try {
+    if (typeof target !== 'string' || target.length === 0) {
+      throw new Error('Invalid tutorial asset path');
+    }
+
+    if (/^https?:/i.test(target)) {
+      await shell.openExternal(target);
+      return { success: true };
+    }
+
+    const openLocalAsset = async (absolutePath) => {
+      const buffer = await fs.promises.readFile(absolutePath);
+      const baseName = path.basename(absolutePath);
+      const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const tempPath = path.join(app.getPath('temp'), `comparex-tutorial-${uniqueSuffix}-${baseName}`);
+      await fs.promises.writeFile(tempPath, buffer);
+      const openResult = await shell.openPath(tempPath);
+      if (openResult) {
+        throw new Error(openResult);
+      }
+    };
+
+    if (/^file:/i.test(target)) {
+      const fileUrl = new URL(target);
+      const filePath = fileURLToPath(fileUrl);
+      await openLocalAsset(filePath);
+      return { success: true };
+    }
+
+    const normalized = target.replace(/^app:\/\//i, '').replace(/^\/+/, '');
+    const absolutePath = path.join(__dirname, 'dist', normalized);
+    await openLocalAsset(absolutePath);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to open tutorial asset:', error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 });
 

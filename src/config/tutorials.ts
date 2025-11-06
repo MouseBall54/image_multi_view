@@ -1,4 +1,3 @@
-import sampleGif from "../../assets/tutorials/sample-tutorial.gif";
 import test1 from "../../assets/tutorials/008.gif";
 import test2 from "../../assets/tutorials/009.gif";
 import test3 from "../../assets/tutorials/010.gif";

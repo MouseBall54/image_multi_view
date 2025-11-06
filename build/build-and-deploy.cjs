@@ -61,11 +61,15 @@ function createUpdateMetadata(setupFile) {
 
 function generateReleaseNotes() {
   // In real scenario, this could read from CHANGELOG.md or git commits
-  return `## compareX v${CONFIG.version} 업데이트
+  return `
 
+  ## compareX v${CONFIG.version} 업데이트
 
-### 개선사항
--프로그램 아이콘 변경`;
+  ### 추가사항
+  - 튜토리얼 추가 
+  
+  ### 개선사항
+  -프로그램 아이콘 변경`;
 }
 
 function yamlStringify(obj, indent = 0) {

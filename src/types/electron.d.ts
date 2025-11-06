@@ -4,6 +4,10 @@ export interface ElectronAPI {
     path?: string;
     message: string;
   }>;
+  openTutorialAsset: (target: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
   showInputDialog: (title: string, placeholder: string) => Promise<{
     success: boolean;
     value: string | null;

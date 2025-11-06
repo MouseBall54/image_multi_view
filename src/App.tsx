@@ -227,6 +227,54 @@ export default function App() {
     setTutorialPanelPosition(null);
     setShowTutorialPanel(false);
   };
+
+  const handleTutorialOpenExternally = useCallback((event?: React.MouseEvent<HTMLAnchorElement>) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!activeTutorial) {
+      return;
+    }
+    try {
+      const resolvedUrl = new URL(activeTutorial.src, window.location.href);
+      const electronApi = window.electronAPI as (typeof window.electronAPI & {
+        openTutorialAsset?: (target: string) => Promise<{ success: boolean; error?: string }>;
+      }) | undefined;
+      const openTutorialAsset = electronApi?.openTutorialAsset;
+      if (openTutorialAsset) {
+        void openTutorialAsset(resolvedUrl.href).then((result) => {
+          if (result && !result.success && result.error) {
+            addToast?.({
+              type: 'error',
+              title: 'Tutorial',
+              message: 'Failed to open tutorial asset.',
+              details: [result.error],
+              duration: 4000
+            });
+          }
+        }).catch((error: unknown) => {
+          addToast?.({
+            type: 'error',
+            title: 'Tutorial',
+            message: 'Failed to open tutorial asset.',
+            details: [error instanceof Error ? error.message : String(error)],
+            duration: 4000
+          });
+        });
+      } else {
+        window.open(resolvedUrl.href, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      addToast?.({
+        type: 'error',
+        title: 'Tutorial',
+        message: 'Failed to resolve tutorial asset.',
+        details: [error instanceof Error ? error.message : String(error)],
+        duration: 4000
+      });
+    }
+  }, [activeTutorial, addToast]);
   
   const handleCopyToClipboard = async () => {
     if (!capturedImage) return;
@@ -1047,8 +1095,7 @@ export default function App() {
                       <a
                         className="tutorial-open-link"
                         href={activeTutorial.src}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        onClick={handleTutorialOpenExternally}
                       >
                         Open in new tab
                       </a>
