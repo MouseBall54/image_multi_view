@@ -71,7 +71,7 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
         setDownloadProgress(progress);
         });
 
-        updater.onUpdateDownloaded((info: UpdateInfo) => {
+        updater.onUpdateDownloaded(() => {
         setIsDownloading(false);
         setIsDownloaded(true);
         setDownloadProgress(null);

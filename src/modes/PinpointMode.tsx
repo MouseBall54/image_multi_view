@@ -78,16 +78,6 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     return null;
   };
 
-  // Find folder by alias (case-insensitive)
-  const findFolderByAlias = (alias: string): FolderKey | null => {
-    const target = alias.toLowerCase();
-    for (const key of FOLDER_KEYS) {
-      const f = allFolders[key];
-      if (f && f.alias && f.alias.toLowerCase() === target) return key;
-    }
-    return null;
-  };
-
   // Place folder as a new folder in the controls
   const placeFolderAsNewFolder = async (folderName: string, imageFiles: File[]): Promise<void> => {
     try {

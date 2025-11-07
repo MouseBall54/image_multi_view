@@ -1,5 +1,4 @@
 // src/components/PinpointScaleDisplay.tsx
-import React from 'react';
 import { useStore } from '../store';
 import type { FolderKey } from '../types';
 

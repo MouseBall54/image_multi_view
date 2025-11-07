@@ -10,7 +10,7 @@ import { FolderControl } from '../components/FolderControl';
 import type { DrawableImage, FolderKey, FilterType } from '../types';
 import type { FilterParams } from '../store';
 import { createFileComparator } from '../utils/naturalSort';
-import { handleFolderDrop, isValidImageFile } from '../utils/dragDrop';
+import { handleFolderDrop } from '../utils/dragDrop';
 
 type Props = {
   numViewers: number;
@@ -32,7 +32,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     analysisRotation, openFilterEditor,
     viewerRows, viewerCols,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, showFilelist, showFilterLabels,
-    previewLayout, reorderViewers,
+    previewLayout,
     syncCapture, confirmSyncFromTarget,
     openPreviewModal,
   } = useStore();
@@ -57,16 +57,6 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   const findEmptyFolder = (): FolderKey | null => {
     for (const key of FOLDER_KEYS) {
       if (!allFolders[key]) return key;
-    }
-    return null;
-  };
-
-  // Find folder by alias (case-insensitive)
-  const findFolderByAlias = (alias: string): FolderKey | null => {
-    const target = alias.toLowerCase();
-    for (const key of FOLDER_KEYS) {
-      const f = allFolders[key];
-      if (f && f.alias && f.alias.toLowerCase() === target) return key;
     }
     return null;
   };
@@ -658,7 +648,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                   )}
                   <ImageCanvas
                     ref={el => el ? imageCanvasRefs.current.set(i, el) : imageCanvasRefs.current.delete(i)}
-                    file={analysisFile}
+                    file={analysisFile ?? undefined}
                     label={label}
                     cache={bitmapCache.current}
                     appMode="analysis"
