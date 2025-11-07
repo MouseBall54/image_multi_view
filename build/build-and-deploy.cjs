@@ -19,6 +19,34 @@ const CONFIG = {
   productName: 'compareX'
 };
 
+const argMode = (process.env.BUILD_MODE ||
+  process.argv.slice(2).find((arg) => arg.startsWith('--mode='))?.split('=')[1] ||
+  'prod').toLowerCase();
+
+const TARGETS = {
+  dev: {
+    electronCommand: 'npm run electron:pack:dev',
+    serverUrl: 'http://localhost:8000/updates/',
+    outputDir: path.join('updates', 'dev')
+  },
+  prod: {
+    electronCommand: 'npm run electron:pack:win',
+    serverUrl: CONFIG.serverUrl,
+    outputDir: path.join('updates', 'prod')
+  }
+};
+
+if (!TARGETS[argMode]) {
+  console.error(`❌ Unknown mode "${argMode}". Supported modes: ${Object.keys(TARGETS).join(', ')}`);
+  process.exit(1);
+}
+
+const ACTIVE_TARGET = TARGETS[argMode];
+CONFIG.serverUrl = ACTIVE_TARGET.serverUrl;
+CONFIG.outputDir = ACTIVE_TARGET.outputDir;
+
+console.log(`🎯 Running deploy script in "${argMode}" mode (output -> ${CONFIG.outputDir})`);
+
 console.log(`🚀 Building compareX v${CONFIG.version}...`);
 
 // Helper functions
@@ -61,11 +89,15 @@ function createUpdateMetadata(setupFile) {
 
 function generateReleaseNotes() {
   // In real scenario, this could read from CHANGELOG.md or git commits
-  return `## compareX v${CONFIG.version} 업데이트
+  return `
 
+  ## compareX v${CONFIG.version} 업데이트
 
-### 개선사항
--프로그램 아이콘 변경`;
+  ### 추가사항
+  - 튜토리얼 추가 
+  
+  ### 개선사항
+  -프로그램 아이콘 변경`;
 }
 
 function yamlStringify(obj, indent = 0) {
@@ -119,8 +151,8 @@ try {
   }
   
   // Step 2: Build the application
-  console.log('🔨 Building application...');
-  execSync('npm run electron:pack:win', { stdio: 'inherit' });
+  console.log(`🔨 Building application with ${ACTIVE_TARGET.electronCommand}...`);
+  execSync(ACTIVE_TARGET.electronCommand, { stdio: 'inherit' });
   
   // Step 3: Find the setup file
   console.log('🔍 Locating setup file...');
@@ -192,9 +224,10 @@ try {
   
   console.log('\n🌐 Server deployment commands:');
   console.log(`  # Copy to server (adjust path as needed)`);
-  console.log(`  scp updates/* user@192.168.0.88:/path/to/updates/`);
+  console.log(`  scp ${CONFIG.outputDir}/* user@192.168.0.88:/path/to/updates/${argMode}/`);
   console.log(`  # Or use Windows copy`);
-  console.log(`  copy updates\\* \\\\192.168.0.88\\updates\\`);
+  const windowsOutput = CONFIG.outputDir.replace(/\//g, '\\');
+  console.log(`  xcopy ${windowsOutput}\\* \\\\192.168.0.88\\updates\\${argMode}\\ /Y /I`);
   
 } catch (error) {
   console.error('\n❌ Build failed:', error.message);

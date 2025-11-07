@@ -19,6 +19,8 @@ import { LayoutGridSelector } from "./components/LayoutGridSelector";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
 import { tutorialItems } from "./config/tutorials";
 import { decodeTiffWithUTIF } from "./utils/utif";
+import { electronUpdater } from "./utils/electron-updater";
+import { isDevChannel } from "./utils/environment";
 // Custom menu bar removed; actions moved to title bar
 import { initializeOpenCV } from "./utils/opencv";
 import { handleFolderDrop } from "./utils/dragDrop";
@@ -91,8 +93,52 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
-  const { appMode, setAppMode, pinpointMouseMode, setPinpointMouseMode, setViewport, fitScaleFn, current, clearPinpointScales, setPinpointGlobalScale, numViewers, viewerRows, viewerCols, setViewerLayout, showMinimap, setShowMinimap, showGrid, setShowGrid, gridColor, setGridColor, showFilterLabels, setShowFilterLabels, selectedViewers, openToggleModal, analysisFile, minimapPosition, setMinimapPosition, minimapWidth, setMinimapWidth, previewModal, closePreviewModal, showFilterCart, pinpointReorderMode, setPinpointReorderMode, syncCapture, startSync, cancelSync, setFolder, folders } = useStore();
+  const {
+    appMode,
+    setAppMode,
+    pinpointMouseMode,
+    setPinpointMouseMode,
+    setViewport,
+    fitScaleFn,
+    current,
+    clearPinpointScales,
+    setPinpointGlobalScale,
+    numViewers,
+    viewerRows,
+    viewerCols,
+    setViewerLayout,
+    showMinimap,
+    setShowMinimap,
+    showGrid,
+    setShowGrid,
+    gridColor,
+    setGridColor,
+    showFilterLabels,
+    setShowFilterLabels,
+    selectedViewers,
+    openToggleModal,
+    analysisFile,
+    minimapPosition,
+    setMinimapPosition,
+    minimapWidth,
+    setMinimapWidth,
+    previewModal,
+    closePreviewModal,
+    showFilterCart,
+    pinpointReorderMode,
+    setPinpointReorderMode,
+    syncCapture,
+    startSync,
+    cancelSync,
+    setFolder,
+    folders
+  } = useStore();
   const { setShowFilelist, closeToggleModal, addToast } = useStore.getState();
+  const electronApi = typeof window !== "undefined" ? (window as any).electronAPI : undefined;
+  const hasUpdater = Boolean(electronApi?.updater);
+  const canToggleDevTools = Boolean(electronApi?.windowActions?.toggleDevTools);
+  const defaultDevChannel = isDevChannel();
+  const [isDevBuild, setIsDevBuild] = useState<boolean>(!!defaultDevChannel);
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -110,6 +156,35 @@ export default function App() {
   const pinpointModeRef = useRef<PinpointModeHandle>(null);
   const analysisModeRef = useRef<AnalysisModeHandle>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!hasUpdater) {
+      setIsDevBuild(Boolean(defaultDevChannel));
+      return;
+    }
+
+    electronUpdater.getVersion()
+      .then((info) => {
+        if (!cancelled) {
+          const resolvedDev = Boolean(info?.isDev) || Boolean(defaultDevChannel);
+          setIsDevBuild(resolvedDev);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIsDevBuild(Boolean(defaultDevChannel));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [defaultDevChannel, hasUpdater]);
+
+  const showDevControls = isDevBuild;
+  const canUseUpdater = hasUpdater;
+
   const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true, showMinimap: false, showFilterLabels: true, showGrid: true });
@@ -120,7 +195,64 @@ export default function App() {
     ? tutorialItems.find(item => item.id === activeTutorialId) ?? (tutorialItems.length ? tutorialItems[0] : null)
     : (tutorialItems.length ? tutorialItems[0] : null);
   const hasTutorials = tutorialItems.length > 0;
+  const [tutorialPanelPosition, setTutorialPanelPosition] = useState<{ x: number; y: number } | null>(null);
+  const tutorialPanelRef = useRef<HTMLDivElement | null>(null);
+  const tutorialDragOffsetRef = useRef<{ x: number; y: number } | null>(null);
+  const tutorialPanelSizeRef = useRef<{ width: number; height: number } | null>(null);
+  const tutorialDraggingRef = useRef(false);
 
+  const handleTutorialDrag = useCallback((event: MouseEvent) => {
+    if (!tutorialDraggingRef.current || !tutorialDragOffsetRef.current || !tutorialPanelSizeRef.current) {
+      return;
+    }
+    const { x: offsetX, y: offsetY } = tutorialDragOffsetRef.current;
+    const { width, height } = tutorialPanelSizeRef.current;
+    const rawX = event.clientX - offsetX;
+    const rawY = event.clientY - offsetY;
+    const maxX = Math.max(window.innerWidth - width, 0);
+    const maxY = Math.max(window.innerHeight - height, 0);
+    const nextX = Math.min(Math.max(rawX, 0), maxX);
+    const nextY = Math.min(Math.max(rawY, 0), maxY);
+    setTutorialPanelPosition({ x: nextX, y: nextY });
+  }, []);
+
+  const stopTutorialDrag = useCallback(() => {
+    if (!tutorialDraggingRef.current) {
+      return;
+    }
+    tutorialDraggingRef.current = false;
+    tutorialDragOffsetRef.current = null;
+    tutorialPanelSizeRef.current = null;
+    window.removeEventListener('mousemove', handleTutorialDrag);
+    window.removeEventListener('mouseup', stopTutorialDrag);
+  }, [handleTutorialDrag]);
+
+  const handleTutorialHeaderMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('.tutorial-close-btn')) {
+      return;
+    }
+    if (!tutorialPanelRef.current) {
+      return;
+    }
+    event.preventDefault();
+    const rect = tutorialPanelRef.current.getBoundingClientRect();
+    tutorialDragOffsetRef.current = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
+    tutorialPanelSizeRef.current = { width: rect.width, height: rect.height };
+    tutorialDraggingRef.current = true;
+    setTutorialPanelPosition(position => position ?? { x: rect.left, y: rect.top });
+    window.addEventListener('mousemove', handleTutorialDrag);
+    window.addEventListener('mouseup', stopTutorialDrag);
+  }, [handleTutorialDrag, stopTutorialDrag]);
+
+  useEffect(() => {
+    return () => {
+      stopTutorialDrag();
+    };
+  }, [stopTutorialDrag]);
 
   const runCapture = useCallback(async () => {
     if (!isCaptureModalOpen) return;
@@ -161,12 +293,63 @@ export default function App() {
     if (!activeTutorialId && tutorialItems.length) {
       setActiveTutorialId(tutorialItems[0].id);
     }
+    setTutorialPanelPosition(null);
     setShowTutorialPanel(true);
   };
 
   const handleCloseTutorials = () => {
+    stopTutorialDrag();
+    setTutorialPanelPosition(null);
     setShowTutorialPanel(false);
   };
+
+  const handleTutorialOpenExternally = useCallback((event?: React.MouseEvent<HTMLAnchorElement>) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!activeTutorial) {
+      return;
+    }
+    try {
+      const resolvedUrl = new URL(activeTutorial.src, window.location.href);
+      const electronApi = window.electronAPI as (typeof window.electronAPI & {
+        openTutorialAsset?: (target: string) => Promise<{ success: boolean; error?: string }>;
+      }) | undefined;
+      const openTutorialAsset = electronApi?.openTutorialAsset;
+      if (openTutorialAsset) {
+        void openTutorialAsset(resolvedUrl.href).then((result) => {
+          if (result && !result.success && result.error) {
+            addToast?.({
+              type: 'error',
+              title: 'Tutorial',
+              message: 'Failed to open tutorial asset.',
+              details: [result.error],
+              duration: 4000
+            });
+          }
+        }).catch((error: unknown) => {
+          addToast?.({
+            type: 'error',
+            title: 'Tutorial',
+            message: 'Failed to open tutorial asset.',
+            details: [error instanceof Error ? error.message : String(error)],
+            duration: 4000
+          });
+        });
+      } else {
+        window.open(resolvedUrl.href, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      addToast?.({
+        type: 'error',
+        title: 'Tutorial',
+        message: 'Failed to resolve tutorial asset.',
+        details: [error instanceof Error ? error.message : String(error)],
+        duration: 4000
+      });
+    }
+  }, [activeTutorial, addToast]);
   
   const handleCopyToClipboard = async () => {
     if (!capturedImage) return;
@@ -627,7 +810,13 @@ export default function App() {
         <div className="title-container">
           <h1
             className="app-title"
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              if (electronApi?.windowActions?.reload) {
+                electronApi.windowActions.reload();
+              } else {
+                window.location.reload();
+              }
+            }}
             title="Reset (refresh)"
           >
             compareX
@@ -702,34 +891,47 @@ export default function App() {
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
             </button>
-            <button
-              className="controls-main-button"
-              title="Check for Updates"
-              onClick={async () => {
-                try {
-                  const api: any = (window as any).electronAPI;
-                  if (api?.updater) await api.updater.checkForUpdates();
-                } catch (e) {
-                  console.error(e);
-                }
-              }}
-              disabled={!(window as any).electronAPI?.updater}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3L22 2M22 12.5a10 10 0 0 1-18.8 4.3L2 22"/>
-              </svg>
-            </button>
-            <button
-              className="controls-main-button"
-              title="Toggle DevTools"
-              onClick={() => {
-                const api: any = (window as any).electronAPI;
-                api?.windowActions?.toggleDevTools?.();
-              }}
-              disabled={!(window as any).electronAPI?.windowActions}
-            >
-              DevTools
-            </button>
+            {showDevControls && (
+              <button
+                className="controls-main-button"
+                title={canUseUpdater ? "Check for Updates" : "Check for Updates (Electron only)"}
+                onClick={async () => {
+                  try {
+                    if (electronApi?.updater) {
+                      await electronApi.updater.checkForUpdates();
+                    }
+                  } catch (e) {
+                    const message = e instanceof Error ? e.message : 'Failed to start update check';
+                    console.error(e);
+                    if (!electronApi?.updater) {
+                      addToast?.({
+                        type: 'error',
+                        title: 'Update',
+                        message,
+                        duration: 5000
+                      });
+                    }
+                  }
+                }}
+                disabled={!canUseUpdater}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3L22 2M22 12.5a10 10 0 0 1-18.8 4.3L2 22"/>
+                </svg>
+              </button>
+            )}
+            {showDevControls && (
+              <button
+                className="controls-main-button"
+                title={canToggleDevTools ? "Toggle DevTools" : "Toggle DevTools (Electron only)"}
+                onClick={() => {
+                  electronApi?.windowActions?.toggleDevTools?.();
+                }}
+                disabled={!canToggleDevTools}
+              >
+                DevTools
+              </button>
+            )}
             <button
               className="controls-main-button"
               title="Toggle Fullscreen (F11)"
@@ -949,8 +1151,13 @@ export default function App() {
 
       {showTutorialPanel && (
         <div className="tutorial-overlay" onClick={handleCloseTutorials}>
-          <div className="tutorial-panel" onClick={e => e.stopPropagation()}>
-            <div className="tutorial-panel-header">
+          <div
+            className="tutorial-panel"
+            ref={tutorialPanelRef}
+            style={tutorialPanelPosition ? { position: 'absolute', top: tutorialPanelPosition.y, left: tutorialPanelPosition.x } : undefined}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="tutorial-panel-header" onMouseDown={handleTutorialHeaderMouseDown}>
               <h3>Tutorials</h3>
               <button type="button" className="tutorial-close-btn" onClick={handleCloseTutorials}>
                 ×
@@ -982,8 +1189,7 @@ export default function App() {
                       <a
                         className="tutorial-open-link"
                         href={activeTutorial.src}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        onClick={handleTutorialOpenExternally}
                       >
                         Open in new tab
                       </a>
@@ -1032,7 +1238,9 @@ export default function App() {
       )}
 
       <ToastContainer />
-      <ElectronUpdateManager autoCheck={true} checkIntervalMs={4 * 60 * 60 * 1000} />
+      {hasUpdater && (
+        <ElectronUpdateManager autoCheck={true} checkIntervalMs={4 * 60 * 60 * 1000} />
+      )}
     </div>
   );
 }

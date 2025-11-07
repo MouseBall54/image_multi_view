@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showInputDialog: (title, placeholder) => ipcRenderer.invoke('show-input-dialog', title, placeholder),
   isElectron: () => true,
   platform: process.platform,
+  openTutorialAsset: (target) => ipcRenderer.invoke('open-tutorial-asset', target),
   
   // New electron-updater APIs
   updater: {
@@ -65,6 +66,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowActions: {
     quit: () => ipcRenderer.invoke('app-quit'),
     toggleDevTools: () => ipcRenderer.invoke('window-toggle-devtools'),
-    toggleFullscreen: () => ipcRenderer.invoke('window-toggle-fullscreen')
+    toggleFullscreen: () => ipcRenderer.invoke('window-toggle-fullscreen'),
+    reload: () => ipcRenderer.invoke('window-reload')
   }
 });

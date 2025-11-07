@@ -97,8 +97,11 @@ cd image_multi_view
 # Install dependencies
 npm install
 
-# Start development server
+# Start development server (dev channel)
 npm run dev
+
+# (Optional) Start server with release env vars
+npm run dev:prod
 
 # Build for production
 npm run build
@@ -456,21 +459,38 @@ compareX features a comprehensive filter preview system that allows you to see f
 
 #### Build & Package
 ```bash
-# Development (web)
+# Development (web - dev channel)
 npm run dev
 
-# Pack Electron (Windows)
+# Development (web - release config)
+npm run dev:prod
+
+# Pack Electron (desktop dev build)
+npm run electron:pack:dev
+
+# Pack Electron (desktop release build)
+npm run electron:pack:prod
+
+# Windows installer (release)
 npm run electron:pack:win
 
 # Full distribution (publish configured)
 npm run electron:dist
 
-# Build updater payloads + latest.yml
-node build/build-and-deploy.cjs
+# Build updater payloads + latest.yml (release)
+npm run build:deploy:prod
+
+# Build updater payloads + latest.yml (dev channel)
+npm run build:deploy:dev
 ```
 
+> `build:deploy` defaults to `prod` when no mode is provided. Artifacts are written to `updates/<mode>` so release and dev channels stay isolated. Shortcut scripts (`build:deploy:prod`, `build:deploy:dev`) are available.
+> Dev-channel desktop builds (`npm run electron:pack:dev` / `npm run build:deploy:dev`) keep developer menu items visible; updater actions remain Electron-only.
+
 #### Update Flow
-- Title bar “Check for Updates” triggers a check; a dialog shows when an update is available.
+- Desktop development builds expose the “Check for Updates” button; packaged release builds hide it and rely on installer updates.
+- Production installers still auto-check on launch and every 4 hours, surfacing the modal when a newer version exists.
+- Update failures surface as non-blocking toasts so the workflow is uninterrupted.
 - “Download” fetches the installer; “Install and Restart Now” applies it.
 - Latest notes are read from `latest.yml`; ensure server URL matches your deployment.
 
@@ -556,7 +576,8 @@ src/
 
 ### Development Commands
 ```bash
-npm run dev      # Start development server
+npm run dev       # Start dev-channel server
+npm run dev:prod  # Start server with release env vars
 npm run build    # Build for production
 npm run lint     # Type checking with TypeScript
 npm run preview  # Preview production build
@@ -641,7 +662,7 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 1. Fork the repository
 2. Clone your fork locally
 3. Install dependencies with `npm install`
-4. Start development server with `npm run dev`
+4. Start development server with `npm run dev` (or `npm run dev:prod` to emulate release env)
 5. Make your changes and test thoroughly
 6. Submit a pull request
 

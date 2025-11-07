@@ -1,9 +1,10 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { spawn } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -221,6 +222,162 @@ ipcMain.handle('save-image', async (event, imageData, defaultFileName) => {
   }
 });
 
+ipcMain.handle('open-tutorial-asset', async (_event, target) => {
+  try {
+    if (typeof target !== 'string' || target.length === 0) {
+      throw new Error('Invalid tutorial asset path');
+    }
+
+    const openWithPreferredApps = async (resource, { isUrl }) => {
+      const platform = process.platform;
+
+      const spawnApp = (command, args) => {
+        return new Promise((resolve) => {
+          try {
+            const child = spawn(command, args, { stdio: 'ignore' });
+            let settled = false;
+            const settle = (value) => {
+              if (!settled) {
+                settled = true;
+                resolve(value);
+              }
+            };
+            child.on('error', () => settle(false));
+            child.on('exit', (code) => settle(code === 0));
+            // If process keeps running, assume success.
+            setTimeout(() => settle(true), 250);
+            child.unref();
+          } catch (_error) {
+            resolve(false);
+          }
+        });
+      };
+
+      const tryWindowsApps = async () => {
+        const env = process.env;
+        const candidates = [
+          env['PROGRAMFILES'] ? path.join(env['PROGRAMFILES'], 'Microsoft', 'Edge', 'Application', 'msedge.exe') : null,
+          env['PROGRAMFILES(X86)'] ? path.join(env['PROGRAMFILES(X86)'], 'Microsoft', 'Edge', 'Application', 'msedge.exe') : null,
+          env['LOCALAPPDATA'] ? path.join(env['LOCALAPPDATA'], 'Microsoft', 'Edge', 'Application', 'msedge.exe') : null
+        ].filter(Boolean);
+        for (const candidate of candidates) {
+          if (fs.existsSync(candidate) && await spawnApp(candidate, [resource])) {
+            return true;
+          }
+        }
+        if (await spawnApp('msedge.exe', [resource])) {
+          return true;
+        }
+
+        const chromeCandidates = [
+          env['PROGRAMFILES'] ? path.join(env['PROGRAMFILES'], 'Google', 'Chrome', 'Application', 'chrome.exe') : null,
+          env['PROGRAMFILES(X86)'] ? path.join(env['PROGRAMFILES(X86)'], 'Google', 'Chrome', 'Application', 'chrome.exe') : null,
+          env['LOCALAPPDATA'] ? path.join(env['LOCALAPPDATA'], 'Google', 'Chrome', 'Application', 'chrome.exe') : null
+        ].filter(Boolean);
+        for (const candidate of chromeCandidates) {
+          if (fs.existsSync(candidate) && await spawnApp(candidate, [resource])) {
+            return true;
+          }
+        }
+        if (await spawnApp('chrome.exe', [resource])) {
+          return true;
+        }
+        return false;
+      };
+
+      const tryMacApps = async () => {
+        if (await spawnApp('open', ['-a', 'Microsoft Edge', resource])) {
+          return true;
+        }
+        if (await spawnApp('open', ['-a', 'Google Chrome', resource])) {
+          return true;
+        }
+        return false;
+      };
+
+      const tryLinuxApps = async () => {
+        const edgeCommands = ['microsoft-edge', 'microsoft-edge-stable', 'msedge'];
+        for (const cmd of edgeCommands) {
+          if (await spawnApp(cmd, [resource])) {
+            return true;
+          }
+        }
+        const chromeCommands = ['google-chrome', 'google-chrome-stable', 'chromium-browser', 'chromium'];
+        for (const cmd of chromeCommands) {
+          if (await spawnApp(cmd, [resource])) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      if (platform === 'win32') {
+        return await tryWindowsApps();
+      }
+      if (platform === 'darwin') {
+        return await tryMacApps();
+      }
+      if (platform === 'linux') {
+        return await tryLinuxApps();
+      }
+
+      // Fallback for unknown platforms
+      if (isUrl) {
+        await shell.openExternal(resource);
+      } else {
+        await shell.openPath(resource);
+      }
+      return true;
+    };
+
+    if (/^https?:/i.test(target)) {
+      const launched = await openWithPreferredApps(target, { isUrl: true });
+      if (!launched) {
+        await shell.openExternal(target);
+      }
+      return { success: true };
+    }
+
+    const openLocalAsset = async (absolutePath) => {
+      const buffer = await fs.promises.readFile(absolutePath);
+      const baseName = path.basename(absolutePath);
+      const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const tempPath = path.join(app.getPath('temp'), `comparex-tutorial-${uniqueSuffix}-${baseName}`);
+      await fs.promises.writeFile(tempPath, buffer);
+      const launched = await openWithPreferredApps(tempPath, { isUrl: false });
+      if (!launched) {
+        const openResult = await shell.openPath(tempPath);
+        if (openResult) {
+          throw new Error(openResult);
+        }
+      }
+    };
+
+    if (/^file:/i.test(target)) {
+      const fileUrl = new URL(target);
+      const filePath = fileURLToPath(fileUrl);
+      await openLocalAsset(filePath);
+      return { success: true };
+    }
+
+    const normalized = target.replace(/^app:\/\//i, '').replace(/^\/+/, '');
+    const absolutePath = path.join(__dirname, 'dist', normalized);
+    await openLocalAsset(absolutePath);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to open tutorial asset:', error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+});
+
+ipcMain.handle('window-reload', async () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.reload();
+    return { success: true };
+  }
+  return { success: false, error: 'Main window not available' };
+});
+
 function createWindow() {
   // Create the browser window
   mainWindow = new BrowserWindow({
@@ -302,44 +459,58 @@ app.on('before-quit', (event) => {
 
 // Set up application menu
 // Keep a minimal template for macOS role integration, but hide on Windows/Linux
+const fileSubmenu = [];
+
+if (isDev) {
+  fileSubmenu.push({
+    label: 'Check for Updates...',
+    click: async () => {
+      try {
+        await autoUpdater.checkForUpdates();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('Manual update check failed:', error);
+        sendToRenderer('update-error', message);
+      }
+    }
+  });
+  fileSubmenu.push({ type: 'separator' });
+}
+
+fileSubmenu.push({
+  label: 'Exit',
+  accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
+  click: () => {
+    app.quit();
+  }
+});
+
+const viewSubmenu = [
+  { role: 'reload' },
+  { role: 'forceReload' },
+];
+
+if (isDev) {
+  viewSubmenu.push({ role: 'toggleDevTools' });
+}
+
+viewSubmenu.push(
+  { type: 'separator' },
+  { role: 'actualSize' },
+  { role: 'zoomIn' },
+  { role: 'zoomOut' },
+  { type: 'separator' },
+  { role: 'togglefullscreen' }
+);
+
 const template = [
   {
     label: 'File',
-    submenu: [
-      {
-        label: 'Check for Updates...',
-        enabled: !isDev,
-        click: async () => {
-          try {
-            await autoUpdater.checkForUpdates();
-          } catch (error) {
-            dialog.showErrorBox('Update Check Failed', error.message);
-          }
-        }
-      },
-      { type: 'separator' },
-      {
-        label: 'Exit',
-        accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
-        click: () => {
-          app.quit();
-        }
-      }
-    ]
+    submenu: fileSubmenu
   },
   {
     label: 'View',
-    submenu: [
-      { role: 'reload' },
-      { role: 'forceReload' },
-      { role: 'toggleDevTools' },
-      { type: 'separator' },
-      { role: 'actualSize' },
-      { role: 'zoomIn' },
-      { role: 'zoomOut' },
-      { type: 'separator' },
-      { role: 'togglefullscreen' }
-    ]
+    submenu: viewSubmenu
   },
   {
     label: 'Help',
