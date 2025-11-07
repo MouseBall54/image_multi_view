@@ -11,7 +11,11 @@ export interface FolderState {
 
 export interface FilterParams {
   kernelSize: number;
+  kernelSizeX?: number;
+  kernelSizeY?: number;
   sigma: number;
+  sigmaX?: number;
+  sigmaY?: number;
   sharpenAmount: number;
   lowThreshold: number;
   highThreshold: number;
@@ -67,7 +71,11 @@ export interface FilterParams {
 
 const defaultFilterParams: FilterParams = {
   kernelSize: 5,
+  kernelSizeX: 5,
+  kernelSizeY: 5,
   sigma: 1.5,
+  sigmaX: 1.5,
+  sigmaY: 1.5,
   sharpenAmount: 1,
   lowThreshold: 50,
   highThreshold: 100,

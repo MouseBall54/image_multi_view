@@ -3,7 +3,9 @@ import type { FilterParams } from '../store';
 import { 
   applyFilterWithFallback, 
   applyGaussianBlurOpenCV, 
+  applyGaussianBlurAxisOpenCV,
   applyBoxBlurOpenCV, 
+  applyBoxBlurAxisOpenCV,
   applyMedianBlurOpenCV,
   applySobelOpenCV,
   applyScharrOpenCV,
@@ -60,10 +62,39 @@ function createGaussianKernel(sigma: number, size: number): number[][] {
   return kernel;
 }
 
+function createGaussianKernelAxis(sigmaX: number, sigmaY: number, sizeX: number, sizeY: number): number[][] {
+  const kernel: number[][] = Array(sizeY).fill(0).map(() => Array(sizeX).fill(0));
+  const halfX = Math.floor(sizeX / 2);
+  const halfY = Math.floor(sizeY / 2);
+  const sigmaX2 = 2 * sigmaX * sigmaX;
+  const sigmaY2 = 2 * sigmaY * sigmaY;
+  let sum = 0;
+
+  for (let y = -halfY; y <= halfY; y++) {
+    for (let x = -halfX; x <= halfX; x++) {
+      const value = Math.exp(-(x * x) / sigmaX2 - (y * y) / sigmaY2);
+      kernel[y + halfY][x + halfX] = value;
+      sum += value;
+    }
+  }
+
+  for (let i = 0; i < sizeY; i++) {
+    for (let j = 0; j < sizeX; j++) {
+      kernel[i][j] /= sum;
+    }
+  }
+  return kernel;
+}
+
 // Helper function to create a Box Blur kernel
 function createBoxBlurKernel(size: number): number[][] {
   const value = 1 / (size * size);
   return Array(size).fill(0).map(() => Array(size).fill(value));
+}
+
+function createBoxBlurKernelAxis(sizeX: number, sizeY: number): number[][] {
+  const value = 1 / (sizeX * sizeY);
+  return Array(sizeY).fill(0).map(() => Array(sizeX).fill(value));
 }
 
 function createLoGKernel(sigma: number, size: number): number[][] {
@@ -125,6 +156,12 @@ function createGaborKernel(params: FilterParams): Kernel {
 }
 
 type Kernel = number[][];
+
+function ensureOdd(value: number | undefined, fallback: number = 3): number {
+  let result = Math.max(1, Math.floor(value ?? fallback));
+  if (result % 2 === 0) result += 1;
+  return result;
+}
 
 function getGrayscaleImage(ctx: CanvasRenderingContext2D) {
   const width = ctx.canvas.width;
@@ -365,6 +402,17 @@ export const applyBoxBlur = async (ctx: CanvasRenderingContext2D, params: Filter
   await applyFilterWithFallback(ctx, 'boxBlur', params, originalFn, applyBoxBlurOpenCV);
 };
 
+export const applyBoxBlurAxis = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (context: CanvasRenderingContext2D, p: FilterParams) => {
+    const sizeX = ensureOdd(p.kernelSizeX ?? p.kernelSize);
+    const sizeY = ensureOdd(p.kernelSizeY ?? p.kernelSize);
+    const kernel = createBoxBlurKernelAxis(sizeX, sizeY);
+    convolve(context, kernel);
+  };
+  
+  await applyFilterWithFallback(ctx, 'boxBlurAxis', params, originalFn, applyBoxBlurAxisOpenCV as any);
+};
+
 export const applyGaussianBlur = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
   const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
     const kernel = createGaussianKernel(params.sigma, params.kernelSize);
@@ -372,6 +420,19 @@ export const applyGaussianBlur = async (ctx: CanvasRenderingContext2D, params: F
   };
   
   await applyFilterWithFallback(ctx, 'gaussianBlur', params, originalFn, applyGaussianBlurOpenCV);
+};
+
+export const applyGaussianBlurAxis = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (context: CanvasRenderingContext2D, p: FilterParams) => {
+    const sizeX = ensureOdd(p.kernelSizeX ?? p.kernelSize);
+    const sizeY = ensureOdd(p.kernelSizeY ?? p.kernelSize);
+    const sigmaX = p.sigmaX ?? p.sigma ?? 1.0;
+    const sigmaY = p.sigmaY ?? p.sigma ?? sigmaX;
+    const kernel = createGaussianKernelAxis(sigmaX, sigmaY, sizeX, sizeY);
+    convolve(context, kernel);
+  };
+  
+  await applyFilterWithFallback(ctx, 'gaussianBlurAxis', params, originalFn, applyGaussianBlurAxisOpenCV as any);
 };
 
 export const applyBrightness = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {

@@ -748,6 +748,27 @@ export function applyGaussianBlurOpenCV(ctx: CanvasRenderingContext2D, params: F
   }
 }
 
+export function applyGaussianBlurAxisOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const dst = new cv.Mat();
+  
+  try {
+    const sizeX = ensureOddSize(params.kernelSizeX ?? params.kernelSize, 3);
+    const sizeY = ensureOddSize(params.kernelSizeY ?? params.kernelSize, 3);
+    const sigmaX = params.sigmaX ?? params.sigma ?? 1.0;
+    const sigmaY = params.sigmaY ?? params.sigma ?? sigmaX;
+    const ksize = new cv.Size(sizeX, sizeY);
+    cv.GaussianBlur(src, dst, ksize, sigmaX, sigmaY);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    dst.delete();
+  }
+}
+
 export function applyBoxBlurOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
   if (!isOpenCVReady()) throw new Error('OpenCV not ready');
   
@@ -760,6 +781,25 @@ export function applyBoxBlurOpenCV(ctx: CanvasRenderingContext2D, params: Filter
     const anchor = new cv.Point(-1, -1);
     
     cv.boxFilter(src, dst, -1, ksize, anchor, true, cv.BORDER_DEFAULT);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    dst.delete();
+  }
+}
+
+export function applyBoxBlurAxisOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  
+  const cv = getOpenCV();
+  const src = canvasToMat(ctx);
+  const dst = new cv.Mat();
+  
+  try {
+    const sizeX = ensureOddSize(params.kernelSizeX ?? params.kernelSize, 3);
+    const sizeY = ensureOddSize(params.kernelSizeY ?? params.kernelSize, 3);
+    const ksize = new cv.Size(sizeX, sizeY);
+    cv.blur(src, dst, ksize, new cv.Point(-1, -1), cv.BORDER_DEFAULT);
     matToCanvas(ctx, dst);
   } finally {
     src.delete();

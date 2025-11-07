@@ -514,6 +514,49 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
             />
           </>
         );
+      case 'gaussianblur_xy':
+        return (
+          <>
+            <RangeInput
+              label="Kernel Size X"
+              value={(filterParams as any).kernelSizeX ?? 5}
+              min={3}
+              max={41}
+              step={2}
+              onChange={(value) => updateParam('kernelSizeX', value)}
+              compact={compact}
+              constraint="odd"
+            />
+            <RangeInput
+              label="Kernel Size Y"
+              value={(filterParams as any).kernelSizeY ?? 5}
+              min={3}
+              max={41}
+              step={2}
+              onChange={(value) => updateParam('kernelSizeY', value)}
+              compact={compact}
+              constraint="odd"
+            />
+            <RangeInput
+              label="Sigma X"
+              value={(filterParams as any).sigmaX ?? 1.5}
+              min={0.1}
+              max={20}
+              step={0.1}
+              onChange={(value) => updateParam('sigmaX', value)}
+              compact={compact}
+            />
+            <RangeInput
+              label="Sigma Y"
+              value={(filterParams as any).sigmaY ?? 1.5}
+              min={0.1}
+              max={20}
+              step={0.1}
+              onChange={(value) => updateParam('sigmaY', value)}
+              compact={compact}
+            />
+          </>
+        );
 
       case 'localhistogramequalization':
         return (
@@ -567,6 +610,31 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               max={21}
               step={2}
               onChange={(value) => updateParam('kernelSize', value)}
+              compact={compact}
+              constraint="odd"
+            />
+          </>
+        );
+      case 'boxblur_xy':
+        return (
+          <>
+            <RangeInput
+              label="Kernel Size X"
+              value={(filterParams as any).kernelSizeX ?? 5}
+              min={3}
+              max={41}
+              step={2}
+              onChange={(value) => updateParam('kernelSizeX', value)}
+              compact={compact}
+              constraint="odd"
+            />
+            <RangeInput
+              label="Kernel Size Y"
+              value={(filterParams as any).kernelSizeY ?? 5}
+              min={3}
+              max={41}
+              step={2}
+              onChange={(value) => updateParam('kernelSizeY', value)}
               compact={compact}
               constraint="odd"
             />

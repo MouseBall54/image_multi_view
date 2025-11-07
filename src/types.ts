@@ -39,7 +39,9 @@ export type FilterType =
   | "sobel"
   // Smoothing
   | "gaussianblur"
+  | "gaussianblur_xy"
   | "boxblur"
+  | "boxblur_xy"
   | "median"
   | "weightedmedian"
   | "alphatrimmedmean"

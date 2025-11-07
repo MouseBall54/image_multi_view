@@ -114,9 +114,11 @@ export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = 
   // Noise Reduction & Blurring
   { name: 'Box Blur', type: 'boxblur', group: 'Noise Reduction & Blurring' },
   { name: 'Gaussian Blur', type: 'gaussianblur', group: 'Noise Reduction & Blurring' },
+  { name: 'Gaussian Blur (Axis Independent)', type: 'gaussianblur_xy', group: 'Noise Reduction & Blurring' },
   { name: 'Median Blur', type: 'median', group: 'Noise Reduction & Blurring' },
   { name: 'Weighted Median', type: 'weightedmedian', group: 'Noise Reduction & Blurring' },
   { name: 'Alpha-trimmed Mean', type: 'alphatrimmedmean', group: 'Noise Reduction & Blurring' },
+  { name: 'Box Blur (Axis Independent)', type: 'boxblur_xy', group: 'Noise Reduction & Blurring' },
 
   // Edge-Preserving Smoothing
   { name: 'Guided Filter', type: 'guided', group: 'Edge-Preserving Smoothing' },
@@ -357,7 +359,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   void getCurrentImageFile;
 
   // 무거운 필터 목록 (더 긴 throttle 적용)
-  const heavyFilters = ['bilateral', 'morphology', 'morph_open', 'morph_close', 'morph_gradient', 'morph_tophat', 'morph_blackhat'];
+  const heavyFilters = ['bilateral', 'morphology', 'morph_open', 'morph_close', 'morph_gradient', 'morph_tophat', 'morph_blackhat', 'gaussianblur_xy', 'boxblur_xy'];
   
   // 현재 필터에 따른 throttle delay 결정
   const throttleDelay = React.useMemo(() => {
@@ -734,6 +736,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
             </div>
           </div>
         );
+      case 'boxblur_xy':
+        return (
+          <FilterParameterControls
+            filterType={tempViewerFilter}
+            filterParams={tempViewerFilterParams}
+            onChange={handleParamsReplace}
+            compact
+          />
+        );
       case 'gaussianblur':
         return (
           <>
@@ -776,6 +787,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               />
             </div>
           </>
+        );
+      case 'gaussianblur_xy':
+        return (
+          <FilterParameterControls
+            filterType={tempViewerFilter}
+            filterParams={tempViewerFilterParams}
+            onChange={handleParamsReplace}
+            compact
+          />
         );
       case 'log':
         return (
@@ -1507,7 +1527,11 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               // Reset parameters to defaults for the new filter type
               const defaultParams = {
                 kernelSize: 3,
+                kernelSizeX: 3,
+                kernelSizeY: 3,
                 sigma: 1.0,
+                sigmaX: 1.0,
+                sigmaY: 1.0,
                 sigma2: 2.0,
                 clipLimit: 2.0,
                 gridSize: 8,

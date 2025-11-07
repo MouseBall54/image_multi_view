@@ -214,7 +214,9 @@ export function estimateFilterChainCost(
     'threshold_phansalkar': 3.8,
     'threshold_kittler': 1.5,
     'gaussianblur': 2.0,
+    'gaussianblur_xy': 2.5,
     'boxblur': 1.0,
+    'boxblur_xy': 1.3,
     'median': 5.0,
     'sharpen': 1.5,
     'sobel': 2.0,
@@ -397,8 +399,14 @@ async function applySingleFilter(
     case 'gaussianblur': 
       if (params) await Filters.applyGaussianBlur(ctx, params); 
       break;
+    case 'gaussianblur_xy':
+      if (params) await Filters.applyGaussianBlurAxis(ctx, params);
+      break;
     case 'boxblur': 
       if (params) await Filters.applyBoxBlur(ctx, params); 
+      break;
+    case 'boxblur_xy':
+      if (params) await Filters.applyBoxBlurAxis(ctx, params);
       break;
     case 'median': 
       if (params) Filters.applyMedian(ctx, params); 

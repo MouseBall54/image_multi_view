@@ -323,9 +323,17 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           setFilterProgress({ current: 1, total: 1 });
           if (params) Filters.applyGaussianBlur(ctx, params); 
           break;
+        case 'gaussianblur_xy':
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyGaussianBlurAxis(ctx, params);
+          break;
         case 'boxblur': 
           setFilterProgress({ current: 1, total: 1 });
           if (params) Filters.applyBoxBlur(ctx, params); 
+          break;
+        case 'boxblur_xy':
+          setFilterProgress({ current: 1, total: 1 });
+          if (params) await Filters.applyBoxBlurAxis(ctx, params);
           break;
         case 'median': 
           setFilterProgress({ current: 1, total: 1 });
