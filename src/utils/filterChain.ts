@@ -203,6 +203,16 @@ export function estimateFilterChainCost(
     'sepia': 0.2,
     'brightness': 0.1,
     'contrast': 0.1,
+    'threshold_binary': 1.0,
+    'threshold_otsu': 1.2,
+    'threshold_triangle': 1.2,
+    'threshold_adaptive_mean': 2.5,
+    'threshold_adaptive_gaussian': 2.8,
+    'threshold_sauvola': 3.5,
+    'threshold_bradley': 2.8,
+    'threshold_bernsen': 2.8,
+    'threshold_phansalkar': 3.8,
+    'threshold_kittler': 1.5,
     'gaussianblur': 2.0,
     'boxblur': 1.0,
     'median': 5.0,
@@ -317,6 +327,36 @@ async function applySingleFilter(
       break;
     case 'contrast':
       if (params) await Filters.applyContrast(ctx, params);
+      break;
+    case 'threshold_binary':
+      await Filters.applyThresholdBinary(ctx, (params ?? {}) as any);
+      break;
+    case 'threshold_otsu':
+      await Filters.applyThresholdOtsu(ctx, (params ?? {}) as any);
+      break;
+    case 'threshold_triangle':
+      await Filters.applyThresholdTriangle(ctx, (params ?? {}) as any);
+      break;
+    case 'threshold_adaptive_mean':
+      await Filters.applyThresholdAdaptiveMean(ctx, (params ?? {}) as any);
+      break;
+    case 'threshold_adaptive_gaussian':
+      await Filters.applyThresholdAdaptiveGaussian(ctx, (params ?? {}) as any);
+      break;
+    case 'threshold_sauvola':
+      await Filters.applyThresholdSauvola(ctx, (params ?? {}) as any);
+      break;
+    case 'threshold_bradley':
+      await Filters.applyThresholdBradley(ctx, (params ?? {}) as any);
+      break;
+    case 'threshold_bernsen':
+      await Filters.applyThresholdBernsen(ctx, (params ?? {}) as any);
+      break;
+    case 'threshold_phansalkar':
+      await Filters.applyThresholdPhansalkar(ctx, (params ?? {}) as any);
+      break;
+    case 'threshold_kittler':
+      await Filters.applyThresholdKittler(ctx, (params ?? {}) as any);
       break;
     case 'none':
       // Already drawn above

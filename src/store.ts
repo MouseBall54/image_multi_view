@@ -21,6 +21,7 @@ export interface FilterParams {
   cutoff: number;
   brightness?: number; // -100..100 (% offset)
   contrast?: number;   // 0..200 (%)
+  maxValue?: number;
   // Gabor params
   theta: number; // Orientation
   gaborSigma: number; // Bandwidth
@@ -39,6 +40,19 @@ export interface FilterParams {
   kappa?: number;
   epsilon?: number;
   lawsKernelType?: string;
+  // Thresholding params
+  binaryInvert?: boolean;
+  blockSize?: number;
+  constant?: number;
+  windowSize?: number;
+  sauvolaK?: number;
+  sauvolaR?: number;
+  bradleyT?: number;
+  bernsenContrast?: number;
+  phansalkarK?: number;
+  phansalkarR?: number;
+  phansalkarP?: number;
+  phansalkarQ?: number;
   // Morphology params
   morphShape?: string; // 'rect', 'ellipse', 'cross'
   morphIterations?: number;
@@ -74,6 +88,19 @@ const defaultFilterParams: FilterParams = {
   alpha: 0.1,
   sigmaColor: 25,
   sigmaSpace: 25,
+  maxValue: 255,
+  binaryInvert: false,
+  blockSize: 15,
+  constant: 5,
+  windowSize: 15,
+  sauvolaK: 0.5,
+  sauvolaR: 128,
+  bradleyT: 0.15,
+  bernsenContrast: 15,
+  phansalkarK: 0.25,
+  phansalkarR: 0.5,
+  phansalkarP: 2.0,
+  phansalkarQ: 10.0,
   patchSize: 7,
   searchWindowSize: 21,
   h: 10,

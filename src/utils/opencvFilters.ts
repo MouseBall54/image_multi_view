@@ -53,6 +53,339 @@ export function matToCanvas(ctx: CanvasRenderingContext2D, mat: any): void {
   }
 }
 
+function ensureOddSize(value: number | undefined, fallback: number = 15, min: number = 3): number {
+  let result = typeof value === 'number' ? Math.floor(value) : fallback;
+  if (result < min) result = min;
+  if (result % 2 === 0) result += 1;
+  return result;
+}
+
+function getCv(): any {
+  if (!isOpenCVReady()) throw new Error('OpenCV not ready');
+  return getOpenCV();
+}
+
+export function applyBinaryThresholdOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  const cv = getCv();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const dst = new cv.Mat();
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    const thresholdValue = typeof params.threshold === 'number' ? params.threshold : 128;
+    const maxValue = typeof params.maxValue === 'number' ? params.maxValue : 255;
+    const type = params.binaryInvert ? cv.THRESH_BINARY_INV : cv.THRESH_BINARY;
+    cv.threshold(gray, dst, thresholdValue, maxValue, type);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    dst.delete();
+  }
+}
+
+export function applyOtsuThresholdOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  const cv = getCv();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const dst = new cv.Mat();
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    const maxValue = typeof params.maxValue === 'number' ? params.maxValue : 255;
+    const type = (params.binaryInvert ? cv.THRESH_BINARY_INV : cv.THRESH_BINARY) | cv.THRESH_OTSU;
+    cv.threshold(gray, dst, 0, maxValue, type);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    dst.delete();
+  }
+}
+
+export function applyTriangleThresholdOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  const cv = getCv();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const dst = new cv.Mat();
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    const maxValue = typeof params.maxValue === 'number' ? params.maxValue : 255;
+    const type = (params.binaryInvert ? cv.THRESH_BINARY_INV : cv.THRESH_BINARY) | cv.THRESH_TRIANGLE;
+    cv.threshold(gray, dst, 0, maxValue, type);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    dst.delete();
+  }
+}
+
+export function applyAdaptiveMeanThresholdOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  const cv = getCv();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const dst = new cv.Mat();
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    const blockSize = ensureOddSize(params.blockSize, 15, 3);
+    const maxValue = typeof params.maxValue === 'number' ? params.maxValue : 255;
+    const constant = typeof params.constant === 'number' ? params.constant : 5;
+    const type = params.binaryInvert ? cv.THRESH_BINARY_INV : cv.THRESH_BINARY;
+    cv.adaptiveThreshold(gray, dst, maxValue, cv.ADAPTIVE_THRESH_MEAN_C, type, blockSize, constant);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    dst.delete();
+  }
+}
+
+export function applyAdaptiveGaussianThresholdOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  const cv = getCv();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const dst = new cv.Mat();
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    const blockSize = ensureOddSize(params.blockSize, 15, 3);
+    const maxValue = typeof params.maxValue === 'number' ? params.maxValue : 255;
+    const constant = typeof params.constant === 'number' ? params.constant : 5;
+    const type = params.binaryInvert ? cv.THRESH_BINARY_INV : cv.THRESH_BINARY;
+    cv.adaptiveThreshold(gray, dst, maxValue, cv.ADAPTIVE_THRESH_GAUSSIAN_C, type, blockSize, constant);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    dst.delete();
+  }
+}
+
+export function applySauvolaThresholdOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  const cv = getCv();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const grayFloat = new cv.Mat();
+  const mean = new cv.Mat();
+  const sqr = new cv.Mat();
+  const meanSq = new cv.Mat();
+  const meanSquared = new cv.Mat();
+  const variance = new cv.Mat();
+  const stdDev = new cv.Mat();
+  const dst = new cv.Mat();
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    gray.convertTo(grayFloat, cv.CV_32F);
+
+    const windowSize = ensureOddSize(params.windowSize ?? params.blockSize, 15, 3);
+    const kernelSize = new cv.Size(windowSize, windowSize);
+    cv.boxFilter(grayFloat, mean, -1, kernelSize, new cv.Point(-1, -1), true, cv.BORDER_REPLICATE);
+    cv.multiply(grayFloat, grayFloat, sqr);
+    cv.boxFilter(sqr, meanSq, -1, kernelSize, new cv.Point(-1, -1), true, cv.BORDER_REPLICATE);
+    cv.multiply(mean, mean, meanSquared);
+    cv.subtract(meanSq, meanSquared, variance);
+    const zeroMat = cv.Mat.zeros(variance.rows, variance.cols, variance.type());
+    cv.max(variance, zeroMat, variance);
+    zeroMat.delete();
+    cv.sqrt(variance, stdDev);
+
+    const meanData = mean.data32F;
+    const stdData = stdDev.data32F;
+    const grayData = gray.data;
+    const dstData = new Uint8Array(gray.rows * gray.cols);
+
+    const k = typeof params.sauvolaK === 'number' ? params.sauvolaK : 0.5;
+    const r = typeof params.sauvolaR === 'number' ? params.sauvolaR : 128;
+    const maxValue = typeof params.maxValue === 'number' ? params.maxValue : 255;
+    const invert = Boolean(params.binaryInvert);
+    const denom = r === 0 ? 1 : r;
+
+    for (let i = 0; i < grayData.length; i++) {
+      const m = meanData[i];
+      const s = stdData[i];
+      const threshold = m * (1 + k * ((s / denom) - 1));
+      const output = grayData[i] > threshold ? maxValue : 0;
+      dstData[i] = invert ? (output === 0 ? maxValue : 0) : output;
+    }
+
+    dst.create(gray.rows, gray.cols, cv.CV_8UC1);
+    dst.data.set(dstData);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    grayFloat.delete();
+    mean.delete();
+    sqr.delete();
+    meanSq.delete();
+    meanSquared.delete();
+    variance.delete();
+    stdDev.delete();
+    dst.delete();
+  }
+}
+
+export function applyBradleyThresholdOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  const cv = getCv();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const grayFloat = new cv.Mat();
+  const mean = new cv.Mat();
+  const dst = new cv.Mat();
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    gray.convertTo(grayFloat, cv.CV_32F);
+
+    const windowSize = ensureOddSize(params.windowSize ?? params.blockSize, 15, 3);
+    const kernelSize = new cv.Size(windowSize, windowSize);
+    cv.boxFilter(grayFloat, mean, -1, kernelSize, new cv.Point(-1, -1), true, cv.BORDER_REPLICATE);
+
+    const meanData = mean.data32F;
+    const grayData = gray.data;
+    const dstData = new Uint8Array(gray.rows * gray.cols);
+
+    const t = typeof params.bradleyT === 'number' ? params.bradleyT : 0.15;
+    const maxValue = typeof params.maxValue === 'number' ? params.maxValue : 255;
+    const invert = Boolean(params.binaryInvert);
+
+    for (let i = 0; i < grayData.length; i++) {
+      const threshold = meanData[i] * (1 - t);
+      const output = grayData[i] > threshold ? maxValue : 0;
+      dstData[i] = invert ? (output === 0 ? maxValue : 0) : output;
+    }
+
+    dst.create(gray.rows, gray.cols, cv.CV_8UC1);
+    dst.data.set(dstData);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    grayFloat.delete();
+    mean.delete();
+    dst.delete();
+  }
+}
+
+export function applyBernsenThresholdOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  const cv = getCv();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const minMat = new cv.Mat();
+  const maxMat = new cv.Mat();
+  const dst = new cv.Mat();
+  let kernel: any;
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    const windowSize = ensureOddSize(params.windowSize ?? params.blockSize, 15, 3);
+    kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(windowSize, windowSize));
+    cv.erode(gray, minMat, kernel);
+    cv.dilate(gray, maxMat, kernel);
+
+    const grayData = gray.data;
+    const minData = minMat.data;
+    const maxData = maxMat.data;
+    const dstData = new Uint8Array(gray.rows * gray.cols);
+
+    const contrastLimit = typeof params.bernsenContrast === 'number' ? params.bernsenContrast : 15;
+    const fallbackThreshold = typeof params.threshold === 'number' ? params.threshold : 128;
+    const maxValue = typeof params.maxValue === 'number' ? params.maxValue : 255;
+    const invert = Boolean(params.binaryInvert);
+
+    for (let i = 0; i < grayData.length; i++) {
+      const minVal = minData[i];
+      const maxVal = maxData[i];
+      const contrast = maxVal - minVal;
+      let threshold = (maxVal + minVal) / 2;
+      if (contrast < contrastLimit) {
+        threshold = fallbackThreshold;
+      }
+      const output = grayData[i] > threshold ? maxValue : 0;
+      dstData[i] = invert ? (output === 0 ? maxValue : 0) : output;
+    }
+
+    dst.create(gray.rows, gray.cols, cv.CV_8UC1);
+    dst.data.set(dstData);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    minMat.delete();
+    maxMat.delete();
+    if (kernel) {
+      kernel.delete();
+    }
+    dst.delete();
+  }
+}
+
+export function applyPhansalkarThresholdOpenCV(ctx: CanvasRenderingContext2D, params: FilterParams): void {
+  const cv = getCv();
+  const src = canvasToMat(ctx);
+  const gray = new cv.Mat();
+  const grayFloat = new cv.Mat();
+  const mean = new cv.Mat();
+  const sqr = new cv.Mat();
+  const meanSq = new cv.Mat();
+  const meanSquared = new cv.Mat();
+  const variance = new cv.Mat();
+  const stdDev = new cv.Mat();
+  const dst = new cv.Mat();
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    gray.convertTo(grayFloat, cv.CV_32F);
+
+    const windowSize = ensureOddSize(params.windowSize ?? params.blockSize, 15, 3);
+    const kernelSize = new cv.Size(windowSize, windowSize);
+    cv.boxFilter(grayFloat, mean, -1, kernelSize, new cv.Point(-1, -1), true, cv.BORDER_REPLICATE);
+    cv.multiply(grayFloat, grayFloat, sqr);
+    cv.boxFilter(sqr, meanSq, -1, kernelSize, new cv.Point(-1, -1), true, cv.BORDER_REPLICATE);
+    cv.multiply(mean, mean, meanSquared);
+    cv.subtract(meanSq, meanSquared, variance);
+    const zeroMat = cv.Mat.zeros(variance.rows, variance.cols, variance.type());
+    cv.max(variance, zeroMat, variance);
+    zeroMat.delete();
+    cv.sqrt(variance, stdDev);
+
+    const meanData = mean.data32F;
+    const stdData = stdDev.data32F;
+    const grayData = gray.data;
+    const dstData = new Uint8Array(gray.rows * gray.cols);
+
+    const k = typeof params.phansalkarK === 'number' ? params.phansalkarK : 0.25;
+    const r = typeof params.phansalkarR === 'number' ? params.phansalkarR : 0.5;
+    const p = typeof params.phansalkarP === 'number' ? params.phansalkarP : 2.0;
+    const q = typeof params.phansalkarQ === 'number' ? params.phansalkarQ : 10.0;
+    const maxValue = typeof params.maxValue === 'number' ? params.maxValue : 255;
+    const invert = Boolean(params.binaryInvert);
+
+    const denom = r === 0 ? 1 : r;
+
+    for (let i = 0; i < grayData.length; i++) {
+      const mNorm = meanData[i] / 255;
+      const sNorm = stdData[i] / 255;
+      const exponentTerm = Math.exp(-q * mNorm);
+      const thresholdNorm = mNorm * (1 + p * exponentTerm + k * ((sNorm / denom) - 1));
+      const threshold = thresholdNorm * 255;
+      const output = grayData[i] > threshold ? maxValue : 0;
+      dstData[i] = invert ? (output === 0 ? maxValue : 0) : output;
+    }
+
+    dst.create(gray.rows, gray.cols, cv.CV_8UC1);
+    dst.data.set(dstData);
+    matToCanvas(ctx, dst);
+  } finally {
+    src.delete();
+    gray.delete();
+    grayFloat.delete();
+    mean.delete();
+    sqr.delete();
+    meanSq.delete();
+    meanSquared.delete();
+    variance.delete();
+    stdDev.delete();
+    dst.delete();
+  }
+}
+
 export function calculatePerformanceMetrics(
   width: number, 
   height: number, 
