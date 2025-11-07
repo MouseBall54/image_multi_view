@@ -471,12 +471,36 @@ export default function App() {
   };
 
   const placeImagesIntoTempFolders = async (imageFiles: File[]): Promise<void> => {
-    // Use a simplified TEMP folder logic for global drop
     try {
       if (imageFiles.length === 0) return;
 
-      const emptyKey = findEmptyFolder();
-      if (!emptyKey) {
+      const aliasToKey = new Map<string, FolderKey>();
+      const keyToAlias = new Map<FolderKey, string>();
+      const reservedKeys = new Set<FolderKey>();
+
+      for (const key of FOLDER_KEYS) {
+        const folder = folders[key];
+        if (folder?.alias) {
+          aliasToKey.set(folder.alias, key);
+          keyToAlias.set(key, folder.alias);
+          reservedKeys.add(key);
+        }
+      }
+
+      const getAliasForIndex = (index: number) => (index <= 1 ? 'TEMP' : `TEMP_${index}`);
+
+      const getOrReserveAlias = (alias: string): FolderKey | null => {
+        const existingKey = aliasToKey.get(alias);
+        if (existingKey) return existingKey;
+        const candidate = FOLDER_KEYS.find(key => !folders[key] && !reservedKeys.has(key));
+        if (!candidate) return null;
+        aliasToKey.set(alias, candidate);
+        keyToAlias.set(candidate, alias);
+        reservedKeys.add(candidate);
+        return candidate;
+      };
+
+      if (!getOrReserveAlias('TEMP')) {
         addToast({
           type: 'error',
           title: 'No Empty Slots',
@@ -486,21 +510,56 @@ export default function App() {
         return;
       }
 
-      const filesMap = new Map<string, File>();
+      const buckets = new Map<FolderKey, Map<string, File>>();
+      const additions = new Map<string, number>();
+
       for (const file of imageFiles) {
-        filesMap.set(file.name, file);
+        let aliasIndex = 1;
+        let placed = false;
+        while (aliasIndex <= FOLDER_KEYS.length) {
+          const alias = getAliasForIndex(aliasIndex);
+          const key = getOrReserveAlias(alias);
+          if (!key) break;
+          let bucket = buckets.get(key);
+          if (!bucket) {
+            const existing = folders[key]?.data.files ?? new Map<string, File>();
+            bucket = new Map(existing);
+            buckets.set(key, bucket);
+          }
+          if (!bucket.has(file.name)) {
+            bucket.set(file.name, file);
+            additions.set(alias, (additions.get(alias) ?? 0) + 1);
+            placed = true;
+            break;
+          }
+          aliasIndex++;
+        }
+        if (!placed) {
+          addToast({
+            type: 'error',
+            title: 'No Empty Slots',
+            message: 'Not enough TEMP folders available for files with identical names. Please rename or clear TEMP folders.',
+            duration: 5000
+          });
+          return;
+        }
       }
 
-      setFolder(emptyKey, {
-        data: { name: 'TEMP', files: filesMap },
-        alias: 'TEMP'
-      });
+      for (const [key, fileMap] of buckets.entries()) {
+        const alias = keyToAlias.get(key) ?? 'TEMP';
+        const current = folders[key];
+        const name = current?.data.name || alias;
+        setFolder(key, {
+          data: { name, files: fileMap },
+          alias
+        });
+      }
 
       addToast({
         type: 'success',
         title: 'Images Added',
-        message: `${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} added to TEMP folder`,
-        details: [`Assigned to slot ${emptyKey}`],
+        message: `${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} placed into TEMP folders`,
+        details: Array.from(additions.entries()).map(([alias, count]) => `${alias}: ${count}`),
         duration: 5000
       });
     } catch (error) {
