@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useStore, FilterParams } from '../store';
 import { ALL_FILTERS, FilterControls } from './FilterControls';
-import type { FilterChainItem, FilterPreset, FolderKey } from '../types';
+import type { FilterChainItem, FilterPreset, FolderKey, FilterType } from '../types';
 import { importFilterChain, isValidFilterChainFile } from '../utils/filterExport';
 import { getRelevantParams as getRelevantParamsForType } from '../utils/filterExport';
 import { FilterPreviewModal } from './FilterPreviewModal';
@@ -1104,20 +1104,25 @@ export const FilterCart: React.FC = () => {
                   const targetKey = typeof activeFilterEditor !== 'undefined' && activeFilterEditor !== null
                     ? activeFilterEditor
                     : (activeCanvasKey ?? (analysisFile ? 0 : null));
-                  if (targetKey !== null && targetKey !== undefined && filterCart.length > 0) {
+                  if (targetKey !== null && targetKey !== undefined) {
+                    const items = filterCart.length > 0 ? filterCart : [{
+                      id: 'none',
+                      filterType: 'none' as FilterType,
+                      params: {},
+                      enabled: true
+                    }];
                     const tempChain = {
                       id: 'temp',
-                      name: 'Current Chain',
-                      items: filterCart,
+                      name: filterCart.length > 0 ? 'Current Chain' : 'Original',
+                      items,
                       createdAt: Date.now(),
                       modifiedAt: Date.now()
                     };
                     applyFilterChain(tempChain, targetKey as any);
-                    // Close the filter cart panel after applying the chain
                     setShowFilterCart(false);
                   }
                 }}
-                disabled={filterCart.length === 0 || !getCurrentImageFile()}
+                disabled={!getCurrentImageFile()}
                 title="Apply current chain to active viewer"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
