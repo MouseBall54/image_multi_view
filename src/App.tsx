@@ -578,6 +578,10 @@ export default function App() {
     e.preventDefault();
     e.stopPropagation();
 
+    if (isCaptureModalOpen) {
+      return;
+    }
+
     // If internal drag is active, ignore global drag handling
     if (isInternalDragActive) {
       console.log('🚫 Global drag blocked - internal drag active');
@@ -602,6 +606,10 @@ export default function App() {
     e.preventDefault();
     e.stopPropagation();
 
+    if (isCaptureModalOpen) {
+      return;
+    }
+
     // If internal drag is active, ignore global drag handling
     if (isInternalDragActive) {
       return;
@@ -625,6 +633,10 @@ export default function App() {
   const handleGlobalDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (isCaptureModalOpen) {
+      return;
+    }
 
     // If internal drag is active, ignore global drag handling
     if (isInternalDragActive) {
@@ -654,6 +666,10 @@ export default function App() {
     // If internal drag is active, ignore global drag handling
     if (isInternalDragActive || isInternalDrag) {
       return; // Ignore internal drags
+    }
+
+    if (isCaptureModalOpen) {
+      return;
     }
 
     await handleFolderDrop(
