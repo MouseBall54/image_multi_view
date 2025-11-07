@@ -127,6 +127,22 @@ const RangeInput: React.FC<{
   );
 };
 
+const CheckboxInput: React.FC<{
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  compact?: boolean;
+}> = ({ label, checked, onChange, compact = false }) => (
+  <div className={`control-row ${compact ? 'compact' : ''}`}>
+    <label>{label}</label>
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+    />
+  </div>
+);
+
 export const FilterParameterControls: React.FC<FilterParameterControlsProps> = ({
   filterType,
   filterParams,
@@ -136,6 +152,30 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
   const updateParam = (param: string, value: any) => {
     onChange({ ...filterParams, [param]: value });
   };
+
+  React.useEffect(() => {
+    const ensureMaxValue = (
+      filterType === 'threshold_binary' ||
+      filterType === 'threshold_otsu' ||
+      filterType === 'threshold_triangle' ||
+      filterType === 'threshold_adaptive_mean' ||
+      filterType === 'threshold_adaptive_gaussian' ||
+      filterType === 'threshold_sauvola' ||
+      filterType === 'threshold_bradley' ||
+      filterType === 'threshold_bernsen' ||
+      filterType === 'threshold_phansalkar' ||
+      filterType === 'threshold_kittler'
+    );
+    if (ensureMaxValue && (filterParams as any).maxValue === undefined) {
+      updateParam('maxValue', 255);
+    }
+    if (
+      filterType === 'threshold_binary' &&
+      (((filterParams as any).threshold) === undefined || (filterParams as any).threshold === 10)
+    ) {
+      updateParam('threshold', 128);
+    }
+  }, [filterType, filterParams]);
 
   const renderControls = () => {
     switch (filterType) {
@@ -166,6 +206,287 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
               onChange={(value) => updateParam('contrast', value)}
               compact={compact}
               constraint="positive"
+            />
+          </>
+        );
+
+      case 'threshold_binary':
+        return (
+          <>
+            <RangeInput
+              label="Threshold"
+              value={(filterParams as any).threshold ?? 128}
+              min={0}
+              max={255}
+              step={1}
+              onChange={(value) => updateParam('threshold', value)}
+              compact={compact}
+              constraint="integer"
+            />
+            <RangeInput
+              label="Max Value"
+              value={(filterParams as any).maxValue ?? 255}
+              min={0}
+              max={255}
+              step={1}
+              onChange={(value) => updateParam('maxValue', value)}
+              compact={compact}
+              constraint="integer"
+            />
+            <CheckboxInput
+              label="Invert Output"
+              checked={Boolean((filterParams as any).binaryInvert)}
+              onChange={(value) => updateParam('binaryInvert', value)}
+              compact={compact}
+            />
+          </>
+        );
+
+      case 'threshold_otsu':
+      case 'threshold_triangle':
+        return (
+          <>
+            <RangeInput
+              label="Max Value"
+              value={(filterParams as any).maxValue ?? 255}
+              min={0}
+              max={255}
+              step={1}
+              onChange={(value) => updateParam('maxValue', value)}
+              compact={compact}
+              constraint="integer"
+            />
+            <CheckboxInput
+              label="Invert Output"
+              checked={Boolean((filterParams as any).binaryInvert)}
+              onChange={(value) => updateParam('binaryInvert', value)}
+              compact={compact}
+            />
+          </>
+        );
+
+      case 'threshold_adaptive_mean':
+      case 'threshold_adaptive_gaussian':
+        return (
+          <>
+            <RangeInput
+              label="Block Size"
+              value={(filterParams as any).blockSize ?? 15}
+              min={3}
+              max={51}
+              step={2}
+              onChange={(value) => updateParam('blockSize', value)}
+              compact={compact}
+              constraint="odd"
+            />
+            <RangeInput
+              label="Constant (C)"
+              value={(filterParams as any).constant ?? 5}
+              min={-30}
+              max={30}
+              step={0.5}
+              onChange={(value) => updateParam('constant', value)}
+              compact={compact}
+            />
+            <RangeInput
+              label="Max Value"
+              value={(filterParams as any).maxValue ?? 255}
+              min={0}
+              max={255}
+              step={1}
+              onChange={(value) => updateParam('maxValue', value)}
+              compact={compact}
+              constraint="integer"
+            />
+            <CheckboxInput
+              label="Invert Output"
+              checked={Boolean((filterParams as any).binaryInvert)}
+              onChange={(value) => updateParam('binaryInvert', value)}
+              compact={compact}
+            />
+          </>
+        );
+
+      case 'threshold_sauvola':
+        return (
+          <>
+            <RangeInput
+              label="Window Size"
+              value={(filterParams as any).windowSize ?? 15}
+              min={3}
+              max={51}
+              step={2}
+              onChange={(value) => updateParam('windowSize', value)}
+              compact={compact}
+              constraint="odd"
+            />
+            <RangeInput
+              label="k"
+              value={(filterParams as any).sauvolaK ?? 0.5}
+              min={0}
+              max={1}
+              step={0.05}
+              onChange={(value) => updateParam('sauvolaK', value)}
+              compact={compact}
+            />
+            <RangeInput
+              label="R"
+              value={(filterParams as any).sauvolaR ?? 128}
+              min={1}
+              max={255}
+              step={1}
+              onChange={(value) => updateParam('sauvolaR', value)}
+              compact={compact}
+              constraint="integer"
+            />
+            <CheckboxInput
+              label="Invert Output"
+              checked={Boolean((filterParams as any).binaryInvert)}
+              onChange={(value) => updateParam('binaryInvert', value)}
+              compact={compact}
+            />
+          </>
+        );
+
+      case 'threshold_bradley':
+        return (
+          <>
+            <RangeInput
+              label="Window Size"
+              value={(filterParams as any).windowSize ?? 15}
+              min={3}
+              max={51}
+              step={2}
+              onChange={(value) => updateParam('windowSize', value)}
+              compact={compact}
+              constraint="odd"
+            />
+            <RangeInput
+              label="Threshold (t)"
+              value={(filterParams as any).bradleyT ?? 0.15}
+              min={0}
+              max={1}
+              step={0.01}
+              onChange={(value) => updateParam('bradleyT', value)}
+              compact={compact}
+            />
+            <CheckboxInput
+              label="Invert Output"
+              checked={Boolean((filterParams as any).binaryInvert)}
+              onChange={(value) => updateParam('binaryInvert', value)}
+              compact={compact}
+            />
+          </>
+        );
+
+      case 'threshold_bernsen':
+        return (
+          <>
+            <RangeInput
+              label="Window Size"
+              value={(filterParams as any).windowSize ?? 15}
+              min={3}
+              max={51}
+              step={2}
+              onChange={(value) => updateParam('windowSize', value)}
+              compact={compact}
+              constraint="odd"
+            />
+            <RangeInput
+              label="Contrast Limit"
+              value={(filterParams as any).bernsenContrast ?? 15}
+              min={0}
+              max={255}
+              step={1}
+              onChange={(value) => updateParam('bernsenContrast', value)}
+              compact={compact}
+              constraint="integer"
+            />
+            <CheckboxInput
+              label="Invert Output"
+              checked={Boolean((filterParams as any).binaryInvert)}
+              onChange={(value) => updateParam('binaryInvert', value)}
+              compact={compact}
+            />
+          </>
+        );
+
+      case 'threshold_phansalkar':
+        return (
+          <>
+            <RangeInput
+              label="Window Size"
+              value={(filterParams as any).windowSize ?? 15}
+              min={3}
+              max={51}
+              step={2}
+              onChange={(value) => updateParam('windowSize', value)}
+              compact={compact}
+              constraint="odd"
+            />
+            <RangeInput
+              label="k"
+              value={(filterParams as any).phansalkarK ?? 0.25}
+              min={0}
+              max={1}
+              step={0.05}
+              onChange={(value) => updateParam('phansalkarK', value)}
+              compact={compact}
+            />
+            <RangeInput
+              label="r"
+              value={(filterParams as any).phansalkarR ?? 0.5}
+              min={0.1}
+              max={1}
+              step={0.05}
+              onChange={(value) => updateParam('phansalkarR', value)}
+              compact={compact}
+            />
+            <RangeInput
+              label="p"
+              value={(filterParams as any).phansalkarP ?? 2.0}
+              min={0}
+              max={5}
+              step={0.1}
+              onChange={(value) => updateParam('phansalkarP', value)}
+              compact={compact}
+            />
+            <RangeInput
+              label="q"
+              value={(filterParams as any).phansalkarQ ?? 10.0}
+              min={0}
+              max={20}
+              step={0.5}
+              onChange={(value) => updateParam('phansalkarQ', value)}
+              compact={compact}
+            />
+            <CheckboxInput
+              label="Invert Output"
+              checked={Boolean((filterParams as any).binaryInvert)}
+              onChange={(value) => updateParam('binaryInvert', value)}
+              compact={compact}
+            />
+          </>
+        );
+
+      case 'threshold_kittler':
+        return (
+          <>
+            <RangeInput
+              label="Max Value"
+              value={(filterParams as any).maxValue ?? 255}
+              min={0}
+              max={255}
+              step={1}
+              onChange={(value) => updateParam('maxValue', value)}
+              compact={compact}
+              constraint="integer"
+            />
+            <CheckboxInput
+              label="Invert Output"
+              checked={Boolean((filterParams as any).binaryInvert)}
+              onChange={(value) => updateParam('binaryInvert', value)}
+              compact={compact}
             />
           </>
         );

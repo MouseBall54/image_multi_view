@@ -235,6 +235,46 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
           setFilterProgress({ current: 1, total: 1 });
           if (params) await Filters.applyContrast(ctx, params);
           break;
+        case 'threshold_binary':
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyThresholdBinary(ctx, (params ?? {}) as any);
+          break;
+        case 'threshold_otsu':
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyThresholdOtsu(ctx, (params ?? {}) as any);
+          break;
+        case 'threshold_triangle':
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyThresholdTriangle(ctx, (params ?? {}) as any);
+          break;
+        case 'threshold_adaptive_mean':
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyThresholdAdaptiveMean(ctx, (params ?? {}) as any);
+          break;
+        case 'threshold_adaptive_gaussian':
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyThresholdAdaptiveGaussian(ctx, (params ?? {}) as any);
+          break;
+        case 'threshold_sauvola':
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyThresholdSauvola(ctx, (params ?? {}) as any);
+          break;
+        case 'threshold_bradley':
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyThresholdBradley(ctx, (params ?? {}) as any);
+          break;
+        case 'threshold_bernsen':
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyThresholdBernsen(ctx, (params ?? {}) as any);
+          break;
+        case 'threshold_phansalkar':
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyThresholdPhansalkar(ctx, (params ?? {}) as any);
+          break;
+        case 'threshold_kittler':
+          setFilterProgress({ current: 1, total: 1 });
+          await Filters.applyThresholdKittler(ctx, (params ?? {}) as any);
+          break;
         case 'linearstretch': 
           setFilterProgress({ current: 1, total: 1 });
           await Filters.applyLinearStretch(ctx); 

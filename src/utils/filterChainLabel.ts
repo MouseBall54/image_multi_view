@@ -15,6 +15,16 @@ const FILTER_INFO: Array<{ type: FilterType; name: string }> = [
   { type: 'laplacian', name: 'Laplacian' },
   { type: 'histogramequalization', name: 'Histogram Equalization' },
   { type: 'clahe', name: 'CLAHE' },
+  { type: 'threshold_binary', name: 'Binary Threshold' },
+  { type: 'threshold_otsu', name: 'Otsu Threshold' },
+  { type: 'threshold_triangle', name: 'Triangle Threshold' },
+  { type: 'threshold_adaptive_mean', name: 'Adaptive Mean Threshold' },
+  { type: 'threshold_adaptive_gaussian', name: 'Adaptive Gaussian Threshold' },
+  { type: 'threshold_sauvola', name: 'Sauvola Threshold' },
+  { type: 'threshold_bradley', name: 'Bradley Threshold' },
+  { type: 'threshold_bernsen', name: 'Bernsen Threshold' },
+  { type: 'threshold_phansalkar', name: 'Phansalkar Threshold' },
+  { type: 'threshold_kittler', name: 'Kittler Threshold' },
   // Add more as needed
 ];
 

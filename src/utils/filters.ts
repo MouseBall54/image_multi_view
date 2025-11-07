@@ -19,7 +19,16 @@ import {
   applyRobertsCrossOpenCV,
   applyLoGOpenCV,
   applyDoGOpenCV,
-  applyMarrHildrethOpenCV
+  applyMarrHildrethOpenCV,
+  applyBinaryThresholdOpenCV,
+  applyOtsuThresholdOpenCV,
+  applyTriangleThresholdOpenCV,
+  applyAdaptiveMeanThresholdOpenCV,
+  applyAdaptiveGaussianThresholdOpenCV,
+  applySauvolaThresholdOpenCV,
+  applyBradleyThresholdOpenCV,
+  applyBernsenThresholdOpenCV,
+  applyPhansalkarThresholdOpenCV
 } from './opencvFilters';
 import {
   applyHistogramEqualizationOpenCV,
@@ -116,6 +125,150 @@ function createGaborKernel(params: FilterParams): Kernel {
 }
 
 type Kernel = number[][];
+
+function getGrayscaleImage(ctx: CanvasRenderingContext2D) {
+  const width = ctx.canvas.width;
+  const height = ctx.canvas.height;
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  const gray = new Uint8ClampedArray(width * height);
+  for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+    gray[j] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+  }
+  return { width, height, imageData, gray };
+}
+
+function applyBinaryWithThresholdValue(
+  ctx: CanvasRenderingContext2D,
+  params: FilterParams,
+  thresholdValue: number,
+  base?: ReturnType<typeof getGrayscaleImage>
+) {
+  const baseData = base ?? getGrayscaleImage(ctx);
+  const { imageData, gray } = baseData;
+  const data = imageData.data;
+  const maxValue = typeof params.maxValue === 'number' ? params.maxValue : 255;
+  const invert = Boolean(params.binaryInvert);
+
+  for (let i = 0; i < gray.length; i++) {
+    const idx = i * 4;
+    const binary = gray[i] > thresholdValue ? maxValue : 0;
+    const output = invert ? (binary === 0 ? maxValue : 0) : binary;
+    data[idx] = output;
+    data[idx + 1] = output;
+    data[idx + 2] = output;
+    data[idx + 3] = 255;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function computeHistogram(gray: Uint8ClampedArray): number[] {
+  const hist = new Array(256).fill(0);
+  for (let i = 0; i < gray.length; i++) {
+    hist[gray[i]]++;
+  }
+  return hist;
+}
+
+function computeOtsuThreshold(gray: Uint8ClampedArray): number {
+  const hist = computeHistogram(gray);
+  const total = gray.length;
+  let sum = 0;
+  for (let i = 0; i < 256; i++) {
+    sum += i * hist[i];
+  }
+
+  let sumB = 0;
+  let wB = 0;
+  let maxVar = -1;
+  let threshold = 0;
+
+  for (let i = 0; i < 256; i++) {
+    wB += hist[i];
+    if (wB === 0) continue;
+    const wF = total - wB;
+    if (wF === 0) break;
+    sumB += i * hist[i];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > maxVar) {
+      maxVar = between;
+      threshold = i;
+    }
+  }
+
+  return threshold;
+}
+
+function applyOtsuFallback(ctx: CanvasRenderingContext2D, params: FilterParams) {
+  const base = getGrayscaleImage(ctx);
+  const threshold = computeOtsuThreshold(base.gray);
+  applyBinaryWithThresholdValue(ctx, params, threshold, base);
+}
+
+function applyBinaryThresholdFallback(ctx: CanvasRenderingContext2D, params: FilterParams) {
+  const threshold = typeof params.threshold === 'number' ? params.threshold : 128;
+  applyBinaryWithThresholdValue(ctx, params, threshold);
+}
+
+function computeKittlerThreshold(gray: Uint8ClampedArray): number {
+  const hist = computeHistogram(gray);
+  const total = gray.length;
+  let sum = 0;
+  let sumSq = 0;
+  for (let i = 0; i < 256; i++) {
+    sum += i * hist[i];
+    sumSq += i * i * hist[i];
+  }
+
+  let cumulativeCount = 0;
+  let cumulativeSum = 0;
+  let cumulativeSq = 0;
+  let minError = Number.POSITIVE_INFINITY;
+  let threshold = 0;
+
+  for (let t = 0; t < 255; t++) {
+    const count = hist[t];
+    if (count === 0) continue;
+
+    cumulativeCount += count;
+    cumulativeSum += t * count;
+    cumulativeSq += t * t * count;
+
+    const w0 = cumulativeCount / total;
+    const w1 = 1 - w0;
+    if (w0 < 1e-6 || w1 < 1e-6) continue;
+
+    const mean0 = cumulativeSum / cumulativeCount;
+    const mean1 = (sum - cumulativeSum) / (total - cumulativeCount);
+
+    const sigma0Sq = Math.max(cumulativeSq / cumulativeCount - mean0 * mean0, 1e-6);
+    const sigma1Sq = Math.max((sumSq - cumulativeSq) / (total - cumulativeCount) - mean1 * mean1, 1e-6);
+
+    const sigma0 = Math.sqrt(sigma0Sq);
+    const sigma1 = Math.sqrt(sigma1Sq);
+
+    const error =
+      1 +
+      2 * (w0 * Math.log(sigma0) + w1 * Math.log(sigma1)) -
+      2 * (w0 * Math.log(w0) + w1 * Math.log(w1));
+
+    if (error < minError) {
+      minError = error;
+      threshold = t;
+    }
+  }
+
+  return threshold;
+}
+
+function applyKittlerFallback(ctx: CanvasRenderingContext2D, params: FilterParams) {
+  const base = getGrayscaleImage(ctx);
+  const threshold = computeKittlerThreshold(base.gray);
+  applyBinaryWithThresholdValue(ctx, params, threshold, base);
+}
 
 function convolve(ctx: CanvasRenderingContext2D, kernel: Kernel) {
   const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -245,6 +398,76 @@ export const applyContrast = async (ctx: CanvasRenderingContext2D, params: Filte
     data[i + 2] = Math.max(0, Math.min(255, 128 + (data[i + 2] - 128) * factor));
   }
   ctx.putImageData(imageData, 0, 0);
+};
+
+export const applyThresholdBinary = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (context: CanvasRenderingContext2D, p: FilterParams) => {
+    applyBinaryThresholdFallback(context, p);
+  };
+  await applyFilterWithFallback(ctx, 'threshold_binary', params, originalFn, applyBinaryThresholdOpenCV);
+};
+
+export const applyThresholdOtsu = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (context: CanvasRenderingContext2D, p: FilterParams) => {
+    applyOtsuFallback(context, p);
+  };
+  await applyFilterWithFallback(ctx, 'threshold_otsu', params, originalFn, applyOtsuThresholdOpenCV);
+};
+
+export const applyThresholdTriangle = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (context: CanvasRenderingContext2D, p: FilterParams) => {
+    applyOtsuFallback(context, p);
+  };
+  await applyFilterWithFallback(ctx, 'threshold_triangle', params, originalFn, applyTriangleThresholdOpenCV);
+};
+
+export const applyThresholdAdaptiveMean = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (context: CanvasRenderingContext2D, p: FilterParams) => {
+    applyOtsuFallback(context, p);
+  };
+  await applyFilterWithFallback(ctx, 'threshold_adaptive_mean', params, originalFn, applyAdaptiveMeanThresholdOpenCV);
+};
+
+export const applyThresholdAdaptiveGaussian = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (context: CanvasRenderingContext2D, p: FilterParams) => {
+    applyOtsuFallback(context, p);
+  };
+  await applyFilterWithFallback(ctx, 'threshold_adaptive_gaussian', params, originalFn, applyAdaptiveGaussianThresholdOpenCV);
+};
+
+export const applyThresholdSauvola = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (context: CanvasRenderingContext2D, p: FilterParams) => {
+    applyOtsuFallback(context, p);
+  };
+  await applyFilterWithFallback(ctx, 'threshold_sauvola', params, originalFn, applySauvolaThresholdOpenCV);
+};
+
+export const applyThresholdBradley = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (context: CanvasRenderingContext2D, p: FilterParams) => {
+    applyOtsuFallback(context, p);
+  };
+  await applyFilterWithFallback(ctx, 'threshold_bradley', params, originalFn, applyBradleyThresholdOpenCV);
+};
+
+export const applyThresholdBernsen = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (context: CanvasRenderingContext2D, p: FilterParams) => {
+    applyOtsuFallback(context, p);
+  };
+  await applyFilterWithFallback(ctx, 'threshold_bernsen', params, originalFn, applyBernsenThresholdOpenCV);
+};
+
+export const applyThresholdPhansalkar = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (context: CanvasRenderingContext2D, p: FilterParams) => {
+    applyOtsuFallback(context, p);
+  };
+  await applyFilterWithFallback(ctx, 'threshold_phansalkar', params, originalFn, applyPhansalkarThresholdOpenCV);
+};
+
+export const applyThresholdKittler = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const originalFn = (context: CanvasRenderingContext2D, p: FilterParams) => {
+    applyKittlerFallback(context, p);
+  };
+  await applyFilterWithFallback(ctx, 'threshold_kittler', params, originalFn);
 };
 
 export const applySharpen = (ctx: CanvasRenderingContext2D, params: FilterParams) => {

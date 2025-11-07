@@ -78,6 +78,17 @@ export type FilterType =
   | "dft"
   | "dct"
   | "wavelet"
+  // Binarization
+  | "threshold_binary"
+  | "threshold_otsu"
+  | "threshold_triangle"
+  | "threshold_adaptive_mean"
+  | "threshold_adaptive_gaussian"
+  | "threshold_sauvola"
+  | "threshold_bradley"
+  | "threshold_bernsen"
+  | "threshold_phansalkar"
+  | "threshold_kittler"
   // Morphology & Distance
   | "morph_open"
   | "morph_close"

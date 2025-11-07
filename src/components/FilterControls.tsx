@@ -1,5 +1,6 @@
 import React from 'react';
 import { useStore } from '../store';
+import type { FilterParams } from '../store';
 import type { FilterType, FolderKey } from '../types';
 import { LAWS_KERNEL_TYPES } from '../utils/filters';
 import { 
@@ -9,6 +10,7 @@ import {
 import { FilterModeToggle } from './FilterModeToggle';
 import { throttle } from '../utils/performance';
 import { PERFORMANCE } from '../config';
+import { FilterParameterControls } from './FilterParameterControls';
 
 // Inline editable number: click value to edit, blur/Enter to commit, Esc to cancel
 const InlineNumber: React.FC<{
@@ -96,6 +98,18 @@ export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = 
   { name: 'CLAHE (Contrast Limited Adaptive Histogram Equalization)', type: 'clahe', group: 'Contrast Enhancement' },
   { name: 'Local Histogram Equalization', type: 'localhistogramequalization', group: 'Contrast Enhancement' },
   { name: 'Adaptive Histogram Equalization (AHE)', type: 'adaptivehistogramequalization', group: 'Contrast Enhancement' },
+
+  // Binarization
+  { name: 'Binary Threshold', type: 'threshold_binary', group: 'Binarization' },
+  { name: 'Otsu Threshold', type: 'threshold_otsu', group: 'Binarization' },
+  { name: 'Triangle Threshold', type: 'threshold_triangle', group: 'Binarization' },
+  { name: 'Adaptive Mean Threshold', type: 'threshold_adaptive_mean', group: 'Binarization' },
+  { name: 'Adaptive Gaussian Threshold', type: 'threshold_adaptive_gaussian', group: 'Binarization' },
+  { name: 'Sauvola Threshold', type: 'threshold_sauvola', group: 'Binarization' },
+  { name: 'Bradley Threshold', type: 'threshold_bradley', group: 'Binarization' },
+  { name: 'Bernsen Threshold', type: 'threshold_bernsen', group: 'Binarization' },
+  { name: 'Phansalkar Threshold', type: 'threshold_phansalkar', group: 'Binarization' },
+  { name: 'Kittler-Illingworth Threshold', type: 'threshold_kittler', group: 'Binarization' },
 
   // Noise Reduction & Blurring
   { name: 'Box Blur', type: 'boxblur', group: 'Noise Reduction & Blurring' },
@@ -186,6 +200,7 @@ export const ALL_FILTERS: { name: string; type: FilterType; group: string }[] = 
 const filterGroups = [
   'Tone & Basics',
   'Contrast Enhancement',
+  'Binarization',
   'Noise Reduction & Blurring',
   'Edge-Preserving Smoothing',
   'Sharpening',
@@ -350,43 +365,40 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
       ? PERFORMANCE.HEAVY_FILTER_THROTTLE 
       : PERFORMANCE.FILTER_PARAM_THROTTLE;
   }, [tempViewerFilter]);
+
+  const applyParamUpdates = React.useCallback((newParams: FilterParams) => {
+    if (editingFilterChainItem) {
+      updateFilterCartItem(editingFilterChainItem, { params: newParams });
+
+      const state = useStore.getState();
+      if (state.previewModal?.isOpen) {
+        if (state.previewModal.mode === 'chain') {
+          const updatedChain = state.filterCart.map(item =>
+            item.id === editingFilterChainItem ? { ...item, params: newParams } : item
+          );
+          const editingStepIndex = updatedChain.findIndex(item => item.id === editingFilterChainItem);
+          const filtersUpToStep = updatedChain.slice(0, editingStepIndex + 1).filter(f => f.enabled);
+          updatePreviewModal({ chainItems: filtersUpToStep });
+        } else if (state.previewModal.mode === 'single') {
+          updatePreviewModal({ filterParams: newParams });
+        }
+      }
+    } else {
+      const state = useStore.getState();
+      if (state.previewModal?.isOpen) {
+        updatePreviewModal({ filterParams: newParams });
+      }
+    }
+  }, [editingFilterChainItem, updateFilterCartItem, updatePreviewModal]);
   
   const handleParamChangeImmediate = React.useCallback((param: string, value: string) => {
     const numValue = parseFloat(value);
     if (!isNaN(numValue)) {
       const newParams = { ...tempViewerFilterParams, [param]: numValue };
       setTempFilterParams({ [param]: numValue });
-      
-      // Update FilterChain item if we're editing one
-      if (editingFilterChainItem) {
-        updateFilterCartItem(editingFilterChainItem, { params: newParams });
-        
-        // Update preview modal with the updated chain
-        const state = useStore.getState();
-        const updatedChain = state.filterCart.map(item => 
-          item.id === editingFilterChainItem ? { ...item, params: newParams } : item
-        );
-        
-        if (state.previewModal?.isOpen && state.previewModal.mode === 'chain') {
-          // Find the step index being edited
-          const editingStepIndex = updatedChain.findIndex(item => item.id === editingFilterChainItem);
-          // Only include filters up to the step being edited
-          const filtersUpToStep = updatedChain.slice(0, editingStepIndex + 1).filter(f => f.enabled);
-          updatePreviewModal({ chainItems: filtersUpToStep });
-        } else if (state.previewModal?.isOpen && state.previewModal.mode === 'single') {
-          updatePreviewModal({ filterParams: newParams });
-        }
-      } else {
-        // Update preview modal if it's open with real-time updates (non-chain editing)
-        const state = useStore.getState();
-        if (state.previewModal?.isOpen) {
-          updatePreviewModal({
-            filterParams: newParams
-          });
-        }
-      }
+      applyParamUpdates(newParams);
     }
-  }, [tempViewerFilterParams, editingFilterChainItem, updateFilterCartItem, updatePreviewModal]);
+  }, [tempViewerFilterParams, applyParamUpdates, setTempFilterParams]);
 
   // Throttled version
   const handleParamChange = React.useMemo(
@@ -397,35 +409,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   const handleStringParamChange = (param: string, value: string) => {
     const newParams = { ...tempViewerFilterParams, [param]: value };
     setTempFilterParams({ [param]: value });
-    
-    // Update FilterChain item if we're editing one
-    if (editingFilterChainItem) {
-      updateFilterCartItem(editingFilterChainItem, { params: newParams });
-      
-      // Update preview modal with the updated chain
-      const state = useStore.getState();
-      const updatedChain = state.filterCart.map(item => 
-        item.id === editingFilterChainItem ? { ...item, params: newParams } : item
-      );
-      
-      if (state.previewModal?.isOpen && state.previewModal.mode === 'chain') {
-        // Find the step index being edited
-        const editingStepIndex = updatedChain.findIndex(item => item.id === editingFilterChainItem);
-        // Only include filters up to the step being edited
-        const filtersUpToStep = updatedChain.slice(0, editingStepIndex + 1).filter(f => f.enabled);
-        updatePreviewModal({ chainItems: filtersUpToStep });
-      } else if (state.previewModal?.isOpen && state.previewModal.mode === 'single') {
-        updatePreviewModal({ filterParams: newParams });
-      }
-    } else {
-      // Update preview modal if it's open with real-time updates (non-chain editing)
-      const state = useStore.getState();
-      if (state.previewModal?.isOpen) {
-        updatePreviewModal({
-          filterParams: newParams
-        });
-      }
-    }
+    applyParamUpdates(newParams);
   };
 
   // Helper for InlineNumber onCommit with preview updates
@@ -433,36 +417,13 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   const handleInlineNumberCommit = (param: string, value: number) => {
     const newParams = { ...tempViewerFilterParams, [param]: value };
     setTempFilterParams({ [param]: value });
-    
-    // Update FilterChain item if we're editing one
-    if (editingFilterChainItem) {
-      updateFilterCartItem(editingFilterChainItem, { params: newParams });
-      
-      // Update preview modal with the updated chain
-      const state = useStore.getState();
-      const updatedChain = state.filterCart.map(item => 
-        item.id === editingFilterChainItem ? { ...item, params: newParams } : item
-      );
-      
-      if (state.previewModal?.isOpen && state.previewModal.mode === 'chain') {
-        // Find the step index being edited
-        const editingStepIndex = updatedChain.findIndex(item => item.id === editingFilterChainItem);
-        // Only include filters up to the step being edited
-        const filtersUpToStep = updatedChain.slice(0, editingStepIndex + 1).filter(f => f.enabled);
-        updatePreviewModal({ chainItems: filtersUpToStep });
-      } else if (state.previewModal?.isOpen && state.previewModal.mode === 'single') {
-        updatePreviewModal({ filterParams: newParams });
-      }
-    } else {
-      // Update preview modal if it's open with real-time updates (non-chain editing)
-      const state = useStore.getState();
-      if (state.previewModal?.isOpen) {
-        updatePreviewModal({
-          filterParams: newParams
-        });
-      }
-    }
+    applyParamUpdates(newParams);
   };
+
+  const handleParamsReplace = React.useCallback((nextParams: FilterParams) => {
+    setTempFilterParams(nextParams);
+    applyParamUpdates(nextParams);
+  }, [setTempFilterParams, applyParamUpdates]);
 
   // Calculate performance metrics for current filter and image
   const getPerformanceMetrics = () => {
@@ -680,6 +641,24 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               onCommit={(v)=> handleInlineNumberCommit('contrast', v)}
             />
           </div>
+        );
+      case 'threshold_binary':
+      case 'threshold_otsu':
+      case 'threshold_triangle':
+      case 'threshold_adaptive_mean':
+      case 'threshold_adaptive_gaussian':
+      case 'threshold_sauvola':
+      case 'threshold_bradley':
+      case 'threshold_bernsen':
+      case 'threshold_phansalkar':
+      case 'threshold_kittler':
+        return (
+          <FilterParameterControls
+            filterType={tempViewerFilter}
+            filterParams={tempViewerFilterParams}
+            onChange={handleParamsReplace}
+            compact
+          />
         );
       case 'edgepreserving':
         return (
