@@ -1,3 +1,4 @@
+import pinpointLoading from "../../assets/tutorials/pinpoint_loading.gif";
 import test1 from "../../assets/tutorials/008.gif";
 import test2 from "../../assets/tutorials/009.gif";
 import test3 from "../../assets/tutorials/010.gif";
@@ -10,6 +11,13 @@ export interface TutorialItem {
 }
 
 export const tutorialItems: TutorialItem[] = [
+  {
+    id: "pinpoint-loading",
+    title: "Pinpoint Image Loading",
+    description:
+      "Load a single image into Pinpoint mode, inspect it in the viewer, and prepare pins before comparing.",
+    src: pinpointLoading
+  },
   {
     id: "getting-started",
     title: "Quick Start",

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useStore } from "./store";
 import type { AppMode } from "./types";
@@ -145,6 +145,8 @@ export default function App() {
   const [showColorPalette, setShowColorPalette] = useState(false);
   const [showMinimapOptionsModal, setShowMinimapOptionsModal] = useState(false);
   const bitmapCache = useRef(new Map<string, DrawableImage>());
+  const gridColorAnchorRef = useRef<HTMLDivElement | null>(null);
+  const gridColorPopoverRef = useRef<HTMLDivElement | null>(null);
 
   // Global drag and drop state
   const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
@@ -190,11 +192,20 @@ export default function App() {
   const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true, showMinimap: false, showFilterLabels: true, showGrid: true });
   const [clipboardStatus, setClipboardStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showTutorialPanel, setShowTutorialPanel] = useState(false);
+  const [tutorialSearchQuery, setTutorialSearchQuery] = useState("");
   const [activeTutorialId, setActiveTutorialId] = useState<string | null>(tutorialItems[0]?.id ?? null);
   const activeTutorial = activeTutorialId
     ? tutorialItems.find(item => item.id === activeTutorialId) ?? (tutorialItems.length ? tutorialItems[0] : null)
     : (tutorialItems.length ? tutorialItems[0] : null);
   const hasTutorials = tutorialItems.length > 0;
+  const filteredTutorials = useMemo(() => {
+    const query = tutorialSearchQuery.trim().toLowerCase();
+    if (!query) {
+      return tutorialItems;
+    }
+    return tutorialItems.filter(item => item.title.toLowerCase().includes(query));
+  }, [tutorialSearchQuery]);
+  const tutorialSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [tutorialPanelPosition, setTutorialPanelPosition] = useState<{ x: number; y: number } | null>(null);
   const tutorialPanelRef = useRef<HTMLDivElement | null>(null);
   const tutorialDragOffsetRef = useRef<{ x: number; y: number } | null>(null);
@@ -254,6 +265,29 @@ export default function App() {
     };
   }, [stopTutorialDrag]);
 
+  useEffect(() => {
+    if (!filteredTutorials.length) {
+      setActiveTutorialId(null);
+      return;
+    }
+    if (!activeTutorialId || !filteredTutorials.some(item => item.id === activeTutorialId)) {
+      setActiveTutorialId(filteredTutorials[0].id);
+    }
+  }, [filteredTutorials, activeTutorialId]);
+
+  useEffect(() => {
+    if (!showTutorialPanel) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      if (tutorialSearchInputRef.current) {
+        tutorialSearchInputRef.current.focus();
+        tutorialSearchInputRef.current.select();
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [showTutorialPanel]);
+
   const runCapture = useCallback(async () => {
     if (!isCaptureModalOpen) return;
     let dataUrl: string | null = null;
@@ -280,7 +314,7 @@ export default function App() {
     setCaptureModalOpen(true);
   };
 
-  const handleOpenTutorials = () => {
+  const handleOpenTutorials = useCallback(() => {
     if (!hasTutorials) {
       addToast?.({
         type: 'info',
@@ -293,14 +327,16 @@ export default function App() {
     if (!activeTutorialId && tutorialItems.length) {
       setActiveTutorialId(tutorialItems[0].id);
     }
+    setTutorialSearchQuery("");
     setTutorialPanelPosition(null);
     setShowTutorialPanel(true);
-  };
+  }, [hasTutorials, addToast, activeTutorialId, tutorialItems]);
 
   const handleCloseTutorials = () => {
     stopTutorialDrag();
     setTutorialPanelPosition(null);
     setShowTutorialPanel(false);
+    setTutorialSearchQuery("");
   };
 
   const handleTutorialOpenExternally = useCallback((event?: React.MouseEvent<HTMLAnchorElement>) => {
@@ -714,14 +750,51 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!showColorPalette) {
+      return;
+    }
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        gridColorPopoverRef.current?.contains(target) ||
+        gridColorAnchorRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setShowColorPalette(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showColorPalette]);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
-      
+      const rawKey = e.key;
+      const target = e.target as HTMLElement | null;
+      const isEditableTarget = target instanceof HTMLInputElement ||
+        target instanceof HTMLSelectElement ||
+        target instanceof HTMLTextAreaElement ||
+        Boolean(target?.isContentEditable);
+      if (isEditableTarget && rawKey !== 'F1') return;
+
       const state = useStore.getState();
       const { viewport, appMode, activeCanvasKey, pinpointScales, pinpointGlobalScale, setAppMode, setViewport } = state;
       const KEY_PAN_AMOUNT = 50;
 
-      const key = e.key.toLowerCase();
+      const key = rawKey.toLowerCase();
+
+      if (key === 'f1') {
+        e.preventDefault();
+        if (showTutorialPanel) {
+          tutorialSearchInputRef.current?.focus();
+          tutorialSearchInputRef.current?.select();
+        } else {
+          handleOpenTutorials();
+        }
+        return;
+      }
 
       // Ctrl+C: 텍스트 복사 (기본 브라우저 동작 허용)
       if (e.ctrlKey && key === 'c') {
@@ -854,7 +927,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setViewport, resetView, imageDimensions, setAppMode, isCaptureModalOpen]);
+  }, [setViewport, resetView, imageDimensions, setAppMode, isCaptureModalOpen, showTutorialPanel, handleOpenTutorials]);
 
   const renderCurrentMode = () => {
     const setPrimaryFile = (file: File | null) => {
@@ -939,7 +1012,7 @@ export default function App() {
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0A1.65 1.65 0 0 0 20.91 12H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51-1Z"/></svg>
             </button>
           </div>
-          <div className="grid-button-unified">
+          <div className="grid-button-unified" ref={gridColorAnchorRef}>
             <button
               className={`grid-button-toggle ${showGrid ? 'active' : ''}`}
               onClick={() => setShowGrid(!showGrid)}
@@ -950,9 +1023,26 @@ export default function App() {
             <div
               className="grid-button-color-indicator"
               style={{ backgroundColor: showGrid ? gridColor : 'transparent' }}
-              onClick={() => showGrid && setShowColorPalette(true)}
+              onClick={() => showGrid && setShowColorPalette(prev => !prev)}
               title="Change Grid Color"
             />
+            {showColorPalette && showGrid && (
+              <div className="grid-color-popover" ref={gridColorPopoverRef}>
+                {['white', 'red', 'yellow', 'blue'].map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    title={color.charAt(0).toUpperCase() + color.slice(1)}
+                    style={{ backgroundColor: color }}
+                    className={`grid-color-swatch ${gridColor === color ? 'active' : ''}`}
+                    onClick={() => {
+                      setGridColor(color as any);
+                      setShowColorPalette(false);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
           <div className="title-right-actions">
             <button
@@ -1134,14 +1224,30 @@ export default function App() {
               {capturedImage ? <img src={capturedImage} alt="Captured content" /> : <div className="loading-spinner"></div>}
             </div>
             <div className="capture-modal-options">
-              <label>
-                <input type="checkbox" checked={captureOptions.showLabels} onChange={(e) => setCaptureOptions(o => ({...o, showLabels: e.target.checked}))} />
-                Show Labels
-              </label>
-              <label>
-                <input type="checkbox" checked={captureOptions.showFilterLabels} onChange={(e) => setCaptureOptions(o => ({...o, showFilterLabels: e.target.checked}))} />
-                Show Filter Labels
-              </label>
+              <div className="capture-option-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={captureOptions.showLabels}
+                    onChange={(e) => setCaptureOptions(o => ({
+                      ...o,
+                      showLabels: e.target.checked,
+                      showFilterLabels: e.target.checked ? o.showFilterLabels : false
+                    }))}
+                  />
+                  Show Labels
+                </label>
+                {captureOptions.showLabels && (
+                  <label className="capture-option-child">
+                    <input
+                      type="checkbox"
+                      checked={captureOptions.showFilterLabels}
+                      onChange={(e) => setCaptureOptions(o => ({...o, showFilterLabels: e.target.checked}))}
+                    />
+                    Show Filter Labels
+                  </label>
+                )}
+              </div>
               {appMode === 'pinpoint' && (
                 <label>
                   <input type="checkbox" checked={captureOptions.showCrosshair} onChange={(e) => setCaptureOptions(o => ({...o, showCrosshair: e.target.checked}))} />
@@ -1169,28 +1275,6 @@ export default function App() {
               </button>
               <button className="capture-save-button" onClick={handleSaveFile} disabled={!capturedImage}>Save as File...</button>
               <button onClick={() => setCaptureModalOpen(false)} className="close-button">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showColorPalette && showGrid && (
-        <div className="grid-color-modal-overlay" onClick={() => setShowColorPalette(false)}>
-          <div className="grid-color-modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>Select Grid Color</h3>
-            <div className="grid-color-palette-modal">
-              {['white', 'red', 'yellow', 'blue'].map(color => (
-                <button
-                  key={color}
-                  title={color.charAt(0).toUpperCase() + color.slice(1)}
-                  style={{ backgroundColor: color }}
-                  className={`grid-color-swatch ${gridColor === color ? 'active' : ''}`}
-                  onClick={() => {
-                    setGridColor(color as any);
-                    setShowColorPalette(false);
-                  }}
-                />
-              ))}
             </div>
           </div>
         </div>
@@ -1240,18 +1324,36 @@ export default function App() {
             </div>
             {hasTutorials ? (
               <div className="tutorial-panel-body">
-                <div className="tutorial-list">
-                  {tutorialItems.map(item => (
-                    <button
-                      type="button"
-                      key={item.id}
-                      className={`tutorial-list-item${activeTutorial?.id === item.id ? ' active' : ''}`}
-                      onClick={() => setActiveTutorialId(item.id)}
-                    >
-                      <span className="tutorial-list-item-title">{item.title}</span>
-                      <span className="tutorial-list-item-desc">{item.description}</span>
-                    </button>
-                  ))}
+                <div className="tutorial-sidebar">
+                  <div className="tutorial-search">
+                    <input
+                      ref={tutorialSearchInputRef}
+                      type="text"
+                      className="tutorial-search-input"
+                      placeholder="Search tutorials"
+                      value={tutorialSearchQuery}
+                      onChange={event => setTutorialSearchQuery(event.target.value)}
+                      spellCheck={false}
+                    />
+                  </div>
+                  <div className="tutorial-list">
+                    {filteredTutorials.length ? (
+                      filteredTutorials.map(item => (
+                        <button
+                          type="button"
+                          key={item.id}
+                          className={`tutorial-list-item${activeTutorial?.id === item.id ? ' active' : ''}`}
+                          onClick={() => setActiveTutorialId(item.id)}
+                        >
+                          <span className="tutorial-list-item-title">{item.title}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="tutorial-list-empty">
+                        No tutorials match "{tutorialSearchQuery.trim()}".
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="tutorial-preview">
                   {activeTutorial ? (
