@@ -531,19 +531,33 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     const availableViewers = Array.from({ length: numViewers }).map((_, position) => viewerArrangement.pinpoint[position] as FolderKey);
     let viewerIndex = 0;
 
-    // Convert selected files to actual file objects
+    // Convert selected files to actual file objects, respecting the current file list order
     const filesToPlace: { file: File; sourceKey: FolderKey }[] = [];
-    
-    selectedFiles.forEach((fileId: string) => {
-      const [folderKey, fileName] = fileId.split('-', 2);
-      const folderState = allFolders[folderKey as FolderKey];
-      if (folderState?.data.files) {
-        const file = folderState.data.files.get(fileName);
-        if (file) {
-          filesToPlace.push({ file, sourceKey: folderKey as FolderKey });
-        }
+    const seenIds = new Set<string>();
+
+    filteredFileList.forEach(({ file, folderKey }) => {
+      const fileId = `${folderKey}-${file.name}`;
+      if (selectedFiles.has(fileId) && !seenIds.has(fileId)) {
+        filesToPlace.push({ file, sourceKey: folderKey as FolderKey });
+        seenIds.add(fileId);
       }
     });
+
+    // Fallback: include any remaining selections that might be outside the filtered list (e.g., filtered out)
+    if (filesToPlace.length < selectedFiles.size) {
+      selectedFiles.forEach((fileId: string) => {
+        if (seenIds.has(fileId)) return;
+        const [folderKey, fileName] = fileId.split('-', 2);
+        const folderState = allFolders[folderKey as FolderKey];
+        if (folderState?.data.files) {
+          const file = folderState.data.files.get(fileName);
+          if (file) {
+            filesToPlace.push({ file, sourceKey: folderKey as FolderKey });
+            seenIds.add(fileId);
+          }
+        }
+      });
+    }
 
     // Place files in viewers sequentially
     filesToPlace.forEach(({ file, sourceKey }) => {
