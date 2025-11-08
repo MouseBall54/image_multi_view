@@ -5967,6 +5967,7 @@ body:not(.viewer-dragging) .draggable-viewer:hover::after {
   background-color: var(--bg-med);
   color: var(--text-primary);
   font-size: 0.9rem;
+  box-sizing: border-box;
 }
 
 .tutorial-search-input:focus {
