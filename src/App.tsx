@@ -145,6 +145,8 @@ export default function App() {
   const [showColorPalette, setShowColorPalette] = useState(false);
   const [showMinimapOptionsModal, setShowMinimapOptionsModal] = useState(false);
   const bitmapCache = useRef(new Map<string, DrawableImage>());
+  const gridColorAnchorRef = useRef<HTMLDivElement | null>(null);
+  const gridColorPopoverRef = useRef<HTMLDivElement | null>(null);
 
   // Global drag and drop state
   const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
@@ -748,6 +750,26 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!showColorPalette) {
+      return;
+    }
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        gridColorPopoverRef.current?.contains(target) ||
+        gridColorAnchorRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setShowColorPalette(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showColorPalette]);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const rawKey = e.key;
       const target = e.target as HTMLElement | null;
@@ -990,7 +1012,7 @@ export default function App() {
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0A1.65 1.65 0 0 0 20.91 12H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51-1Z"/></svg>
             </button>
           </div>
-          <div className="grid-button-unified">
+          <div className="grid-button-unified" ref={gridColorAnchorRef}>
             <button
               className={`grid-button-toggle ${showGrid ? 'active' : ''}`}
               onClick={() => setShowGrid(!showGrid)}
@@ -1001,9 +1023,26 @@ export default function App() {
             <div
               className="grid-button-color-indicator"
               style={{ backgroundColor: showGrid ? gridColor : 'transparent' }}
-              onClick={() => showGrid && setShowColorPalette(true)}
+              onClick={() => showGrid && setShowColorPalette(prev => !prev)}
               title="Change Grid Color"
             />
+            {showColorPalette && showGrid && (
+              <div className="grid-color-popover" ref={gridColorPopoverRef}>
+                {['white', 'red', 'yellow', 'blue'].map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    title={color.charAt(0).toUpperCase() + color.slice(1)}
+                    style={{ backgroundColor: color }}
+                    className={`grid-color-swatch ${gridColor === color ? 'active' : ''}`}
+                    onClick={() => {
+                      setGridColor(color as any);
+                      setShowColorPalette(false);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
           <div className="title-right-actions">
             <button
@@ -1220,28 +1259,6 @@ export default function App() {
               </button>
               <button className="capture-save-button" onClick={handleSaveFile} disabled={!capturedImage}>Save as File...</button>
               <button onClick={() => setCaptureModalOpen(false)} className="close-button">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showColorPalette && showGrid && (
-        <div className="grid-color-modal-overlay" onClick={() => setShowColorPalette(false)}>
-          <div className="grid-color-modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>Select Grid Color</h3>
-            <div className="grid-color-palette-modal">
-              {['white', 'red', 'yellow', 'blue'].map(color => (
-                <button
-                  key={color}
-                  title={color.charAt(0).toUpperCase() + color.slice(1)}
-                  style={{ backgroundColor: color }}
-                  className={`grid-color-swatch ${gridColor === color ? 'active' : ''}`}
-                  onClick={() => {
-                    setGridColor(color as any);
-                    setShowColorPalette(false);
-                  }}
-                />
-              ))}
             </div>
           </div>
         </div>

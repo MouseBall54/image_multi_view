@@ -2545,8 +2545,9 @@ main {
   background-color: var(--bg-light);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  overflow: hidden;
+  overflow: visible;
   height: 35px;
+  position: relative;
 }
 
 .grid-button-toggle {
@@ -2585,6 +2586,54 @@ main {
 
 .grid-button-color-indicator:hover {
   filter: brightness(1.2);
+}
+
+.grid-color-popover {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 8px);
+  transform: translateY(-50%);
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  z-index: 40;
+}
+
+.grid-color-popover::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -6px;
+  transform: translateY(-50%) rotate(45deg);
+  width: 12px;
+  height: 12px;
+  background-color: var(--bg-dark);
+  border-left: 1px solid var(--border-color);
+  border-top: 1px solid var(--border-color);
+}
+
+.grid-color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  outline: none;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.grid-color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.grid-color-swatch.active {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 6px rgba(0, 123, 255, 0.6);
 }
 
 /* Minimap unified button */
@@ -2719,62 +2768,6 @@ main {
   margin-top: 12px;
   display: flex;
   justify-content: flex-end;
-}
-
-/* --- Grid Color Modal Styles --- */
-.grid-color-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
-}
-
-.grid-color-modal-content {
-  background-color: var(--bg-med);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.grid-color-modal-content h3 {
-  margin: 0;
-  text-align: center;
-  font-size: 1.1rem;
-  color: var(--text-primary);
-}
-
-.grid-color-palette-modal {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
-.grid-color-modal-content .grid-color-swatch {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 3px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  transition: transform 0.2s, border-color 0.2s;
-  outline: none;
-}
-
-.grid-color-modal-content .grid-color-swatch:hover {
-  transform: scale(1.1);
-}
-
-.grid-color-modal-content .grid-color-swatch.active {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 8px var(--accent-primary);
 }
 
 /* Toggle Modal */
