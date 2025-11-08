@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useStore } from "./store";
 import type { AppMode } from "./types";
@@ -190,11 +190,20 @@ export default function App() {
   const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true, showMinimap: false, showFilterLabels: true, showGrid: true });
   const [clipboardStatus, setClipboardStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showTutorialPanel, setShowTutorialPanel] = useState(false);
+  const [tutorialSearchQuery, setTutorialSearchQuery] = useState("");
   const [activeTutorialId, setActiveTutorialId] = useState<string | null>(tutorialItems[0]?.id ?? null);
   const activeTutorial = activeTutorialId
     ? tutorialItems.find(item => item.id === activeTutorialId) ?? (tutorialItems.length ? tutorialItems[0] : null)
     : (tutorialItems.length ? tutorialItems[0] : null);
   const hasTutorials = tutorialItems.length > 0;
+  const filteredTutorials = useMemo(() => {
+    const query = tutorialSearchQuery.trim().toLowerCase();
+    if (!query) {
+      return tutorialItems;
+    }
+    return tutorialItems.filter(item => item.title.toLowerCase().includes(query));
+  }, [tutorialSearchQuery]);
+  const tutorialSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [tutorialPanelPosition, setTutorialPanelPosition] = useState<{ x: number; y: number } | null>(null);
   const tutorialPanelRef = useRef<HTMLDivElement | null>(null);
   const tutorialDragOffsetRef = useRef<{ x: number; y: number } | null>(null);
@@ -254,6 +263,29 @@ export default function App() {
     };
   }, [stopTutorialDrag]);
 
+  useEffect(() => {
+    if (!filteredTutorials.length) {
+      setActiveTutorialId(null);
+      return;
+    }
+    if (!activeTutorialId || !filteredTutorials.some(item => item.id === activeTutorialId)) {
+      setActiveTutorialId(filteredTutorials[0].id);
+    }
+  }, [filteredTutorials, activeTutorialId]);
+
+  useEffect(() => {
+    if (!showTutorialPanel) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      if (tutorialSearchInputRef.current) {
+        tutorialSearchInputRef.current.focus();
+        tutorialSearchInputRef.current.select();
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [showTutorialPanel]);
+
   const runCapture = useCallback(async () => {
     if (!isCaptureModalOpen) return;
     let dataUrl: string | null = null;
@@ -280,7 +312,7 @@ export default function App() {
     setCaptureModalOpen(true);
   };
 
-  const handleOpenTutorials = () => {
+  const handleOpenTutorials = useCallback(() => {
     if (!hasTutorials) {
       addToast?.({
         type: 'info',
@@ -293,14 +325,16 @@ export default function App() {
     if (!activeTutorialId && tutorialItems.length) {
       setActiveTutorialId(tutorialItems[0].id);
     }
+    setTutorialSearchQuery("");
     setTutorialPanelPosition(null);
     setShowTutorialPanel(true);
-  };
+  }, [hasTutorials, addToast, activeTutorialId, tutorialItems]);
 
   const handleCloseTutorials = () => {
     stopTutorialDrag();
     setTutorialPanelPosition(null);
     setShowTutorialPanel(false);
+    setTutorialSearchQuery("");
   };
 
   const handleTutorialOpenExternally = useCallback((event?: React.MouseEvent<HTMLAnchorElement>) => {
@@ -715,13 +749,30 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
-      
+      const rawKey = e.key;
+      const target = e.target as HTMLElement | null;
+      const isEditableTarget = target instanceof HTMLInputElement ||
+        target instanceof HTMLSelectElement ||
+        target instanceof HTMLTextAreaElement ||
+        Boolean(target?.isContentEditable);
+      if (isEditableTarget && rawKey !== 'F1') return;
+
       const state = useStore.getState();
       const { viewport, appMode, activeCanvasKey, pinpointScales, pinpointGlobalScale, setAppMode, setViewport } = state;
       const KEY_PAN_AMOUNT = 50;
 
-      const key = e.key.toLowerCase();
+      const key = rawKey.toLowerCase();
+
+      if (key === 'f1') {
+        e.preventDefault();
+        if (showTutorialPanel) {
+          tutorialSearchInputRef.current?.focus();
+          tutorialSearchInputRef.current?.select();
+        } else {
+          handleOpenTutorials();
+        }
+        return;
+      }
 
       // Ctrl+C: 텍스트 복사 (기본 브라우저 동작 허용)
       if (e.ctrlKey && key === 'c') {
@@ -854,7 +905,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setViewport, resetView, imageDimensions, setAppMode, isCaptureModalOpen]);
+  }, [setViewport, resetView, imageDimensions, setAppMode, isCaptureModalOpen, showTutorialPanel, handleOpenTutorials]);
 
   const renderCurrentMode = () => {
     const setPrimaryFile = (file: File | null) => {
@@ -1240,17 +1291,36 @@ export default function App() {
             </div>
             {hasTutorials ? (
               <div className="tutorial-panel-body">
-                <div className="tutorial-list">
-                  {tutorialItems.map(item => (
-                    <button
-                      type="button"
-                      key={item.id}
-                      className={`tutorial-list-item${activeTutorial?.id === item.id ? ' active' : ''}`}
-                      onClick={() => setActiveTutorialId(item.id)}
-                    >
-                      <span className="tutorial-list-item-title">{item.title}</span>
-                    </button>
-                  ))}
+                <div className="tutorial-sidebar">
+                  <div className="tutorial-search">
+                    <input
+                      ref={tutorialSearchInputRef}
+                      type="text"
+                      className="tutorial-search-input"
+                      placeholder="Search tutorials"
+                      value={tutorialSearchQuery}
+                      onChange={event => setTutorialSearchQuery(event.target.value)}
+                      spellCheck={false}
+                    />
+                  </div>
+                  <div className="tutorial-list">
+                    {filteredTutorials.length ? (
+                      filteredTutorials.map(item => (
+                        <button
+                          type="button"
+                          key={item.id}
+                          className={`tutorial-list-item${activeTutorial?.id === item.id ? ' active' : ''}`}
+                          onClick={() => setActiveTutorialId(item.id)}
+                        >
+                          <span className="tutorial-list-item-title">{item.title}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="tutorial-list-empty">
+                        No tutorials match "{tutorialSearchQuery.trim()}".
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="tutorial-preview">
                   {activeTutorial ? (
