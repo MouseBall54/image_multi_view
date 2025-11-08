@@ -5985,18 +5985,6 @@ body:not(.viewer-dragging) .draggable-viewer:hover::after {
   font-weight: 600;
 }
 
-.tutorial-list-item-desc {
-  display: block;
-  margin-top: 4px;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.tutorial-list-item.active .tutorial-list-item-desc,
-.tutorial-list-item:hover .tutorial-list-item-desc {
-  color: #f5f5f5;
-}
-
 .tutorial-preview {
   flex: 1;
   display: flex;

@@ -1249,7 +1249,6 @@ export default function App() {
                       onClick={() => setActiveTutorialId(item.id)}
                     >
                       <span className="tutorial-list-item-title">{item.title}</span>
-                      <span className="tutorial-list-item-desc">{item.description}</span>
                     </button>
                   ))}
                 </div>
