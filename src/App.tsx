@@ -1224,14 +1224,30 @@ export default function App() {
               {capturedImage ? <img src={capturedImage} alt="Captured content" /> : <div className="loading-spinner"></div>}
             </div>
             <div className="capture-modal-options">
-              <label>
-                <input type="checkbox" checked={captureOptions.showLabels} onChange={(e) => setCaptureOptions(o => ({...o, showLabels: e.target.checked}))} />
-                Show Labels
-              </label>
-              <label>
-                <input type="checkbox" checked={captureOptions.showFilterLabels} onChange={(e) => setCaptureOptions(o => ({...o, showFilterLabels: e.target.checked}))} />
-                Show Filter Labels
-              </label>
+              <div className="capture-option-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={captureOptions.showLabels}
+                    onChange={(e) => setCaptureOptions(o => ({
+                      ...o,
+                      showLabels: e.target.checked,
+                      showFilterLabels: e.target.checked ? o.showFilterLabels : false
+                    }))}
+                  />
+                  Show Labels
+                </label>
+                {captureOptions.showLabels && (
+                  <label className="capture-option-child">
+                    <input
+                      type="checkbox"
+                      checked={captureOptions.showFilterLabels}
+                      onChange={(e) => setCaptureOptions(o => ({...o, showFilterLabels: e.target.checked}))}
+                    />
+                    Show Filter Labels
+                  </label>
+                )}
+              </div>
               {appMode === 'pinpoint' && (
                 <label>
                   <input type="checkbox" checked={captureOptions.showCrosshair} onChange={(e) => setCaptureOptions(o => ({...o, showCrosshair: e.target.checked}))} />
