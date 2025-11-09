@@ -347,6 +347,8 @@ interface State {
     realTimeUpdate?: boolean;
     position?: 'modal' | 'sidebar';
   }>) => void;
+  previewModePreference: 'single' | 'chain';
+  setPreviewModePreference: (mode: 'single' | 'chain') => void;
 
   // Viewer arrangement actions
   reorderViewers: (fromPosition: number, toPosition: number) => void;
@@ -464,6 +466,7 @@ export const useStore = create<State>((set, get) => ({
     mode: 'single',
     stickySource: false,
   },
+  previewModePreference: 'chain',
   
   // Sync-capture defaults
   syncCapture: { active: false, mode: null },
@@ -884,6 +887,7 @@ export const useStore = create<State>((set, get) => ({
       ...updates
     }
   })),
+  setPreviewModePreference: (mode) => set({ previewModePreference: mode }),
 
   // Toast notification actions
   addToast: (toast) => set(state => ({

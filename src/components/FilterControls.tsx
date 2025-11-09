@@ -1,7 +1,7 @@
 import React from 'react';
 import { useStore } from '../store';
 import type { FilterParams } from '../store';
-import type { FilterType, FolderKey } from '../types';
+import type { FilterType, FolderKey, FilterChainItem } from '../types';
 import { LAWS_KERNEL_TYPES } from '../utils/filters';
 import { 
   calculatePerformanceMetrics, 
@@ -219,6 +219,11 @@ const filterGroups = [
   'Colormap - Gradient-based'
 ];
 
+const getFilterDisplayName = (filterType: FilterType): string => {
+  if (filterType === 'filterchain') return 'Filter Chain';
+  return ALL_FILTERS.find(f => f.type === filterType)?.name || filterType;
+};
+
 export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const {
     // appMode,
@@ -234,8 +239,11 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     addToFilterCart,
     setShowFilterCart,
     showFilterCart,
+    filterCart,
     updatePreviewModal,
     openPreviewModal,
+    previewModal,
+    previewModePreference,
     folders,
     analysisFile,
     editingFilterChainItem,
@@ -314,7 +322,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   if (activeFilterEditor === null) return null;
 
   // Get current image file for preview (robust across modes)
-  const getCurrentImageFile = (): File | undefined => {
+  const getCurrentImageFile = React.useCallback((): File | undefined => {
     const findFileInFolder = (folder: any, filename: string | undefined): File | undefined => {
       if (!folder || !folder.data || !folder.data.files || !filename) return undefined;
       const files: Map<string, File> = folder.data.files;
@@ -354,9 +362,134 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
       return analysisFile || undefined;
     }
     return undefined;
-  };
-  // touch reference to avoid TS unused warning in strict mode
-  void getCurrentImageFile;
+  }, [activeFilterEditor, folders, current, analysisFile]);
+
+  const buildPendingChain = React.useCallback((params: FilterParams, type: FilterType): FilterChainItem[] => {
+    const enabledExisting = filterCart.filter((item: FilterChainItem) => item.enabled);
+    if (type === 'none') return enabledExisting;
+    return [
+      ...enabledExisting,
+      {
+        id: 'preview-pending',
+        filterType: type,
+        params,
+        enabled: true,
+      } as FilterChainItem
+    ];
+  }, [filterCart]);
+
+  const ensurePreviewIsOpen = React.useCallback((paramsOverride?: FilterParams, typeOverride?: FilterType) => {
+    if (previewModal.isOpen) return true;
+    const sourceFile = getCurrentImageFile();
+    if (!sourceFile) return false;
+    const params = paramsOverride ?? tempViewerFilterParams;
+    const type = typeOverride ?? tempViewerFilter;
+
+    if (previewModePreference === 'chain') {
+      const chainItems = buildPendingChain(params, type);
+      if (chainItems.length > 0) {
+        openPreviewModal({
+          mode: 'chain',
+          chainItems,
+          filterType: type,
+          filterParams: params,
+          title: `Chain Preview (${chainItems.length} ${chainItems.length === 1 ? 'step' : 'steps'})`,
+          sourceFile,
+          position: 'sidebar',
+          realTimeUpdate: true,
+          stickySource: previewModal.stickySource,
+        });
+      } else {
+        openPreviewModal({
+          mode: 'single',
+          filterType: 'none',
+          title: 'Original Image',
+          sourceFile,
+          position: 'sidebar',
+          realTimeUpdate: true,
+          stickySource: previewModal.stickySource,
+        });
+      }
+    } else {
+      openPreviewModal({
+        mode: 'single',
+        filterType: type,
+        filterParams: params,
+        title: `Filter Preview: ${getFilterDisplayName(type)}`,
+        sourceFile,
+        position: 'sidebar',
+        realTimeUpdate: true,
+        stickySource: previewModal.stickySource,
+      });
+    }
+    return true;
+  }, [
+    previewModal.isOpen,
+    previewModal.stickySource,
+    getCurrentImageFile,
+    tempViewerFilterParams,
+    tempViewerFilter,
+    previewModePreference,
+    buildPendingChain,
+    openPreviewModal
+  ]);
+
+  const syncPreview = React.useCallback((overrideParams?: FilterParams, overrideType?: FilterType) => {
+    if (!previewModal.isOpen) {
+      const opened = ensurePreviewIsOpen(overrideParams, overrideType);
+      if (!opened) return;
+    }
+    const params = overrideParams ?? tempViewerFilterParams;
+    const type = overrideType ?? tempViewerFilter;
+
+    if (editingFilterChainItem) {
+      const editingIndex = filterCart.findIndex(item => item.id === editingFilterChainItem);
+      if (editingIndex === -1) return;
+      const editingItem = filterCart[editingIndex];
+      const updatedChain = filterCart.map(item =>
+        item.id === editingFilterChainItem ? { ...item, params } : item
+      );
+      const chainUpToStep = updatedChain.slice(0, editingIndex + 1).filter(item => item.enabled);
+
+      if (previewModePreference === 'chain') {
+        updatePreviewModal({
+          mode: 'chain',
+          chainItems: chainUpToStep,
+          filterType: editingItem.filterType,
+          filterParams: params,
+          title: `Edit Step ${editingIndex + 1}: ${getFilterDisplayName(editingItem.filterType)} (Chain)`
+        });
+      } else {
+        updatePreviewModal({
+          mode: 'single',
+          filterType: editingItem.filterType,
+          filterParams: params,
+          title: `Edit Step ${editingIndex + 1}: ${getFilterDisplayName(editingItem.filterType)}`
+        });
+      }
+      return;
+    }
+
+    if (previewModePreference === 'chain') {
+      const chainItems = buildPendingChain(params, type);
+      updatePreviewModal({
+        mode: 'chain',
+        chainItems,
+        filterType: type,
+        filterParams: params,
+        title: chainItems.length > 0
+          ? `Chain Preview (${chainItems.length} ${chainItems.length === 1 ? 'step' : 'steps'})`
+          : 'Original Image'
+      });
+    } else {
+      updatePreviewModal({
+        mode: 'single',
+        filterType: type,
+        filterParams: params,
+        title: `Filter Preview: ${getFilterDisplayName(type)}`
+      });
+    }
+  }, [previewModal.isOpen, tempViewerFilterParams, tempViewerFilter, editingFilterChainItem, filterCart, previewModePreference, updatePreviewModal, buildPendingChain, ensurePreviewIsOpen]);
 
   // 무거운 필터 목록 (더 긴 throttle 적용)
   const heavyFilters = ['bilateral', 'morphology', 'morph_open', 'morph_close', 'morph_gradient', 'morph_tophat', 'morph_blackhat', 'gaussianblur_xy', 'boxblur_xy'];
@@ -368,30 +501,16 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
       : PERFORMANCE.FILTER_PARAM_THROTTLE;
   }, [tempViewerFilter]);
 
-  const applyParamUpdates = React.useCallback((newParams: FilterParams) => {
+  React.useEffect(() => {
+    syncPreview();
+  }, [syncPreview]);
+
+  const applyParamUpdates = React.useCallback((newParams: FilterParams, typeOverride?: FilterType) => {
     if (editingFilterChainItem) {
       updateFilterCartItem(editingFilterChainItem, { params: newParams });
-
-      const state = useStore.getState();
-      if (state.previewModal?.isOpen) {
-        if (state.previewModal.mode === 'chain') {
-          const updatedChain = state.filterCart.map(item =>
-            item.id === editingFilterChainItem ? { ...item, params: newParams } : item
-          );
-          const editingStepIndex = updatedChain.findIndex(item => item.id === editingFilterChainItem);
-          const filtersUpToStep = updatedChain.slice(0, editingStepIndex + 1).filter(f => f.enabled);
-          updatePreviewModal({ chainItems: filtersUpToStep });
-        } else if (state.previewModal.mode === 'single') {
-          updatePreviewModal({ filterParams: newParams });
-        }
-      }
-    } else {
-      const state = useStore.getState();
-      if (state.previewModal?.isOpen) {
-        updatePreviewModal({ filterParams: newParams });
-      }
     }
-  }, [editingFilterChainItem, updateFilterCartItem, updatePreviewModal]);
+    syncPreview(newParams, typeOverride);
+  }, [editingFilterChainItem, updateFilterCartItem, syncPreview]);
   
   const handleParamChangeImmediate = React.useCallback((param: string, value: string) => {
     const numValue = parseFloat(value);
@@ -1552,13 +1671,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 gaborSigma: 1.5
               };
               setTempFilterParams(defaultParams);
-              
-              // Update preview modal if it's open with new filter type and default params
-              updatePreviewModal({
-                filterType: newFilterType,
-                filterParams: defaultParams,
-                title: `Filter Preview: ${ALL_FILTERS.find(f => f.type === newFilterType)?.name || newFilterType}`
-              });
+              applyParamUpdates(defaultParams, newFilterType);
             }}>
               {filterGroups.map(group => {
                 const groupFilters = ALL_FILTERS.filter(f => f.group === group);

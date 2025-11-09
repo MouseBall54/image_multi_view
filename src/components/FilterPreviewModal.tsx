@@ -32,7 +32,14 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
   realTimeUpdate = false,
   position = 'modal'
 }) => {
-  const { previewSize, setPreviewSize, originalResolution, setOriginalResolution } = useStore();
+  const { 
+    previewSize, 
+    setPreviewSize, 
+    originalResolution, 
+    setOriginalResolution,
+    previewModePreference,
+    setPreviewModePreference
+  } = useStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -321,6 +328,18 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
                 {current.filename}
               </span>
             )}
+          </div>
+          <div className="preview-mode-toggle">
+            {(['single', 'chain'] as const).map(mode => (
+              <button
+                key={mode}
+                className={`mode-btn ${previewModePreference === mode ? 'active' : ''}`}
+                onClick={() => setPreviewModePreference(mode)}
+                title={mode === 'single' ? '현재 선택한 단일 필터만 미리보기' : '적용될 전체 체인 결과 미리보기'}
+              >
+                {mode === 'single' ? 'Single' : 'Chain'}
+              </button>
+            ))}
           </div>
           {position === 'sidebar' && (
             <div className="preview-size-controls">

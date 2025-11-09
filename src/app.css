@@ -4154,6 +4154,35 @@ main {
   font-size: 12px;
 }
 
+.preview-mode-toggle {
+  display: flex;
+  gap: 6px;
+  margin-left: 16px;
+  align-items: center;
+}
+
+.preview-mode-toggle .mode-btn {
+  border: 1px solid var(--border-color);
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preview-mode-toggle .mode-btn.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #fff;
+}
+
+.preview-mode-toggle .mode-btn:not(.active):hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
 .preview-dimensions {
   font-family: monospace;
   color: var(--accent-primary);

@@ -39,6 +39,7 @@ export const FilterCart: React.FC = () => {
     previewModal,
     previewSize,
     closePreviewModal,
+    previewModePreference,
     addToast,
     setTempFilterType,
     setTempFilterParams,
@@ -116,6 +117,104 @@ export const FilterCart: React.FC = () => {
     }
     previewInitializedRef.current = true;
   }, [showFilterCart, previewModal.isOpen, openPreviewModal, filterCart]);
+
+  // Reconcile preview mode preference changes with the active preview content
+  React.useEffect(() => {
+    if (!previewModal.isOpen || previewModal.position !== 'sidebar') return;
+    const sourceFile = getCurrentImageFile();
+    if (!sourceFile) return;
+
+    const enabledChain = filterCart.filter((item: FilterChainItem) => item.enabled);
+    const appendPendingFilter = (chain: FilterChainItem[]): FilterChainItem[] => {
+      if (tempViewerFilter && tempViewerFilter !== 'none') {
+        return [
+          ...chain,
+          {
+            id: 'preview-cart-temp',
+            filterType: tempViewerFilter,
+            params: tempViewerFilterParams as FilterParams,
+            enabled: true,
+          },
+        ];
+      }
+      return chain;
+    };
+
+    if (previewModePreference === 'chain') {
+      if (editingItemId) {
+        const editingIndex = filterCart.findIndex((item: FilterChainItem) => item.id === editingItemId);
+        if (editingIndex >= 0) {
+          const chainUpToStep = filterCart.slice(0, editingIndex + 1).filter((item: FilterChainItem) => item.enabled);
+          if (chainUpToStep.length > 0) {
+            updatePreviewModal({
+              mode: 'chain',
+              chainItems: chainUpToStep,
+              title: `Edit Step ${editingIndex + 1}: ${getFilterDisplayName(chainUpToStep[chainUpToStep.length - 1].filterType)} (Chain)`,
+              realTimeUpdate: true,
+            });
+            return;
+          }
+        }
+      }
+
+      const chainItems = appendPendingFilter(enabledChain);
+      if (chainItems.length > 0) {
+        updatePreviewModal({
+          mode: 'chain',
+          chainItems,
+          title: `Chain Preview (${chainItems.length} ${chainItems.length === 1 ? 'step' : 'steps'})`,
+          realTimeUpdate: true,
+        });
+      } else {
+        updatePreviewModal({
+          mode: 'single',
+          filterType: 'none',
+          title: 'Original Image',
+          realTimeUpdate: true,
+        });
+      }
+    } else {
+      if (editingItemId) {
+        const editingIndex = filterCart.findIndex((item: FilterChainItem) => item.id === editingItemId);
+        if (editingIndex >= 0) {
+          const editingItem = filterCart[editingIndex];
+          updatePreviewModal({
+            mode: 'single',
+            filterType: editingItem.filterType,
+            filterParams: editingItem.params as FilterParams,
+            title: `Edit Step ${editingIndex + 1}: ${getFilterDisplayName(editingItem.filterType)}`,
+            realTimeUpdate: true,
+          });
+          return;
+        }
+      }
+      if (tempViewerFilter && tempViewerFilter !== 'none') {
+        updatePreviewModal({
+          mode: 'single',
+          filterType: tempViewerFilter,
+          filterParams: tempViewerFilterParams as FilterParams,
+          title: `Filter Preview: ${getFilterDisplayName(tempViewerFilter)}`,
+          realTimeUpdate: true,
+        });
+      } else {
+        updatePreviewModal({
+          mode: 'single',
+          filterType: 'none',
+          title: 'Original Image',
+          realTimeUpdate: true,
+        });
+      }
+    }
+  }, [
+    previewModePreference,
+    previewModal.isOpen,
+    previewModal.position,
+    filterCart,
+    editingItemId,
+    tempViewerFilter,
+    tempViewerFilterParams,
+    updatePreviewModal
+  ]);
 
   // Drag handlers (drag by header)
   const onHeaderMouseDown = (e: React.MouseEvent) => {
