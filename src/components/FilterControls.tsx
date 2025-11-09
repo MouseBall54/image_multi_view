@@ -252,6 +252,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   } = useStore();
 
   const panelRef = React.useRef<HTMLDivElement>(null);
+  const filterSelectRef = React.useRef<HTMLSelectElement>(null);
   const [panelPos, setPanelPos] = React.useState<{ left: number; top: number } | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const dragOffsetRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -260,6 +261,46 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   const [isAdvancedMode, setIsAdvancedMode] = React.useState(() => {
     return localStorage.getItem('filterModalAdvancedMode') === 'true';
   });
+  const [filterSearch, setFilterSearch] = React.useState('');
+
+  const visibleFilterGroups = React.useMemo(() => {
+    const normalizedSearch = filterSearch.trim().toLowerCase();
+
+    return filterGroups
+      .map(group => {
+        const groupFilters = ALL_FILTERS.filter(f => f.group === group);
+        const baseFilters = isAdvancedMode
+          ? groupFilters
+          : groupFilters.filter(f => BASIC_FILTERS.includes(f.type));
+
+        const filters = normalizedSearch
+          ? baseFilters.filter(f => f.name.toLowerCase().includes(normalizedSearch))
+          : baseFilters;
+
+        return { group, filters };
+      })
+      .filter(section => section.filters.length > 0);
+  }, [filterSearch, isAdvancedMode]);
+
+  const isSelectionVisible = React.useMemo(() => {
+    return visibleFilterGroups.some(section =>
+      section.filters.some(f => f.type === tempViewerFilter)
+    );
+  }, [visibleFilterGroups, tempViewerFilter]);
+
+  const trimmedSearchQuery = filterSearch.trim();
+  const shouldShowHiddenSelection = trimmedSearchQuery.length > 0 && !isSelectionVisible;
+  const noSearchResults = trimmedSearchQuery.length > 0 && visibleFilterGroups.length === 0;
+  const shouldActivateDropdown = trimmedSearchQuery.length >= 2 && !noSearchResults;
+
+  React.useEffect(() => {
+    if (!shouldActivateDropdown || !filterSelectRef.current) return;
+    const selectEl = filterSelectRef.current as HTMLSelectElement & { showPicker?: () => void };
+    selectEl.focus();
+    if (typeof selectEl.showPicker === 'function') {
+      selectEl.showPicker();
+    }
+  }, [shouldActivateDropdown]);
 
   const onHeaderMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -1731,66 +1772,78 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   const body = (
         <>
         <div className="panel-body">
-          <div className="control-row">
-            <label htmlFor="filter-controls-select">Filter Type</label>
-            <select
-              id="filter-controls-select"
-              className="filter-type-select"
-              value={tempViewerFilter}
-              onChange={(e) => {
-                const newFilterType = e.target.value as FilterType;
-                // 신규 필터 구성 시 이전 체인 편집 상태를 해제해 값이 덮어쓰이지 않도록 함
-                setEditingFilterChainItem(null);
-                setTempFilterType(newFilterType);
-                
-              // Reset parameters to defaults for the new filter type
-              const defaultParams = {
-                kernelSize: 3,
-                kernelSizeX: 3,
-                kernelSizeY: 3,
-                sigma: 1.0,
-                sigmaX: 1.0,
-                sigmaY: 1.0,
-                sigma2: 2.0,
-                clipLimit: 2.0,
-                gridSize: 8,
-                gamma: 1.0,
-                sharpenAmount: 1.0,
-                lowThreshold: 20,
-                highThreshold: 50,
-                threshold: 128,
-                alpha: 0.0,
-                sigmaColor: 25,
-                sigmaSpace: 25,
-                epsilon: 0.04,
-                theta: 0,
-                lambda: 10.0,
-                psi: 0,
-                lawsKernelType: 'L5E5',
-                cutoff: 30,
-                gaborSigma: 1.5
-              };
-              setTempFilterParams(defaultParams);
-              applyParamUpdates(defaultParams, newFilterType);
-            }}>
-              {filterGroups.map(group => {
-                const groupFilters = ALL_FILTERS.filter(f => f.group === group);
-                const displayFilters = isAdvancedMode ? 
-                  groupFilters : 
-                  groupFilters.filter(f => BASIC_FILTERS.includes(f.type));
-                
-                // Only show groups that have filters to display
-                if (displayFilters.length === 0) return null;
-                
-                return (
-                  <optgroup label={group} key={group}>
-                    {displayFilters.map(f => (
+          <div className="control-row filter-search-row">
+            <div className="filter-search-controls">
+              <input
+                id="filter-controls-search"
+                type="search"
+                className="filter-search-input"
+                placeholder="Search filters"
+                aria-label="Search filters"
+                value={filterSearch}
+                onChange={(e) => setFilterSearch(e.target.value)}
+              />
+              <select
+                id="filter-controls-select"
+                className="filter-type-select"
+                aria-label="Filter results"
+                ref={filterSelectRef}
+                value={tempViewerFilter}
+                onChange={(e) => {
+                  const newFilterType = e.target.value as FilterType;
+                  // 신규 필터 구성 시 이전 체인 편집 상태를 해제해 값이 덮어쓰이지 않도록 함
+                  setEditingFilterChainItem(null);
+                  setTempFilterType(newFilterType);
+                  
+                  // Reset parameters to defaults for the new filter type
+                  const defaultParams = {
+                    kernelSize: 3,
+                    kernelSizeX: 3,
+                    kernelSizeY: 3,
+                    sigma: 1.0,
+                    sigmaX: 1.0,
+                    sigmaY: 1.0,
+                    sigma2: 2.0,
+                    clipLimit: 2.0,
+                    gridSize: 8,
+                    gamma: 1.0,
+                    sharpenAmount: 1.0,
+                    lowThreshold: 20,
+                    highThreshold: 50,
+                    threshold: 128,
+                    alpha: 0.0,
+                    sigmaColor: 25,
+                    sigmaSpace: 25,
+                    epsilon: 0.04,
+                    theta: 0,
+                    lambda: 10.0,
+                    psi: 0,
+                    lawsKernelType: 'L5E5',
+                    cutoff: 30,
+                    gaborSigma: 1.5
+                  };
+                  setTempFilterParams(defaultParams);
+                  applyParamUpdates(defaultParams, newFilterType);
+                }}>
+                {shouldShowHiddenSelection && (
+                  <option value={tempViewerFilter} style={{ display: 'none' }}>
+                    {getFilterDisplayName(tempViewerFilter)}
+                  </option>
+                )}
+                {visibleFilterGroups.map(section => (
+                  <optgroup label={section.group} key={section.group}>
+                    {section.filters.map(f => (
                       <option key={f.type} value={f.type}>{f.name}</option>
                     ))}
                   </optgroup>
-                );
-              })}
-            </select>
+                ))}
+                {noSearchResults && (
+                  <option value="" disabled>
+                    {`No filters match "${trimmedSearchQuery}"`}
+                  </option>
+                )}
+              </select>
+            </div>
           </div>
           <div className="params-container">
             {renderParams()}

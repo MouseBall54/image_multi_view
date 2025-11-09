@@ -2251,6 +2251,45 @@ main {
   cursor: pointer;
 }
 
+.filter-search-row {
+  grid-template-columns: 1fr;
+}
+
+.filter-search-row .filter-search-controls {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+}
+
+.filter-search-input {
+  flex: 0 1 50%;
+  max-width: 50%;
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  min-width: 0;
+}
+
+#filter-controls-search {
+  flex: 0 1 50%;
+  max-width: 50%;
+}
+
+.filter-search-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px var(--accent-primary);
+}
+
+.filter-search-row .filter-type-select {
+  flex: 1 1 50%;
+  max-width: 50%;
+  min-width: 0;
+}
+
 .params-container {
   padding: 16px;
   background-color: var(--bg-dark);
