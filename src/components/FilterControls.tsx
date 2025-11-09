@@ -533,12 +533,61 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     applyParamUpdates(newParams);
   };
 
+  const handleBooleanParamChange = (param: string, value: boolean) => {
+    const newParams = { ...tempViewerFilterParams, [param]: value };
+    setTempFilterParams({ [param]: value });
+    applyParamUpdates(newParams);
+  };
+
   // Helper for InlineNumber onCommit with preview updates
   // InlineNumber는 즉시 적용 (사용자가 직접 값 입력하고 커밋했으므로)
   const handleInlineNumberCommit = (param: string, value: number) => {
     const newParams = { ...tempViewerFilterParams, [param]: value };
     setTempFilterParams({ [param]: value });
     applyParamUpdates(newParams);
+  };
+
+  const renderSliderControl = (
+    label: string,
+    param: string,
+    options: { min: number; max: number; step?: number; defaultValue: number }
+  ) => {
+    const { min, max, step = 1, defaultValue } = options;
+    const currentValue = ((tempViewerFilterParams as any)[param] ?? defaultValue) as number;
+    return (
+      <div className="control-row">
+        <label>{label}</label>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={currentValue}
+          onChange={(e) => handleParamChange(param, e.target.value)}
+        />
+        <InlineNumber
+          value={currentValue}
+          min={min}
+          max={max}
+          step={step}
+          onCommit={(value) => handleInlineNumberCommit(param, value)}
+        />
+      </div>
+    );
+  };
+
+  const renderCheckboxControl = (label: string, param: string, defaultValue = false) => {
+    const checked = Boolean(((tempViewerFilterParams as any)[param] ?? defaultValue) as boolean);
+    return (
+      <div className="control-row checkbox-row">
+        <label>{label}</label>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => handleBooleanParamChange(param, e.target.checked)}
+        />
+      </div>
+    );
   };
 
   const handleParamsReplace = React.useCallback((nextParams: FilterParams) => {
@@ -764,22 +813,67 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
           </div>
         );
       case 'threshold_binary':
+        return (
+          <>
+            {renderSliderControl('Threshold', 'threshold', { min: 0, max: 255, step: 1, defaultValue: 128 })}
+            {renderSliderControl('Max Value', 'maxValue', { min: 0, max: 255, step: 1, defaultValue: 255 })}
+            {renderCheckboxControl('Invert Output', 'binaryInvert')}
+          </>
+        );
       case 'threshold_otsu':
       case 'threshold_triangle':
-      case 'threshold_adaptive_mean':
-      case 'threshold_adaptive_gaussian':
-      case 'threshold_sauvola':
-      case 'threshold_bradley':
-      case 'threshold_bernsen':
-      case 'threshold_phansalkar':
       case 'threshold_kittler':
         return (
-          <FilterParameterControls
-            filterType={tempViewerFilter}
-            filterParams={tempViewerFilterParams}
-            onChange={handleParamsReplace}
-            compact
-          />
+          <>
+            {renderSliderControl('Max Value', 'maxValue', { min: 0, max: 255, step: 1, defaultValue: 255 })}
+            {renderCheckboxControl('Invert Output', 'binaryInvert')}
+          </>
+        );
+      case 'threshold_adaptive_mean':
+      case 'threshold_adaptive_gaussian':
+        return (
+          <>
+            {renderSliderControl('Block Size', 'blockSize', { min: 3, max: 51, step: 2, defaultValue: 15 })}
+            {renderSliderControl('Constant (C)', 'constant', { min: -30, max: 30, step: 0.5, defaultValue: 5 })}
+            {renderSliderControl('Max Value', 'maxValue', { min: 0, max: 255, step: 1, defaultValue: 255 })}
+            {renderCheckboxControl('Invert Output', 'binaryInvert')}
+          </>
+        );
+      case 'threshold_sauvola':
+        return (
+          <>
+            {renderSliderControl('Window Size', 'windowSize', { min: 3, max: 51, step: 2, defaultValue: 15 })}
+            {renderSliderControl('k', 'sauvolaK', { min: 0, max: 1, step: 0.05, defaultValue: 0.5 })}
+            {renderSliderControl('R', 'sauvolaR', { min: 1, max: 255, step: 1, defaultValue: 128 })}
+            {renderCheckboxControl('Invert Output', 'binaryInvert')}
+          </>
+        );
+      case 'threshold_bradley':
+        return (
+          <>
+            {renderSliderControl('Window Size', 'windowSize', { min: 3, max: 51, step: 2, defaultValue: 15 })}
+            {renderSliderControl('Threshold (t)', 'bradleyT', { min: 0, max: 1, step: 0.01, defaultValue: 0.15 })}
+            {renderCheckboxControl('Invert Output', 'binaryInvert')}
+          </>
+        );
+      case 'threshold_bernsen':
+        return (
+          <>
+            {renderSliderControl('Window Size', 'windowSize', { min: 3, max: 51, step: 2, defaultValue: 15 })}
+            {renderSliderControl('Contrast Limit', 'bernsenContrast', { min: 0, max: 255, step: 1, defaultValue: 15 })}
+            {renderCheckboxControl('Invert Output', 'binaryInvert')}
+          </>
+        );
+      case 'threshold_phansalkar':
+        return (
+          <>
+            {renderSliderControl('Window Size', 'windowSize', { min: 3, max: 51, step: 2, defaultValue: 15 })}
+            {renderSliderControl('k', 'phansalkarK', { min: 0, max: 1, step: 0.05, defaultValue: 0.25 })}
+            {renderSliderControl('r', 'phansalkarR', { min: 0.1, max: 1, step: 0.05, defaultValue: 0.5 })}
+            {renderSliderControl('p', 'phansalkarP', { min: 0, max: 5, step: 0.1, defaultValue: 2.0 })}
+            {renderSliderControl('q', 'phansalkarQ', { min: 0, max: 20, step: 0.5, defaultValue: 10.0 })}
+            {renderCheckboxControl('Invert Output', 'binaryInvert')}
+          </>
         );
       case 'edgepreserving':
         return (
