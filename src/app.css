@@ -3585,6 +3585,7 @@ main {
 
 .embedded-editor-wrap {
   padding: 4px 0;
+  margin-right: 10px; /* Provide breathing room against chain column */
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -3592,6 +3593,7 @@ main {
 
 .embedded-editor-wrap .filter-controls-embedded {
   flex: 1;
+  margin-right: 8px; /* ensure inner panel doesn't stick to cart edge */
   min-height: 0; /* Allow it to shrink */
 }
 
