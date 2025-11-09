@@ -1,7 +1,7 @@
 {
   "name": "compareX",
   "private": true,
-  "version": "25.11.6",
+  "version": "25.11.7",
   "type": "module",
   "description": "Advanced image comparison and analysis tool",
   "author": "compareX Team",
@@ -27,6 +27,16 @@
     "build:deploy": "node build/build-and-deploy.cjs",
     "build:deploy:prod": "node build/build-and-deploy.cjs --mode=prod",
     "build:deploy:dev": "node build/build-and-deploy.cjs --mode=dev"
+  },
+  "deployTargets": {
+    "dev": {
+      "serverUrl": "http://localhost:8000/updates/",
+      "outputDir": "updates/dev"
+    },
+    "prod": {
+      "serverUrl": "http://192.168.0.88:8000/updates/",
+      "outputDir": "updates/prod"
+    }
   },
   "dependencies": {
     "electron-updater": "^6.3.4",

@@ -9,13 +9,17 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
+const { URL } = require('url');
+const pkg = require('../package.json');
 
 // Configuration
+const deployTargets = pkg.deployTargets || {};
+
 const CONFIG = {
-  version: require('../package.json').version,
-  serverUrl: 'http://192.168.0.88:8000/updates/',
+  version: pkg.version,
+  serverUrl: deployTargets.prod?.serverUrl || 'http://192.168.0.88:8000/updates/',
   buildDir: 'dist-electron',
-  outputDir: 'updates',
+  outputDir: deployTargets.prod?.outputDir || 'updates',
   productName: 'compareX'
 };
 
@@ -26,13 +30,13 @@ const argMode = (process.env.BUILD_MODE ||
 const TARGETS = {
   dev: {
     electronCommand: 'npm run electron:pack:dev',
-    serverUrl: 'http://localhost:8000/updates/',
-    outputDir: path.join('updates', 'dev')
+    serverUrl: deployTargets.dev?.serverUrl || 'http://localhost:8000/updates/',
+    outputDir: deployTargets.dev?.outputDir || path.join('updates', 'dev')
   },
   prod: {
     electronCommand: 'npm run electron:pack:win',
-    serverUrl: CONFIG.serverUrl,
-    outputDir: path.join('updates', 'prod')
+    serverUrl: deployTargets.prod?.serverUrl || CONFIG.serverUrl,
+    outputDir: deployTargets.prod?.outputDir || path.join('updates', 'prod')
   }
 };
 
@@ -223,11 +227,32 @@ try {
   console.log('  3. Test update mechanism with previous version');
   
   console.log('\n🌐 Server deployment commands:');
+  const serverHints = (() => {
+    const fallback = {
+      host: 'server',
+      posixPath: '/path/to/updates',
+      windowsPath: 'updates'
+    };
+    try {
+      const parsed = new URL(CONFIG.serverUrl);
+      const host = parsed.hostname || fallback.host;
+      const trimmedPath = parsed.pathname.replace(/\/$/, '') || fallback.posixPath;
+      return {
+        host,
+        posixPath: trimmedPath,
+        windowsPath: trimmedPath.replace(/^\//, '').replace(/\//g, '\\') || fallback.windowsPath
+      };
+    } catch (e) {
+      return fallback;
+    }
+  })();
+  const remotePosixPath = `${serverHints.posixPath}/${argMode}`.replace(/\/+/g, '/');
   console.log(`  # Copy to server (adjust path as needed)`);
-  console.log(`  scp ${CONFIG.outputDir}/* user@192.168.0.88:/path/to/updates/${argMode}/`);
+  console.log(`  scp ${CONFIG.outputDir}/* user@${serverHints.host}:${remotePosixPath}/`);
   console.log(`  # Or use Windows copy`);
   const windowsOutput = CONFIG.outputDir.replace(/\//g, '\\');
-  console.log(`  xcopy ${windowsOutput}\\* \\\\192.168.0.88\\updates\\${argMode}\\ /Y /I`);
+  const remoteWindowsPath = `${serverHints.windowsPath}\\${argMode}`.replace(/\\\\+/g, '\\');
+  console.log(`  xcopy ${windowsOutput}\\* \\\\${serverHints.host}\\${remoteWindowsPath}\\ /Y /I`);
   
 } catch (error) {
   console.error('\n❌ Build failed:', error.message);
