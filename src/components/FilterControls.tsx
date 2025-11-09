@@ -1638,11 +1638,15 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
         <>
         <div className="panel-body">
           <div className="control-row">
-            <label>Filter Type</label>
-            <select value={tempViewerFilter} onChange={(e) => {
-              const newFilterType = e.target.value as FilterType;
-              setTempFilterType(newFilterType);
-              
+            <label htmlFor="filter-controls-select">Filter Type</label>
+            <select
+              id="filter-controls-select"
+              className="filter-type-select"
+              value={tempViewerFilter}
+              onChange={(e) => {
+                const newFilterType = e.target.value as FilterType;
+                setTempFilterType(newFilterType);
+                
               // Reset parameters to defaults for the new filter type
               const defaultParams = {
                 kernelSize: 3,
