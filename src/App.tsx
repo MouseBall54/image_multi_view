@@ -17,7 +17,7 @@ import { PinpointGlobalScaleControl } from "./components/PinpointGlobalScaleCont
 import { ViewToggleControls } from "./components/ViewToggleControls";
 import { LayoutGridSelector } from "./components/LayoutGridSelector";
 import { MAX_ZOOM, MIN_ZOOM, UTIF_OPTIONS } from "./config";
-import { tutorialItems } from "./config/tutorials";
+import { tutorialItems } from "./config/tutorials_kr";
 import { decodeTiffWithUTIF } from "./utils/utif";
 import { electronUpdater } from "./utils/electron-updater";
 import { isDevChannel } from "./utils/environment";

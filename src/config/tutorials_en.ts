@@ -13,33 +13,26 @@ export interface TutorialItem {
 export const tutorialItems: TutorialItem[] = [
   {
     id: "image-load-layout",
-    title: "이미지 로딩 및 레이아웃 조절",
-    description: "드래그 앤 드롭으로 이미지를 불러오고, 그리드 선택기로 뷰어 레이아웃을 조절하는 방법을 배워보세요.",
+    title: "Image Loading & Layout",
+    description: "Learn to load images via drag-and-drop and adjust the layout with the grid selector.",
     src: image_load_layout
   },
   {
     id: "pinpoint-loading",
     title: "Pinpoint Image Loading",
-    description:
-      "Load a single image into Pinpoint mode, inspect it in the viewer, and prepare pins before comparing.",
+    description: "Load an image into Pinpoint mode and prepare pins before comparing.",
     src: pinpointLoading
   },
   {
     id: "compare-mode",
     title: "Compare Mode Basics",
-    description: "Learn how to load folders and compare synchronized viewers.",
+    description: "Learn how to load folders and compare images in synchronized viewers.",
     src: test2
   },
   {
     id: "pinpoint-mode",
     title: "Pinpoint Tips",
-    description: "Add pins, adjust global scale, and manage pinpoint layouts.",
+    description: "Discover key tips for Pinpoint mode, including adding pins, adjusting global scale, and managing layouts.",
     src: test3
-  },
-  {
-    id: "Test-Tip",
-    title: "Test Tips",
-    description: "Add pins, adjust global scale, and manage pinpoint layouts.",
-    src: test4
   }
 ];

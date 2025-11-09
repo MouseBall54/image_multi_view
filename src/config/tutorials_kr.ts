@@ -19,27 +19,20 @@ export const tutorialItems: TutorialItem[] = [
   },
   {
     id: "pinpoint-loading",
-    title: "Pinpoint Image Loading",
-    description:
-      "Load a single image into Pinpoint mode, inspect it in the viewer, and prepare pins before comparing.",
+    title: "Pinpoint 모드 이미지 로딩",
+    description: "Pinpoint 모드로 이미지를 불러오고, 비교 전 핀을 준비하는 방법을 배웁니다.",
     src: pinpointLoading
   },
   {
     id: "compare-mode",
-    title: "Compare Mode Basics",
-    description: "Learn how to load folders and compare synchronized viewers.",
+    title: "Compare 모드 기초",
+    description: "여러 폴더를 불러와 동기화된 뷰어에서 이미지를 비교하는 방법을 배웁니다.",
     src: test2
   },
   {
     id: "pinpoint-mode",
-    title: "Pinpoint Tips",
-    description: "Add pins, adjust global scale, and manage pinpoint layouts.",
+    title: "Pinpoint 모드 팁",
+    description: "핀 추가, 글로벌 스케일 조정, 레이아웃 관리 등 Pinpoint 모드의 핵심 팁을 확인하세요.",
     src: test3
-  },
-  {
-    id: "Test-Tip",
-    title: "Test Tips",
-    description: "Add pins, adjust global scale, and manage pinpoint layouts.",
-    src: test4
   }
 ];
