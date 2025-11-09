@@ -1645,6 +1645,8 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
               value={tempViewerFilter}
               onChange={(e) => {
                 const newFilterType = e.target.value as FilterType;
+                // 신규 필터 구성 시 이전 체인 편집 상태를 해제해 값이 덮어쓰이지 않도록 함
+                setEditingFilterChainItem(null);
                 setTempFilterType(newFilterType);
                 
               // Reset parameters to defaults for the new filter type
@@ -1764,7 +1766,6 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                   // Select and sync editor to the new item
                   setTempFilterType(newItem.filterType);
                   setTempFilterParams(newItem.params as any);
-                  setEditingFilterChainItem(newItem.id);
 
                   const chainUpToThis = cart.slice(0, stepIndex + 1).filter((f: any) => f.enabled);
 
@@ -1808,6 +1809,8 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                   });
                 } catch (e) {
                   console.warn('Auto-preview after add failed:', e);
+                } finally {
+                  setEditingFilterChainItem(null);
                 }
               }} 
               className="btn btn-icon add-to-cart-btn"

@@ -302,6 +302,7 @@ export const FilterCart: React.FC = () => {
     setPreviewClosing(true);
     // Exit edit mode when closing preview
     setEditingItemId(null);
+    setEditingFilterChainItem(null);
     setTimeout(() => {
       closePreviewModal();
       setPreviewExiting(false);
@@ -310,7 +311,7 @@ export const FilterCart: React.FC = () => {
         setPreviewClosing(false);
       }, 400); // Match panel width transition duration
     }, 300);
-  }, [closePreviewModal, previewSize]);
+  }, [closePreviewModal, previewSize, setEditingFilterChainItem]);
 
   // Ensure preview sidebar is active by default when panel opens
   React.useEffect(() => {
@@ -321,11 +322,10 @@ export const FilterCart: React.FC = () => {
     // Prefer chain preview if chain has items, otherwise single filter preview
     const enabledChain = filterCart.filter((f: FilterChainItem) => f.enabled);
     if (enabledChain.length > 0) {
-      // Update panel-body to show the last filter's parameters for editing
+      // Prefill controls with the last filter but do NOT enter edit mode automatically
       const lastFilter = enabledChain[enabledChain.length - 1];
       setTempFilterType(lastFilter.filterType);
-      setTempFilterParams(lastFilter.params as FilterParams);
-      setEditingFilterChainItem(lastFilter.id);
+      setTempFilterParams({ ...(lastFilter.params as FilterParams) });
       
       openPreviewModal({
         mode: 'chain',

@@ -645,7 +645,7 @@ export const useStore = create<State>((set, get) => ({
       }
     }
   }),
-  closeFilterEditor: () => set({ activeFilterEditor: null }),
+  closeFilterEditor: () => set({ activeFilterEditor: null, editingFilterChainItem: null }),
   setTempFilterType: (type) => set({ tempViewerFilter: type }),
   setTempFilterParams: (params) => set(state => ({
     tempViewerFilterParams: { ...state.tempViewerFilterParams, ...params }
