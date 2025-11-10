@@ -2,6 +2,7 @@
  * Electron-Updater Integration Module
  * Provides a clean interface to electron-updater functionality
  */
+import { configureUpdaterFeed, UpdateFeedTarget } from "./updateFeed";
 
 export interface UpdateInfo {
   version: string;
@@ -27,6 +28,8 @@ export class ElectronUpdater {
   private isChecking = false;
   private isDownloading = false;
   private isDownloaded = false;
+  private lastFeedTarget: UpdateFeedTarget | null = null;
+  private lastFeedUrl: string | null = null;
 
   constructor() {
     this.setupEventListeners();
@@ -78,13 +81,26 @@ export class ElectronUpdater {
   /**
    * Check for available updates
    */
-  async checkForUpdates(): Promise<{ success: boolean; error?: string; updateInfo?: UpdateInfo }> {
+  async checkForUpdates(feedTarget?: UpdateFeedTarget): Promise<{ success: boolean; error?: string; updateInfo?: UpdateInfo }> {
     if (!window.electronAPI?.updater) {
       return { success: false, error: 'Updater not available' };
     }
 
     try {
       this.isChecking = true;
+      if (feedTarget) {
+        try {
+          const configuredUrl = await configureUpdaterFeed(feedTarget);
+          this.lastFeedTarget = feedTarget;
+          this.lastFeedUrl = configuredUrl ?? null;
+        } catch (feedError) {
+          this.isChecking = false;
+          return {
+            success: false,
+            error: feedError instanceof Error ? feedError.message : 'Failed to configure update feed'
+          };
+        }
+      }
       const result = await window.electronAPI.updater.checkForUpdates();
       
       if (result.error) {
@@ -206,6 +222,13 @@ export class ElectronUpdater {
       isDownloading: this.isDownloading,
       isDownloaded: this.isDownloaded,
       updateInfo: this.updateInfo
+    };
+  }
+
+  getLastFeedInfo() {
+    return {
+      target: this.lastFeedTarget,
+      url: this.lastFeedUrl
     };
   }
 

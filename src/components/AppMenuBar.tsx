@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { isDevChannel } from "../utils/environment";
+import { electronUpdater } from "../utils/electron-updater";
+import { UpdateFeedTarget } from "../utils/updateFeed";
 
 type MenuItem = {
   label: string;
@@ -60,15 +62,17 @@ export function AppMenuBar() {
     window.location.reload();
   };
 
-  const handleCheckUpdates = async () => {
+  const handleCheckUpdatesForTarget = useCallback(async (target: UpdateFeedTarget) => {
     try {
-      if (electronApi?.updater) {
-        await electronApi.updater.checkForUpdates();
+      if (!electronApi?.updater) return;
+      const result = await electronUpdater.checkForUpdates(target);
+      if (result.error) {
+        alert(result.error);
       }
     } catch (e) {
-      // no-op
+      alert(e instanceof Error ? e.message : String(e));
     }
-  };
+  }, [electronApi]);
 
   const handleQuit = () => {
     if (isElectron) {
@@ -103,14 +107,23 @@ export function AppMenuBar() {
     alert("compareX\nAdvanced image comparison and analysis tool");
   };
 
+  const availableTargets: UpdateFeedTarget[] = showDevControls ? ["dev", "prod"] : ["prod"];
+  const updateMenuItems: MenuItem[] = availableTargets.map((target) => ({
+    label: `Check for Updates (${target.toUpperCase()})...`,
+    action: () => void handleCheckUpdatesForTarget(target),
+    disabled: !electronApi?.updater
+  }));
+
+  const fileMenuItems: MenuItem[] = [
+    ...updateMenuItems,
+    ...(updateMenuItems.length ? [{ separator: true, label: "sep" } as MenuItem] : []),
+    { label: "Exit", action: handleQuit, danger: true }
+  ];
+
   const menus: MenuGroup[] = [
     {
       label: "File",
-      items: [
-        ...(showDevControls ? [{ label: "Check for Updates...", action: handleCheckUpdates, disabled: !electronApi?.updater }] : []),
-        ...(showDevControls ? [{ separator: true, label: "sep" }] : []),
-        { label: "Exit", action: handleQuit, danger: true },
-      ],
+      items: fileMenuItems,
     },
     {
       label: "View",

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store';
 import { electronUpdater, UpdateInfo, DownloadProgress, VersionInfo } from '../utils/electron-updater';
 import { isDevChannel } from '../utils/environment';
+import { UpdateFeedTarget, getDefaultUpdateFeedTarget } from '../utils/updateFeed';
 
 interface ElectronUpdateManagerProps {
   autoCheck?: boolean;
@@ -65,14 +66,15 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
     });
   }, [shouldShowToast]);
 
-  const checkForUpdates = useCallback(async () => {
+  const checkForUpdates = useCallback(async (target?: UpdateFeedTarget) => {
     const isDevBuild = Boolean(versionInfoRef.current?.isDev) || defaultDevChannel;
     if (!isElectron || isChecking || isDevBuild) return;
+    const feedTarget: UpdateFeedTarget = target ?? getDefaultUpdateFeedTarget() ?? 'prod';
     
     setIsChecking(true);
     
     try {
-      const result = await electronUpdater.checkForUpdates();
+      const result = await electronUpdater.checkForUpdates(feedTarget);
       if (result.error) {
         if (result.error === 'Updates disabled in development mode') {
           showInfoToast('Updates are disabled in development builds.');
@@ -127,10 +129,18 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
           const toastFn = addToastRef.current;
           if (toastFn && now - lastNotAvailableToastAt.current > 2000) {
             lastNotAvailableToastAt.current = now;
+            const isDevBuild = Boolean(versionInfoRef.current?.isDev) || defaultDevChannel;
+            let message = 'You are on the latest version.';
+            if (isDevBuild) {
+              const lastFeed = electronUpdater.getLastFeedInfo();
+              if (lastFeed?.url) {
+                message = `${message}\n${lastFeed.url}`;
+              }
+            }
             toastFn({
               type: 'info',
               title: 'Update Check',
-              message: 'You are on the latest version.'
+              message
             });
           }
         });

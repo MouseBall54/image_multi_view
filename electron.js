@@ -26,15 +26,6 @@ autoUpdater.checkForUpdatesAndNotify = false; // We'll handle notifications manu
 autoUpdater.autoDownload = false; // We'll control when to download
 autoUpdater.autoInstallOnAppQuit = true; // Install on app quit
 
-// Development mode: disable updater
-if (isDev) {
-  autoUpdater.updateConfigPath = path.join(__dirname, 'dev-app-update.yml');
-  // Disable updater in development
-  Object.defineProperty(autoUpdater, 'isUpdaterActive', {
-    get() { return false; }
-  });
-}
-
 // Auto-updater event handlers
 autoUpdater.on('checking-for-update', () => {
   console.log('Checking for update...');
@@ -89,10 +80,6 @@ function sendToRenderer(channel, data) {
 
 // Auto-updater IPC handlers
 ipcMain.handle('updater-check-for-updates', async () => {
-  if (isDev) {
-    return { error: 'Updates disabled in development mode' };
-  }
-  
   try {
     const result = await autoUpdater.checkForUpdates();
     return { success: true, updateInfo: result?.updateInfo };
@@ -103,10 +90,6 @@ ipcMain.handle('updater-check-for-updates', async () => {
 });
 
 ipcMain.handle('updater-download-update', async () => {
-  if (isDev) {
-    return { error: 'Updates disabled in development mode' };
-  }
-  
   try {
     await autoUpdater.downloadUpdate();
     return { success: true };
@@ -117,10 +100,6 @@ ipcMain.handle('updater-download-update', async () => {
 });
 
 ipcMain.handle('updater-quit-and-install', async () => {
-  if (isDev) {
-    return { error: 'Updates disabled in development mode' };
-  }
-  
   try {
     // Show confirmation dialog
     const { response } = await dialog.showMessageBox(mainWindow, {
@@ -152,10 +131,6 @@ ipcMain.handle('updater-get-version', async () => {
 });
 
 ipcMain.handle('updater-set-feed-url', async (event, feedUrl) => {
-  if (isDev) {
-    return { error: 'Updates disabled in development mode' };
-  }
-  
   try {
     autoUpdater.setFeedURL(feedUrl);
     return { success: true };

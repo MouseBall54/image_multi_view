@@ -10,8 +10,8 @@ export const getInputFromUser = async (message: string, defaultValue?: string): 
       // Fallback to default value
       return defaultValue || null;
     }
-  } else {
-    // Fallback to window.prompt for web environment
-    return window.prompt(message, defaultValue || '') || null;
   }
+
+  // Fallback for non-Electron environments without using window.prompt
+  return defaultValue ?? null;
 };
