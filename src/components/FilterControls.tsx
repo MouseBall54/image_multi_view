@@ -246,9 +246,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     previewModePreference,
     folders,
     analysisFile,
-    editingFilterChainItem,
-    setEditingFilterChainItem,
-    updateFilterCartItem,
+    activeChainEditorItem,
   } = useStore();
 
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -483,34 +481,6 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     const params = overrideParams ?? tempViewerFilterParams;
     const type = overrideType ?? tempViewerFilter;
 
-    if (editingFilterChainItem) {
-      const editingIndex = filterCart.findIndex(item => item.id === editingFilterChainItem);
-      if (editingIndex === -1) return;
-      const editingItem = filterCart[editingIndex];
-      const updatedChain = filterCart.map(item =>
-        item.id === editingFilterChainItem ? { ...item, params } : item
-      );
-      const chainUpToStep = updatedChain.slice(0, editingIndex + 1).filter(item => item.enabled);
-
-      if (previewModePreference === 'chain') {
-        updatePreviewModal({
-          mode: 'chain',
-          chainItems: chainUpToStep,
-          filterType: editingItem.filterType,
-          filterParams: params,
-          title: `Edit Step ${editingIndex + 1}: ${getFilterDisplayName(editingItem.filterType)} (Chain)`
-        });
-      } else {
-        updatePreviewModal({
-          mode: 'single',
-          filterType: editingItem.filterType,
-          filterParams: params,
-          title: `Edit Step ${editingIndex + 1}: ${getFilterDisplayName(editingItem.filterType)}`
-        });
-      }
-      return;
-    }
-
     if (previewModePreference === 'chain') {
       const chainItems = buildPendingChain(params, type);
       updatePreviewModal({
@@ -530,7 +500,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
         title: `Filter Preview: ${getFilterDisplayName(type)}`
       });
     }
-  }, [previewModal.isOpen, tempViewerFilterParams, tempViewerFilter, editingFilterChainItem, filterCart, previewModePreference, updatePreviewModal, buildPendingChain, ensurePreviewIsOpen]);
+  }, [previewModal.isOpen, tempViewerFilterParams, tempViewerFilter, filterCart, previewModePreference, updatePreviewModal, buildPendingChain, ensurePreviewIsOpen]);
 
   // 무거운 필터 목록 (더 긴 throttle 적용)
   const heavyFilters = ['bilateral', 'morphology', 'morph_open', 'morph_close', 'morph_gradient', 'morph_tophat', 'morph_blackhat', 'gaussianblur_xy', 'boxblur_xy'];
@@ -543,15 +513,13 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   }, [tempViewerFilter]);
 
   React.useEffect(() => {
+    if (activeChainEditorItem) return;
     syncPreview();
-  }, [syncPreview]);
+  }, [syncPreview, activeChainEditorItem]);
 
   const applyParamUpdates = React.useCallback((newParams: FilterParams, typeOverride?: FilterType) => {
-    if (editingFilterChainItem) {
-      updateFilterCartItem(editingFilterChainItem, { params: newParams });
-    }
     syncPreview(newParams, typeOverride);
-  }, [editingFilterChainItem, updateFilterCartItem, syncPreview]);
+  }, [syncPreview]);
   
   const handleParamChangeImmediate = React.useCallback((param: string, value: string) => {
     const numValue = parseFloat(value);
@@ -1791,8 +1759,6 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                 value={tempViewerFilter}
                 onChange={(e) => {
                   const newFilterType = e.target.value as FilterType;
-                  // 신규 필터 구성 시 이전 체인 편집 상태를 해제해 값이 덮어쓰이지 않도록 함
-                  setEditingFilterChainItem(null);
                   setTempFilterType(newFilterType);
                   
                   // Reset parameters to defaults for the new filter type
@@ -1908,11 +1874,6 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                   const cart = state.filterCart || [];
                   if (cart.length === 0) return;
                   const stepIndex = cart.length - 1;
-                  const newItem = cart[stepIndex];
-
-                  // Select and sync editor to the new item
-                  setTempFilterType(newItem.filterType);
-                  setTempFilterParams(newItem.params as any);
 
                   const chainUpToThis = cart.slice(0, stepIndex + 1).filter((f: any) => f.enabled);
 
@@ -1956,9 +1917,9 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
                   });
                 } catch (e) {
                   console.warn('Auto-preview after add failed:', e);
-                } finally {
-                  setEditingFilterChainItem(null);
                 }
+
+                setTempFilterType('none');
               }} 
               className="btn btn-icon add-to-cart-btn"
               disabled={tempViewerFilter === 'none'}

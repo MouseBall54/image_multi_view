@@ -5,6 +5,7 @@ import type { FilterChainItem, FilterPreset, FolderKey, FilterType } from '../ty
 import { importFilterChain, isValidFilterChainFile } from '../utils/filterExport';
 import { getRelevantParams as getRelevantParamsForType } from '../utils/filterExport';
 import { FilterPreviewModal } from './FilterPreviewModal';
+import { FilterChainItemEditorModal } from './FilterChainItemEditorModal';
 
 interface DragItem {
   index: number;
@@ -28,6 +29,7 @@ export const FilterCart: React.FC = () => {
     reorderFilterCart,
     clearFilterCart,
     toggleFilterCartItem,
+    updateFilterCartItem,
     saveFilterPreset,
     loadFilterPreset,
     deleteFilterPreset,
@@ -41,9 +43,7 @@ export const FilterCart: React.FC = () => {
     closePreviewModal,
     previewModePreference,
     addToast,
-    setTempFilterType,
-    setTempFilterParams,
-    setEditingFilterChainItem,
+    setActiveChainEditorItem,
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
@@ -61,6 +61,97 @@ export const FilterCart: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
+  const [editorPosition, setEditorPosition] = useState<{ left: number; top: number } | null>(null);
+  const [editorPinned, setEditorPinned] = useState(false);
+  const editingContext = React.useMemo(() => {
+    if (!editingItemId) return null;
+    const index = filterCart.findIndex((item) => item.id === editingItemId);
+    if (index === -1) return null;
+    return { item: filterCart[index], index };
+  }, [editingItemId, filterCart]);
+
+  React.useEffect(() => {
+    if (!editingItemId) {
+      setEditorPosition(null);
+      setEditorPinned(false);
+      return;
+    }
+    if (!filterCart.some((item) => item.id === editingItemId)) {
+      setEditingItemId(null);
+    }
+  }, [editingItemId, filterCart]);
+
+  React.useEffect(() => {
+    setActiveChainEditorItem(editingItemId);
+  }, [editingItemId, setActiveChainEditorItem]);
+
+  const handleEditorParamChange = React.useCallback((itemId: string, params: FilterParams) => {
+    updateFilterCartItem(itemId, { params });
+  }, [updateFilterCartItem]);
+
+  React.useEffect(() => {
+    if (!showFilterCart) {
+      setEditingItemId(null);
+      setEditorPinned(false);
+    }
+  }, [showFilterCart]);
+
+  const syncEditorPanelPosition = React.useCallback(() => {
+    if (!editingContext || !panelRef.current || editorPinned) {
+      if (!editingContext) {
+        setEditorPosition(null);
+      }
+      return;
+    }
+    const rect = panelRef.current.getBoundingClientRect();
+    const margin = 16;
+    const editorWidth = 360;
+    const topOffset = 60;
+    let left = rect.right - editorWidth - margin;
+    const minLeft = rect.left + margin;
+    const maxLeft = window.innerWidth - editorWidth - margin;
+    left = Math.max(minLeft, Math.min(left, maxLeft));
+
+    let top = rect.top + topOffset;
+    const maxTop = window.innerHeight - margin - 80;
+    top = Math.max(margin, Math.min(top, maxTop));
+
+    setEditorPosition({ left, top });
+  }, [editingContext, editorPinned]);
+
+  React.useLayoutEffect(() => {
+    if (!editingContext) {
+      setEditorPosition(null);
+      return;
+    }
+    if (editorPinned) return;
+    const updatePosition = () => syncEditorPanelPosition();
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [editingContext, panelPos, previewModal.isOpen, previewSize, syncEditorPanelPosition, editorPinned]);
+
+  React.useEffect(() => {
+    if (!editingContext) return;
+    if (editorPinned) return;
+    syncEditorPanelPosition();
+  }, [editingContext?.item.id, editorPinned, syncEditorPanelPosition]);
+
+  const handleEditorDragStart = React.useCallback(() => {
+    setEditorPinned(true);
+  }, []);
+
+  const handleEditorPositionChange = React.useCallback((pos: { left: number; top: number }) => {
+    const margin = 8;
+    const editorWidth = 360;
+    const maxLeft = window.innerWidth - editorWidth - margin;
+    const clampedLeft = Math.max(margin, Math.min(pos.left, maxLeft));
+    const maxTop = window.innerHeight - margin - 80;
+    const clampedTop = Math.max(margin, Math.min(pos.top, maxTop));
+    setEditorPosition({ left: clampedLeft, top: clampedTop });
+  }, []);
   
   // Drag and drop states for JSON file import
   const [isDragOver, setIsDragOver] = useState(false);
@@ -248,70 +339,19 @@ export const FilterCart: React.FC = () => {
     document.addEventListener('mouseup', onUp);
   };
 
-  // Handle preview when editing starts
-  React.useEffect(() => {
-    if (editingItemId) {
-      const editingItem = filterCart.find((item: FilterChainItem) => item.id === editingItemId);
-      const sourceFile = getCurrentImageFile();
-      if (editingItem && sourceFile) {
-        // Find the step index of the editing item
-        const stepIndex = filterCart.findIndex((item: FilterChainItem) => item.id === editingItemId);
-        
-        // Create a chain of steps up to (but not including) the current step for the base image
-        const precedingSteps = filterCart.slice(0, stepIndex);
-        
-        // Small delay to allow for smooth transition
-        setTimeout(() => {
-          // Update panel-body to show the editing filter's parameters
-          setTempFilterType(editingItem.filterType);
-          setTempFilterParams(editingItem.params as FilterParams);
-          setEditingFilterChainItem(editingItemId);
-          
-          if (precedingSteps.length > 0) {
-            // Show chain preview with preceding steps + current step being edited
-            openPreviewModal({
-              mode: 'chain',
-              chainItems: [...precedingSteps, { ...editingItem, params: editingItem.params as FilterParams }],
-              title: `Edit Step ${stepIndex + 1}: ${getFilterDisplayName(editingItem.filterType)}`,
-              sourceFile,
-              realTimeUpdate: true,
-              position: 'sidebar',
-                    stepIndex: stepIndex
-            });
-          } else {
-            // First step - show single filter preview
-            openPreviewModal({
-              mode: 'single',
-              filterType: editingItem.filterType,
-              filterParams: editingItem.params as FilterParams,
-              title: `Edit Step 1: ${getFilterDisplayName(editingItem.filterType)}`,
-              sourceFile,
-              realTimeUpdate: true,
-              position: 'sidebar',
-                    stepIndex: 0
-            });
-          }
-        }, 100);
-      }
-    }
-  }, [editingItemId]);
-
   // Handle smooth preview close
   const handlePreviewClose = React.useCallback(() => {
     setPreviewExiting(true);
     setPreviewClosing(true);
-    // Exit edit mode when closing preview
     setEditingItemId(null);
-    setEditingFilterChainItem(null);
     setTimeout(() => {
       closePreviewModal();
       setPreviewExiting(false);
-      // Keep closing state for panel width transition duration
       setTimeout(() => {
         setPreviewClosing(false);
-      }, 400); // Match panel width transition duration
+      }, 400);
     }, 300);
-  }, [closePreviewModal, previewSize, setEditingFilterChainItem]);
+  }, [closePreviewModal]);
 
   // Ensure preview sidebar is active by default when panel opens
   React.useEffect(() => {
@@ -322,11 +362,6 @@ export const FilterCart: React.FC = () => {
     // Prefer chain preview if chain has items, otherwise single filter preview
     const enabledChain = filterCart.filter((f: FilterChainItem) => f.enabled);
     if (enabledChain.length > 0) {
-      // Prefill controls with the last filter but do NOT enter edit mode automatically
-      const lastFilter = enabledChain[enabledChain.length - 1];
-      setTempFilterType(lastFilter.filterType);
-      setTempFilterParams({ ...(lastFilter.params as FilterParams) });
-      
       openPreviewModal({
         mode: 'chain',
         chainItems: enabledChain,
@@ -573,6 +608,11 @@ export const FilterCart: React.FC = () => {
       .slice(0, 3);
 
     return formatted.length > 0 ? `(${formatted.join(', ')})` : '';
+  };
+
+  const filterHasAdjustableParams = (item: FilterChainItem) => {
+    const relevant = getRelevantParamsForType(item.filterType as any, item.params) as Record<string, any>;
+    return Object.keys(relevant).length > 0;
   };
 
   // Helper function to update preview when parameters change
@@ -873,9 +913,10 @@ export const FilterCart: React.FC = () => {
   };
 
   return (
-    <div 
-      ref={panelRef}
-      className={`filter-cart-panel ${previewClosing ? 'preview-closing' : ''} ${isDragOver ? 'drag-over' : ''} ${isDragging ? 'dragging' : ''}`}
+    <>
+      <div 
+        ref={panelRef}
+        className={`filter-cart-panel ${previewClosing ? 'preview-closing' : ''} ${isDragOver ? 'drag-over' : ''} ${isDragging ? 'dragging' : ''}`}
       data-preview-size={previewModal.isOpen && previewModal.position === 'sidebar' ? previewSize : undefined}
       style={panelStyle}
       onDragEnter={handleDragEnter}
@@ -1032,7 +1073,6 @@ export const FilterCart: React.FC = () => {
                       <button
                         className="preview-btn"
                         onClick={(e) => {
-                          // Resolve source with sticky preference in Pinpoint mode
                           const state = useStore.getState();
                           let sourceFile = getCurrentImageFile();
                           if (state.previewModal?.stickySource && state.previewModal?.sourceFile) {
@@ -1040,16 +1080,16 @@ export const FilterCart: React.FC = () => {
                           }
                           if (!sourceFile || !item.enabled) return;
 
-                          // Exit edit mode when switching to preview mode
-                          setEditingItemId(null);
+                          const canEditParams = filterHasAdjustableParams(item);
+                          if (canEditParams) {
+                            setEditingItemId(item.id);
+                          } else {
+                            setEditingItemId(null);
+                            setEditorPinned(false);
+                            setEditorPosition(null);
+                          }
 
                           if (e.shiftKey) {
-                            // Shift+Click: Preview only this single filter
-                            // Update panel-body to show this filter's parameters
-                            setTempFilterType(item.filterType);
-                            setTempFilterParams(item.params as FilterParams);
-                            setEditingFilterChainItem(item.id);
-                            
                             openPreviewModal({
                               mode: 'single',
                               filterType: item.filterType,
@@ -1057,24 +1097,20 @@ export const FilterCart: React.FC = () => {
                               title: `Preview: ${getFilterDisplayName(item.filterType)}`,
                               sourceFile,
                               position: 'sidebar',
-                                                    stickySource: state.previewModal?.stickySource || appMode === 'pinpoint'
+                              realTimeUpdate: true,
+                              stickySource: state.previewModal?.stickySource || appMode === 'pinpoint'
                             });
                           } else {
-                            // Normal click: Preview chain up to this point
                             const filtersUpToThis = filterCart.slice(0, index + 1).filter((f: FilterChainItem) => f.enabled);
                             if (filtersUpToThis.length > 0) {
-                              // Update panel-body to show the clicked filter's parameters
-                              setTempFilterType(item.filterType);
-                              setTempFilterParams(item.params as FilterParams);
-                              setEditingFilterChainItem(item.id);
-                              
                               openPreviewModal({
                                 mode: 'chain',
                                 chainItems: filtersUpToThis,
                                 title: `Preview (Steps 1-${index + 1})`,
                                 sourceFile,
                                 position: 'sidebar',
-                                                        stickySource: state.previewModal?.stickySource || appMode === 'pinpoint'
+                                realTimeUpdate: true,
+                                stickySource: state.previewModal?.stickySource || appMode === 'pinpoint'
                               });
                             }
                           }
@@ -1243,86 +1279,101 @@ export const FilterCart: React.FC = () => {
       />
 
       </div> {/* End of filter-cart-body */}
-
-
-      {/* Preset Dialog */}
-      {showPresetDialog && (
-        <div className="dialog-overlay" onClick={() => setShowPresetDialog(false)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>Save Filter Preset</h3>
-            <input
-              type="text"
-              placeholder="Enter preset name..."
-              value={presetName}
-              onChange={(e) => setPresetName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSavePreset();
-                if (e.key === 'Escape') setShowPresetDialog(false);
-              }}
-              autoFocus
-            />
-            <div className="dialog-actions">
-              <button 
-                className="btn btn-primary"
-                onClick={handleSavePreset}
-                disabled={!presetName.trim()}
-              >
-                Save Preset
-              </button>
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setShowPresetDialog(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Export Dialog */}
-      {showExportDialog && (
-        <div className="dialog-overlay" onClick={() => setShowExportDialog(false)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>Export Filter Chain</h3>
-            <div className="export-form">
-              <div className="form-field">
-                <label>Chain Name</label>
-                <input
-                  type="text"
-                  placeholder="Enter chain name..."
-                  value={exportName}
-                  onChange={(e) => setExportName(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="form-field">
-                <label>Description (Optional)</label>
-                <textarea
-                  placeholder="Enter description..."
-                  value={exportDescription}
-                  onChange={(e) => setExportDescription(e.target.value)}
-                  rows={3}
-                />
-              </div>
-              <div className="export-info">
-                <small>
-                  <strong>Chain contains:</strong> {filterCart.length} filter{filterCart.length !== 1 ? 's' : ''}
-                </small>
-              </div>
-            </div>
-            <div className="dialog-actions">
-              <button 
-                className="btn btn-primary"
-                onClick={handleExportCart}
-                disabled={!exportName.trim()}
-              >
-                Export to File
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
+
+    {editingContext && editorPosition && (
+      <div className="filter-cart-overlay-layer">
+        <FilterChainItemEditorModal
+          item={editingContext.item}
+          stepIndex={editingContext.index}
+          isOpen={true}
+          onClose={() => setEditingItemId(null)}
+          onParamsChange={(params) => handleEditorParamChange(editingContext.item.id, params)}
+          panelStyle={{ left: editorPosition.left, top: editorPosition.top }}
+          onPositionChange={handleEditorPositionChange}
+          onDragStart={handleEditorDragStart}
+        />
+      </div>
+    )}
+
+    {/* Preset Dialog */}
+    {showPresetDialog && (
+      <div className="dialog-overlay" onClick={() => setShowPresetDialog(false)}>
+        <div className="dialog" onClick={(e) => e.stopPropagation()}>
+          <h3>Save Filter Preset</h3>
+          <input
+            type="text"
+            placeholder="Enter preset name..."
+            value={presetName}
+            onChange={(e) => setPresetName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSavePreset();
+              if (e.key === 'Escape') setShowPresetDialog(false);
+            }}
+            autoFocus
+          />
+          <div className="dialog-actions">
+            <button 
+              className="btn btn-primary"
+              onClick={handleSavePreset}
+              disabled={!presetName.trim()}
+            >
+              Save Preset
+            </button>
+            <button 
+              className="btn btn-secondary"
+              onClick={() => setShowPresetDialog(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Export Dialog */}
+    {showExportDialog && (
+      <div className="dialog-overlay" onClick={() => setShowExportDialog(false)}>
+        <div className="dialog" onClick={(e) => e.stopPropagation()}>
+          <h3>Export Filter Chain</h3>
+          <div className="export-form">
+            <div className="form-field">
+              <label>Chain Name</label>
+              <input
+                type="text"
+                placeholder="Enter chain name..."
+                value={exportName}
+                onChange={(e) => setExportName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="form-field">
+              <label>Description (Optional)</label>
+              <textarea
+                placeholder="Enter description..."
+                value={exportDescription}
+                onChange={(e) => setExportDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="export-info">
+              <small>
+                <strong>Chain contains:</strong> {filterCart.length} filter{filterCart.length !== 1 ? 's' : ''}
+              </small>
+            </div>
+          </div>
+          <div className="dialog-actions">
+            <button 
+              className="btn btn-primary"
+              onClick={handleExportCart}
+              disabled={!exportName.trim()}
+            >
+              Export to File
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 };
