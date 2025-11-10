@@ -129,10 +129,18 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
           const toastFn = addToastRef.current;
           if (toastFn && now - lastNotAvailableToastAt.current > 2000) {
             lastNotAvailableToastAt.current = now;
+            const isDevBuild = Boolean(versionInfoRef.current?.isDev) || defaultDevChannel;
+            let message = 'You are on the latest version.';
+            if (isDevBuild) {
+              const lastFeed = electronUpdater.getLastFeedInfo();
+              if (lastFeed?.url) {
+                message = `${message}\n${lastFeed.url}`;
+              }
+            }
             toastFn({
               type: 'info',
               title: 'Update Check',
-              message: 'You are on the latest version.'
+              message
             });
           }
         });

@@ -28,6 +28,8 @@ export class ElectronUpdater {
   private isChecking = false;
   private isDownloading = false;
   private isDownloaded = false;
+  private lastFeedTarget: UpdateFeedTarget | null = null;
+  private lastFeedUrl: string | null = null;
 
   constructor() {
     this.setupEventListeners();
@@ -88,7 +90,9 @@ export class ElectronUpdater {
       this.isChecking = true;
       if (feedTarget) {
         try {
-          await configureUpdaterFeed(feedTarget);
+          const configuredUrl = await configureUpdaterFeed(feedTarget);
+          this.lastFeedTarget = feedTarget;
+          this.lastFeedUrl = configuredUrl ?? null;
         } catch (feedError) {
           this.isChecking = false;
           return {
@@ -218,6 +222,13 @@ export class ElectronUpdater {
       isDownloading: this.isDownloading,
       isDownloaded: this.isDownloaded,
       updateInfo: this.updateInfo
+    };
+  }
+
+  getLastFeedInfo() {
+    return {
+      target: this.lastFeedTarget,
+      url: this.lastFeedUrl
     };
   }
 
