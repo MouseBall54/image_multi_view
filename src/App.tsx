@@ -21,6 +21,7 @@ import { tutorialItems } from "./config/tutorials_kr";
 import { decodeTiffWithUTIF } from "./utils/utif";
 import { electronUpdater } from "./utils/electron-updater";
 import { isDevChannel } from "./utils/environment";
+import { UpdateFeedTarget, getDefaultUpdateFeedTarget } from "./utils/updateFeed";
 // Custom menu bar removed; actions moved to title bar
 import { initializeOpenCV } from "./utils/opencv";
 import { handleFolderDrop } from "./utils/dragDrop";
@@ -147,6 +148,12 @@ export default function App() {
   const bitmapCache = useRef(new Map<string, DrawableImage>());
   const gridColorAnchorRef = useRef<HTMLDivElement | null>(null);
   const gridColorPopoverRef = useRef<HTMLDivElement | null>(null);
+  const [manualFeedTarget, setManualFeedTarget] = useState<UpdateFeedTarget>(getDefaultUpdateFeedTarget());
+  const manualFeedChoiceRef = useRef<UpdateFeedTarget>(manualFeedTarget);
+
+  useEffect(() => {
+    manualFeedChoiceRef.current = manualFeedTarget;
+  }, [manualFeedTarget]);
 
   // Global drag and drop state
   const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
@@ -186,6 +193,53 @@ export default function App() {
 
   const showDevControls = isDevBuild;
   const canUseUpdater = hasUpdater;
+
+  useEffect(() => {
+    if (!showDevControls) {
+      setManualFeedTarget('prod');
+    }
+  }, [showDevControls]);
+
+  const requestManualFeedTarget = useCallback((): UpdateFeedTarget => {
+    if (!showDevControls) {
+      return 'prod';
+    }
+    return manualFeedChoiceRef.current;
+  }, [showDevControls]);
+
+  const handleManualUpdateCheck = useCallback(async () => {
+    if (!canUseUpdater) {
+      addToast?.({
+        type: "error",
+        title: "Update",
+        message: "Electron 환경에서만 업데이트를 사용할 수 있습니다.",
+        duration: 4000
+      });
+      return;
+    }
+
+    const feedTarget = requestManualFeedTarget();
+
+    try {
+      const result = await electronUpdater.checkForUpdates(feedTarget);
+      if (result.error) {
+        addToast?.({
+          type: "error",
+          title: "Update",
+          message: result.error,
+          duration: 5000
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to start update check";
+      addToast?.({
+        type: "error",
+        title: "Update",
+        message,
+        duration: 5000
+      });
+    }
+  }, [addToast, canUseUpdater, requestManualFeedTarget]);
 
   const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -1057,27 +1111,32 @@ export default function App() {
               </svg>
             </button>
             {showDevControls && (
+              <label
+                className="controls-main-button update-feed-selector"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                title="선택한 업데이트 서버를 사용합니다."
+              >
+                <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Feed</span>
+                <select
+                  value={manualFeedTarget}
+                  onChange={(event) => setManualFeedTarget(event.target.value as UpdateFeedTarget)}
+                  className="update-feed-select-input"
+                  style={{ padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-light)', color: 'var(--text-primary)' }}
+                >
+                  <option value="dev">dev</option>
+                  <option value="prod">prod</option>
+                </select>
+              </label>
+            )}
+            {showDevControls && (
               <button
                 className="controls-main-button"
-                title={canUseUpdater ? "Check for Updates" : "Check for Updates (Electron only)"}
-                onClick={async () => {
-                  try {
-                    if (electronApi?.updater) {
-                      await electronApi.updater.checkForUpdates();
-                    }
-                  } catch (e) {
-                    const message = e instanceof Error ? e.message : 'Failed to start update check';
-                    console.error(e);
-                    if (!electronApi?.updater) {
-                      addToast?.({
-                        type: 'error',
-                        title: 'Update',
-                        message,
-                        duration: 5000
-                      });
-                    }
-                  }
-                }}
+                title={
+                  canUseUpdater
+                    ? `Check for Updates (${manualFeedTarget})`
+                    : "Check for Updates (Electron only)"
+                }
+                onClick={handleManualUpdateCheck}
                 disabled={!canUseUpdater}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

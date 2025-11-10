@@ -2,7 +2,6 @@ import image_load_layout from "../../assets/tutorials/image_load_layout.gif";
 import pinpointLoading from "../../assets/tutorials/pinpoint_loading.gif";
 import test2 from "../../assets/tutorials/009.gif";
 import test3 from "../../assets/tutorials/010.gif";
-import test4 from "../../assets/tutorials/011.gif";
 export interface TutorialItem {
   id: string;
   title: string;
