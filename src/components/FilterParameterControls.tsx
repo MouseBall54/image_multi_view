@@ -9,6 +9,7 @@ interface FilterParameterControlsProps {
   filterParams: FilterParams;
   onChange: (params: FilterParams) => void;
   compact?: boolean;
+  showHeader?: boolean;
 }
 
 // Reusable parameter control components
@@ -147,7 +148,8 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
   filterType,
   filterParams,
   onChange,
-  compact = false
+  compact = false,
+  showHeader = true
 }) => {
   const updateParam = (param: string, value: any) => {
     onChange({ ...filterParams, [param]: value });
@@ -1382,6 +1384,14 @@ export const FilterParameterControls: React.FC<FilterParameterControlsProps> = (
   };
 
   const filterName = ALL_FILTERS.find(f => f.type === filterType)?.name || filterType;
+
+  if (!showHeader) {
+    return (
+      <div className="param-body">
+        {renderControls()}
+      </div>
+    );
+  }
 
   return (
     <div className={`filter-parameter-controls ${compact ? 'compact' : ''}`}>

@@ -179,9 +179,6 @@ interface State {
   tempViewerFilterParams: FilterParams;
   activeFilterEditor: FolderKey | number | null; // Updated to allow number for analysis mode index
   
-  // FilterChain editing state
-  editingFilterChainItem: string | null; // ID of the FilterChainItem being edited
-
   // Analysis Mode State
   analysisFile: File | null;
   analysisFileSource: string | null;
@@ -288,9 +285,6 @@ interface State {
   setTempFilterParams: (params: Partial<FilterParams>) => void;
   applyTempFilterSettings: () => void;
   
-  // FilterChain editing actions
-  setEditingFilterChainItem: (itemId: string | null) => void;
-
   // Filter Chain actions
   addToFilterCart: () => void;
   removeFromFilterCart: (itemId: string) => void;
@@ -433,7 +427,6 @@ export const useStore = create<State>((set, get) => ({
   tempViewerFilter: 'none',
   tempViewerFilterParams: defaultFilterParams,
   activeFilterEditor: null,
-  editingFilterChainItem: null,
 
   // Analysis Mode State
   analysisFile: null,
@@ -645,14 +638,12 @@ export const useStore = create<State>((set, get) => ({
       }
     }
   }),
-  closeFilterEditor: () => set({ activeFilterEditor: null, editingFilterChainItem: null }),
+  closeFilterEditor: () => set({ activeFilterEditor: null }),
   setTempFilterType: (type) => set({ tempViewerFilter: type }),
   setTempFilterParams: (params) => set(state => ({
     tempViewerFilterParams: { ...state.tempViewerFilterParams, ...params }
   })),
   
-  // FilterChain editing actions
-  setEditingFilterChainItem: (itemId: string | null) => set({ editingFilterChainItem: itemId }),
   applyTempFilterSettings: () => set(state => {
     const key = state.activeFilterEditor;
     if (key === null) return {};
@@ -877,8 +868,7 @@ export const useStore = create<State>((set, get) => ({
       isOpen: false,
       realTimeUpdate: false,
       stickySource: false
-    },
-    editingFilterChainItem: null
+    }
   })),
   
   updatePreviewModal: (updates) => set(state => ({

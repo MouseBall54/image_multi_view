@@ -3672,6 +3672,73 @@ main {
   pointer-events: none;
 }
 
+.chain-editor-modal {
+  position: fixed;
+  z-index: 1600;
+  width: 360px;
+  max-height: 85vh;
+  background: rgba(21, 24, 33, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.filter-cart-overlay-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1550;
+}
+
+.filter-cart-overlay-layer .chain-editor-modal {
+  pointer-events: auto;
+}
+
+.chain-editor-header {
+  padding: 18px 20px 8px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: grab;
+  user-select: none;
+}
+
+.chain-editor-header h3 {
+  margin: 4px 0 0;
+  font-size: 18px;
+}
+
+.chain-editor-header .close-btn {
+  cursor: pointer;
+}
+
+.chain-editor-step {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.chain-editor-body {
+  padding: 12px 20px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.chain-editor-body .params-container {
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  max-height: none;
+  min-height: auto;
+  height: auto;
+}
+
 /* Filter chain list maintains fixed width */
 .empty-cart {
   text-align: center;
