@@ -246,6 +246,7 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
     previewModePreference,
     folders,
     analysisFile,
+    activeChainEditorItem,
   } = useStore();
 
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -512,8 +513,9 @@ export const FilterControls: React.FC<{ embedded?: boolean }> = ({ embedded = fa
   }, [tempViewerFilter]);
 
   React.useEffect(() => {
+    if (activeChainEditorItem) return;
     syncPreview();
-  }, [syncPreview]);
+  }, [syncPreview, activeChainEditorItem]);
 
   const applyParamUpdates = React.useCallback((newParams: FilterParams, typeOverride?: FilterType) => {
     syncPreview(newParams, typeOverride);

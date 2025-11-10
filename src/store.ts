@@ -201,6 +201,7 @@ interface State {
   filterChains: FilterChain[];
   activeFilterChain: FilterChain | null;
   filterCart: FilterChainItem[];
+  activeChainEditorItem: string | null;
   filterPresets: FilterPreset[];
   showFilterCart: boolean;
   filterPanelTab: 'editor' | 'chain';
@@ -284,6 +285,7 @@ interface State {
   setTempFilterType: (type: FilterType) => void;
   setTempFilterParams: (params: Partial<FilterParams>) => void;
   applyTempFilterSettings: () => void;
+  setActiveChainEditorItem: (itemId: string | null) => void;
   
   // Filter Chain actions
   addToFilterCart: () => void;
@@ -449,6 +451,7 @@ export const useStore = create<State>((set, get) => ({
   filterChains: [],
   activeFilterChain: null,
   filterCart: [],
+  activeChainEditorItem: null,
   filterPresets: [],
   showFilterCart: false,
   filterPanelTab: 'chain',
@@ -643,6 +646,7 @@ export const useStore = create<State>((set, get) => ({
   setTempFilterParams: (params) => set(state => ({
     tempViewerFilterParams: { ...state.tempViewerFilterParams, ...params }
   })),
+  setActiveChainEditorItem: (itemId) => set({ activeChainEditorItem: itemId }),
   
   applyTempFilterSettings: () => set(state => {
     const key = state.activeFilterEditor;

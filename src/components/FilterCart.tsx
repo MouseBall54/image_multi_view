@@ -43,6 +43,7 @@ export const FilterCart: React.FC = () => {
     closePreviewModal,
     previewModePreference,
     addToast,
+    setActiveChainEditorItem,
   } = useStore();
 
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
@@ -79,6 +80,10 @@ export const FilterCart: React.FC = () => {
       setEditingItemId(null);
     }
   }, [editingItemId, filterCart]);
+
+  React.useEffect(() => {
+    setActiveChainEditorItem(editingItemId);
+  }, [editingItemId, setActiveChainEditorItem]);
 
   const handleEditorParamChange = React.useCallback((itemId: string, params: FilterParams) => {
     updateFilterCartItem(itemId, { params });
