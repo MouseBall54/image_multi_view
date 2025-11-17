@@ -22,6 +22,7 @@ import { decodeTiffWithUTIF } from "./utils/utif";
 import { electronUpdater } from "./utils/electron-updater";
 import { isDevChannel } from "./utils/environment";
 import { UpdateFeedTarget, getDefaultUpdateFeedTarget } from "./utils/updateFeed";
+import { useUsageLogging } from "./hooks/useUsageLogging";
 // Custom menu bar removed; actions moved to title bar
 import { initializeOpenCV } from "./utils/opencv";
 import { handleFolderDrop } from "./utils/dragDrop";
@@ -94,6 +95,7 @@ function ViewportControls({ imageDimensions }: {
 }
 
 export default function App() {
+  useUsageLogging();
   const {
     appMode,
     setAppMode,

@@ -10,6 +10,97 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const isDev = process.env.NODE_ENV === 'development';
 
+const readPackageJson = () => {
+  try {
+    const pkgPath = path.join(__dirname, 'package.json');
+    const pkgRaw = fs.readFileSync(pkgPath, 'utf-8');
+    return JSON.parse(pkgRaw);
+  } catch (error) {
+    console.error('Failed to read package.json for logging config:', error);
+    return {};
+  }
+};
+
+const packageJsonCache = readPackageJson();
+const usageLoggingConfig = packageJsonCache.usageLogging ?? {};
+
+const resolveBuildChannel = () => {
+  const channel =
+    process.env.VITE_BUILD_CHANNEL ??
+    process.env.BUILD_CHANNEL ??
+    (process.env.NODE_ENV === 'production' ? 'prod' : 'dev');
+  return channel === 'prod' ? 'prod' : 'dev';
+};
+
+const normalizeEndpoint = (value) => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed;
+};
+
+const getUsageLoggingEndpoint = () => {
+  const channel = resolveBuildChannel();
+  const envKey = `USAGE_LOG_ENDPOINT_${channel.toUpperCase()}`;
+  const envOverride = process.env[envKey] ?? process.env.USAGE_LOG_ENDPOINT;
+  if (envOverride) {
+    return normalizeEndpoint(envOverride);
+  }
+
+  const configForChannel = usageLoggingConfig?.[channel]?.endpoint;
+  if (configForChannel) {
+    return normalizeEndpoint(configForChannel);
+  }
+  const defaultEndpoint = usageLoggingConfig?.default?.endpoint ?? usageLoggingConfig?.prod?.endpoint ?? usageLoggingConfig?.dev?.endpoint;
+  return normalizeEndpoint(defaultEndpoint);
+};
+
+const postUsageLog = async (payload) => {
+  const endpoint = getUsageLoggingEndpoint();
+  if (!endpoint) {
+    return { success: false, error: 'Usage logging endpoint is not configured' };
+  }
+  if (typeof fetch !== 'function') {
+    return { success: false, error: 'Fetch API not available in Electron main process' };
+  }
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    return {
+      success: response.ok,
+      status: response.status,
+      statusText: response.statusText
+    };
+  } catch (error) {
+    console.error('Failed to send usage log:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to send usage log'
+    };
+  }
+};
+
+const logUsageEvent = async (eventType, details = {}, clientContext = {}) => {
+  const payload = {
+    eventType: eventType || 'custom',
+    timestamp: new Date().toISOString(),
+    appVersion: app.getVersion(),
+    channel: resolveBuildChannel(),
+    platform: process.platform,
+    arch: process.arch,
+    electron: process.versions.electron,
+    node: process.version,
+    details,
+    clientContext
+  };
+  return postUsageLog(payload);
+};
+
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
@@ -193,6 +284,19 @@ ipcMain.handle('save-image', async (event, imageData, defaultFileName) => {
     return { 
       success: false, 
       message: 'Failed to save file: ' + error.message 
+    };
+  }
+});
+
+ipcMain.handle('log-usage-event', async (_event, payload = {}) => {
+  try {
+    const { eventType, details, context } = payload;
+    return await logUsageEvent(eventType, details, context);
+  } catch (error) {
+    console.error('Failed to record usage event:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown logging error'
     };
   }
 });
@@ -409,7 +513,10 @@ function createWindow() {
 // App event handlers
 app.whenReady().then(() => {
   createWindow();
-  
+  void logUsageEvent('app_ready', {
+    isDevBuild: isDev,
+    channel: resolveBuildChannel()
+  });
   // Renderer manages update checks (schedules + UI). Avoid double checks here.
 });
 
