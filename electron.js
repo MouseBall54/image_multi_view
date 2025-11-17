@@ -25,11 +25,20 @@ const packageJsonCache = readPackageJson();
 const usageLoggingConfig = packageJsonCache.usageLogging ?? {};
 
 const resolveBuildChannel = () => {
-  const channel =
-    process.env.VITE_BUILD_CHANNEL ??
-    process.env.BUILD_CHANNEL ??
-    (process.env.NODE_ENV === 'production' ? 'prod' : 'dev');
-  return channel === 'prod' ? 'prod' : 'dev';
+  const explicit = process.env.VITE_BUILD_CHANNEL ?? process.env.BUILD_CHANNEL;
+  if (explicit === 'prod' || explicit === 'dev') {
+    return explicit;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    return 'prod';
+  }
+  if (process.env.NODE_ENV === 'development') {
+    return 'dev';
+  }
+  if (typeof app !== 'undefined' && app.isPackaged) {
+    return 'prod';
+  }
+  return 'prod';
 };
 
 const normalizeEndpoint = (value) => {
