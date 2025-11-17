@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: () => true,
   platform: process.platform,
   openTutorialAsset: (target) => ipcRenderer.invoke('open-tutorial-asset', target),
+  logUsageEvent: (eventType, details, context) => ipcRenderer.invoke('log-usage-event', {
+    eventType,
+    details,
+    context
+  }),
   
   // New electron-updater APIs
   updater: {

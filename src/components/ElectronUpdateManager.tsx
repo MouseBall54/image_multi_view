@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { electronUpdater, UpdateInfo, DownloadProgress, VersionInfo } from '../utils/electron-updater';
 import { isDevChannel } from '../utils/environment';
 import { UpdateFeedTarget, getDefaultUpdateFeedTarget } from '../utils/updateFeed';
+import { logUsageEvent, UsageLogEvent, UsageLogEventName } from '../utils/usageLogger';
 
 interface ElectronUpdateManagerProps {
   autoCheck?: boolean;
@@ -30,6 +31,16 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
   const defaultDevChannel = isDevChannel();
   const hasAutoCheckedRef = useRef(false);
   void _checkIntervalMs;
+
+  const logUpdaterTelemetry = useCallback((eventName: UsageLogEventName, extra?: Record<string, unknown>) => {
+    const feedInfo = electronUpdater.getLastFeedInfo();
+    const details = {
+      ...extra,
+      feedTarget: feedInfo?.target,
+      feedUrl: feedInfo?.url
+    };
+    void logUsageEvent(eventName, details);
+  }, []);
 
   useEffect(() => {
     addToastRef.current = addToast;
@@ -72,10 +83,16 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
     const feedTarget: UpdateFeedTarget = target ?? getDefaultUpdateFeedTarget() ?? 'prod';
     
     setIsChecking(true);
+    logUpdaterTelemetry(UsageLogEvent.UPDATE_CHECK_REQUESTED, { target: feedTarget });
     
     try {
       const result = await electronUpdater.checkForUpdates(feedTarget);
       if (result.error) {
+        logUpdaterTelemetry(UsageLogEvent.UPDATE_ERROR, {
+          target: feedTarget,
+          source: 'check',
+          error: result.error
+        });
         if (result.error === 'Updates disabled in development mode') {
           showInfoToast('Updates are disabled in development builds.');
         } else {
@@ -83,11 +100,16 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
         }
       }
     } catch (error) {
+      logUpdaterTelemetry(UsageLogEvent.UPDATE_ERROR, {
+        target: feedTarget,
+        source: 'check',
+        error: error instanceof Error ? error.message : 'Update check failed'
+      });
       showErrorToast(error instanceof Error ? error.message : 'Update check failed');
     } finally {
       setIsChecking(false);
     }
-  }, [defaultDevChannel, isChecking, isElectron, showErrorToast, showInfoToast]);
+  }, [defaultDevChannel, isChecking, isElectron, logUpdaterTelemetry, showErrorToast, showInfoToast]);
 
   useEffect(() => {
     if (!isElectron) {
@@ -119,11 +141,16 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
           setUpdateInfo(info);
           setIsChecking(false);
           setShowUpdateDialog(true);
+          logUpdaterTelemetry(UsageLogEvent.UPDATE_AVAILABLE, {
+            version: info?.version,
+            releaseDate: info?.releaseDate
+          });
         });
 
         updater.onUpdateNotAvailable(() => {
           setUpdateInfo(null);
           setIsChecking(false);
+          logUpdaterTelemetry(UsageLogEvent.UPDATE_NOT_AVAILABLE);
           // Throttle duplicate "not available" toasts within 2 seconds
           const now = Date.now();
           const toastFn = addToastRef.current;
@@ -151,16 +178,21 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
           setIsDownloading(false);
           setShowUpdateDialog(false);
           setUpdateInfo(null);
+          logUpdaterTelemetry(UsageLogEvent.UPDATE_ERROR, { source: 'auto-updater', error });
         });
 
         updater.onDownloadProgress((progress: DownloadProgress) => {
           setDownloadProgress(progress);
         });
 
-        updater.onUpdateDownloaded(() => {
+        updater.onUpdateDownloaded((info: UpdateInfo) => {
           setIsDownloading(false);
           setIsDownloaded(true);
           setDownloadProgress(null);
+          const version = info?.version ?? updateInfo?.version;
+          logUpdaterTelemetry(UsageLogEvent.UPDATE_DOWNLOAD_COMPLETED, {
+            version: version
+          });
         });
 
         subscribedRef.current = true;
@@ -173,20 +205,33 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
       // Do not remove global updater listeners here to avoid interfering
       // with other parts (e.g., electronUpdater singleton)
     };
-  }, [autoCheck, checkForUpdates, defaultDevChannel, isElectron, showErrorToast]);
+  }, [autoCheck, checkForUpdates, defaultDevChannel, isElectron, logUpdaterTelemetry, showErrorToast]);
 
   const handleDownloadUpdate = async () => {
     if (!updateInfo || isDownloading) return;
     
+    logUpdaterTelemetry(UsageLogEvent.UPDATE_DOWNLOAD_REQUESTED, {
+      version: updateInfo?.version
+    });
     setIsDownloading(true);
     
     try {
       const result = await electronUpdater.downloadUpdate();
       if (result.error) {
+        logUpdaterTelemetry(UsageLogEvent.UPDATE_ERROR, {
+          source: 'download',
+          version: updateInfo?.version,
+          error: result.error
+        });
         showErrorToast(result.error);
         setIsDownloading(false);
       }
     } catch (error) {
+      logUpdaterTelemetry(UsageLogEvent.UPDATE_ERROR, {
+        source: 'download',
+        version: updateInfo?.version,
+        error: error instanceof Error ? error.message : 'Download failed'
+      });
       setIsDownloading(false);
       showErrorToast(error instanceof Error ? error.message : 'Download failed');
     }
@@ -195,15 +240,28 @@ export const ElectronUpdateManager: React.FC<ElectronUpdateManagerProps> = ({
   const handleInstallUpdate = async () => {
     if (!isDownloaded) return;
     
+    logUpdaterTelemetry(UsageLogEvent.UPDATE_INSTALL_REQUESTED, {
+      version: updateInfo?.version
+    });
     try {
       const result = await electronUpdater.quitAndInstall();
       if (result.error) {
+        logUpdaterTelemetry(UsageLogEvent.UPDATE_ERROR, {
+          source: 'install',
+          version: updateInfo?.version,
+          error: result.error
+        });
         showErrorToast(result.error);
       } else if (result.action === 'later') {
         setShowUpdateDialog(false);
       }
       // If action is 'restart', the app will restart automatically
     } catch (error) {
+      logUpdaterTelemetry(UsageLogEvent.UPDATE_ERROR, {
+        source: 'install',
+        version: updateInfo?.version,
+        error: error instanceof Error ? error.message : 'Installation failed'
+      });
       showErrorToast(error instanceof Error ? error.message : 'Installation failed');
     }
   };

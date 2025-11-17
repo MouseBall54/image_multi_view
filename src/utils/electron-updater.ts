@@ -251,6 +251,16 @@ declare global {
       showInputDialog: (title: string, placeholder: string) => Promise<any>;
       isElectron: () => boolean;
       platform: string;
+      logUsageEvent?: (
+        eventType: string,
+        details?: Record<string, unknown>,
+        context?: Record<string, unknown>
+      ) => Promise<{
+        success: boolean;
+        error?: string;
+        status?: number;
+        statusText?: string;
+      }>;
       updater: {
         checkForUpdates: () => Promise<{ success?: boolean; error?: string; updateInfo?: UpdateInfo }>;
         downloadUpdate: () => Promise<{ success?: boolean; error?: string }>;

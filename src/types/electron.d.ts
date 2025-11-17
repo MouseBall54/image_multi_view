@@ -14,6 +14,16 @@ export interface ElectronAPI {
   }>;
   isElectron: () => boolean;
   platform: string;
+  logUsageEvent?: (
+    eventType: string,
+    details?: Record<string, unknown>,
+    context?: Record<string, unknown>
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    status?: number;
+    statusText?: string;
+  }>;
   updater?: {
     checkForUpdates: () => Promise<any>;
     downloadUpdate?: () => Promise<any>;
