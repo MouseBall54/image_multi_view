@@ -679,14 +679,10 @@ export const FilterCart: React.FC = () => {
       
       addToast({
         type: 'success',
-        title: 'Import Successful',
-        message: `"${importedChain.name}" has been imported`,
-        details: [
-          `${itemCount} filter${itemCount > 1 ? 's' : ''}: ${filterNames}`,
-          'Added to Saved Presets - you can now load it from the presets list',
-          'Note: When exporting, files use the format: [name]-compareX-filter-[yyyy-mm-dd].json'
-        ],
-        duration: 8000
+        title: 'Preset imported',
+        message: `${importedChain.name} (${itemCount} filter${itemCount !== 1 ? 's' : ''}) ready to use`,
+        details: [`Filters: ${filterNames}`],
+        duration: 4000
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
