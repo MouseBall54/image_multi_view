@@ -11,6 +11,7 @@ export function useElectronFolderWatcher(enabled = true) {
     if (!api?.watchFolder) return;
 
     const watches: WatchEntry[] = [];
+    const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     const register = async () => {
       const { folders } = useStore.getState();
@@ -30,7 +31,13 @@ export function useElectronFolderWatcher(enabled = true) {
       if (!id) return;
       const key = id.replace('watch-', '') as FolderKey;
       const { refreshFolder } = useStore.getState();
-      await refreshFolder(key);
+      const existing = debounceTimers.get(id);
+      if (existing) clearTimeout(existing);
+      const t = setTimeout(() => {
+        refreshFolder(key);
+        debounceTimers.delete(id);
+      }, 500);
+      debounceTimers.set(id, t);
     };
 
     api.watchFolder.onChange(handler);
@@ -38,6 +45,8 @@ export function useElectronFolderWatcher(enabled = true) {
     return () => {
       api.watchFolder.removeAllListeners?.();
       watches.forEach(({ id }) => api.watchFolder.remove(id));
+      debounceTimers.forEach((t) => clearTimeout(t));
+      debounceTimers.clear();
     };
   }, [enabled]);
 }
