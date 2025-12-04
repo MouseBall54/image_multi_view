@@ -15,7 +15,8 @@ export function useFolderSync(intervalMs = 5000) {
       running = true;
       try {
         const { folders, refreshFolder, setFolder } = useStore.getState();
-        const entries = Object.entries(folders) as [FolderKey, any][];
+        const entries = Object.entries(folders).filter(([, folder]) => folder?.data?.source?.kind === 'picker') as [FolderKey, any][];
+        if (entries.length === 0) return;
         for (const [key, folder] of entries) {
           if (!folder || !folder.data?.source || folder.data.source.kind !== 'picker') continue;
           // Ensure meta exists before refresh to avoid false positives

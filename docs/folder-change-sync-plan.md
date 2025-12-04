@@ -27,6 +27,7 @@
 ### Electron 경로 감시/리스캔
 - fs.watch 기반 IPC(`watch-folder-add/remove`, `watch-folder-changed`) → 렌더러에서 해당 폴더 `refreshFolder` 실행.
 - `fs-folder-list/read` IPC로 메타/파일 데이터를 가져와 메타 diff 후 변경 파일만 교체.
+- watch 이벤트는 500ms 디바운스, FSA 폴더만 주기 스캔(전자 폴더는 이벤트 기반)으로 불필요한 재스캔을 줄임.
 
 ## 테스트 시나리오 (수동)
 - 동일 이름 파일 교체(내용 변경) 후 자동/수동 리스캔 → 업데이트 감지.

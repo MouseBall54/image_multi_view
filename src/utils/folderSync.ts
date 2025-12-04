@@ -1,4 +1,5 @@
 import type { FolderData, FileMeta } from './folder';
+import { isImageFile } from './folder';
 
 type ElectronFolderApi = {
   list: (folderPath: string) => Promise<{ success: boolean; files?: { name: string; mtimeMs: number; size: number }[]; error?: string }>;
@@ -53,6 +54,7 @@ async function rescanPicker(folderData: FolderData) {
 
   for await (const [name, entry] of handle.entries()) {
     if (entry.kind !== 'file') continue;
+    if (!isImageFile(name)) continue;
     const file = await entry.getFile();
     const meta: FileMeta = { mtime: file.lastModified, size: file.size };
     nextMeta.set(name, meta);
