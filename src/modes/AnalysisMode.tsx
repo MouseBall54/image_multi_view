@@ -34,7 +34,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, showFilelist, showFilterLabels,
     previewLayout,
     syncCapture, confirmSyncFromTarget,
-    openPreviewModal,
+    openPreviewModal, refreshFolder,
   } = useStore();
   const { pick, inputRefs, onInput, allFolders, updateAlias } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
@@ -59,6 +59,25 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
       if (!allFolders[key]) return key;
     }
     return null;
+  };
+
+  const handleRescan = async (key: FolderKey) => {
+    const result = await refreshFolder(key);
+    if (!addToast) return;
+    if (!result) {
+      addToast({ type: 'info', title: 'Folder Sync', message: '변경 없음', duration: 2000 });
+      return;
+    }
+    const summary: string[] = [];
+    if (result.added) summary.push(`+${result.added}`);
+    if (result.updated) summary.push(`~${result.updated}`);
+    if (result.removed) summary.push(`-${result.removed}`);
+    addToast({
+      type: 'success',
+      title: 'Folder Sync',
+      message: summary.length ? summary.join(' ') : '변경 없음',
+      duration: 2000
+    });
   };
 
   // Place folder as a new folder in the controls
@@ -94,7 +113,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
 
       // Set the folder in the store with the folder name as alias
       setFolder(emptyKey, {
-        data: { name: folderName, files: filesMap },
+        data: { name: folderName, files: filesMap, meta: new Map(), source: { kind: 'files' } },
         alias: folderName
       });
 
@@ -188,7 +207,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
         for (const f of files) merged.set(f.name, f);
         const alias = current?.alias || createdAliases.get(key) || (key as string);
         const name = current?.data.name || alias;
-        setFolder(key, { data: { name, files: merged }, alias });
+        setFolder(key, { data: { name, files: merged, meta: new Map(), source: current?.data.source ?? { kind: 'files' } }, alias });
       }
 
       // Set first image as analysis source (use its actual destination alias)
@@ -452,6 +471,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
             onSelect={pick}
             onClear={clearFolder}
             onUpdateAlias={updateAlias}
+            onRescan={handleRescan}
           />
         ))}
         <div style={{ display: 'none' }}>

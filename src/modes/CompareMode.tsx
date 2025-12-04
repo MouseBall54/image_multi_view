@@ -32,7 +32,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   const { 
     current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, viewerFilterParams, clearFolder, viewerRows, viewerCols,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels, 
-    reorderViewers, viewerArrangement,
+    reorderViewers, viewerArrangement, refreshFolder,
     openPreviewModal,
     syncCapture, confirmSyncFromTarget
   } = useStore();
@@ -95,7 +95,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
       // Set the folder in the store with the folder name as alias
       setFolder(emptyKey, {
-        data: { name: folderName, files: filesMap },
+        data: { name: folderName, files: filesMap, meta: new Map(), source: { kind: 'files' } },
         alias: folderName
       });
 
@@ -177,7 +177,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
         const name = current?.data.name || alias;
         const merged = new Map<string, File>(current?.data.files ?? []);
         for (const f of files) merged.set(f.name, f);
-        setFolder(key, { data: { name, files: merged }, alias });
+        setFolder(key, { data: { name, files: merged, meta: new Map(), source: current?.data.source ?? { kind: 'files' } }, alias });
       }
 
       // Toast summary
@@ -417,6 +417,25 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   const { previewLayout } = useStore();
   const showPreview = !!previewLayout;
 
+  const handleRescan = async (key: FolderKey) => {
+    const result = await refreshFolder(key);
+    if (!addToast) return;
+    if (!result) {
+      addToast({ type: 'info', title: 'Folder Sync', message: '변경 없음', duration: 2000 });
+      return;
+    }
+    const summary: string[] = [];
+    if (result.added) summary.push(`+${result.added}`);
+    if (result.updated) summary.push(`~${result.updated}`);
+    if (result.removed) summary.push(`-${result.removed}`);
+    addToast({
+      type: 'success',
+      title: 'Folder Sync',
+      message: summary.length ? summary.join(' ') : '변경 없음',
+      duration: 2000
+    });
+  };
+
   return (
     <>
       {showControls && <div className="controls">
@@ -430,6 +449,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
               onSelect={pick}
               onClear={clearFolder}
               onUpdateAlias={updateAlias}
+              onRescan={handleRescan}
             />
           );
         })}

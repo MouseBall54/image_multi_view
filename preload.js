@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     details,
     context
   }),
+  watchFolder: {
+    add: (id, folderPath) => ipcRenderer.invoke('watch-folder-add', { id, folderPath }),
+    remove: (id) => ipcRenderer.invoke('watch-folder-remove', { id }),
+    onChange: (callback) => ipcRenderer.on('watch-folder-changed', (_event, payload) => callback(payload)),
+    removeAllListeners: () => ipcRenderer.removeAllListeners('watch-folder-changed')
+  },
   
   // New electron-updater APIs
   updater: {

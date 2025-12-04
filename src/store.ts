@@ -2,6 +2,8 @@ import { create } from "zustand";
 import type { Viewport, AppMode, FolderKey, Pinpoint, PinpointMouseMode, MatchedItem, FilterType, GridColor, FilterChain, FilterChainItem, FilterPreset } from "./types";
 import { DEFAULT_VIEWPORT } from "./config";
 import { FolderData } from "./utils/folder";
+import { ensureMeta, rescanFolderData } from "./utils/folderSync";
+import { inferFolderPathFromFiles } from "./utils/pathInfer";
 import type { ToastMessage } from "./components/Toast";
 
 export interface FolderState {
@@ -255,6 +257,7 @@ interface State {
   setCurrent: (item: MatchedItem | null) => void;
   triggerIndicator: (cx: number, cy: number) => void;
   setFolder: (key: FolderKey, folderState: FolderState) => void;
+  refreshFolder: (key: FolderKey) => Promise<{ changed: boolean; added: number; updated: number; removed: number } | null>;
   updateFolderAlias: (key: FolderKey, alias: string) => void;
   clearFolder: (key: FolderKey) => void;
   setViewerImageSize: (key: FolderKey, size: { width: number; height: number }) => void;
@@ -510,9 +513,34 @@ export const useStore = create<State>((set, get) => ({
   setFitScaleFn: (fn) => set({ fitScaleFn: fn }),
   setCurrent: (item) => set({ current: item }),
   triggerIndicator: (cx, cy) => set({ indicator: { cx, cy, key: Date.now() } }),
-  setFolder: (key, folderState) => set(state => ({
-    folders: { ...state.folders, [key]: folderState }
-  })),
+  setFolder: (key, folderState) => set(state => {
+    const ensured = ensureMeta(folderState.data);
+    let source = ensured.source;
+    if (!source || source.kind === 'files') {
+      const maybePath = inferFolderPathFromFiles(ensured.files);
+      if (maybePath) {
+        source = { kind: 'electron', path: maybePath };
+      }
+    }
+    return {
+      folders: { ...state.folders, [key]: { ...folderState, data: { ...ensured, source } } }
+    };
+  }),
+  refreshFolder: async (key) => {
+    const state = get();
+    const folder = state.folders[key];
+    if (!folder) return null;
+    const result = await rescanFolderData(ensureMeta(folder.data));
+    if (!result) return null;
+    set({
+      folders: {
+        ...state.folders,
+        [key]: { ...folder, data: result.data }
+      }
+    });
+    const { added, updated, removed } = result.diff;
+    return { changed: true, added, updated, removed };
+  },
   updateFolderAlias: (key, alias) => set(state => {
     const folder = state.folders[key];
     if (folder) {

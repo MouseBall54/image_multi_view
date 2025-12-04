@@ -120,6 +120,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 let mainWindow;
+const folderWatchers = new Map();
 
 // Configure electron-updater
 autoUpdater.checkForUpdatesAndNotify = false; // We'll handle notifications manually
@@ -294,6 +295,42 @@ ipcMain.handle('save-image', async (event, imageData, defaultFileName) => {
       success: false, 
       message: 'Failed to save file: ' + error.message 
     };
+  }
+});
+
+// Folder watch management (renderer requests)
+ipcMain.handle('watch-folder-add', async (_event, { id, folderPath }) => {
+  try {
+    if (!id || !folderPath) return { success: false, error: 'Invalid watch params' };
+    const existing = folderWatchers.get(id);
+    if (existing) {
+      existing.close();
+      folderWatchers.delete(id);
+    }
+    const watcher = fs.watch(folderPath, { recursive: false }, (eventType, filename) => {
+      if (mainWindow && mainWindow.webContents) {
+        mainWindow.webContents.send('watch-folder-changed', { id, folderPath, eventType, filename });
+      }
+    });
+    folderWatchers.set(id, watcher);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to watch folder', folderPath, error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('watch-folder-remove', async (_event, { id }) => {
+  try {
+    const watcher = folderWatchers.get(id);
+    if (watcher) {
+      watcher.close();
+      folderWatchers.delete(id);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to remove watcher', id, error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });
 
