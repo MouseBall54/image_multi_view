@@ -1,8 +1,8 @@
 // src/utils/folder.ts
 
-const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.tif', '.tiff']);
+export const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.tif', '.tiff']);
 
-function isImageFile(filename: string): boolean {
+export function isImageFile(filename: string): boolean {
   const i = filename.lastIndexOf('.');
   if (i < 0) return false;
   const ext = filename.substring(i).toLowerCase();
