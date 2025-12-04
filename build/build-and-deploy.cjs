@@ -97,11 +97,9 @@ function generateReleaseNotes() {
 
   ## compareX v${CONFIG.version} 업데이트
 
-  ### 추가사항
-  - 튜토리얼 추가 
-  
   ### 개선사항
-  -프로그램 아이콘 변경`;
+  - 캡처 창 grid 초기 설정 로직 개선 (bug fix)
+`;
 }
 
 function yamlStringify(obj, indent = 0) {

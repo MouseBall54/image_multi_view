@@ -1,0 +1,41 @@
+# 폴더 변경 감지·재스캔 계획
+
+## 목표
+- 이미 로드된 폴더의 이미지가 디스크에서 수정/추가/삭제될 때, 앱을 재시작하지 않고 변경분만 반영한다.
+- Electron에서는 이벤트 기반(watcher)으로, 브라우저 File System Access(FSA)에서는 가벼운 메타데이터 스캔으로 부하를 최소화한다.
+
+## 현황 정리
+- 폴더 로딩 시 `FolderData`(`Map<string, File>`) 스냅샷만 저장하고 이후 재스캔/감시는 없다.
+- Electron IPC는 저장/업데이트 관련 핸들러만 있고 폴더 변경 알림은 없다.
+- 브라우저 드래그&드롭로 추가된 파일은 원본 경로나 핸들이 없어 자동 감시가 불가능하다.
+
+## 설계 초안
+- `FolderState`에 소스 메타 추가: `{ kind: 'electron', path } | { kind: 'picker', handle } | { kind: 'files' }`.
+- `FolderData`에 파일 메타(`mtime`, `size`) 캐싱해서 diff 기준으로 사용.
+- Electron: `chokidar` 또는 `fs.watch`로 이벤트 수신 → debounce → 변경된 파일만 다시 읽어 Map 갱신.
+- Web FSA: 3~5초 주기로 디렉터리 엔트리 메타(`name`, `lastModified`, `size`)만 스캔 → diff 후 필요한 파일만 `getFile()`로 갱신.
+- 드래그&드롭(`kind: 'files'`): 자동 감시 불가 → “새로고침” 버튼 제공.
+
+## 작업 단계/체크리스트
+- [x] **데이터 구조 확장**: `FolderState`, `FolderData`에 source/meta 추가. 기존 로딩 경로에서 세팅.
+- [x] **감시 관리자 생성(Electron)**: 폴더별 watcher 등록/해제, 이벤트 → batched diff → 상태 갱신. 폴더 언로드 시 cleanup.
+- [x] **브라우저 FSA 스케줄링**: 폴더별 interval 시작/정지, 메타 스캔 → diff 적용. 권한 오류 시 알림 및 중지.
+- [x] **UI/옵션**: 자동 동기화 토글, 드래그&드롭 폴더에 대한 “수동 새로고침” 버튼/안내, 변경 결과 토스트(예: “폴더 A: 3개 갱신”).
+- [x] **성능/안정**: debounce/중복 실행 방지(폴더별 주기 스캔 1회 동시 실행 제한), 메타 diff 기반으로 변경된 항목만 로드.
+- [x] **테스트 시나리오 정리**: 추가/수정/삭제, 대용량 폴더, 권한 거부, 드래그&드롭 케이스 수동 새로고침.
+
+### Electron 경로 감시/리스캔
+- fs.watch 기반 IPC(`watch-folder-add/remove`, `watch-folder-changed`) → 렌더러에서 해당 폴더 `refreshFolder` 실행.
+- `fs-folder-list/read` IPC로 메타/파일 데이터를 가져와 메타 diff 후 변경 파일만 교체.
+
+## 테스트 시나리오 (수동)
+- 동일 이름 파일 교체(내용 변경) 후 자동/수동 리스캔 → 업데이트 감지.
+- 신규 파일 추가/삭제 후 리스캔 → 리스트/뷰 반영 확인.
+- 대량(수백 장) 폴더에서 주기 스캔이 UI를 블록하지 않는지 확인.
+- 권한 거부(FSA handle 만료) 시 토스트/로그 확인 후 주기 스캔 중지 여부 확인.
+- 드래그&드롭(파일 기반, watch 불가) 폴더에 대해 “Rescan” 버튼 동작 확인.
+
+## 고려 사항
+- `chokidar` 의존성 추가 여부 확인. 없다면 `fs.watch`로 최소 구현 후 필요 시 확장.
+- 브라우저에서는 FSA 권한이 재요청될 수 있으므로 에러 처리/가이드 필요.
+- 메타 diff는 `mtime`/`size`만 비교하여 I/O를 최소화하고, 실제 내용 로드는 변경된 파일에 한정한다.

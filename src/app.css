@@ -2500,13 +2500,41 @@ main {
   grid-area: path;
   font-size: 0.8rem;
   color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   background-color: var(--bg-dark);
   padding: 4px 6px;
   border-radius: 4px;
   align-self: start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.folder-path-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.folder-rescan-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--bg-med);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.folder-rescan-button:hover {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-hover);
 }
 
 .folder-actions {

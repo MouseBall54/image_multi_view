@@ -23,6 +23,8 @@ import { electronUpdater } from "./utils/electron-updater";
 import { isDevChannel } from "./utils/environment";
 import { UpdateFeedTarget, getDefaultUpdateFeedTarget } from "./utils/updateFeed";
 import { useUsageLogging } from "./hooks/useUsageLogging";
+import { useFolderSync } from "./hooks/useFolderSync";
+import { useElectronFolderWatcher } from "./hooks/useElectronFolderWatcher";
 // Custom menu bar removed; actions moved to title bar
 import { initializeOpenCV } from "./utils/opencv";
 import { handleFolderDrop } from "./utils/dragDrop";
@@ -96,6 +98,8 @@ function ViewportControls({ imageDimensions }: {
 
 export default function App() {
   useUsageLogging();
+  useFolderSync();
+  useElectronFolderWatcher(typeof window !== 'undefined' && Boolean((window as any).electronAPI));
   const {
     appMode,
     setAppMode,
@@ -245,7 +249,13 @@ export default function App() {
 
   const [isCaptureModalOpen, setCaptureModalOpen] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [captureOptions, setCaptureOptions] = useState({ showLabels: true, showCrosshair: true, showMinimap: false, showFilterLabels: true, showGrid: true });
+  const [captureOptions, setCaptureOptions] = useState(() => ({
+    showLabels: true,
+    showCrosshair: true,
+    showMinimap: false,
+    showFilterLabels: true,
+    showGrid
+  }));
   const [clipboardStatus, setClipboardStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showTutorialPanel, setShowTutorialPanel] = useState(false);
   const [tutorialSearchQuery, setTutorialSearchQuery] = useState("");
@@ -320,6 +330,10 @@ export default function App() {
       stopTutorialDrag();
     };
   }, [stopTutorialDrag]);
+
+  useEffect(() => {
+    setCaptureOptions((options) => options.showGrid === showGrid ? options : ({ ...options, showGrid }));
+  }, [showGrid]);
 
   useEffect(() => {
     if (!filteredTutorials.length) {
@@ -540,7 +554,7 @@ export default function App() {
       }
 
       setFolder(emptyKey, {
-        data: { name: folderName, files: filesMap },
+        data: { name: folderName, files: filesMap, meta: new Map(), source: { kind: 'files' } },
         alias: folderName
       });
 
@@ -642,7 +656,7 @@ export default function App() {
         const current = folders[key];
         const name = current?.data.name || alias;
         setFolder(key, {
-          data: { name, files: fileMap },
+          data: { name, files: fileMap, meta: new Map(), source: { kind: 'files' } },
           alias
         });
       }

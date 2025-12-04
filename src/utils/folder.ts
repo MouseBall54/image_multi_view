@@ -9,10 +9,30 @@ function isImageFile(filename: string): boolean {
   return IMAGE_EXTENSIONS.has(ext);
 }
 
+export type FileMeta = {
+  mtime: number;
+  size: number;
+};
+
+export type FolderSource =
+  | { kind: 'picker'; handle: FileSystemDirectoryHandle }
+  | { kind: 'files' }
+  | { kind: 'electron'; path: string };
+
 export type FolderData = {
   name: string;
   files: Map<string, File>;
+  meta?: Map<string, FileMeta>;
+  source?: FolderSource;
 };
+
+function buildMeta(files: Iterable<[string, File]>): Map<string, FileMeta> {
+  const meta = new Map<string, FileMeta>();
+  for (const [name, file] of files) {
+    meta.set(name, { mtime: file.lastModified, size: file.size });
+  }
+  return meta;
+}
 
 export async function pickDirectory(): Promise<FolderData> {
   // File System Access API
@@ -25,7 +45,8 @@ export async function pickDirectory(): Promise<FolderData> {
       files.set(name, file);
     }
   }
-  return { name: handle.name, files };
+  const meta = buildMeta(files.entries());
+  return { name: handle.name, files, meta, source: { kind: 'picker', handle } };
 }
 
 // <input webkitdirectory> fallback 처리
@@ -43,8 +64,9 @@ export function filesFromInput(fileList: FileList): FolderData | null {
 
   const firstFile = Array.from(fileList).find(f => isImageFile(f.name));
   const folderName = firstFile ? firstFile.webkitRelativePath.split('/')[0] : "Unknown";
+  const meta = buildMeta(files.entries());
   
-  return { name: folderName, files };
+  return { name: folderName, files, meta, source: { kind: 'files' } };
 }
 
 // 확장자 제외 매칭을 원하면 아래 유틸 활용

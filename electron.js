@@ -25,11 +25,20 @@ const packageJsonCache = readPackageJson();
 const usageLoggingConfig = packageJsonCache.usageLogging ?? {};
 
 const resolveBuildChannel = () => {
-  const channel =
-    process.env.VITE_BUILD_CHANNEL ??
-    process.env.BUILD_CHANNEL ??
-    (process.env.NODE_ENV === 'production' ? 'prod' : 'dev');
-  return channel === 'prod' ? 'prod' : 'dev';
+  const explicit = process.env.VITE_BUILD_CHANNEL ?? process.env.BUILD_CHANNEL;
+  if (explicit === 'prod' || explicit === 'dev') {
+    return explicit;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    return 'prod';
+  }
+  if (process.env.NODE_ENV === 'development') {
+    return 'dev';
+  }
+  if (typeof app !== 'undefined' && app.isPackaged) {
+    return 'prod';
+  }
+  return 'prod';
 };
 
 const normalizeEndpoint = (value) => {
@@ -111,6 +120,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 let mainWindow;
+const folderWatchers = new Map();
 
 // Configure electron-updater
 autoUpdater.checkForUpdatesAndNotify = false; // We'll handle notifications manually
@@ -285,6 +295,76 @@ ipcMain.handle('save-image', async (event, imageData, defaultFileName) => {
       success: false, 
       message: 'Failed to save file: ' + error.message 
     };
+  }
+});
+
+// Folder watch management (renderer requests)
+ipcMain.handle('watch-folder-add', async (_event, { id, folderPath }) => {
+  try {
+    if (!id || !folderPath) return { success: false, error: 'Invalid watch params' };
+    const existing = folderWatchers.get(id);
+    if (existing) {
+      existing.close();
+      folderWatchers.delete(id);
+    }
+    const watcher = fs.watch(folderPath, { recursive: false }, (eventType, filename) => {
+      if (mainWindow && mainWindow.webContents) {
+        mainWindow.webContents.send('watch-folder-changed', { id, folderPath, eventType, filename });
+      }
+    });
+    folderWatchers.set(id, watcher);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to watch folder', folderPath, error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('watch-folder-remove', async (_event, { id }) => {
+  try {
+    const watcher = folderWatchers.get(id);
+    if (watcher) {
+      watcher.close();
+      folderWatchers.delete(id);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to remove watcher', id, error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.tif', '.tiff']);
+const isImage = (name) => IMAGE_EXTS.has(path.extname(name).toLowerCase());
+
+ipcMain.handle('fs-folder-list', async (_event, { folderPath }) => {
+  try {
+    const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      if (!isImage(entry.name)) continue;
+      const full = path.join(folderPath, entry.name);
+      const stat = await fs.promises.stat(full);
+      files.push({ name: entry.name, mtimeMs: stat.mtimeMs, size: stat.size });
+    }
+    return { success: true, files };
+  } catch (error) {
+    console.error('fs-folder-list failed', folderPath, error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('fs-folder-read', async (_event, { folderPath, name }) => {
+  try {
+    const full = path.join(folderPath, name);
+    const stat = await fs.promises.stat(full);
+    const data = await fs.promises.readFile(full);
+    const base64 = data.toString('base64');
+    return { success: true, name, mtimeMs: stat.mtimeMs, size: stat.size, base64 };
+  } catch (error) {
+    console.error('fs-folder-read failed', folderPath, name, error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });
 

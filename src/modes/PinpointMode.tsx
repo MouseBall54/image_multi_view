@@ -50,7 +50,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels,
     selectedFiles, toggleFileSelection, clearFileSelection, selectAllFiles, setActiveCanvasKey, setPinpoint,
     viewerArrangement,
-    syncCapture, confirmSyncFromTarget
+    syncCapture, confirmSyncFromTarget, refreshFolder
   } = useStore();
   const [pinpointImages, setPinpointImages] = useState<Partial<Record<FolderKey, PinpointImage>>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -76,6 +76,25 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
       if (!allFolders[key]) return key;
     }
     return null;
+  };
+
+  const handleRescan = async (key: FolderKey) => {
+    const result = await refreshFolder(key);
+    if (!addToast) return;
+    if (!result) {
+      addToast({ type: 'info', title: 'Folder Sync', message: '변경 없음', duration: 2000 });
+      return;
+    }
+    const summary: string[] = [];
+    if (result.added) summary.push(`+${result.added}`);
+    if (result.updated) summary.push(`~${result.updated}`);
+    if (result.removed) summary.push(`-${result.removed}`);
+    addToast({
+      type: 'success',
+      title: 'Folder Sync',
+      message: summary.length ? summary.join(' ') : '변경 없음',
+      duration: 2000
+    });
   };
 
   // Place folder as a new folder in the controls
@@ -111,7 +130,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
       // Set the folder in the store with the folder name as alias
       setFolder(emptyKey, {
-        data: { name: folderName, files: filesMap },
+        data: { name: folderName, files: filesMap, meta: new Map(), source: { kind: 'files' } },
         alias: folderName
       });
 
@@ -193,7 +212,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
         const name = current?.data.name || alias;
         const merged = new Map<string, File>(current?.data.files ?? []);
         for (const f of files) merged.set(f.name, f);
-        setFolder(key, { data: { name, files: merged }, alias });
+        setFolder(key, { data: { name, files: merged, meta: new Map(), source: current?.data.source ?? { kind: 'files' } }, alias });
       }
 
       // Toast summary
@@ -644,7 +663,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
         const alias = existing?.alias || `Temp ${viewerKey}`;
         const name = existing?.data.name || alias;
-        setFolder(viewerKey, { data: { name, files: merged }, alias });
+        setFolder(viewerKey, { data: { name, files: merged, meta: new Map(), source: existing?.data.source ?? { kind: 'files' } }, alias });
 
         // Show the dropped image on this viewer
         loadFileToViewer(file, viewerKey, viewerKey);
@@ -663,7 +682,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
 
         const alias = existing?.alias || `Temp ${viewerKey}`;
         const name = existing?.data.name || alias;
-        setFolder(viewerKey, { data: { name, files: merged }, alias });
+        setFolder(viewerKey, { data: { name, files: merged, meta: new Map(), source: existing?.data.source ?? { kind: 'files' } }, alias });
 
         // Show the first dropped image on this viewer
         const first = imageFiles[0];
@@ -726,6 +745,7 @@ export const PinpointMode = forwardRef<PinpointModeHandle, PinpointModeProps>(({
               onSelect={pick}
               onClear={clearFolder}
               onUpdateAlias={updateAlias}
+              onRescan={handleRescan}
             />
           );
         })}
