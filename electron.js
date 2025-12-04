@@ -334,6 +334,40 @@ ipcMain.handle('watch-folder-remove', async (_event, { id }) => {
   }
 });
 
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.tif', '.tiff']);
+const isImage = (name) => IMAGE_EXTS.has(path.extname(name).toLowerCase());
+
+ipcMain.handle('fs-folder-list', async (_event, { folderPath }) => {
+  try {
+    const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      if (!isImage(entry.name)) continue;
+      const full = path.join(folderPath, entry.name);
+      const stat = await fs.promises.stat(full);
+      files.push({ name: entry.name, mtimeMs: stat.mtimeMs, size: stat.size });
+    }
+    return { success: true, files };
+  } catch (error) {
+    console.error('fs-folder-list failed', folderPath, error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('fs-folder-read', async (_event, { folderPath, name }) => {
+  try {
+    const full = path.join(folderPath, name);
+    const stat = await fs.promises.stat(full);
+    const data = await fs.promises.readFile(full);
+    const base64 = data.toString('base64');
+    return { success: true, name, mtimeMs: stat.mtimeMs, size: stat.size, base64 };
+  } catch (error) {
+    console.error('fs-folder-read failed', folderPath, name, error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
 ipcMain.handle('log-usage-event', async (_event, payload = {}) => {
   try {
     const { eventType, details, context } = payload;

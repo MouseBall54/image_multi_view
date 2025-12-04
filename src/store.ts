@@ -530,7 +530,10 @@ export const useStore = create<State>((set, get) => ({
     const state = get();
     const folder = state.folders[key];
     if (!folder) return null;
-    const result = await rescanFolderData(ensureMeta(folder.data));
+    const electronApi = (typeof window !== 'undefined' && (window as any).electronAPI?.fsFolder)
+      ? (window as any).electronAPI.fsFolder
+      : undefined;
+    const result = await rescanFolderData(ensureMeta(folder.data), { electronApi });
     if (!result) return null;
     set({
       folders: {

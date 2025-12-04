@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onChange: (callback) => ipcRenderer.on('watch-folder-changed', (_event, payload) => callback(payload)),
     removeAllListeners: () => ipcRenderer.removeAllListeners('watch-folder-changed')
   },
+  fsFolder: {
+    list: (folderPath) => ipcRenderer.invoke('fs-folder-list', { folderPath }),
+    readFile: (folderPath, name) => ipcRenderer.invoke('fs-folder-read', { folderPath, name }),
+  },
   
   // New electron-updater APIs
   updater: {

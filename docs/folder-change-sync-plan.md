@@ -18,11 +18,15 @@
 
 ## 작업 단계/체크리스트
 - [x] **데이터 구조 확장**: `FolderState`, `FolderData`에 source/meta 추가. 기존 로딩 경로에서 세팅.
-- [ ] **감시 관리자 생성(Electron)**: 폴더별 watcher 등록/해제, 이벤트 → batched diff → 상태 갱신. 폴더 언로드 시 cleanup.
+- [x] **감시 관리자 생성(Electron)**: 폴더별 watcher 등록/해제, 이벤트 → batched diff → 상태 갱신. 폴더 언로드 시 cleanup.
 - [x] **브라우저 FSA 스케줄링**: 폴더별 interval 시작/정지, 메타 스캔 → diff 적용. 권한 오류 시 알림 및 중지.
 - [x] **UI/옵션**: 자동 동기화 토글, 드래그&드롭 폴더에 대한 “수동 새로고침” 버튼/안내, 변경 결과 토스트(예: “폴더 A: 3개 갱신”).
 - [x] **성능/안정**: debounce/중복 실행 방지(폴더별 주기 스캔 1회 동시 실행 제한), 메타 diff 기반으로 변경된 항목만 로드.
 - [x] **테스트 시나리오 정리**: 추가/수정/삭제, 대용량 폴더, 권한 거부, 드래그&드롭 케이스 수동 새로고침.
+
+### Electron 경로 감시/리스캔
+- fs.watch 기반 IPC(`watch-folder-add/remove`, `watch-folder-changed`) → 렌더러에서 해당 폴더 `refreshFolder` 실행.
+- `fs-folder-list/read` IPC로 메타/파일 데이터를 가져와 메타 diff 후 변경 파일만 교체.
 
 ## 테스트 시나리오 (수동)
 - 동일 이름 파일 교체(내용 변경) 후 자동/수동 리스캔 → 업데이트 감지.
