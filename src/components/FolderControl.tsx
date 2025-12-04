@@ -5,13 +5,15 @@ import { FolderState } from '../store';
 interface FolderControlProps {
   folderKey: FolderKey;
   folderState: FolderState | undefined;
+  activity?: 'loading' | 'rescan';
+  showActivity?: boolean;
   onSelect: (key: FolderKey) => void;
   onClear: (key: FolderKey) => void;
   onUpdateAlias: (key: FolderKey, alias: string) => void;
   onRescan?: (key: FolderKey) => void;
 }
 
-export const FolderControl: React.FC<FolderControlProps> = ({ folderKey, folderState, onSelect, onClear, onUpdateAlias, onRescan }) => {
+export const FolderControl: React.FC<FolderControlProps> = ({ folderKey, folderState, activity, showActivity = true, onSelect, onClear, onUpdateAlias, onRescan }) => {
   const [isEditingAlias, setIsEditingAlias] = useState(false);
 
   const handleAliasUpdate = (newAlias: string) => {
@@ -57,7 +59,15 @@ export const FolderControl: React.FC<FolderControlProps> = ({ folderKey, folderS
         )}
       </div>
       <div className="folder-path" title={folderState.data.name}>
-        <span className="folder-path-text">{folderState.data.files.size} files</span>
+        <span className="folder-path-text">
+          {folderState.data.files.size} files
+          {activity && showActivity && (
+            <span className="folder-activity">
+              <span className="folder-activity-spinner" />
+              {activity === 'rescan' ? 'Rescanning…' : 'Loading…'}
+            </span>
+          )}
+        </span>
         {folderState.data.source?.kind === 'picker' && onRescan && (
           <button className="folder-rescan-button" onClick={() => onRescan(folderKey)} title="Rescan Folder">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 2v6h6"></path><path d="M21 12a9 9 0 0 0-15-6.7L3 8"></path><path d="M21 22v-6h-6"></path><path d="M3 12a9 9 0 0 0 15 6.7L21 16"></path></svg>

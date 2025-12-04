@@ -34,7 +34,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, clearFolder, showFilelist, showFilterLabels,
     previewLayout,
     syncCapture, confirmSyncFromTarget,
-    openPreviewModal, refreshFolder,
+    openPreviewModal, refreshFolder, folderActivities,
   } = useStore();
   const { pick, inputRefs, onInput, allFolders, updateAlias } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
@@ -62,7 +62,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   };
 
   const handleRescan = async (key: FolderKey) => {
-    const result = await refreshFolder(key);
+    const result = await refreshFolder(key, { showActivity: true });
     if (!addToast) return;
     if (!result) {
       addToast({ type: 'info', title: 'Folder Sync', message: '변경 없음', duration: 2000 });
@@ -468,6 +468,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
             key={key}
             folderKey={key}
             folderState={allFolders[key]}
+            activity={folderActivities[key]}
+            showActivity={folderActivities[key] === 'rescan'}
             onSelect={pick}
             onClear={clearFolder}
             onUpdateAlias={updateAlias}

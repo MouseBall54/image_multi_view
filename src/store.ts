@@ -10,6 +10,7 @@ export interface FolderState {
   data: FolderData;
   alias: string;
 }
+export type FolderActivity = 'loading' | 'rescan';
 
 export interface FilterParams {
   kernelSize: number;
@@ -168,6 +169,7 @@ interface State {
   current: MatchedItem | null;
   indicator: { cx: number, cy: number, key: number } | null;
   folders: Partial<Record<FolderKey, FolderState>>;
+  folderActivities: Partial<Record<FolderKey, FolderActivity>>;
   // Image sizes used for performance estimation
   viewerImageSizes: Partial<Record<FolderKey, { width: number; height: number }>>;
   analysisImageSizes: Partial<Record<number, { width: number; height: number }>>;
@@ -257,7 +259,8 @@ interface State {
   setCurrent: (item: MatchedItem | null) => void;
   triggerIndicator: (cx: number, cy: number) => void;
   setFolder: (key: FolderKey, folderState: FolderState) => void;
-  refreshFolder: (key: FolderKey) => Promise<{ changed: boolean; added: number; updated: number; removed: number } | null>;
+  setFolderActivity: (key: FolderKey, activity: FolderActivity | null) => void;
+  refreshFolder: (key: FolderKey, options?: { showActivity?: boolean }) => Promise<{ changed: boolean; added: number; updated: number; removed: number } | null>;
   updateFolderAlias: (key: FolderKey, alias: string) => void;
   clearFolder: (key: FolderKey) => void;
   setViewerImageSize: (key: FolderKey, size: { width: number; height: number }) => void;
@@ -423,6 +426,7 @@ export const useStore = create<State>((set, get) => ({
   current: null,
   indicator: null,
   folders: {},
+  folderActivities: {},
   viewerImageSizes: {},
   analysisImageSizes: {},
   
@@ -523,17 +527,27 @@ export const useStore = create<State>((set, get) => ({
       }
     }
     return {
-      folders: { ...state.folders, [key]: { ...folderState, data: { ...ensured, source } } }
+      folders: { ...state.folders, [key]: { ...folderState, data: { ...ensured, source } } },
+      folderActivities: { ...state.folderActivities, [key]: undefined }
     };
   }),
-  refreshFolder: async (key) => {
+  setFolderActivity: (key, activity) => set(state => ({
+    folderActivities: { ...state.folderActivities, [key]: activity ?? undefined }
+  })),
+  refreshFolder: async (key, options = {}) => {
     const state = get();
     const folder = state.folders[key];
     if (!folder) return null;
+    if (options.showActivity) {
+      state.setFolderActivity(key, 'rescan');
+    }
     const electronApi = (typeof window !== 'undefined' && (window as any).electronAPI?.fsFolder)
       ? (window as any).electronAPI.fsFolder
       : undefined;
     const result = await rescanFolderData(ensureMeta(folder.data), { electronApi });
+    if (options.showActivity) {
+      state.setFolderActivity(key, null);
+    }
     if (!result) return null;
     set({
       folders: {
