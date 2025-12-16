@@ -2516,6 +2516,28 @@ main {
   flex: 1;
 }
 
+.folder-activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  color: var(--accent-primary);
+}
+
+.folder-activity-spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--accent-primary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  animation: folderSpin 0.8s linear infinite;
+}
+
+@keyframes folderSpin {
+  to { transform: rotate(360deg); }
+}
+
 .folder-rescan-button {
   display: inline-flex;
   align-items: center;

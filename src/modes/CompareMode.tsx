@@ -32,7 +32,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   const { 
     current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, viewerFilterParams, clearFolder, viewerRows, viewerCols,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels, 
-    reorderViewers, viewerArrangement, refreshFolder,
+    reorderViewers, viewerArrangement, refreshFolder, folderActivities,
     openPreviewModal,
     syncCapture, confirmSyncFromTarget
   } = useStore();
@@ -418,7 +418,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   const showPreview = !!previewLayout;
 
   const handleRescan = async (key: FolderKey) => {
-    const result = await refreshFolder(key);
+    const result = await refreshFolder(key, { showActivity: true });
     if (!addToast) return;
     if (!result) {
       addToast({ type: 'info', title: 'Folder Sync', message: '변경 없음', duration: 2000 });
@@ -446,6 +446,8 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
               key={position}
               folderKey={key}
               folderState={allFolders[key]}
+              activity={folderActivities[key]}
+              showActivity={folderActivities[key] === 'rescan'}
               onSelect={pick}
               onClear={clearFolder}
               onUpdateAlias={updateAlias}
