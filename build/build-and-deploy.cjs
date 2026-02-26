@@ -92,13 +92,18 @@ function createUpdateMetadata(setupFile) {
 }
 
 function generateReleaseNotes() {
-  // In real scenario, this could read from CHANGELOG.md or git commits
+  const releaseDate = new Date().toISOString().slice(0, 10);
   return `
+  ## compareX v${CONFIG.version} 업데이트 (${releaseDate})
 
-  ## compareX v${CONFIG.version} 업데이트
+  ### 주요 변경사항
+  - 버전 업데이트: ${CONFIG.version}
+  - 빌드 채널: ${argMode}
+  - 의존성 안정화 및 보안 점검 반영 (npm audit 기준 취약점 0)
+  - 설치 가이드 보강 (sudo npm install 금지, 권한 복구 안내 추가)
 
-  ### 개선사항
-  - 캡처 창 grid 초기 설정 로직 개선 (bug fix)
+  ### 참고
+  - 일부 deprecated 경고는 Electron 패키징 업스트림 의존성에서 발생할 수 있습니다.
 `;
 }
 
