@@ -43,7 +43,12 @@ function mimeFromName(name: string): string {
 
 async function rescanPicker(folderData: FolderData) {
   const handle = folderData.source?.kind === 'picker' ? folderData.source.handle : null;
-  if (!handle || typeof handle.entries !== 'function') return null;
+  // `entries()` is available at runtime in Chromium-based environments, but
+  // TypeScript's File System Access types may omit it depending on lib version.
+  const handleWithEntries = handle as (FileSystemDirectoryHandle & {
+    entries?: () => AsyncIterableIterator<[string, any]>;
+  }) | null;
+  if (!handleWithEntries || typeof handleWithEntries.entries !== 'function') return null;
 
   const prevMeta = folderData.meta ?? new Map<string, FileMeta>();
   const prevFiles = folderData.files;
@@ -52,7 +57,7 @@ async function rescanPicker(folderData: FolderData) {
   let added = 0;
   let updated = 0;
 
-  for await (const [name, entry] of handle.entries()) {
+  for await (const [name, entry] of handleWithEntries.entries()) {
     if (entry.kind !== 'file') continue;
     if (!isImageFile(name)) continue;
     const file = await entry.getFile();

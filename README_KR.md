@@ -63,7 +63,7 @@
 
 ## 설치 및 개발
 ### 사전 준비
-- Node.js 18 이상, npm 9 이상 (Vite + Electron Builder 툴체인)
+- Node.js 20.19 이상, npm 10 이상 (Vite + Electron Builder 툴체인)
 - WebGL 가속을 지원하는 macOS / Windows / Linux 환경
 
 ### 설치 및 실행
@@ -77,6 +77,14 @@ npm run dev
 # 프로덕션 플래그로 실행 (Electron 환경과 유사)
 npm run dev:prod
 ```
+
+### 설치 주의사항
+- 이 저장소에서는 일반 사용자로 설치하세요. `sudo npm install`은 사용하지 마세요.
+- 과거에 `sudo`로 파일이 생성됐다면, 설치 전에 소유권을 복구하세요:
+```bash
+sudo chown -R "$USER":"$USER" .
+```
+- npm 해석 결과/플랫폼에 따라 Electron 패키징 체인에서 올라오는 일부 deprecated 경고가 남을 수 있습니다. 이 경우 업스트림 의존성 경고입니다.
 
 ### Electron 작업 흐름
 ```bash

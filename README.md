@@ -63,7 +63,7 @@ Full cheat sheet: [`SHORTCUTS_GUIDE.md`](./SHORTCUTS_GUIDE.md).
 
 ## Setup & Development
 ### Prerequisites
-- Node.js 18+ and npm 9+ (Vite + Electron builder toolchain)
+- Node.js 20.19+ and npm 10+ (Vite + Electron builder toolchain)
 - macOS, Windows, or Linux with system OpenGL for WebGL canvas acceleration
 
 ### Install & run
@@ -77,6 +77,14 @@ npm run dev
 # Start dev server with production flags (closer to Electron builds)
 npm run dev:prod
 ```
+
+### Install notes
+- Run install commands as a regular user. Do not use `sudo npm install` in this repo.
+- If files were previously created by `sudo`, restore ownership before installing:
+```bash
+sudo chown -R "$USER":"$USER" .
+```
+- Depending on npm resolution and platform, a small number of deprecated transitive warnings may still appear from Electron packaging dependencies. These are upstream-chain issues.
 
 ### Electron workflows
 ```bash
