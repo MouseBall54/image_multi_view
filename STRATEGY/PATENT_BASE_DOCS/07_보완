@@ -1,0 +1,540 @@
+# 07. 컴퓨터 비전 필터 체인 실행·재현 파이프라인 (캐시·진행률·비용추정·JSON I/O·Python 변환 예정) (바탕 문서)
+
+> 고지: 본 문서는 기술/전략 참고자료이며 법률 자문이 아닙니다.  
+> 기준 문서: [PATENT_PORTFOLIO_ANALYSIS_KR_PCT.md](../PATENT_PORTFOLIO_ANALYSIS_KR_PCT.md)
+
+## 문서 목적
+compareX의 필터 체인 기능을 단순 시각 효과 UI가 아니라, **재현 가능한 컴퓨터 비전(CV) 이미지 처리 파이프라인**으로 정리한다.  
+문서 목적은 특허 명세서 완성본 작성이 아니라, 특허 초안 작성자가 기술 과제-수단-효과를 빠르게 구조화할 수 있는 실무형 바탕 자료를 제공하는 것이다.
+
+## 핵심 기술 한눈에 보기
+1. 이 기술은 `filterType + params + enabled + 순서`를 하나의 실행 레시피로 취급해 동일 실험을 반복 재현한다.
+2. 실행 엔진은 `cacheKey = imageHash + chainHash`를 사용해 동일 입력·동일 체인의 결과를 재사용하고, 진행률과 비용추정(estimatedMs)을 결합해 실행 가시성을 제공한다.
+3. JSON import/export는 파라미터까지 포함한 round-trip 복원을 지원해 팀/환경 간 실험 재현성을 높인다.
+4. Python(OpenCV/NumPy) 변환은 현재 구현이 아닌 `[예정 기능]`이며, 문서에는 설계 시안만 포함한다.
+
+## 기능 정의
+### 문제
+기존 이미지 툴에서는 필터 조합 실험 시 다음 문제가 반복된다.
+1. 동일 체인을 다시 실행해도 처리시간 예측이 어렵다.
+2. 팀 공유 시 필터 순서나 파라미터가 누락되어 재현이 깨진다.
+3. 웹에서 검증한 레시피를 코드 실험 환경으로 옮길 때 재작성 비용이 크다.
+
+### 원리
+1. 체인은 `enabled=true` 항목만 실행하고, 각 항목의 `filterType`과 `params`를 실행 단위로 본다.
+2. 이미지 해시와 체인 해시를 결합한 키로 캐시를 조회해 히트/미스를 분기한다.
+3. 파라미터는 임시 편집 상태에서 체인 아이템으로 스냅샷 저장되고, JSON `items[n].params`로 보존된다.
+4. 비용추정은 필터별 기본비용, 파라미터 가중, 픽셀 수, 체인 길이를 결합한 모델로 제공된다.
+
+### 효과
+1. 반복 실행에서 체감 처리시간을 단축한다.
+2. 레시피 공유 시 순서·파라미터 일치율을 높여 재현성을 확보한다.
+3. 실행 전 예상 비용을 통해 실험 설계를 사전에 경량화할 수 있다.
+
+## [현재 구현됨] 처리 파이프라인 개요
+1. 체인에서 `enabled=true` 아이템만 추출한다.
+2. `imageHash`와 `chainHash`를 결합해 `cacheKey`를 생성한다.
+3. 캐시 히트 시 결과를 복원하고 진행률 피드백을 유지한다.
+4. 캐시 미스 시 필터를 순차 적용하며 단계별 진행률을 갱신한다.
+5. 최종 결과를 캐시에 저장하고 크기 상한 정책으로 정리한다.
+6. 실행 전 `estimateFilterChainCost`로 `estimatedMs`를 계산한다.
+
+사용자 관찰값과 기술효과(1:1 매핑):
+1. 관찰값: 같은 체인을 다시 돌리면 빠르다.  
+기술효과: 캐시 재사용으로 재실행 지연 감소.
+2. 관찰값: 긴 체인에서도 진행 상태가 끊기지 않는다.  
+기술효과: 단계 기반 progress callback으로 상태 가시성 유지.
+3. 관찰값: 실행 전에 대략 시간을 보고 체인을 조정할 수 있다.  
+기술효과: 사전 비용추정으로 탐색/튜닝 비용 절감.
+
+## [현재 구현됨] 파라미터 조절 및 저장 원리
+핵심 데이터 흐름(고정):
+
+```text
+UI 슬라이더/숫자입력
+  -> tempViewerFilterParams
+  -> addToFilterCart / updateFilterCartItem
+  -> filterCart[n].params
+  -> exportFilterChain
+  -> JSON items[n].params
+```
+
+단계 설명:
+1. 사용자가 Filter Editor에서 파라미터를 조절하면 `tempViewerFilterParams`가 즉시 갱신된다.
+2. 체인에 추가할 때(`addToFilterCart`) 해당 시점 파라미터가 아이템 `params`로 스냅샷 저장된다.
+3. 체인 아이템 재편집 시(`updateFilterCartItem`) 아이템별 `params`가 갱신된다.
+4. export 시 필터별 유효 파라미터만 추려 JSON으로 저장된다.
+
+기술 의미:
+1. “필터 종류는 같지만 값이 달라 결과가 달라지는 문제”를 구조적으로 줄인다.
+2. 체인 공유 시 파라미터까지 동일하게 전달되어 재현 일관성이 높아진다.
+
+## [현재 구현됨] 제공 필터 카탈로그 (컴퓨터 비전 이미지 처리 기준)
+코드 기준 제공 필터는 총 **81개(17개 그룹)** 이다.
+
+| 그룹 | 개수 | 대표 필터 | CV 활용 목적 |
+| --- | ---: | --- | --- |
+| Tone & Basics | 8 | `grayscale`, `brightness`, `gammacorrection` | 기본 톤/명암 보정 |
+| Contrast Enhancement | 4 | `histogramequalization`, `clahe` | 저대비 개선 |
+| Binarization | 10 | `threshold_otsu`, `threshold_adaptive_gaussian` | 전경/배경 분할 |
+| Noise Reduction & Blurring | 7 | `gaussianblur`, `median`, `alphatrimmedmean` | 노이즈 억제 |
+| Edge-Preserving Smoothing | 2 | `guided`, `edgepreserving` | 에지 보존 평활화 |
+| Sharpening | 3 | `sharpen`, `unsharpmask`, `highpass` | 경계 강조 |
+| Edge Detection - Basic | 3 | `sobel`, `scharr`, `laplacian` | 기초 경계 검출 |
+| Edge Detection - Advanced | 6 | `canny`, `log`, `marrhildreth` | 정밀 경계 검출 |
+| Texture Analysis | 3 | `gabor`, `lawstextureenergy`, `lbp` | 텍스처 특징 추출 |
+| Morphology & Distance | 6 | `morph_open`, `morph_close`, `distancetransform` | 형상 후처리 |
+| Frequency Domain (Experimental) | 3 | `dft`, `dct`, `wavelet` | 주파수 분석 |
+| Colormap - Perceptually Uniform | 5 | `colormap_viridis`, `colormap_inferno` | 지각 균일 시각화 |
+| Colormap - Rainbow/Legacy | 3 | `colormap_jet`, `colormap_hsv` | 레거시 시각화 |
+| Colormap - Aesthetic | 6 | `colormap_cool`, `colormap_summer` | 미적 시각화 |
+| Colormap - Specialized | 3 | `colormap_bone`, `colormap_copper` | 도메인 특화 톤 |
+| Colormap - Diverging | 6 | `colormap_rdbu`, `colormap_bwr` | 변화량/부호 강조 |
+| Colormap - Gradient-based | 3 | `colormap_gradient_magnitude`, `colormap_edge_intensity` | 기울기/에지 강도 표시 |
+
+실무 해석:
+1. 전처리-특징추출-시각화를 하나의 체인으로 묶어 실험 가능하다.
+2. 단일 필터 성능보다 “필터 조합 레시피의 재현성”이 핵심 가치다.
+
+## [현재 구현됨] JSON import/export 기능
+### 1) JSON 구조 원리
+이 포맷은 필터 체인을 앱 내부 구현과 분리한 **플랫폼 독립 레시피 포맷**이다.
+1. 기본 구조: `name`, `items[]`
+2. 아이템 구조: `id`, `filterType`, `params`, `enabled`
+3. wrapper 구조: `version`, `exportedAt`, `chain`, `metadata`
+
+### 2) 저장(export) 원리
+`FILTER_PARAMETER_MAP`으로 필터 타입별 유효 파라미터만 정규화해 저장한다.
+1. 장점: 불필요 필드 제거로 가독성/호환성 개선
+2. 기술 의미: 체인 교환 시 파라미터 스키마를 안정화
+
+간단 예시(direct):
+```json
+{
+  "name": "basic-denoise-edge",
+  "items": [
+    {
+      "id": "filter-1",
+      "filterType": "gaussianblur",
+      "params": { "kernelSize": 5, "sigma": 1.2 },
+      "enabled": true
+    },
+    {
+      "id": "filter-2",
+      "filterType": "canny",
+      "params": { "lowThreshold": 60, "highThreshold": 150 },
+      "enabled": true
+    }
+  ]
+}
+```
+
+실전 예시(wrapper):
+```json
+{
+  "version": "1.0.0",
+  "exportedAt": 1767139200000,
+  "chain": {
+    "id": "exported-1767139200000",
+    "name": "inspection-chain",
+    "items": [
+      {
+        "id": "filter-abc",
+        "filterType": "clahe",
+        "params": { "clipLimit": 2.5, "gridSize": 8 },
+        "enabled": true
+      },
+      {
+        "id": "filter-def",
+        "filterType": "threshold_adaptive_gaussian",
+        "params": { "blockSize": 21, "constant": 3, "maxValue": 255, "binaryInvert": false },
+        "enabled": true
+      }
+    ],
+    "createdAt": 1767139100000,
+    "modifiedAt": 1767139200000
+  },
+  "metadata": {
+    "appVersion": "1.0.0",
+    "description": "Filter chain: inspection-chain"
+  }
+}
+```
+
+### 3) 불러오기(import) 원리
+import는 아래 3개 포맷을 순차 수용한다.
+1. `version + chain` wrapper
+2. `name + items` direct
+3. `preset.name + preset.chain` preset
+
+이후 구조 검증:
+1. 체인 레벨: `name` 문자열, `items` 배열
+2. 아이템 레벨: `id/filterType/params/enabled` 타입 검사
+
+### 4) 실패 시 피드백
+1. JSON 파싱 오류/필드 오류를 명시적 메시지로 반환한다.
+2. UI 토스트로 실패 원인과 재시도 포인트를 안내한다.
+
+## [예정 기능] Python 코드 변환/내보내기
+### 목적
+웹 앱에서 검증한 체인을 Python(OpenCV/NumPy) 코드로 전개해 오프라인 실험 파이프라인에서 직접 실행 가능하도록 한다.
+
+### 출력물(예정)
+1. `chain_name.py`: 체인 순회 실행 스크립트
+2. `chain_name.mapping.json`(선택): 필터 타입-함수 매핑 로그
+
+### JSON -> Python 매핑 시안
+| filterType | Python 매핑 예 |
+| --- | --- |
+| `gaussianblur` | `cv2.GaussianBlur(img, (k, k), sigma)` |
+| `median` | `cv2.medianBlur(img, k)` |
+| `canny` | `cv2.Canny(gray, low, high)` |
+| `threshold_binary` | `cv2.threshold(gray, t, maxv, mode)` |
+| `threshold_adaptive_*` | `cv2.adaptiveThreshold(...)` |
+| `histogramequalization` | `cv2.equalizeHist(gray)` |
+| `clahe` | `cv2.createCLAHE(...).apply(gray)` |
+| `morph_*` | `cv2.morphologyEx(..., kernel, iterations=...)` |
+
+상태 경계:
+1. 본 항목은 `[예정 기능]`이며 현재 저장소에는 미구현이다.
+2. 현재 앱에서 즉시 Python export가 가능하다는 의미로 해석하면 안 된다.
+
+## 적용 로직/식(구현 기준)
+### 1) 캐시 키
+```text
+chainHash = join("|", enabledItems.map(item => filterType + "-" + JSON.stringify(params)))
+cacheKey  = imageHash + "-" + chainHash
+```
+해석: 같은 입력 이미지와 같은 활성 체인이면 동일 키를 생성한다.
+
+### 2) 이미지 해시
+```text
+imageHash = "{width}x{height}-{first_10_pixels_subset}"
+```
+해석: 전체 픽셀 해시보다 빠르게 동일 입력 여부를 판별한다.
+
+### 3) 비용추정
+```text
+pixelCount = imageWidth * imageHeight
+totalCost = Σ(baseCost(filterType) * paramMultiplier)
+estimatedMs = (totalCost * pixelCount / 1000) + (enabledItems.length * 50)
+```
+해석: 필터 종류·파라미터·해상도·체인 길이를 결합해 예상 시간을 계산한다.
+
+파라미터 가중 예:
+```text
+if kernelSize > 5:
+  paramMultiplier *= (kernelSize / 5)^2
+```
+
+모델 한계(현재 구현):
+1. 선형 근사 중심이라 장치/브라우저/데이터 분포별 오차가 발생한다.
+2. 필터 상호작용(앞단 처리 결과가 뒷단 복잡도에 미치는 영향)을 완전 반영하지 않는다.
+
+### 등급 상향을 위한 모델 보강 설계(문서상 제안)
+`[예정 보강 아이디어]`
+1. 실행 로그 기반 보정: 실제 실행시간 로그로 `baseCost`를 주기적으로 재보정.
+2. 해상도 구간별 보정식: 저해상도/고해상도 구간별 계수 분리.
+3. 체인 상호작용 보정: 특정 필터 조합 빈도 기반 correction factor 추가.
+
+## 특허 등급 상향 전수조사 매트릭스
+| 항목 | 현재 문서 상태 | 보완 필요 | 보완 반영 문장/근거 | 우선순위 |
+| --- | --- | --- | --- | --- |
+| 기술 과제 정의 | 부분 | 높음 | “CV 필터 체인의 재현성과 실행 가시성을 동시에 향상”으로 과제 단일화 | P0 |
+| 차별축(도메인 특화) | 부분 | 높음 | 일반 DB/쿼리가 아닌 `filterType+params` CV 레시피 단위 강조 | P0 |
+| 캐시 기술효과 | 부분 | 중간 | 히트/미스 분기와 재실행 시간 단축을 사용자 관찰값과 연결 | P1 |
+| 비용추정 기술효과 | 부분 | 높음 | estimatedMs를 사전 의사결정(체인 경량화) 근거로 명시 | P0 |
+| JSON 재현성 | 부분 | 높음 | 플랫폼 독립 레시피 포맷 + 다중 포맷 import 검증 체계 명시 | P0 |
+| 파라미터 저장 일관성 | 부분 | 높음 | `tempViewerFilterParams -> filterCart.params -> JSON params` 흐름 고정 | P0 |
+| 예정 기능 경계 | 있음 | 중간 | Python 변환을 `[예정 기능]`으로만 표기해 사실성 유지 | P1 |
+| 정량 실험 설계 | 부족 | 높음 | 시간절감률/오차율/일치율/결과차이 지표를 시험 항목으로 고정 | P0 |
+| 청구항 전환성 | 부분 | 높음 | 독립항 구성요소 템플릿 + 종속항 후보 6개 제시 | P0 |
+| 회피설계 리스크 | 부족 | 중간 | “캐시·추정·I/O 분리 모듈화 시 회피 여지”를 명시 | P1 |
+
+## 사용방법
+### 시나리오 A: 캐시 히트 기반 성능 실험
+1. 동일 이미지 1장을 선택하고 3~6단계 체인을 구성한다.
+2. 1차 실행(캐시 미스) 시간을 기록한다.
+3. 같은 체인을 2차 실행(캐시 히트)하고 시간을 비교한다.
+4. 실행 전 `estimatedMs`와 실측시간 차이를 기록한다.
+
+확인할 관찰값:
+1. 1차/2차 처리시간(ms)
+2. 캐시 히트 체감 응답성
+3. 추정 대비 실측 오차율
+
+### 시나리오 B: JSON round-trip 재현 실험
+1. 필터 2~3개의 파라미터를 조절해 체인을 만든다.
+2. JSON export 후 다른 세션/환경에서 import 한다.
+3. `filterType/params/enabled`가 동일하게 복원되는지 확인한다.
+4. 결과 이미지를 비교해 재현 일관성을 확인한다.
+
+확인할 관찰값:
+1. 구조 일치율(필드 비교)
+2. 시각 비교 또는 픽셀 차이 통계
+3. import 실패 유형별 에러 메시지 적합성
+
+## 결과
+### 정성 효과
+1. 필터 기능이 “단발 효과”에서 “재현 파이프라인”으로 전환된다.
+2. 실행 성능과 실험 공유가 한 구조로 연결된다.
+3. 향후 Python 연계 설계의 기반 포맷(JSON)을 선확보한다.
+
+### 정량 관찰 항목
+1. 캐시 히트 시간절감률
+2. `estimatedMs` 대비 실제시간 오차율
+3. JSON round-trip 일치율(`filterType/params/enabled`)
+4. 결과 이미지 차이 통계(예: 픽셀 차이율)
+
+### 측정 방법 예시
+1. 이미지 10장 x 체인 5종 x 3회 반복
+2. 평균/표준편차 및 95% 신뢰구간 기록
+3. round-trip 전후 필드 diff + 결과 이미지 diff 동시 측정
+
+## 강점
+1. 실행-예측-재현을 분리하지 않고 하나의 작업 루프로 제공한다.
+2. 캐시/진행률/비용추정을 결합해 사용자 의사결정 속도를 높인다.
+3. 파라미터 단위 저장으로 팀 재현성 리스크를 낮춘다.
+4. 81개 CV 필터 조합 실험을 체인 레시피 단위로 관리할 수 있다.
+5. JSON 포맷이 향후 코드 변환(OpenCV/NumPy) 확장의 중간 계층이 된다.
+
+## 특허성 관점 요약 (압축)
+1. 선행기술군 경향: 캐시/진행률/비용추정/입출력은 일반 시스템·DB 영역에서 공지성이 높다.
+2. 본 기술 차별축: CV 필터 체인 도메인에서 실행·가시성·재현(JSON)을 사용자 실험 파이프라인으로 통합했다.
+3. 신규성/진보성 관점: 조합 수준 신규성은 중간 이상 잠재력이 있으나, 진보성은 청구항 설계(범위 설정)에 크게 의존한다.
+4. 리스크: 캐시/비용추정/JSON I/O를 일반 개념으로 넓게 쓰면 자명성 지적을 받을 가능성이 높다.
+5. 강화 포인트: 정량 실험 데이터, 일반화된 구성 표현, 도메인별 실시예(반도체/의료/OCR)를 함께 제시해야 한다.
+
+## 구현 근거 (코드/문서)
+### 근거 1) 활성 체인 기반 캐시 키 생성
+참조: [../../src/utils/filterChain.ts#L11](../../src/utils/filterChain.ts#L11)
+
+```ts
+function generateCacheKey(imageHash: string, chainItems: FilterChainItem[]): string {
+  const chainHash = chainItems
+    .filter(item => item.enabled)
+    .map(item => `${item.filterType}-${JSON.stringify(item.params)}`)
+    .join('|');
+  return `${imageHash}-${chainHash}`;
+}
+```
+
+기술 의미:
+1. `enabled` 필터만 반영해 실제 실행 경로와 키 생성이 일치한다.
+2. 파라미터까지 해시에 포함해 잘못된 캐시 재사용을 줄인다.
+
+특허 주장 연결:
+1. “활성 필터 파라미터 조합 기반 캐시 키 생성부” 구성요소로 직접 대응된다.
+
+### 근거 2) 캐시 히트/미스 분기와 진행률 유지
+참조: [../../src/utils/filterChain.ts#L69](../../src/utils/filterChain.ts#L69)
+
+```ts
+const imageHash = generateImageHash(sourceCanvas);
+const cacheKey = generateCacheKey(imageHash, enabledItems);
+const cachedResult = filterResultCache.get(cacheKey);
+
+if (cachedResult) {
+  if (progressCallback) {
+    for (let i = 0; i <= enabledItems.length; i++) {
+      await new Promise(resolve => setTimeout(resolve, 10));
+      progressCallback(i / enabledItems.length);
+    }
+  }
+```
+
+기술 의미:
+1. 캐시 히트 시에도 진행률 피드백을 유지해 UX 일관성을 확보한다.
+2. 실행 경로 전환(히트/미스)이 UI 단절 없이 동작한다.
+
+특허 주장 연결:
+1. “캐시 조회 결과 기반 실행 경로 전환 및 진행률 출력부”를 뒷받침한다.
+
+### 근거 3) 비용추정 함수(estimatedMs) 구현
+참조: [../../src/utils/filterChain.ts#L190](../../src/utils/filterChain.ts#L190)
+
+```ts
+export function estimateFilterChainCost(
+  chainItems: FilterChainItem[],
+  imageWidth: number,
+  imageHeight: number
+): number {
+  const enabledItems = chainItems.filter(item => item.enabled);
+  const pixelCount = imageWidth * imageHeight;
+```
+
+```ts
+let paramMultiplier = 1.0;
+if (item.params.kernelSize && item.params.kernelSize > 5) {
+  paramMultiplier *= (item.params.kernelSize / 5) ** 2;
+}
+totalCost += baseCost * paramMultiplier;
+return (totalCost * pixelCount / 1000) + (enabledItems.length * 50);
+```
+
+기술 의미:
+1. 필터별 기본비용+파라미터 가중+해상도+체인 길이를 결합해 비용을 추정한다.
+2. 실행 전 사용자에게 성능 예측 근거를 제공한다.
+
+특허 주장 연결:
+1. “필터 연산비용 테이블 기반 처리시간 추정부” 구성에 대응된다.
+
+### 근거 4) 필터별 파라미터 정규화 저장
+참조: [../../src/utils/filterExport.ts#L33](../../src/utils/filterExport.ts#L33), [../../src/utils/filterExport.ts#L135](../../src/utils/filterExport.ts#L135)
+
+```ts
+const FILTER_PARAMETER_MAP: Partial<Record<FilterType, string[]>> = {
+  'gaussianblur': ['kernelSize', 'sigma'],
+  'canny': ['lowThreshold', 'highThreshold'],
+  'clahe': ['clipLimit', 'gridSize'],
+  'gabor': ['kernelSize', 'sigma', 'theta', 'lambda', 'gamma', 'psi'],
+};
+```
+
+```ts
+export function getRelevantParams(filterType: FilterType, allParams: any): any {
+  const relevantParamKeys = FILTER_PARAMETER_MAP[filterType] || [];
+  const relevantParams: any = {};
+  relevantParamKeys.forEach(key => {
+    if (allParams[key] !== undefined) relevantParams[key] = allParams[key];
+  });
+  return relevantParams;
+}
+```
+
+기술 의미:
+1. 필터별 유효 파라미터만 선별해 교환 포맷 일관성을 확보한다.
+2. 체인 공유 시 파라미터 노이즈를 줄여 재현 품질을 높인다.
+
+특허 주장 연결:
+1. “필터 타입별 파라미터 정규화 계층” 구성요소로 활용 가능하다.
+
+### 근거 5) 다중 포맷 import와 구조 검증
+참조: [../../src/utils/filterExport.ts#L199](../../src/utils/filterExport.ts#L199)
+
+```ts
+if (data.version && data.chain) {
+  chainData = data.chain;
+} else if (data.name && Array.isArray(data.items)) {
+  chainData = data;
+} else if (data.preset && data.preset.name && Array.isArray(data.preset.chain)) {
+  chainData = {
+    name: data.preset.name,
+    items: data.preset.chain,
+  };
+}
+```
+
+```ts
+if (!chainData.name || typeof chainData.name !== 'string') throw new Error(...);
+if (!Array.isArray(chainData.items)) throw new Error(...);
+if (typeof item.enabled !== 'boolean') throw new Error(...);
+```
+
+기술 의미:
+1. wrapper/direct/preset 포맷을 수용하면서 구조 검증으로 입력 오류를 조기 차단한다.
+2. 실무 현장 파일 다양성을 허용하면서도 재현 안전성을 유지한다.
+
+특허 주장 연결:
+1. “복수 체인 포맷 수용 및 유효성 검증을 포함하는 레시피 복원부”로 전환 가능하다.
+
+### 근거 6) UI 파라미터 조절 -> 임시 상태 반영
+참조: [../../src/components/FilterControls.tsx#L527](../../src/components/FilterControls.tsx#L527)
+
+```ts
+const handleParamChangeImmediate = React.useCallback((param: string, value: string) => {
+  const numValue = parseFloat(value);
+  if (!isNaN(numValue)) {
+    const newParams = { ...tempViewerFilterParams, [param]: numValue };
+    setTempFilterParams({ [param]: numValue });
+    applyParamUpdates(newParams);
+  }
+}, [tempViewerFilterParams, applyParamUpdates, setTempFilterParams]);
+```
+
+기술 의미:
+1. 파라미터 입력 즉시 임시 상태와 프리뷰가 동기화된다.
+2. 사용자 조절값이 체인 저장 전 단계에서 손실 없이 유지된다.
+
+특허 주장 연결:
+1. “파라미터 입력-실행 반영을 연결하는 인터랙티브 조절부” 근거가 된다.
+
+### 근거 7) 체인 아이템 파라미터 재편집
+참조: [../../src/components/FilterCart.tsx#L88](../../src/components/FilterCart.tsx#L88)
+
+```ts
+const handleEditorParamChange = React.useCallback((itemId: string, params: FilterParams) => {
+  updateFilterCartItem(itemId, { params });
+}, [updateFilterCartItem]);
+```
+
+기술 의미:
+1. 체인 단계별 파라미터를 독립 수정 가능하다.
+2. 실험 레시피를 체인 단위로 반복 튜닝할 수 있다.
+
+특허 주장 연결:
+1. “체인 아이템 단위 파라미터 갱신부”로 종속항 구성 가능하다.
+
+### 근거 8) Store에서 파라미터 스냅샷 저장
+참조: [../../src/store.ts#L722](../../src/store.ts#L722), [../../src/store.ts#L751](../../src/store.ts#L751)
+
+```ts
+addToFilterCart: () => set(state => {
+  const newItem: FilterChainItem = {
+    id: `filter-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    filterType: state.tempViewerFilter,
+    params: { ...state.tempViewerFilterParams },
+    enabled: true,
+  };
+  return { filterCart: [...state.filterCart, newItem] };
+}),
+```
+
+```ts
+updateFilterCartItem: (itemId, updates) => set(state => ({
+  filterCart: state.filterCart.map(item =>
+    item.id === itemId ? { ...item, ...updates } : item
+  )
+})),
+```
+
+기술 의미:
+1. 추가 시점 파라미터를 스냅샷으로 고정해 재현성을 확보한다.
+2. 이후 업데이트 경로를 명시적으로 분리해 변경 이력을 관리하기 쉽다.
+
+특허 주장 연결:
+1. “파라미터 스냅샷 저장 및 아이템 단위 갱신” 구성으로 청구항 세분화가 가능하다.
+
+## 특허 문서 전환을 위한 작성 포인트
+### 1) 기술과제 1문장 템플릿
+“컴퓨터 비전 필터 체인에 대해, 실행 전후/중 비용·진행률·캐시 재사용 정보를 제공하고, JSON 기반 체인 교환을 통해 다환경 재현성을 확보하는 실행·재현 파이프라인을 제공한다.”
+
+### 2) 독립항 구성요소 템플릿
+1. 필터 체인 정의부(`filterType`, `params`, `enabled`, 순서)
+2. 캐시 키 생성/조회부(`imageHash + chainHash`)
+3. 체인 실행 제어부(히트/미스 분기)
+4. 진행률 출력부(progress callback)
+5. 비용추정부(필터별 비용 + 파라미터 가중 + 해상도)
+6. 레시피 입출력부(JSON import/export + 검증)
+
+### 3) 종속항 후보(6개)
+1. 캐시 히트 시 진행률 시뮬레이션을 유지하는 구성
+2. 필터 타입별 유효 파라미터 정규화(FILTER_PARAMETER_MAP) 구성
+3. 다중 JSON 포맷(wrapper/direct/preset) 수용 구성
+4. 파라미터 스냅샷 저장(`tempViewerFilterParams -> filterCart.params`) 구성
+5. 커널 크기 기반 파라미터 가중 비용추정 구성
+6. 캐시 상한 및 정리 정책(MAX_CACHE_SIZE 기반) 구성
+
+### 4) 실험증빙 패키지(체인 도메인 지표)
+1. 캐시 히트 시간절감률
+2. `estimatedMs` 대비 실제시간 오차율
+3. JSON round-trip 일치율(`filterType/params/enabled`)
+4. 결과 이미지 차이 통계(픽셀 차이율/분포)
+
+## 작성 시 주의사항/한계
+1. `[예정 기능]`은 구현 완료처럼 서술하지 않는다.
+2. 비용추정은 안내값이며 환경/브라우저/데이터에 따라 오차가 발생한다.
+3. 필터 개수(현재 81개)는 코드 변경 시 달라질 수 있으므로 문서 갱신 시 재검증한다.
+4. JSON 스키마가 바뀌면 예시와 검증 로직 설명을 함께 갱신한다.
+5. 본 기능은 사용자 정의 체인 기반이며 자동 최적 체인 탐색을 보장하지 않는다.
+6. 특허 문구에서는 일반 개념 과대청구를 피하고, CV 체인 도메인 특화 구성으로 범위를 정교화해야 한다.

@@ -207,9 +207,23 @@ imgY = (unrotY - drawY) / scale
 5. 다중 이미지 비교에서 같은 부위를 빠르게 왕복 확인할 수 있어 판단 속도와 일관성이 좋아진다.
 6. minimap/rect-zoom 등 다른 시각화 기능과 변환 체계를 공유해 기능 확장 시 정합 기준을 유지하기 쉽다.
 
+## 특허성 관점 요약 (압축)
+1. 선행기술군 일반 경향:
+자동 정합 알고리즘(특징점 매칭, 워핑, 글로벌/로컬 정렬)에 집중된 문헌이 많고, 사용자 상호작용 워크플로 자체를 발명의 중심으로 잡는 경우는 상대적으로 적다.
+2. 본 기술 차별축:
+`창별 refPoint + 공통 refScreenX/refScreenY`, `정방향+역변환 폐루프`, `Layout/slot/Pin/Pan/Shift-Swap`을 하나의 사용자 주도 정밀 정렬 파이프라인으로 결합했다.
+3. 출원 가능성 관점:
+신규성은 중상 이상 잠재력이 있으나, 진보성은 청구항에서 기술과제-기술수단-기술효과를 얼마나 구체화하는지에 크게 좌우된다.
+4. 리스크:
+청구항을 단순 변환 수식 또는 단순 UI 버튼 구성으로 넓게 쓰면 선행기술 조합으로 약화될 수 있다.
+5. 강화 포인트:
+정량 실험(드리프트/조작횟수/반복일치), 일반화된 파라미터 표현, 다양한 실시예(다중 refPoint/그룹 동기화)를 함께 제시해야 방어력이 높아진다.
+
 ## 구현 근거 (코드/문서)
 ### 근거 1) App 상단 툴바에서 Pinpoint 모드/마우스/글로벌 컨트롤 제어
 참조: [../../src/App.tsx#L1200](../../src/App.tsx#L1200)
+핵심기술 연결:
+Layout 선택과 전역/개별 제어 진입점을 동일 툴바에 배치해 사용자 주도 정밀 정렬 파이프라인을 구성한다.
 
 ```ts
 <select className="mode-selector" value={appMode} onChange={e => setAppMode(e.target.value as AppMode)}>
@@ -243,6 +257,8 @@ imgY = (unrotY - drawY) / scale
 
 ### 근거 2) 참조점 입력 시 이미지 좌표 + 화면 기준점 동시 갱신
 참조: [../../src/modes/PinpointMode.tsx#L478](../../src/modes/PinpointMode.tsx#L478)
+핵심기술 연결:
+`refPoint`와 `refScreenX/refScreenY`를 동시에 갱신해 좌표 분리 모델의 기준 상태를 형성한다.
 
 ```ts
 const handleSetRefPoint = (key: FolderKey, imgPoint: { x: number, y: number }, screenPoint: {x: number, y: number}) => {
@@ -262,6 +278,8 @@ const handleSetRefPoint = (key: FolderKey, imgPoint: { x: number, y: number }, s
 
 ### 근거 3) 슬롯별 이미지 배치 + 뷰어별 refPoint 유지
 참조: [../../src/modes/PinpointMode.tsx#L507](../../src/modes/PinpointMode.tsx#L507)
+핵심기술 연결:
+레이아웃 변경·배치 변경 이후에도 slot 단위의 기준점 맥락을 유지하는 기반 로직이다.
 
 ```ts
 const loadFileToViewer = (file: File, sourceKey: FolderKey, targetKey: FolderKey) => {
@@ -349,6 +367,8 @@ return { imgX, imgY };
 
 ### 근거 7) 실제 Pinpoint 인터랙션에서 수식 적용
 참조: [../../src/components/ImageCanvas.tsx#L1144](../../src/components/ImageCanvas.tsx#L1144)
+핵심기술 연결:
+정방향 배치식이 실제 상호작용 루프에서 실행되어 표시 정합과 조작 정합이 끊기지 않도록 한다.
 
 ```ts
 const individualScale = (typeof folderKey === 'string' ? (overrideScale ?? vp.scale) : vp.scale);
@@ -369,6 +389,8 @@ const drawY = refScreenY - Sy - (sin * (ux - Sx) + cos * (uy - Sy));
 
 ### 근거 8) 동일 변환을 미니맵에도 재사용
 참조: [../../src/components/Minimap.tsx#L57](../../src/components/Minimap.tsx#L57)
+핵심기술 연결:
+보조 뷰(minimap)까지 동일 변환 체계를 공유해 사용자 인지 좌표계의 일관성을 유지한다.
 
 ```ts
 const xform = computePinpointTransform({
@@ -390,22 +412,18 @@ const xform = computePinpointTransform({
 3. 사용자 체감 의미: 미니맵에서 본 위치와 본문 화면 위치가 맞아 떨어져 탐색 실수가 줄어든다.
 
 ## 특허 문서 전환을 위한 작성 포인트
-권리화 핵심 구성요소:
-1. 기준점(`refPoint`)과 화면 기준점(`refScreenX/Y`)의 분리 관리  
-   예시 표현: "기준 이미지 점과 화면 기준점을 독립 파라미터로 관리하여 정렬 기준을 고정한다."
-2. 로컬/전역 배율 결합 기반 변환  
-   예시 표현: "복수 배율 요소를 결합한 총 배율로 렌더링 좌표를 산출한다."
-3. 역변환 기반 입력 해석 루프  
-   예시 표현: "화면 입력을 역변환하여 원본 좌표로 환산하고 후속 정렬 제어에 재활용한다."
-
-차별 주장 포인트:
-1. 단순 중심 고정 또는 단일 affine 적용이 아니라, "기준점 고정 목표"를 직접 수식화한 구조
-2. 표시 변환과 입력 해석 변환이 분리되지 않고 폐루프로 연결된 구조
-
-실험/증빙으로 보강할 요소:
-1. 기준점 드리프트(px) 비교 실험 (본 방식 vs 중심 고정 방식)
-2. 반복 조정 시 오차 분포(평균/표준편차)
-3. 회전 각도 변화 조건에서의 입력 좌표 일관성 결과
+1. 기술과제 1문장 정식화:
+"사용자가 지정한 관심 지점이 확대/회전/레이아웃 변경 후에도 동일 화면 좌표에 유지되도록 하면서, 다중 뷰어 동시 탐색과 정밀 정렬을 양립시키는 좌표계 및 변환 파이프라인 제공."
+2. 권리화 핵심 구성요소:
+`refPoint`/`refScreenX-refScreenY` 분리 파라미터, 개별/전역 배율·회전 결합, 정방향 배치 + 역변환 입력 해석의 폐루프를 독립항 축으로 정리한다.
+3. 수식·파라미터 일반화 문장:
+구현 코드 수식을 그대로 고정하기보다, "총 배율/총 회전/배치 좌표를 산출하는 변환부"와 "입력 좌표를 원본으로 환산하는 역변환부" 형태로 플랫폼 중립적으로 기술한다.
+4. UI 요소별 기술효과 연결:
+Pin/Pan(입력 단계 분리), Shift/Swap(배치 변경 후 정렬 맥락 유지), Rect-zoom(관심영역 빠른 진입), Layout 선택(slot 단위 재구성)의 기술효과를 각각 명시한다.
+5. 정량 실험 항목(권장):
+기준점 드리프트(px), 목표 정렬 도달 조작횟수, 반복 정렬 일치성(평균/표준편차) 비교를 실시예에 포함한다.
+6. 변형 실시예(범위 확장):
+다중 refPoint 모드, 뷰어 그룹 단위 동기화, 정규화 좌표/픽셀 좌표/물리 좌표 병행, 입력장치(마우스/터치/펜) 확장 실시예를 종속항 후보로 정리한다.
 
 ## 작성 시 주의사항/한계
 1. 완전 자동 정합 기술로 표현하면 과장이다. 현재는 사용자 기준점 입력이 필요하다.
