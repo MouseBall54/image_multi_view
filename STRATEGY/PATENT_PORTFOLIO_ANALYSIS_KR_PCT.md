@@ -14,7 +14,7 @@ compareX는 단순 이미지 뷰어가 아니라, 비교(Compare)·정합(Pinpoi
 
 핵심 결론은 다음과 같다.
 
-1. 권리화 우선순위는 `Pinpoint 참조점 고정 정합 변환`, `2점 레벨링 자동 회전 보정`, `체인형 필터 실행/캐시/성능추정 결합`이 가장 높다.
+1. 권리화 우선순위는 `#2A Pinpoint 좌표 정합 엔진`, `#2B Pinpoint 운영 시스템`, `2점 레벨링 자동 회전 보정`, `체인형 필터 실행/캐시/성능추정 결합`이 가장 높다.
 2. `하이브리드 폴더 동기화(Electron watch + Web meta diff)`는 신규성보다 실무 침해판별성과 제품 핵심성이 강점이다.
 3. `멀티모드 통합 워크플로우`와 `TEMP 스필오버 배치`는 단독으로는 넓은 선행기술 군과 충돌 가능성이 있으므로, 청구항은 UI 개념이 아닌 **상태전이/충돌회피/결과 보존 로직** 중심으로 좁혀야 한다.
 4. 출원 전략은 KR 1차 명세서에서 핵심 구현을 기능 블록 단위로 권리화하고, 12개월 이내 PCT에서 청구군 분할(정합군/필터군/동기화군)로 확장하는 것이 합리적이다.
@@ -28,7 +28,7 @@ Public API / Interface / Type 변경: 없음 (`None`)
 This document analyzes compareX’s implementation-level innovations and defines a patent portfolio strategy with Korea-first filing and PCT expansion.  
 The scope is limited to technologies verifiable from the repository, excluding unimplemented ideas. Eight patent candidates are selected and analyzed with fixed sections: problem definition, technical configuration, execution flow, differentiation points, strengths, implementation evidence, infringement indicators, design-around risks, filing difficulty, and priority.
 
-The strongest candidates are: (1) reference-point anchored alignment transform in Pinpoint mode, (2) two-point leveling-based automatic rotation correction, and (3) chain-style filter execution architecture integrating cache, progress signaling, and cost estimation.  
+The strongest candidates are: (1) a two-axis Pinpoint strategy composed of a coordinate alignment engine (#2A) and an operational workflow system (#2B), (2) two-point leveling-based automatic rotation correction, and (3) chain-style filter execution architecture integrating cache, progress signaling, and cost estimation.  
 A non-exhaustive prior-art quick check was conducted using Google Patents, KIPRIS resources, and arXiv references (retrieval date: 2026-02-26).  
 The recommended filing roadmap is KR draft in 0-2 months, evidence reinforcement in 3-6 months, and PCT filing before the 12-month priority deadline.
 
@@ -49,7 +49,7 @@ The recommended filing roadmap is KR draft in 0-2 months, evidence reinforcement
 
 ---
 
-## 4. Patent Candidate Deep Dive (8 Items)
+## 4. Patent Candidate Deep Dive (8 Items, with #2 split into A/B strategy)
 
 ### 4.1 특허 아이템 #1: 멀티모드 통합 비교 워크플로우 전환 구조
 
@@ -125,15 +125,15 @@ The claim scope focuses on policy-driven state transition logic rather than gene
 
 ---
 
-### 4.2 특허 아이템 #2: Pinpoint 참조점 고정 기반 회전/배율 정합 변환
+### 4.2A 특허 아이템 #2A: Pinpoint 참조점 고정 좌표 정합 엔진
 
 #### 문제정의
 다중 이미지 정렬에서 회전/확대가 동시에 적용되면 동일 기준점을 화면상 동일 위치에 유지하기 어렵고, 정밀 비교 오차가 누적된다.
 
 #### 기술구성
-1. 참조 이미지 좌표(`refPoint`)와 화면 기준점(`refScreenX/Y`) 분리.
+1. 창별 기준점(`refPoint`)과 공통 화면 기준점(`refScreenX/refScreenY`) 분리 모델.
 2. 로컬 스케일과 글로벌 스케일 곱으로 총 배율 계산.
-3. 회전 행렬을 포함한 정방향/역방향 변환 계산.
+3. 회전 행렬 기반 정방향 변환(`drawX/drawY`)과 역변환(`screenToImage`)의 폐루프 결합.
 
 #### 동작 플로우
 1. 참조점과 현재 배율/회전 상태를 수집.
@@ -168,15 +168,15 @@ The claim scope focuses on policy-driven state transition logic rather than gene
 - 중간~낮음 (구성요소가 명확하고 효과가 직접적)
 
 #### 출원 우선순위
-- A
+- A+
 
 #### 청구항 스켈레톤
-- 독립항(예시):  
+- 독립항 A1(예시):  
   “기준 이미지 좌표와 화면 기준좌표를 이용해 복수 이미지의 회전 및 배율 변환을 수행하는 방법에 있어서, 로컬 배율과 글로벌 배율을 결합한 총 배율 및 회전각에 따라 기준 이미지 점이 화면 기준점에 고정되도록 렌더링 오프셋을 산출하고, 사용자 입력 화면좌표를 역변환하여 이미지좌표로 환산하는 단계를 포함하는 것을 특징으로 하는 정합 방법.”
-- 종속항 1: 총 배율 계산식이 로컬×글로벌 곱셈 형태임을 한정.
-- 종속항 2: 화면 기준점이 사용자 인터랙션으로 이동 가능함을 포함.
-- 종속항 3: 역변환 결과를 확대 중심점 결정에 재사용하는 단계를 포함.
-- 종속항 4: 동일 변환을 미니맵 표시좌표에 적용하는 단계를 포함.
+- 종속항 A2: 총 배율 계산식이 로컬×글로벌 곱셈 형태임을 한정.
+- 종속항 A3: 화면 기준점이 사용자 인터랙션으로 이동 가능함을 포함.
+- 종속항 A4: 역변환 결과를 확대 중심점 결정에 재사용하는 단계를 포함.
+- 종속항 A5: 동일 변환을 미니맵 표시좌표에 적용하는 단계를 포함.
 
 #### English claim gist
 The method anchors a reference image point to a screen-space reference while applying combined local and global scaling with rotation.  
@@ -195,6 +195,86 @@ The claim emphasizes deterministic transform coupling and interaction feedback i
   - KeyMorph (keypoint-based registration): https://arxiv.org/abs/2304.09941
 - 차별 포인트:
   - compareX는 의료 전용 등록 알고리즘보다 **실시간 인터랙션용 앵커 고정 렌더링 + 역투영 루프**에 초점.
+
+---
+
+### 4.2B 특허 아이템 #2B: Pinpoint 레이아웃/슬롯 기반 운영 시스템
+
+#### 문제정의
+실무 비교 작업에서는 단순 정합 엔진만으로는 부족하며, 다중 창 운영(배치, 재배치, 동시 탐색) 과정에서 정렬 문맥이 깨지기 쉽다.
+
+#### 기술구성
+1. 레이아웃 선택(현재 UI 기준 최대 24 뷰어)과 slot 단위 배치/재배치.
+2. 창별 핀 지정, 개별/전역 배율·회전 혼합 제어, Pin/Pan 단계 분리.
+3. shared viewport 기반 동시 Pan 및 단일/다중 이미지 관찰 모드 분기.
+4. B축 종속항에서 A축 좌표모델을 참조하는 결합 구조.
+
+#### 동작 플로우
+1. 사용자가 rows x cols 레이아웃을 선택.
+2. slot별 이미지 배치 후 창별 기준점 지정.
+3. 개별/전역 제어와 레벨링으로 정합 미세 조정.
+4. Pan 전환 시 공통 viewport를 이동해 다중 창 동시 탐색.
+5. Shift/Swap 재배치 후에도 기준점 정렬 문맥을 유지.
+
+#### 핵심 차별점
+- 단순 동기 Pan/Zoom이 아니라 `창별 핀 + 공통 기준점 + 단계형 조작`을 결합한 운영 워크플로.
+- 동일 이미지 다중 slot 배치로 다중 관심점 병렬 관찰을 지원.
+- 최대 24 뷰어 확장에서도 같은 정합 문맥을 유지.
+
+#### 강점
+- 엔진 기능을 현장 운영 단계로 확장해 제품 침해판별 포인트가 명확해진다.
+- 경쟁사가 좌표 엔진을 우회해도 운영 워크플로 축에서 별도 방어가 가능하다.
+
+#### 구현근거
+- `src/components/LayoutGridSelector.tsx:30`
+- `src/App.tsx:1213`
+- `src/modes/PinpointMode.tsx:451`
+- `src/modes/PinpointMode.tsx:478`
+- `src/modes/PinpointMode.tsx:507`
+- `src/components/ImageCanvas.tsx:1044`
+
+#### 침해판별 포인트
+1. 창별 기준점과 공통 화면 기준점이 동시에 운용되는지.
+2. shared viewport 기반 동시 Pan을 제공하는지.
+3. slot 재배치 후에도 정렬 맥락을 유지하는지.
+4. 단일 이미지 다중 포인트 병렬 관찰을 지원하는지.
+
+#### 설계회피 리스크
+- 레이아웃 확장 없이 소수 창만 고정 운용하면 일부 회피 가능.
+- 동시 Pan을 제거하고 개별 뷰어 독립 이동만 제공하면 회피 가능.
+
+#### 권리화 난이도
+- 중간 (UI 개념이 넓으므로 기술효과 연결이 필수)
+
+#### 출원 우선순위
+- A-
+
+#### 청구항 스켈레톤
+- 독립항 B1(예시):  
+  “다중 이미지 정밀 비교 시스템에 있어서, 복수의 뷰어 레이아웃을 선택하여 slot 단위로 이미지를 배치하고, 각 뷰어별 기준점을 입력받아 공통 화면 기준점과 연동하며, 전역 및 개별 배율·회전 제어와 공통 viewport 기반 동시 Pan을 수행함으로써 정렬 문맥을 유지하는 것을 특징으로 하는 사용자 주도 정밀 정합 방법.”
+- 종속항 B2: 최대 뷰어 수 제한(예: 24) 및 레이아웃 검증 규칙을 포함.
+- 종속항 B3: Shift/Swap 재배치 후 기준점 상태 유지 단계를 포함.
+- 종속항 B4: Pin/Pan 모드 분리 및 입력 단계 전환을 포함.
+- 종속항 B5: 동일 이미지의 다중 slot 배치 및 포인트 병렬 관찰 단계를 포함.
+- 종속항 B6: B축 동작이 A축 좌표 정합 엔진을 호출하는 결합 단계를 포함.
+
+#### English claim gist
+The system defines an operator workflow for high-precision comparison across many viewer slots, not just a transform engine.  
+It combines per-viewer anchor assignment, global/local transform control, and shared-viewport pan synchronization.  
+The workflow preserves alignment context after layout changes and slot rearrangement.  
+A dependent linkage can reference the coordinate alignment engine of item #2A.
+
+#### Prior-art quick check (2026-02-26)
+- Query:
+  - `"synchronized image browsing multi window pan zoom patent"`
+  - `"displaying multiple synchronized images user interface patent"`
+  - `"interactive multi-view image comparison layout patent"`
+- Top references:
+  - US8890887B2 (synchronized image browsing): https://patents.google.com/patent/US8890887B2/en
+  - US20090040186A1 (displaying multiple synchronized images): https://patents.google.com/patent/US20090040186A1/en
+  - US10088658B2 (multi-acquisition slide referencing): https://patents.google.com/patent/US10088658B2/en
+- 차별 포인트:
+  - compareX는 일반 동기 브라우징보다 **24뷰어 레이아웃 + 창별 핀 + shared viewport 동시 Pan + 재배치 문맥 유지** 결합에 초점.
 
 ---
 
@@ -654,7 +734,8 @@ The claim emphasizes hybrid strategy selection and selective reload for I/O-effi
 | 아이템 | 검색 쿼리(요약) | 상위 유사 레퍼런스 (2~3) | 1차 판단 |
 | --- | --- | --- | --- |
 | #1 멀티모드 워크플로우 | multi-view synchronized state | US20160309087A1, MMVT(arXiv), KIPRIS API catalog | 선행기술 다수, 상태전이 규칙으로 차별화 필요 |
-| #2 참조점 정합 변환 | landmark registration anchor transform | US6009212A, WO2023044071A1, KeyMorph | 구현 차별 명확, 우선권리화 유리 |
+| #2A Pinpoint 좌표 정합 엔진 | landmark registration anchor transform | US6009212A, WO2023044071A1, KeyMorph | 구현 차별 명확, 우선권리화 유리 |
+| #2B Pinpoint 운영 시스템 | synchronized image browsing multi window | US8890887B2, US20090040186A1, US10088658B2 | UI 일반론 선행 다수, 운영 워크플로 결합으로 차별화 필요 |
 | #3 회전 안전 Rect-zoom | zoom window rotated viewer | WO2020131536A1, US10459621B2, US20070047101A1 | 일반 줌 선행 다수, 역변환 계산식으로 한정 필요 |
 | #4 2점 레벨링 보정 | two-point alignment rotation correction | WO2023044071A1, US12165293B2, DistanceMap(arXiv) | 상호작용형 자동보정 흐름으로 차별 가능 |
 | #5 sync-capture 전파 | synchronized multi-view settings | US20160309087A1, MMVT(arXiv), KIPRIS catalog | UX 개념보다 모드인지 전파 로직 중심 필요 |
@@ -672,17 +753,18 @@ The claim emphasizes hybrid strategy selection and selective reload for I/O-effi
 
 | 순위 | 아이템 | 신규성 | 비자명성 | 침해탐지 | 제품핵심 | 성숙도 | 총점 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | #2 Pinpoint 참조점 정합 변환 | 5 | 5 | 4 | 5 | 4 | **23** |
-| 2 | #4 2점 레벨링 자동 보정 | 4 | 5 | 4 | 5 | 4 | **22** |
-| 3 | #7 필터체인 실행/캐시/추정 결합 | 4 | 4 | 4 | 5 | 5 | **22** |
-| 4 | #8 하이브리드 폴더 동기화 | 3 | 4 | 5 | 5 | 4 | **21** |
-| 5 | #3 회전 안전 Rect-zoom | 4 | 4 | 4 | 4 | 4 | **20** |
-| 6 | #5 sync-capture 전파 | 3 | 4 | 4 | 4 | 4 | **19** |
-| 7 | #1 멀티모드 통합 워크플로우 | 3 | 3 | 4 | 4 | 4 | **18** |
-| 8 | #6 TEMP 스필오버 배치 | 3 | 3 | 3 | 3 | 4 | **16** |
+| 1 | #2A Pinpoint 좌표 정합 엔진 | 5 | 5 | 4 | 5 | 4 | **23** |
+| 2 | #2B Pinpoint 운영 시스템 | 4 | 4 | 5 | 5 | 4 | **22** |
+| 3 | #4 2점 레벨링 자동 보정 | 4 | 5 | 4 | 5 | 4 | **22** |
+| 4 | #7 필터체인 실행/캐시/추정 결합 | 4 | 4 | 4 | 5 | 5 | **22** |
+| 5 | #8 하이브리드 폴더 동기화 | 3 | 4 | 5 | 5 | 4 | **21** |
+| 6 | #3 회전 안전 Rect-zoom | 4 | 4 | 4 | 4 | 4 | **20** |
+| 7 | #5 sync-capture 전파 | 3 | 4 | 4 | 4 | 4 | **19** |
+| 8 | #1 멀티모드 통합 워크플로우 | 3 | 3 | 4 | 4 | 4 | **18** |
+| 9 | #6 TEMP 스필오버 배치 | 3 | 3 | 3 | 3 | 4 | **16** |
 
 권고:
-1. 1차 출원군: #2, #4, #7
+1. 1차 출원군: #2A, #2B, #4, #7
 2. 2차 출원군: #8, #3
 3. 방어적 출원 검토군: #5, #1, #6
 
@@ -691,7 +773,7 @@ The claim emphasizes hybrid strategy selection and selective reload for I/O-effi
 ## 7. KR-first + PCT Filing Roadmap
 
 ### 0~2개월: KR 초안 고정
-1. #2/#4/#7 중심으로 발명의 명칭, 배경기술, 실시예, 효과 정리.
+1. #2A/#2B/#4/#7 중심으로 발명의 명칭, 배경기술, 실시예, 효과 정리.
 2. 저장소 코드 기반 블록 다이어그램 작성.
 3. 청구항 1차 세트(독립/종속)와 도면목록 초안 작성.
 
@@ -703,7 +785,7 @@ The claim emphasizes hybrid strategy selection and selective reload for I/O-effi
 ### 12개월 이내: PCT 진입
 1. KR 우선권 주장 기반 PCT 출원.
 2. 청구군 분할 전략:
-   - 정합군: #2/#4/#3
+   - 정합군: #2A/#2B/#4/#3
    - 필터군: #7/#5
    - 동기화군: #8/#6
 3. 미국/유럽/일본 진입 여부를 시장성과 침해가능성 기준으로 결정.
@@ -719,7 +801,8 @@ The claim emphasizes hybrid strategy selection and selective reload for I/O-effi
 
 | 기술요소 | 특허 권고 | 영업비밀 권고 | 판단 근거 |
 | --- | --- | --- | --- |
-| 참조점 정합 수식/역변환 절차 (#2/#3) | 높음 | 중간 | 제품 차별 핵심이며 외부 동작으로 추정 가능 |
+| 좌표 정합 수식/역변환 절차 (#2A/#3) | 높음 | 중간 | 제품 차별 핵심이며 외부 동작으로 추정 가능 |
+| Pinpoint 운영 워크플로 (#2B) | 높음 | 중간 | 24뷰어/창별 핀/동시 Pan 등 관찰 가능한 침해지표가 뚜렷함 |
 | 레벨링 캡처 상태머신 (#4) | 높음 | 낮음 | 사용자 노출 기능, 침해판별 용이 |
 | sync-capture 전파 로직 (#5) | 중간 | 중간 | UI 노출 강하지만 내부 키 변환 로직은 은닉 가능 |
 | TEMP 스필오버 버킷 로직 (#6) | 중간 | 중간 | 일반 파일관리와 경계가 가까워 명세서 정교화 필요 |
@@ -740,12 +823,18 @@ The claim emphasizes hybrid strategy selection and selective reload for I/O-effi
 - `src/store.ts:1000`
 - `src/store.ts:1106`
 - `src/App.tsx:364`
+- `src/App.tsx:1213`
 - `src/App.tsx:1263`
+- `src/components/LayoutGridSelector.tsx:30`
+- `src/components/ImageCanvas.tsx:1044`
 - `src/components/ImageCanvas.tsx:1129`
 - `src/components/ImageCanvas.tsx:1204`
 - `src/components/ImageCanvas.tsx:1628`
 - `src/components/Minimap.tsx:53`
 - `src/utils/viewTransforms.ts:14`
+- `src/modes/PinpointMode.tsx:451`
+- `src/modes/PinpointMode.tsx:478`
+- `src/modes/PinpointMode.tsx:507`
 - `src/utils/filterChain.ts:69`
 - `src/utils/filterChain.ts:184`
 - `src/utils/folderSync.ts:44`

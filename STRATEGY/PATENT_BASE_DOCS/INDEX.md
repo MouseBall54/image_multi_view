@@ -12,6 +12,9 @@
 | --- | --- | --- |
 | 01 | [01_multi_mode_workflow_base.md](./01_multi_mode_workflow_base.md) | Compare/Pinpoint/Analysis를 단일 상태 모델로 전환하는 워크플로우 구조 |
 | 02 | [02_pinpoint_anchor_transform_base.md](./02_pinpoint_anchor_transform_base.md) | 참조점 고정 기반 회전/배율 정합 및 역변환 좌표 처리 |
+| 02-출원 | [02_pinpoint_patent_draft_kr.md](./02_pinpoint_patent_draft_kr.md) | Pinpoint 2축(A/B) 분리형 출원서 톤 초안(2독립항+12종속항) |
+| 02-제출본 | [02_pinpoint_attorney_submission_kr.md](./02_pinpoint_attorney_submission_kr.md) | 변리사 제출 전용 본문(KR, 법률문체, 2독립항+12종속항) |
+| 02-제출본-부록 | [02_pinpoint_attorney_submission_kr_appendix.md](./02_pinpoint_attorney_submission_kr_appendix.md) | 제출본 근거 분리본(코드 매핑, 선행기술 로그, 실험 템플릿) |
 | 03 | [03_rotation_safe_rectzoom_base.md](./03_rotation_safe_rectzoom_base.md) | 회전 상태에서도 선택 영역 의미를 보존하는 Rect-zoom 계산 |
 | 04 | [04_two_point_leveling_base.md](./04_two_point_leveling_base.md) | 2점 입력으로 수평/수직 각도 보정을 자동 반영하는 레벨링 |
 | 05 | [05_sync_capture_propagation_base.md](./05_sync_capture_propagation_base.md) | 기준 뷰어 필터 상태를 모드별 활성 뷰어로 일괄 전파 |
@@ -21,13 +24,14 @@
 
 ## 권장 작성 순서
 1. [02_pinpoint_anchor_transform_base.md](./02_pinpoint_anchor_transform_base.md)
-2. [04_two_point_leveling_base.md](./04_two_point_leveling_base.md)
-3. [07_filter_chain_cache_estimation_base.md](./07_filter_chain_cache_estimation_base.md)
-4. [08_hybrid_folder_sync_base.md](./08_hybrid_folder_sync_base.md)
-5. [03_rotation_safe_rectzoom_base.md](./03_rotation_safe_rectzoom_base.md)
-6. [05_sync_capture_propagation_base.md](./05_sync_capture_propagation_base.md)
-7. [01_multi_mode_workflow_base.md](./01_multi_mode_workflow_base.md)
-8. [06_temp_spillover_bucket_base.md](./06_temp_spillover_bucket_base.md)
+2. [02_pinpoint_patent_draft_kr.md](./02_pinpoint_patent_draft_kr.md)
+3. [04_two_point_leveling_base.md](./04_two_point_leveling_base.md)
+4. [07_filter_chain_cache_estimation_base.md](./07_filter_chain_cache_estimation_base.md)
+5. [08_hybrid_folder_sync_base.md](./08_hybrid_folder_sync_base.md)
+6. [03_rotation_safe_rectzoom_base.md](./03_rotation_safe_rectzoom_base.md)
+7. [05_sync_capture_propagation_base.md](./05_sync_capture_propagation_base.md)
+8. [01_multi_mode_workflow_base.md](./01_multi_mode_workflow_base.md)
+9. [06_temp_spillover_bucket_base.md](./06_temp_spillover_bucket_base.md)
 
 ## 사용 가이드
 1. 각 문서의 `기능 정의`와 `사용방법`을 먼저 읽어 기술 범위를 고정합니다.
