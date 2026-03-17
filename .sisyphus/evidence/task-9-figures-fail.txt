@@ -1,0 +1,2 @@
+VALIDATION FAILED
+- figure manifest missing field: proof_purpose:

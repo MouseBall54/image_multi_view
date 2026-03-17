@@ -1,0 +1,1 @@
+Claim support map sections are aligned to evidence IDs in 02_pinpoint_evidence_matrix.csv.

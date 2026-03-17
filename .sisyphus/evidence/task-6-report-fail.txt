@@ -1,0 +1,2 @@
+VALIDATION FAILED
+- scope guardrail violation: universal persistence across mode switches

@@ -1,0 +1,7 @@
+VALIDATION FAILED
+- missing required file: 01_pinpoint_employee_invention_report_ko.md
+- missing required file: 02_pinpoint_evidence_matrix.csv
+- missing required file: 03_pinpoint_claim_support_map.md
+- missing required file: 04_pinpoint_scope_guardrails.md
+- missing required file: 05_pinpoint_figure_manifest.md
+- missing required file: 06_pinpoint_docx_population_guide.md

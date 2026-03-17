@@ -1,0 +1,1 @@
+Evidence matrix contains anchored engine rows: refPoint, refScreen, forward_transform, inverse_transform, click_reprojection, same_image_multi_point, minimap_reuse.

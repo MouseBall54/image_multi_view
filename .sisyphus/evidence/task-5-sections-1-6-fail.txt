@@ -1,0 +1,2 @@
+VALIDATION FAILED
+- forbidden phrase in 01_pinpoint_employee_invention_report_ko.md: 4x improvement

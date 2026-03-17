@@ -1,0 +1,1 @@
+Sections 7 through 13 plus Appendix A and Appendix B are present and validator section checks pass.

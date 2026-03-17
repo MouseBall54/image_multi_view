@@ -1,0 +1,1 @@
+Figure manifest includes Figure 1 through Figure 8 with target section, source evidence ids, and proof purpose.

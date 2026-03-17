@@ -1,0 +1,2 @@
+VALIDATION FAILED
+- missing required heading in report: Appendix B

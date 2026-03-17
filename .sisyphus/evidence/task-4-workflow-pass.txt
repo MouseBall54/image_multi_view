@@ -1,0 +1,1 @@
+Evidence matrix contains workflow rows: pin_pan_split, shift_only_reorder, state_preserving_reorder, rect_zoom, two_point_leveling, layout_ceiling_24, report_capture_linkage.

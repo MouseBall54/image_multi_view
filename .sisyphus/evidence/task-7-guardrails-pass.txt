@@ -1,0 +1,1 @@
+Scope guardrails file contains In Scope, Context Only, Future Only, Do Not Claim, and Controlled Wording sections.

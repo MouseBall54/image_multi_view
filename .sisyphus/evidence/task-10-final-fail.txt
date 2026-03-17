@@ -1,0 +1,2 @@
+VALIDATION FAILED
+- claim support references missing evidence id: rect_zoom_typo
