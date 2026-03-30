@@ -37,12 +37,16 @@ import {
   applyClaheOpenCV,
   applyLocalHistogramEqualizationOpenCV
 } from './opencvFilters';
+import { isValidFilterImageDimensions, normalizeFilterParams, safeDivide } from './filterRuntimeGuards';
 
 // Helper function to create a Gaussian kernel
 function createGaussianKernel(sigma: number, size: number): number[][] {
-  const kernel: number[][] = Array(size).fill(0).map(() => Array(size).fill(0));
-  const half = Math.floor(size / 2);
-  const sigma2 = 2 * sigma * sigma;
+  const safeSize = Math.max(1, Math.floor(size));
+  const safeSigma = Math.max(0.0001, Number.isFinite(sigma) ? sigma : 1.0);
+  const normalizedSize = safeSize % 2 === 0 ? safeSize + 1 : safeSize;
+  const kernel: number[][] = Array(normalizedSize).fill(0).map(() => Array(normalizedSize).fill(0));
+  const half = Math.floor(normalizedSize / 2);
+  const sigma2 = 2 * safeSigma * safeSigma;
   let sum = 0;
 
   for (let y = -half; y <= half; y++) {
@@ -54,20 +58,25 @@ function createGaussianKernel(sigma: number, size: number): number[][] {
   }
 
   // Normalize the kernel
-  for (let i = 0; i < size; i++) {
-    for (let j = 0; j < size; j++) {
-      kernel[i][j] /= sum;
+  const safeSum = sum === 0 ? 1 : sum;
+  for (let i = 0; i < normalizedSize; i++) {
+    for (let j = 0; j < normalizedSize; j++) {
+      kernel[i][j] /= safeSum;
     }
   }
   return kernel;
 }
 
 function createGaussianKernelAxis(sigmaX: number, sigmaY: number, sizeX: number, sizeY: number): number[][] {
-  const kernel: number[][] = Array(sizeY).fill(0).map(() => Array(sizeX).fill(0));
-  const halfX = Math.floor(sizeX / 2);
-  const halfY = Math.floor(sizeY / 2);
-  const sigmaX2 = 2 * sigmaX * sigmaX;
-  const sigmaY2 = 2 * sigmaY * sigmaY;
+  const safeSizeX = Math.max(1, Math.floor(sizeX));
+  const safeSizeY = Math.max(1, Math.floor(sizeY));
+  const kernel: number[][] = Array(safeSizeY).fill(0).map(() => Array(safeSizeX).fill(0));
+  const halfX = Math.floor(safeSizeX / 2);
+  const halfY = Math.floor(safeSizeY / 2);
+  const safeSigmaX = Math.max(0.0001, Number.isFinite(sigmaX) ? sigmaX : 1.0);
+  const safeSigmaY = Math.max(0.0001, Number.isFinite(sigmaY) ? sigmaY : 1.0);
+  const sigmaX2 = 2 * safeSigmaX * safeSigmaX;
+  const sigmaY2 = 2 * safeSigmaY * safeSigmaY;
   let sum = 0;
 
   for (let y = -halfY; y <= halfY; y++) {
@@ -78,9 +87,10 @@ function createGaussianKernelAxis(sigmaX: number, sigmaY: number, sizeX: number,
     }
   }
 
-  for (let i = 0; i < sizeY; i++) {
-    for (let j = 0; j < sizeX; j++) {
-      kernel[i][j] /= sum;
+  const safeSum = sum === 0 ? 1 : sum;
+  for (let i = 0; i < safeSizeY; i++) {
+    for (let j = 0; j < safeSizeX; j++) {
+      kernel[i][j] /= safeSum;
     }
   }
   return kernel;
@@ -88,13 +98,16 @@ function createGaussianKernelAxis(sigmaX: number, sigmaY: number, sizeX: number,
 
 // Helper function to create a Box Blur kernel
 function createBoxBlurKernel(size: number): number[][] {
-  const value = 1 / (size * size);
-  return Array(size).fill(0).map(() => Array(size).fill(value));
+  const safeSize = Math.max(1, Math.floor(size));
+  const value = 1 / (safeSize * safeSize);
+  return Array(safeSize).fill(0).map(() => Array(safeSize).fill(value));
 }
 
 function createBoxBlurKernelAxis(sizeX: number, sizeY: number): number[][] {
-  const value = 1 / (sizeX * sizeY);
-  return Array(sizeY).fill(0).map(() => Array(sizeX).fill(value));
+  const safeSizeX = Math.max(1, Math.floor(sizeX));
+  const safeSizeY = Math.max(1, Math.floor(sizeY));
+  const value = 1 / (safeSizeX * safeSizeY);
+  return Array(safeSizeY).fill(0).map(() => Array(safeSizeX).fill(value));
 }
 
 function createLoGKernel(sigma: number, size: number): number[][] {
@@ -1027,8 +1040,12 @@ export const applyHistogramEqualization = async (ctx: CanvasRenderingContext2D) 
     // Create lookup table (LUT)
     const lut = new Uint8ClampedArray(256);
     const totalPixels = width * height;
+    const denominator = totalPixels - cdfMin;
+    if (denominator <= 0) {
+      return;
+    }
     for (let i = 0; i < 256; i++) {
-      lut[i] = Math.round(255 * (cdf[i] - cdfMin) / (totalPixels - cdfMin));
+      lut[i] = Math.round(255 * safeDivide(cdf[i] - cdfMin, denominator, 0));
     }
 
     // Apply LUT to the original image data
@@ -1048,12 +1065,16 @@ export const applyHistogramEqualization = async (ctx: CanvasRenderingContext2D) 
 
 export const applyClahe = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
   const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    if (!isValidFilterImageDimensions(ctx.canvas.width, ctx.canvas.height)) {
+      return;
+    }
+    const normalized = normalizeFilterParams('clahe', params, { width: ctx.canvas.width, height: ctx.canvas.height });
     const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
     const { data, width, height } = imageData;
-    const { clipLimit, gridSize } = params;
+    const { clipLimit, gridSize } = normalized;
 
-    const tileWidth = Math.floor(width / gridSize);
-    const tileHeight = Math.floor(height / gridSize);
+    const tileWidth = Math.max(1, Math.floor(width / gridSize));
+    const tileHeight = Math.max(1, Math.floor(height / gridSize));
 
     // 1. Convert to grayscale
     const grayscale = new Uint8ClampedArray(width * height);
@@ -1068,9 +1089,9 @@ export const applyClahe = async (ctx: CanvasRenderingContext2D, params: FilterPa
       for (let tx = 0; tx < gridSize; tx++) {
         const startX = tx * tileWidth;
         const startY = ty * tileHeight;
-        const endX = startX + tileWidth;
-        const endY = startY + tileHeight;
-        const tilePixels = tileWidth * tileHeight;
+        const endX = Math.min(width, startX + tileWidth);
+        const endY = Math.min(height, startY + tileHeight);
+        const tilePixels = Math.max(1, (endX - startX) * (endY - startY));
 
         // a. Calculate tile histogram
         const hist = new Array(256).fill(0);
@@ -1105,7 +1126,7 @@ export const applyClahe = async (ctx: CanvasRenderingContext2D, params: FilterPa
 
         const lut = luts[ty * gridSize + tx];
         for (let i = 0; i < 256; i++) {
-          lut[i] = Math.round(255 * cdf[i] / tilePixels);
+          lut[i] = Math.round(255 * safeDivide(cdf[i], tilePixels, 0));
         }
       }
     }
@@ -1155,9 +1176,10 @@ export const applyClahe = async (ctx: CanvasRenderingContext2D, params: FilterPa
 
 export const applyGammaCorrection = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
   const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    const normalized = normalizeFilterParams('gammacorrection', params, { width: ctx.canvas.width, height: ctx.canvas.height });
     const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
     const { data } = imageData;
-    const { gamma } = params;
+    const { gamma } = normalized;
     if (gamma === 1) return; // No change
 
     const gammaReciprocal = 1 / gamma;
@@ -1222,9 +1244,13 @@ export const applyMedian = async (ctx: CanvasRenderingContext2D, params: FilterP
 
 export const applyLocalHistogramEqualization = async (ctx: CanvasRenderingContext2D, params: FilterParams) => {
   const originalFn = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+    if (!isValidFilterImageDimensions(ctx.canvas.width, ctx.canvas.height)) {
+      return;
+    }
+    const normalized = normalizeFilterParams('localhistogramequalization', params, { width: ctx.canvas.width, height: ctx.canvas.height });
     const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
     const { data, width, height } = imageData;
-    const { kernelSize } = params;
+    const { kernelSize } = normalized;
     const half = Math.floor(kernelSize / 2);
 
     const grayscale = new Uint8ClampedArray(width * height);
@@ -1269,7 +1295,10 @@ export const applyLocalHistogramEqualization = async (ctx: CanvasRenderingContex
         }
 
         // Apply equalization formula to the center pixel
-        const equalizedValue = Math.round(255 * (cdf[currentPixelValue] - cdfMin) / (pixelCount - cdfMin));
+        const denominator = pixelCount - cdfMin;
+        const equalizedValue = denominator <= 0
+          ? currentPixelValue
+          : Math.round(255 * safeDivide(cdf[currentPixelValue] - cdfMin, denominator, currentPixelValue / 255));
 
         const outIndex = (y * width + x) * 4;
         equalizedData[outIndex] = equalizedValue;
@@ -1292,12 +1321,16 @@ export const applyLocalHistogramEqualization = async (ctx: CanvasRenderingContex
 };
 
 export const applyAdaptiveHistogramEqualization = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  if (!isValidFilterImageDimensions(ctx.canvas.width, ctx.canvas.height)) {
+    return;
+  }
+  const normalized = normalizeFilterParams('adaptivehistogramequalization', params, { width: ctx.canvas.width, height: ctx.canvas.height });
   const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
   const { data, width, height } = imageData;
-  const { gridSize } = params;
+  const { gridSize } = normalized;
 
-  const tileWidth = Math.floor(width / gridSize);
-  const tileHeight = Math.floor(height / gridSize);
+  const tileWidth = Math.max(1, Math.floor(width / gridSize));
+  const tileHeight = Math.max(1, Math.floor(height / gridSize));
 
   // 1. Convert to grayscale
   const grayscale = new Uint8ClampedArray(width * height);
@@ -1312,9 +1345,9 @@ export const applyAdaptiveHistogramEqualization = (ctx: CanvasRenderingContext2D
     for (let tx = 0; tx < gridSize; tx++) {
       const startX = tx * tileWidth;
       const startY = ty * tileHeight;
-      const endX = startX + tileWidth;
-      const endY = startY + tileHeight;
-      const tilePixels = tileWidth * tileHeight;
+      const endX = Math.min(width, startX + tileWidth);
+      const endY = Math.min(height, startY + tileHeight);
+      const tilePixels = Math.max(1, (endX - startX) * (endY - startY));
 
       // a. Calculate tile histogram
       const hist = new Array(256).fill(0);
@@ -1335,7 +1368,10 @@ export const applyAdaptiveHistogramEqualization = (ctx: CanvasRenderingContext2D
 
       const lut = luts[ty * gridSize + tx];
       for (let i = 0; i < 256; i++) {
-        lut[i] = Math.round(255 * (cdf[i] - cdfMin) / (tilePixels - cdfMin));
+        const denominator = tilePixels - cdfMin;
+        lut[i] = denominator <= 0
+          ? i
+          : Math.round(255 * safeDivide(cdf[i] - cdfMin, denominator, i / 255));
       }
     }
   }
@@ -1549,9 +1585,10 @@ export const applyUnsharpMask = async (ctx: CanvasRenderingContext2D, params: Fi
 };
 
 export const applyAnisotropicDiffusion = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
+  const normalized = normalizeFilterParams('anisotropicdiffusion', params, { width: ctx.canvas.width, height: ctx.canvas.height });
   const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
   const { data, width, height } = imageData;
-  const { iterations, kappa } = params;
+  const { iterations, kappa } = normalized;
   const lambda = 0.14; // Fixed step size
 
   // Convert to grayscale
@@ -1600,6 +1637,9 @@ export const applyLbp = async (ctx: CanvasRenderingContext2D) => {
   const originalFn = (ctx: CanvasRenderingContext2D) => {
     const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
     const { data, width, height } = imageData;
+    if (width < 3 || height < 3) {
+      return;
+    }
 
     const grayscale = new Uint8ClampedArray(width * height);
     for (let i = 0; i < data.length; i += 4) {
@@ -1672,7 +1712,7 @@ function fastBoxBlur(integralImage: Float32Array, width: number, height: number,
       const x1 = Math.max(0, x - r - 1);
       const x2 = Math.min(width - 1, x + r);
 
-      const count = (y2 - y1) * (x2 - x1);
+      const count = Math.max(1, (y2 - y1 + 1) * (x2 - x1 + 1));
       
       const sum = integralImage[y2 * width + x2] 
                 - integralImage[y1 * width + x2] 
@@ -1687,7 +1727,8 @@ function fastBoxBlur(integralImage: Float32Array, width: number, height: number,
 
 
 export const applyGuidedFilter = (ctx: CanvasRenderingContext2D, params: FilterParams) => {
-  const { kernelSize: radius, epsilon } = params;
+  const normalized = normalizeFilterParams('guided', params, { width: ctx.canvas.width, height: ctx.canvas.height });
+  const { kernelSize: radius, epsilon } = normalized;
   const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
   const { data, width, height } = imageData;
 

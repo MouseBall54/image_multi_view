@@ -9,6 +9,7 @@ import * as Filters from "../utils/filters";
 import { applyFilterChain } from "../utils/filterChain";
 import { FilterParams } from "../store";
 import { PinpointScaleDisplay } from "./PinpointScaleDisplay";
+import { createAsyncTaskTokenManager, isValidFilterImageDimensions, normalizeFilterParams } from "../utils/filterRuntimeGuards";
 
 type Props = {
   file?: File;
@@ -44,6 +45,8 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
   const [isProcessingFilter, setIsProcessingFilter] = useState(false);
   const [currentFilterName, setCurrentFilterName] = useState<string>('');
   const [filterProgress, setFilterProgress] = useState({ current: 0, total: 0 });
+  const filterTaskGuardRef = useRef(createAsyncTaskTokenManager());
+  const isMountedRef = useRef(true);
   const { 
     viewport, setViewport, setFitScaleFn, 
     pinpointMouseMode, 
@@ -136,22 +139,54 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
   // Effect to process the image whenever the source or filters change
   useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      filterTaskGuardRef.current.invalidate();
+    };
+  }, []);
+
+  useEffect(() => {
+    const taskToken = filterTaskGuardRef.current.nextToken();
+    const canCommit = () => isMountedRef.current && filterTaskGuardRef.current.isCurrent(taskToken);
+
     const processImage = async () => {
       const filter = overrideFilterType ?? (typeof folderKey === 'string' ? viewerFilters[folderKey] : 'none') ?? 'none';
-      const params = overrideFilterParams ?? (typeof folderKey === 'string' ? viewerFilterParams[folderKey] : undefined);
+      const rawParams = overrideFilterParams ?? (typeof folderKey === 'string' ? viewerFilterParams[folderKey] : undefined);
+      const params = normalizeFilterParams(filter, rawParams as any, {
+        width: sourceImage?.width ?? 0,
+        height: sourceImage?.height ?? 0
+      });
 
       if (!sourceImage || !file) {
-        setProcessedImage(null);
-        setIsProcessingFilter(false);
+        if (canCommit()) {
+          setProcessedImage(null);
+          setIsProcessingFilter(false);
+        }
+        return;
+      }
+
+      if (!isValidFilterImageDimensions(sourceImage.width, sourceImage.height)) {
+        if (canCommit()) {
+          setProcessedImage(sourceImage);
+          setIsProcessingFilter(false);
+          setCurrentFilterName('');
+          setFilterProgress({ current: 0, total: 0 });
+        }
         return;
       }
 
       // Start filter processing animation immediately when filter changes
       if (filter !== 'none') {
-        setIsProcessingFilter(true);
+        if (canCommit()) {
+          setIsProcessingFilter(true);
+        }
         
         // Import ALL_FILTERS dynamically to get filter name
         import('../components/FilterControls').then(({ ALL_FILTERS }) => {
+          if (!canCommit()) {
+            return;
+          }
           let filterName = 'Unknown Filter';
           if (filter === 'filterchain' && params?.filterChain) {
             filterName = `Filter Chain (${params.filterChain.length} filters)`;
@@ -172,10 +207,12 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         } else {
           setAnalysisImageSize(folderKey as number, size);
         }
-        setProcessedImage(sourceImage);
-        setIsProcessingFilter(false);
-        setCurrentFilterName('');
-        setFilterProgress({ current: 0, total: 0 });
+        if (canCommit()) {
+          setProcessedImage(sourceImage);
+          setIsProcessingFilter(false);
+          setCurrentFilterName('');
+          setFilterProgress({ current: 0, total: 0 });
+        }
         return;
       }
 
@@ -184,10 +221,12 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       if (filteredCache && filterCacheKey) {
         const cachedImage = filteredCache.get(filterCacheKey);
         if (cachedImage) {
-          setProcessedImage(cachedImage);
-          setIsProcessingFilter(false);
-          setCurrentFilterName('');
-          setFilterProgress({ current: 0, total: 0 });
+          if (canCommit()) {
+            setProcessedImage(cachedImage);
+            setIsProcessingFilter(false);
+            setCurrentFilterName('');
+            setFilterProgress({ current: 0, total: 0 });
+          }
           return;
         }
       }
@@ -196,12 +235,23 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
       
       // Use requestAnimationFrame to yield to the browser before heavy processing
       await new Promise(resolve => requestAnimationFrame(resolve));
+      if (!canCommit()) {
+        return;
+      }
 
       const offscreenCanvas = document.createElement('canvas');
       offscreenCanvas.width = sourceImage.width;
       offscreenCanvas.height = sourceImage.height;
       const ctx = offscreenCanvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) {
+        if (canCommit()) {
+          setProcessedImage(sourceImage);
+          setIsProcessingFilter(false);
+          setCurrentFilterName('');
+          setFilterProgress({ current: 0, total: 0 });
+        }
+        return;
+      }
       // Always process in original orientation (no rotation applied here)
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.filter = 'none';
@@ -228,95 +278,95 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
 
       switch (filter) {
         case 'brightness':
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           if (params) await Filters.applyBrightness(ctx, params);
           break;
         case 'contrast':
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           if (params) await Filters.applyContrast(ctx, params);
           break;
         case 'threshold_binary':
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           await Filters.applyThresholdBinary(ctx, (params ?? {}) as any);
           break;
         case 'threshold_otsu':
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           await Filters.applyThresholdOtsu(ctx, (params ?? {}) as any);
           break;
         case 'threshold_triangle':
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           await Filters.applyThresholdTriangle(ctx, (params ?? {}) as any);
           break;
         case 'threshold_adaptive_mean':
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           await Filters.applyThresholdAdaptiveMean(ctx, (params ?? {}) as any);
           break;
         case 'threshold_adaptive_gaussian':
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           await Filters.applyThresholdAdaptiveGaussian(ctx, (params ?? {}) as any);
           break;
         case 'threshold_sauvola':
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           await Filters.applyThresholdSauvola(ctx, (params ?? {}) as any);
           break;
         case 'threshold_bradley':
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           await Filters.applyThresholdBradley(ctx, (params ?? {}) as any);
           break;
         case 'threshold_bernsen':
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           await Filters.applyThresholdBernsen(ctx, (params ?? {}) as any);
           break;
         case 'threshold_phansalkar':
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           await Filters.applyThresholdPhansalkar(ctx, (params ?? {}) as any);
           break;
         case 'threshold_kittler':
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           await Filters.applyThresholdKittler(ctx, (params ?? {}) as any);
           break;
         case 'linearstretch': 
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           await Filters.applyLinearStretch(ctx); 
           break;
         case 'histogramequalization': 
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           await Filters.applyHistogramEqualization(ctx); 
           break;
         case 'laplacian': 
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           if (params) await Filters.applyLaplacian(ctx, params); 
           break;
         case 'highpass': 
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           Filters.applyHighpass(ctx); 
           break;
         case 'prewitt': 
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           if (params) await Filters.applyPrewitt(ctx, params); 
           break;
         case 'scharr': 
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           if (params) await Filters.applyScharr(ctx, params); 
           break;
         case 'sobel': 
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           if (params) await Filters.applySobel(ctx, params); 
           break;
         case 'robertscross': 
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           if (params) await Filters.applyRobertsCross(ctx, params); 
           break;
         case 'log': 
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           if (params) await Filters.applyLoG(ctx, params); 
           break;
         case 'dog': 
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           if (params) await Filters.applyDoG(ctx, params); 
           break;
         case 'marrhildreth': 
-          setFilterProgress({ current: 1, total: 1 });
+          if (canCommit()) setFilterProgress({ current: 1, total: 1 });
           if (params) await Filters.applyMarrHildreth(ctx, params); 
           break;
         case 'gaussianblur': 
@@ -560,6 +610,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
                 offscreenCanvas, 
                 params.filterChain,
                 (progress: number) => {
+                  if (!canCommit()) {
+                    return;
+                  }
                   // Update progress: progress is 0-1, convert to current/total
                   const totalFilters = params.filterChain?.filter((item: any) => item.enabled).length || 1;
                   // Use Math.round for more accurate step calculation
@@ -568,6 +621,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
                 }
               );
               
+              if (!canCommit()) {
+                return;
+              }
               // Copy the result back to the offscreen canvas
               offscreenCanvas.width = chainResult.width;
               offscreenCanvas.height = chainResult.height;
@@ -590,7 +646,13 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         }
       }
 
+      if (!canCommit()) {
+        return;
+      }
       const finalImage = await createImageBitmap(offscreenCanvas);
+      if (!canCommit()) {
+        return;
+      }
       if (filteredCache && filterCacheKey) {
         filteredCache.set(filterCacheKey, finalImage);
       }
@@ -603,6 +665,9 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
     // Execute filter processing with proper error handling
     processImage().catch(error => {
       console.error('Filter processing error:', error);
+      if (!canCommit()) {
+        return;
+      }
       setIsProcessingFilter(false);
       setCurrentFilterName('');
       setFilterProgress({ current: 0, total: 0 });
@@ -611,6 +676,10 @@ export const ImageCanvas = forwardRef<ImageCanvasHandle, Props>(({ file, label, 
         setProcessedImage(sourceImage);
       }
     });
+
+    return () => {
+      filterTaskGuardRef.current.invalidate();
+    };
 
   }, [sourceImage, file, viewerFilters, viewerFilterParams, folderKey, overrideFilterType, overrideFilterParams, filteredCache]);
 

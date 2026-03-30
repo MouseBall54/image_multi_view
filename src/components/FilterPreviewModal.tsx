@@ -5,6 +5,7 @@ import type { FilterChainItem, FilterType } from '../types';
 import type { FilterParams } from '../store';
 import { decodeTiffWithUTIF } from '../utils/utif';
 import { UTIF_OPTIONS } from '../config';
+import { createAsyncTaskTokenManager, isValidFilterImageDimensions, normalizeFilterParams } from '../utils/filterRuntimeGuards';
 
 interface FilterPreviewModalProps {
   isOpen: boolean;
@@ -46,8 +47,17 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
   const [sourceImage, setSourceImage] = useState<HTMLImageElement | null>(null);
   const [previewDimensions, setPreviewDimensions] = useState({ width: 0, height: 0 });
   const [sizeTransitioning, setSizeTransitioning] = useState(false);
+  const previewTaskGuardRef = useRef(createAsyncTaskTokenManager());
+  const isMountedRef = useRef(true);
   
   const { current } = useStore();
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      previewTaskGuardRef.current.invalidate();
+    };
+  }, []);
 
   // Maximum preview size based on size setting
   const getSizeConfig = (size: 'S' | 'M' | 'L') => {
@@ -179,9 +189,15 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
 
   // Apply filters to preview
   const applyPreview = useCallback(async () => {
-    if (!sourceImage || !canvasRef.current) return;
+    const taskToken = previewTaskGuardRef.current.nextToken();
+    const canCommit = () => isMountedRef.current && previewTaskGuardRef.current.isCurrent(taskToken);
 
-    setIsProcessing(true);
+    if (!sourceImage || !canvasRef.current) return;
+    if (!isValidFilterImageDimensions(previewDimensions.width, previewDimensions.height)) return;
+
+    if (canCommit()) {
+      setIsProcessing(true);
+    }
     try {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
@@ -219,14 +235,21 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
 
       if (previewMode === 'single' && filterType && filterParams) {
         // Single filter preview
+        const normalizedFilterParams = normalizeFilterParams(filterType, filterParams as any, {
+          width: processWidth,
+          height: processHeight
+        });
         const singleFilterItems: FilterChainItem[] = [{
           id: 'preview-single',
           filterType,
-          params: filterParams,
+          params: normalizedFilterParams,
           enabled: true
         }];
 
         const resultCanvas = await applyFilterChain(sourceCanvas, singleFilterItems);
+        if (!canCommit()) {
+          return;
+        }
         
         // If we processed at original resolution, scale down for display
         if (originalResolution) {
@@ -241,7 +264,17 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
 
       } else if (previewMode === 'chain' && chainItems) {
         // Filter chain preview
-        const resultCanvas = await applyFilterChain(sourceCanvas, chainItems);
+        const normalizedChain = chainItems.map((item) => ({
+          ...item,
+          params: normalizeFilterParams(item.filterType, item.params as any, {
+            width: processWidth,
+            height: processHeight
+          })
+        }));
+        const resultCanvas = await applyFilterChain(sourceCanvas, normalizedChain);
+        if (!canCommit()) {
+          return;
+        }
         
         // If we processed at original resolution, scale down for display
         if (originalResolution) {
@@ -269,6 +302,9 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
 
     } catch (error) {
       console.error('Preview processing error:', error);
+      if (!canCommit()) {
+        return;
+      }
       // Show source image on error
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
@@ -280,7 +316,9 @@ export const FilterPreviewModal: React.FC<FilterPreviewModalProps> = ({
         );
       }
     } finally {
-      setIsProcessing(false);
+      if (canCommit()) {
+        setIsProcessing(false);
+      }
     }
   }, [sourceImage, previewDimensions, previewMode, filterType, filterParams, chainItems, originalResolution]);
 

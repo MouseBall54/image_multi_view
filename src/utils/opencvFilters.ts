@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { getOpenCV, isOpenCVReady } from './opencv';
 import type { FilterParams } from '../store';
+import { isValidFilterImageDimensions, normalizeFilterParams } from './filterRuntimeGuards';
 
 export interface PerformanceMetrics {
   estimatedTimeMs: number;
@@ -988,9 +989,18 @@ export async function applyFilterWithFallback(
   originalFilterFn: (ctx: CanvasRenderingContext2D, params: FilterParams) => void,
   opencvFilterFn?: (ctx: CanvasRenderingContext2D, params: FilterParams) => void
 ): Promise<void> {
+  if (!ctx || !isValidFilterImageDimensions(ctx.canvas.width, ctx.canvas.height)) {
+    return;
+  }
+
+  const normalizedParams = normalizeFilterParams(filterType, params, {
+    width: ctx.canvas.width,
+    height: ctx.canvas.height
+  });
+
   if (opencvFilterFn && isOpenCVReady()) {
     try {
-      await opencvFilterFn(ctx, params);
+      await opencvFilterFn(ctx, normalizedParams);
       return;
     } catch (error) {
       console.warn(`OpenCV filter ${filterType} failed, falling back to original:`, error);
@@ -998,7 +1008,11 @@ export async function applyFilterWithFallback(
   }
   
   // Fallback to original implementation
-  originalFilterFn(ctx, params);
+  try {
+    originalFilterFn(ctx, normalizedParams);
+  } catch (error) {
+    console.warn(`Fallback filter ${filterType} failed and was contained:`, error);
+  }
 }
 
 // ========== Morphology Operations ==========
