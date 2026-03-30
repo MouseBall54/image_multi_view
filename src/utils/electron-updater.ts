@@ -3,6 +3,7 @@
  * Provides a clean interface to electron-updater functionality
  */
 import { configureUpdaterFeed, UpdateFeedTarget } from "./updateFeed";
+import { reportStartupWarningOnce } from "./startupRuntimeGuards";
 
 export interface UpdateInfo {
   version: string;
@@ -39,9 +40,26 @@ export class ElectronUpdater {
    * Setup electron-updater event listeners
    */
   private setupEventListeners() {
-    if (!window.electronAPI?.updater) return;
+    if (typeof window === "undefined" || !window.electronAPI?.updater) return;
 
     const { updater } = window.electronAPI;
+    const hasEventListeners = (
+      typeof updater.onUpdateChecking === "function" &&
+      typeof updater.onUpdateAvailable === "function" &&
+      typeof updater.onUpdateNotAvailable === "function" &&
+      typeof updater.onUpdateError === "function" &&
+      typeof updater.onDownloadProgress === "function" &&
+      typeof updater.onUpdateDownloaded === "function"
+    );
+
+    if (!hasEventListeners) {
+      reportStartupWarningOnce({
+        code: "updater-ipc-unavailable",
+        message: "Updater IPC is partially unavailable. Update checks are disabled.",
+        details: ["Required methods: onUpdateChecking/onUpdateAvailable/onUpdateNotAvailable/onUpdateError/onDownloadProgress/onUpdateDownloaded"]
+      });
+      return;
+    }
 
     updater.onUpdateChecking(() => {
       console.log('Checking for updates...');
@@ -82,7 +100,7 @@ export class ElectronUpdater {
    * Check for available updates
    */
   async checkForUpdates(feedTarget?: UpdateFeedTarget): Promise<{ success: boolean; error?: string; updateInfo?: UpdateInfo }> {
-    if (!window.electronAPI?.updater) {
+    if (!window.electronAPI?.updater || typeof window.electronAPI.updater.checkForUpdates !== "function") {
       return { success: false, error: 'Updater not available' };
     }
 
@@ -123,7 +141,7 @@ export class ElectronUpdater {
    * Download available update
    */
   async downloadUpdate(): Promise<{ success: boolean; error?: string }> {
-    if (!window.electronAPI?.updater) {
+    if (!window.electronAPI?.updater || typeof window.electronAPI.updater.downloadUpdate !== "function") {
       return { success: false, error: 'Updater not available' };
     }
 
@@ -155,7 +173,7 @@ export class ElectronUpdater {
    * Install downloaded update and restart application
    */
   async quitAndInstall(): Promise<{ success: boolean; error?: string; action?: string }> {
-    if (!window.electronAPI?.updater) {
+    if (!window.electronAPI?.updater || typeof window.electronAPI.updater.quitAndInstall !== "function") {
       return { success: false, error: 'Updater not available' };
     }
 
@@ -180,7 +198,7 @@ export class ElectronUpdater {
    * Get current app version information
    */
   async getVersion(): Promise<VersionInfo | null> {
-    if (!window.electronAPI?.updater) {
+    if (!window.electronAPI?.updater || typeof window.electronAPI.updater.getVersion !== "function") {
       return null;
     }
 
@@ -196,7 +214,7 @@ export class ElectronUpdater {
    * Set custom update server URL
    */
   async setFeedURL(feedUrl: string): Promise<{ success: boolean; error?: string }> {
-    if (!window.electronAPI?.updater) {
+    if (!window.electronAPI?.updater || typeof window.electronAPI.updater.setFeedURL !== "function") {
       return { success: false, error: 'Updater not available' };
     }
 
