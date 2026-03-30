@@ -3,6 +3,7 @@ import type { Viewport, AppMode, FolderKey, Pinpoint, PinpointMouseMode, Matched
 import { DEFAULT_VIEWPORT } from "./config";
 import { FolderData } from "./utils/folder";
 import { ensureMeta, rescanFolderData } from "./utils/folderSync";
+import type { FolderRescanIssue } from "./utils/folderSync";
 import { inferFolderPathFromFiles } from "./utils/pathInfer";
 import type { ToastMessage } from "./components/Toast";
 
@@ -11,6 +12,12 @@ export interface FolderState {
   alias: string;
 }
 export type FolderActivity = 'loading' | 'rescan';
+
+export interface PinpointImageState {
+  file: File | null;
+  refPoint: { x: number; y: number } | null;
+  sourceKey?: FolderKey;
+}
 
 export interface FilterParams {
   kernelSize: number;
@@ -127,6 +134,12 @@ const defaultFilterParams: FilterParams = {
   centerValue: 128,
 };
 
+const DEFAULT_VIEWER_ORDER = Array.from({ length: 26 }, (_, index) => index);
+
+const folderKeyFromSlotIndex = (slotIndex: number): FolderKey => {
+  return String.fromCharCode(65 + slotIndex) as FolderKey;
+};
+
 interface State {
   appMode: AppMode;
   pinpointMouseMode: PinpointMouseMode;
@@ -142,12 +155,7 @@ interface State {
   // Layout preview (for ghost overlay when selecting a new layout)
   previewLayout: { rows: number; cols: number } | null;
   
-  // Viewer arrangement system
-  viewerArrangement: {
-    compare: FolderKey[];      // [A, B, C, D] - which folder at each position
-    pinpoint: FolderKey[];     // [A, B, C, D] - which folder at each position
-    analysis: number[];        // [0, 1, 2, 3] - which filter index at each position
-  };
+  viewerOrder: number[];
   
   showMinimap: boolean;
   showGrid: boolean;
@@ -160,6 +168,7 @@ interface State {
   minimapWidth: number; // in px
   viewport: Viewport;
   pinpoints: Partial<Record<FolderKey, Pinpoint>>;
+  pinpointImages: Partial<Record<FolderKey, PinpointImageState>>;
   pinpointScales: Partial<Record<FolderKey, number>>;
   pinpointGlobalScale: number;
   pinpointRotations: Partial<Record<FolderKey, number>>;
@@ -248,6 +257,9 @@ interface State {
   setMinimapWidth: (w: number) => void;
   setViewport: (vp: Partial<Viewport>) => void;
   setPinpoint: (key: FolderKey, pinpoint: Pinpoint) => void;
+  setPinpointImage: (key: FolderKey, image: PinpointImageState) => void;
+  setPinpointImageRefPoint: (key: FolderKey, refPoint: { x: number; y: number } | null) => void;
+  clearPinpointImage: (key: FolderKey) => void;
   clearPinpoints: () => void;
   setPinpointScale: (key: FolderKey, scale: number) => void;
   clearPinpointScales: () => void;
@@ -260,7 +272,7 @@ interface State {
   triggerIndicator: (cx: number, cy: number) => void;
   setFolder: (key: FolderKey, folderState: FolderState) => void;
   setFolderActivity: (key: FolderKey, activity: FolderActivity | null) => void;
-  refreshFolder: (key: FolderKey, options?: { showActivity?: boolean }) => Promise<{ changed: boolean; added: number; updated: number; removed: number } | null>;
+  refreshFolder: (key: FolderKey, options?: { showActivity?: boolean }) => Promise<{ changed: boolean; added: number; updated: number; removed: number; issue?: FolderRescanIssue } | null>;
   updateFolderAlias: (key: FolderKey, alias: string) => void;
   clearFolder: (key: FolderKey) => void;
   setViewerImageSize: (key: FolderKey, size: { width: number; height: number }) => void;
@@ -388,6 +400,145 @@ interface State {
   confirmSyncFromTarget: (target: FolderKey | number) => void;
 }
 
+const ALL_FOLDER_KEYS = DEFAULT_VIEWER_ORDER.map((slotIndex) => folderKeyFromSlotIndex(slotIndex));
+
+const folderHasFilename = (folder: FolderState | undefined, filename: string): boolean => {
+  if (!folder?.data?.files || !filename) return false;
+  if (folder.data.files.has(filename)) return true;
+  const targetBase = filename.replace(/\.[^/.]+$/, "");
+  for (const existingName of folder.data.files.keys()) {
+    const existingBase = existingName.replace(/\.[^/.]+$/, "");
+    if (existingBase === filename || existingBase === targetBase) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const buildCurrentHasMap = (
+  folders: Partial<Record<FolderKey, FolderState>>,
+  filename: string
+): Record<FolderKey, boolean> => {
+  const nextHas = {} as Record<FolderKey, boolean>;
+  for (const key of ALL_FOLDER_KEYS) {
+    nextHas[key] = folderHasFilename(folders[key], filename);
+  }
+  return nextHas;
+};
+
+const findFolderKeyBySource = (
+  folders: Partial<Record<FolderKey, FolderState>>,
+  source: string | null
+): FolderKey | null => {
+  if (!source) return null;
+  const upper = source.toUpperCase();
+  if (ALL_FOLDER_KEYS.includes(upper as FolderKey)) {
+    return upper as FolderKey;
+  }
+  for (const key of ALL_FOLDER_KEYS) {
+    if (folders[key]?.alias === source) {
+      return key;
+    }
+  }
+  return null;
+};
+
+const recoverRuntimeSelectionState = (
+  state: State,
+  nextFolders: Partial<Record<FolderKey, FolderState>>,
+  changedKey: FolderKey
+): Partial<State> => {
+  const patch: Partial<State> = {};
+
+  if (state.current) {
+    const nextHas = buildCurrentHasMap(nextFolders, state.current.filename);
+    const stillExists = Object.values(nextHas).some(Boolean);
+    if (!stillExists) {
+      patch.current = null;
+    } else {
+      patch.current = { filename: state.current.filename, has: nextHas };
+    }
+  }
+
+  const changedFolderStillExists = !!nextFolders[changedKey];
+
+  if (state.activeCanvasKey === changedKey && !changedFolderStillExists) {
+    patch.activeCanvasKey = null;
+  }
+  if (state.rectZoomTarget === changedKey && !changedFolderStillExists) {
+    patch.rectZoomTarget = null;
+  }
+  if (state.activeFilterEditor === changedKey && !changedFolderStillExists) {
+    patch.activeFilterEditor = null;
+  }
+
+  if (state.selectedViewers.includes(changedKey) && !changedFolderStillExists) {
+    patch.selectedViewers = state.selectedViewers.filter((key) => key !== changedKey);
+  }
+
+  let nextPinpointImages = state.pinpointImages;
+  let nextPinpoints = state.pinpoints;
+  let nextPinpointScales = state.pinpointScales;
+  let nextPinpointRotations = state.pinpointRotations;
+  let pinpointChanged = false;
+
+  for (const [rawViewerKey, imageState] of Object.entries(state.pinpointImages) as [FolderKey, PinpointImageState][]) {
+    if (!imageState?.file) {
+      continue;
+    }
+
+    const clearBecauseViewerRemoved = rawViewerKey === changedKey;
+    const clearBecauseSourceMissing = !!imageState.sourceKey && !nextFolders[imageState.sourceKey];
+    const clearBecauseFileMissing = !!imageState.sourceKey
+      && !!nextFolders[imageState.sourceKey]
+      && !folderHasFilename(nextFolders[imageState.sourceKey], imageState.file.name);
+
+    if (
+      clearBecauseViewerRemoved ||
+      clearBecauseSourceMissing ||
+      clearBecauseFileMissing
+    ) {
+      if (!pinpointChanged) {
+        nextPinpointImages = { ...state.pinpointImages };
+        nextPinpoints = { ...state.pinpoints };
+        nextPinpointScales = { ...state.pinpointScales };
+        nextPinpointRotations = { ...state.pinpointRotations };
+        pinpointChanged = true;
+      }
+      delete nextPinpointImages[rawViewerKey];
+      delete nextPinpoints[rawViewerKey];
+      delete nextPinpointScales[rawViewerKey];
+      delete nextPinpointRotations[rawViewerKey];
+    }
+  }
+
+  if (pinpointChanged) {
+    patch.pinpointImages = nextPinpointImages;
+    patch.pinpoints = nextPinpoints;
+    patch.pinpointScales = nextPinpointScales;
+    patch.pinpointRotations = nextPinpointRotations;
+  }
+
+  if (state.analysisFile) {
+    const sourceKey = findFolderKeyBySource(nextFolders, state.analysisFileSource);
+    const stillResolvable = sourceKey
+      ? folderHasFilename(nextFolders[sourceKey], state.analysisFile.name)
+      : ALL_FOLDER_KEYS.some((key) => folderHasFilename(nextFolders[key], state.analysisFile!.name));
+
+    if (!stillResolvable) {
+      patch.analysisFile = null;
+      patch.analysisFileSource = null;
+      patch.analysisFilters = {};
+      patch.analysisFilterParams = {};
+      if (state.activeFilterEditor !== null && typeof state.activeFilterEditor === "number") {
+        patch.activeFilterEditor = null;
+      }
+    }
+  }
+
+  return patch;
+};
+
 export const useStore = create<State>((set, get) => ({
   appMode: "pinpoint",
   pinpointMouseMode: "pan",
@@ -400,12 +551,7 @@ export const useStore = create<State>((set, get) => ({
   viewerCols: 2,
   previewLayout: null,
   
-  // Default viewer arrangement (A-Z = 26 viewers)
-  viewerArrangement: {
-    compare: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
-    pinpoint: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],  
-    analysis: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
-  },
+  viewerOrder: [...DEFAULT_VIEWER_ORDER],
   
   showMinimap: false,
   showGrid: false,
@@ -417,6 +563,7 @@ export const useStore = create<State>((set, get) => ({
   minimapWidth: 150,
   viewport: { scale: DEFAULT_VIEWPORT.scale, cx: 0.5, cy: 0.5, refScreenX: undefined, refScreenY: undefined },
   pinpoints: {},
+  pinpointImages: {},
   pinpointScales: {},
   pinpointGlobalScale: 1,
   pinpointRotations: {},
@@ -503,6 +650,24 @@ export const useStore = create<State>((set, get) => ({
   setPinpoint: (key, pinpoint) => set(state => ({
     pinpoints: { ...state.pinpoints, [key]: pinpoint }
   })),
+  setPinpointImage: (key, image) => set(state => ({
+    pinpointImages: { ...state.pinpointImages, [key]: image }
+  })),
+  setPinpointImageRefPoint: (key, refPoint) => set(state => {
+    const current = state.pinpointImages[key];
+    if (!current) return {};
+    return {
+      pinpointImages: {
+        ...state.pinpointImages,
+        [key]: { ...current, refPoint }
+      }
+    };
+  }),
+  clearPinpointImage: (key) => set(state => {
+    const nextImages = { ...state.pinpointImages };
+    delete nextImages[key];
+    return { pinpointImages: nextImages };
+  }),
   clearPinpoints: () => set({ pinpoints: {} }),
   setPinpointScale: (key, scale) => set(state => ({
     pinpointScales: { ...state.pinpointScales, [key]: scale }
@@ -526,8 +691,13 @@ export const useStore = create<State>((set, get) => ({
         source = { kind: 'electron', path: maybePath };
       }
     }
+    const nextFolders = {
+      ...state.folders,
+      [key]: { ...folderState, data: { ...ensured, source } }
+    };
     return {
-      folders: { ...state.folders, [key]: { ...folderState, data: { ...ensured, source } } },
+      ...recoverRuntimeSelectionState(state, nextFolders, key),
+      folders: nextFolders,
       folderActivities: { ...state.folderActivities, [key]: undefined }
     };
   }),
@@ -541,22 +711,36 @@ export const useStore = create<State>((set, get) => ({
     if (options.showActivity) {
       state.setFolderActivity(key, 'rescan');
     }
-    const electronApi = (typeof window !== 'undefined' && (window as any).electronAPI?.fsFolder)
-      ? (window as any).electronAPI.fsFolder
-      : undefined;
-    const result = await rescanFolderData(ensureMeta(folder.data), { electronApi });
-    if (options.showActivity) {
-      state.setFolderActivity(key, null);
-    }
-    if (!result) return null;
-    set({
-      folders: {
-        ...state.folders,
-        [key]: { ...folder, data: result.data }
+    try {
+      const electronApi = (typeof window !== 'undefined' && (window as any).electronAPI?.fsFolder)
+        ? (window as any).electronAPI.fsFolder
+        : undefined;
+      const result = await rescanFolderData(ensureMeta(folder.data), { electronApi });
+      if (!result) return null;
+      if (result.changed) {
+        set((currentState) => {
+          const currentFolder = currentState.folders[key];
+          if (!currentFolder) return {};
+          const nextFolders = {
+            ...currentState.folders,
+            [key]: { ...currentFolder, data: result.data }
+          };
+          return {
+            ...recoverRuntimeSelectionState(currentState, nextFolders, key),
+            folders: nextFolders
+          };
+        });
       }
-    });
-    const { added, updated, removed } = result.diff;
-    return { changed: true, added, updated, removed };
+      const { added, updated, removed } = result.diff;
+      return { changed: result.changed, added, updated, removed, issue: result.issue };
+    } catch (error) {
+      console.error('Failed to refresh folder:', error);
+      return null;
+    } finally {
+      if (options.showActivity) {
+        get().setFolderActivity(key, null);
+      }
+    }
   },
   updateFolderAlias: (key, alias) => set(state => {
     const folder = state.folders[key];
@@ -572,12 +756,18 @@ export const useStore = create<State>((set, get) => ({
   }),
   clearFolder: (key) => set(state => {
     const { [key]: _, ...remainingFolders } = state.folders;
+    const remainingFolderActivities = { ...state.folderActivities };
+    delete remainingFolderActivities[key];
     const { [key]: __, ...remainingFilters } = state.viewerFilters;
     const { [key]: ___, ...remainingFilterParams } = state.viewerFilterParams;
+    const { [key]: ____, ...remainingViewerImageSizes } = state.viewerImageSizes;
     return { 
+      ...recoverRuntimeSelectionState(state, remainingFolders, key),
       folders: remainingFolders,
+      folderActivities: remainingFolderActivities,
       viewerFilters: remainingFilters,
-      viewerFilterParams: remainingFilterParams
+      viewerFilterParams: remainingFilterParams,
+      viewerImageSizes: remainingViewerImageSizes
     };
   }),
   setViewerImageSize: (key, size) => set(state => ({
@@ -978,8 +1168,9 @@ export const useStore = create<State>((set, get) => ({
       const params = state.viewerFilterParams[key];
       const nextFilters: Partial<Record<FolderKey, any>> = { ...state.viewerFilters };
       const nextParams: Partial<Record<FolderKey, any>> = { ...state.viewerFilterParams };
-      const arrangement = state.viewerArrangement[mode] as FolderKey[];
-      const activeKeys = arrangement.slice(0, state.numViewers);
+      const activeKeys = state.viewerOrder
+        .slice(0, state.numViewers)
+        .map((slotIndex) => folderKeyFromSlotIndex(slotIndex));
       for (const k of activeKeys) {
         (nextFilters as any)[k] = type;
         if (params == null) {
@@ -1059,45 +1250,40 @@ export const useStore = create<State>((set, get) => ({
   reorderViewers: (fromPosition: number, toPosition: number) => set((state) => {
     if (fromPosition === toPosition) return state;
 
-    const { appMode, pinpointReorderMode } = state;
-    const newArrangement = { ...state.viewerArrangement } as any;
-
-    // Get the array for current mode
-    const currentArrangement = [...(newArrangement[appMode] as any)];
+    const { pinpointReorderMode } = state;
+    const nextOrder = [...state.viewerOrder];
 
     if (pinpointReorderMode === 'swap') {
       // Swap two positions
-      const tmp = currentArrangement[fromPosition];
-      currentArrangement[fromPosition] = currentArrangement[toPosition];
-      currentArrangement[toPosition] = tmp;
+      const tmp = nextOrder[fromPosition];
+      nextOrder[fromPosition] = nextOrder[toPosition];
+      nextOrder[toPosition] = tmp;
     } else {
       // Shift/move the item
-      const [movedItem] = currentArrangement.splice(fromPosition, 1);
-      currentArrangement.splice(toPosition, 0, movedItem);
+      const [movedItem] = nextOrder.splice(fromPosition, 1);
+      nextOrder.splice(toPosition, 0, movedItem);
     }
-
-    newArrangement[appMode] = currentArrangement as any;
 
     return {
       ...state,
-      viewerArrangement: newArrangement
+      viewerOrder: nextOrder
     };
   }),
 
   // Get content (FolderKey or number) for a position in specific mode
   getViewerContentAtPosition: (position: number, mode: AppMode): FolderKey | number => {
     const state = get();
-    return state.viewerArrangement[mode][position];
+    const slotIndex = state.viewerOrder[position] ?? position;
+    if (mode === 'analysis') {
+      return slotIndex;
+    }
+    return folderKeyFromSlotIndex(slotIndex);
   },
 
   // Reset arrangement to default
   resetViewerArrangement: () => set((state) => ({
     ...state,
-    viewerArrangement: {
-      compare: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
-      pinpoint: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],  
-      analysis: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
-    }
+    viewerOrder: [...DEFAULT_VIEWER_ORDER]
   })),
 
 }));
@@ -1163,4 +1349,3 @@ useStore.subscribe((state, prevState) => {
     }, 100);
   }
 });
-

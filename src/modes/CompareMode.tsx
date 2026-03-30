@@ -11,6 +11,7 @@ import type { FolderKey, MatchedItem, FilterType } from '../types';
 import type { FilterParams } from '../store';
 import { generateFilterChainLabel } from '../utils/filterChainLabel';
 import { handleFolderDrop } from '../utils/dragDrop';
+import { ALL_FOLDER_KEYS, applyFolderIntake, findFirstEmptyFolderKey } from '../utils/folderIntake';
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -27,23 +28,26 @@ interface CompareModeProps {
 
 
 export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
-  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
   const { pick, inputRefs, onInput, updateAlias, allFolders } = useFolderPickers();
   const { 
     current, setCurrent, stripExt, setStripExt, openFilterEditor, viewerFilters, viewerFilterParams, clearFolder, viewerRows, viewerCols,
     selectedViewers, setSelectedViewers, toggleModalOpen, openToggleModal, setFolder, addToast, showFilelist, showFilterLabels, 
-    reorderViewers, viewerArrangement, refreshFolder, folderActivities,
+    reorderViewers, getViewerContentAtPosition, viewerOrder, refreshFolder, folderActivities,
     openPreviewModal,
     syncCapture, confirmSyncFromTarget
   } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
+
+  const getViewerKeyAtPosition = (position: number): FolderKey => {
+    return getViewerContentAtPosition(position, "compare") as FolderKey;
+  };
   
   // Drag and drop states for image import
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragOverCounter, setDragOverCounter] = useState(0);
   const [draggedFileCount, setDraggedFileCount] = useState(0);
 
-  const canvasRefs = FOLDER_KEYS.reduce((acc, key) => {
+  const canvasRefs = ALL_FOLDER_KEYS.reduce((acc, key) => {
     acc[key] = useRef<ImageCanvasHandle>(null);
     return acc;
   }, {} as Record<FolderKey, React.RefObject<ImageCanvasHandle>>);
@@ -55,66 +59,19 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
   // Helper function to find the first empty folder
   const findEmptyFolder = (): FolderKey | null => {
-    for (const key of FOLDER_KEYS) {
-      if (!allFolders[key]) return key;
-    }
-    return null;
+    return findFirstEmptyFolderKey(allFolders);
   };
 
 
   // Place folder as a new folder in the controls
-  const placeFolderAsNewFolder = async (folderName: string, imageFiles: File[]): Promise<void> => {
-    try {
-      if (imageFiles.length === 0) {
-        addToast?.({
-          type: 'warning',
-          title: 'Empty Folder',
-          message: `Folder "${folderName}" contains no valid images`,
-          duration: 5000
-        });
-        return;
-      }
-
-      // Find the first empty folder key
-      const emptyKey = findEmptyFolder();
-      if (!emptyKey) {
-        addToast?.({
-          type: 'error',
-          title: 'No Empty Slots',
-          message: 'All folder slots are in use. Please clear a folder first.',
-          duration: 5000
-        });
-        return;
-      }
-
-      // Create file map from the image files
-      const filesMap = new Map<string, File>();
-      for (const file of imageFiles) {
-        filesMap.set(file.name, file);
-      }
-
-      // Set the folder in the store with the folder name as alias
-      setFolder(emptyKey, {
-        data: { name: folderName, files: filesMap, meta: new Map(), source: { kind: 'files' } },
-        alias: folderName
-      });
-
-      addToast?.({
-        type: 'success',
-        title: 'Folder Added',
-        message: `Folder "${folderName}" added with ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''}`,
-        details: [`Assigned to slot ${emptyKey}`, `Images: ${imageFiles.map(f => f.name).slice(0, 5).join(', ')}${imageFiles.length > 5 ? ` and ${imageFiles.length - 5} more...` : ''}`],
-        duration: 5000
-      });
-    } catch (error) {
-      addToast?.({
-        type: 'error',
-        title: 'Failed to Add Folder',
-        message: `Could not add folder "${folderName}"`,
-        details: [error instanceof Error ? error.message : 'Unknown error'],
-        duration: 5000
-      });
-    }
+  const placeFolderAsNewFolder = async (candidate: Parameters<typeof applyFolderIntake>[0]["candidate"]): Promise<void> => {
+    applyFolderIntake({
+      candidate,
+      getFolders: () => useStore.getState().folders,
+      setFolder,
+      addToast,
+      showSuccessToast: true
+    });
   };
 
   // Place images into TEMP; on filename conflict spill to TEMP_2, TEMP_3, ...
@@ -125,7 +82,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
       // Local alias->key map and reservation to avoid relying on async state updates
       const aliasToKey = new Map<string, FolderKey>();
       const reservedKeys = new Set<FolderKey>();
-      for (const k of FOLDER_KEYS) {
+      for (const k of ALL_FOLDER_KEYS) {
         const f = allFolders[k];
         if (f?.alias) { aliasToKey.set(f.alias, k); reservedKeys.add(k); }
       }
@@ -134,7 +91,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
         const exist = aliasToKey.get(alias);
         if (exist) return exist;
         let candidate: FolderKey | null = null;
-        for (const key of FOLDER_KEYS) {
+        for (const key of ALL_FOLDER_KEYS) {
           if (!allFolders[key] && !reservedKeys.has(key)) { candidate = key; break; }
         }
         if (!candidate) return null;
@@ -257,7 +214,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
 
   useImperativeHandle(ref, () => ({
     capture: async ({ showLabels, showMinimap, showFilterLabels = true, showGrid = true }) => {
-      const activeKeys = FOLDER_KEYS.slice(0, numViewers);
+      const activeKeys = ALL_FOLDER_KEYS.slice(0, numViewers);
       const firstCanvas = canvasRefs[activeKeys[0]]?.current?.getCanvas();
       if (!firstCanvas) return null;
       const { width, height } = firstCanvas;
@@ -347,20 +304,20 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   };
 
   useEffect(() => {
-    const primaryKey = viewerArrangement.compare[0]; // First position is primary
+    const primaryKey = getViewerKeyAtPosition(0);
     const primaryFile = fileOf(primaryKey, current);
     setPrimaryFile(primaryFile || null);
-  }, [current, allFolders, setPrimaryFile, viewerArrangement]);
+  }, [current, allFolders, setPrimaryFile, viewerOrder]);
 
   const activeFolders = useMemo(() => {
-    const activeKeys = viewerArrangement.compare.slice(0, numViewers);
+    const activeKeys = Array.from({ length: numViewers }).map((_, position) => getViewerKeyAtPosition(position));
     return activeKeys.reduce((acc: Record<FolderKey, Map<string, File>>, key: FolderKey) => {
       if (allFolders[key]?.data.files) {
         acc[key] = allFolders[key]!.data.files;
       }
       return acc;
     }, {} as Record<FolderKey, Map<string, File>>);
-  }, [allFolders, numViewers, viewerArrangement]);
+  }, [allFolders, numViewers, viewerOrder]);
 
   const matched = useMemo(
     () => matchFilenames(activeFolders, stripExt),
@@ -420,6 +377,16 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
   const handleRescan = async (key: FolderKey) => {
     const result = await refreshFolder(key, { showActivity: true });
     if (!addToast) return;
+    if (result?.issue) {
+      addToast({
+        type: 'warning',
+        title: 'Folder Sync Warning',
+        message: result.issue.message,
+        details: result.issue.details,
+        duration: 3000
+      });
+      return;
+    }
     if (!result) {
       addToast({ type: 'info', title: 'Folder Sync', message: '변경 없음', duration: 2000 });
       return;
@@ -440,7 +407,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
     <>
       {showControls && <div className="controls">
         {Array.from({ length: numViewers }).map((_, position) => {
-          const key = viewerArrangement.compare[position];
+          const key = getViewerKeyAtPosition(position);
           return (
             <FolderControl
               key={position}
@@ -456,7 +423,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
           );
         })}
         <div style={{ display: 'none' }}>
-          {FOLDER_KEYS.map(key => (
+          {ALL_FOLDER_KEYS.map(key => (
             <input
               key={key}
               ref={inputRefs[key]}
@@ -556,8 +523,7 @@ export const CompareMode = forwardRef<CompareModeHandle, CompareModeProps>(({ nu
             </div>
           )}
           {Array.from({ length: numViewers }).map((_, position) => {
-            // Get the FolderKey for this position using the arrangement
-            const key = viewerArrangement.compare[position];
+            const key = getViewerKeyAtPosition(position);
             
             const lines: string[] = [];
             const folderLabel = allFolders[key]?.alias || key;
