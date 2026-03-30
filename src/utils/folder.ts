@@ -26,6 +26,17 @@ export type FolderData = {
   source?: FolderSource;
 };
 
+export type FolderIntakeStats = {
+  scannedEntryCount: number;
+  unsupportedFileCount: number;
+  unreadableFileCount: number;
+};
+
+export type FolderIntakeCandidate = {
+  data: FolderData;
+  stats: FolderIntakeStats;
+};
+
 function buildMeta(files: Iterable<[string, File]>): Map<string, FileMeta> {
   const meta = new Map<string, FileMeta>();
   for (const [name, file] of files) {
@@ -34,39 +45,106 @@ function buildMeta(files: Iterable<[string, File]>): Map<string, FileMeta> {
   return meta;
 }
 
+export function createFolderIntakeCandidate(
+  name: string,
+  files: Iterable<[string, File]>,
+  source: FolderSource,
+  stats?: Partial<FolderIntakeStats>
+): FolderIntakeCandidate {
+  const mappedFiles = new Map<string, File>(files);
+  const scannedEntryCount = stats?.scannedEntryCount ?? mappedFiles.size;
+  return {
+    data: {
+      name,
+      files: mappedFiles,
+      meta: buildMeta(mappedFiles.entries()),
+      source
+    },
+    stats: {
+      scannedEntryCount,
+      unsupportedFileCount: stats?.unsupportedFileCount ?? Math.max(scannedEntryCount - mappedFiles.size, 0),
+      unreadableFileCount: stats?.unreadableFileCount ?? 0
+    }
+  };
+}
+
 export async function pickDirectory(): Promise<FolderData> {
+  const intake = await pickDirectoryForIntake();
+  return intake.data;
+}
+
+export async function pickDirectoryForIntake(): Promise<FolderIntakeCandidate> {
   // File System Access API
   // @ts-ignore
   const handle: FileSystemDirectoryHandle = await (window as any).showDirectoryPicker();
   const files = new Map<string, File>();
+  let scannedEntryCount = 0;
+  let unsupportedFileCount = 0;
+  let unreadableFileCount = 0;
+
   for await (const [name, entry] of (handle as any).entries()) {
-    if (entry.kind === "file" && isImageFile(name)) {
+    scannedEntryCount += 1;
+    if (entry.kind !== "file") {
+      unsupportedFileCount += 1;
+      continue;
+    }
+
+    if (!isImageFile(name)) {
+      unsupportedFileCount += 1;
+      continue;
+    }
+
+    try {
       const file = await entry.getFile();
       files.set(name, file);
+    } catch {
+      unreadableFileCount += 1;
     }
   }
-  const meta = buildMeta(files.entries());
-  return { name: handle.name, files, meta, source: { kind: 'picker', handle } };
+
+  return createFolderIntakeCandidate(
+    handle.name,
+    files.entries(),
+    { kind: 'picker', handle },
+    { scannedEntryCount, unsupportedFileCount, unreadableFileCount }
+  );
 }
 
 // <input webkitdirectory> fallback 처리
 export function filesFromInput(fileList: FileList): FolderData | null {
+  const intake = filesFromInputForIntake(fileList);
+  if (!intake || intake.data.files.size === 0) {
+    return null;
+  }
+  return intake.data;
+}
+
+export function filesFromInputForIntake(fileList: FileList): FolderIntakeCandidate | null {
   if (fileList.length === 0) return null;
 
   const files = new Map<string, File>();
+  let unsupportedFileCount = 0;
   Array.from(fileList).forEach(f => {
     if (isImageFile(f.name)) {
       files.set(f.name, f);
+    } else {
+      unsupportedFileCount += 1;
     }
   });
 
-  if (files.size === 0) return null;
-
   const firstFile = Array.from(fileList).find(f => isImageFile(f.name));
   const folderName = firstFile ? firstFile.webkitRelativePath.split('/')[0] : "Unknown";
-  const meta = buildMeta(files.entries());
-  
-  return { name: folderName, files, meta, source: { kind: 'files' } };
+
+  return createFolderIntakeCandidate(
+    folderName,
+    files.entries(),
+    { kind: 'files' },
+    {
+      scannedEntryCount: fileList.length,
+      unsupportedFileCount,
+      unreadableFileCount: 0
+    }
+  );
 }
 
 // 확장자 제외 매칭을 원하면 아래 유틸 활용

@@ -24,6 +24,16 @@ export function useFolderSync(intervalMs = 5000) {
             setFolder(key, { ...folder, data: ensureMeta(folder.data) });
           }
           const result = await refreshFolder(key);
+          if (result?.issue) {
+            addToast?.({
+              type: 'warning',
+              title: 'Folder Sync Warning',
+              message: result.issue.message,
+              details: result.issue.details,
+              duration: 3000
+            });
+            continue;
+          }
           if (result && (result.added || result.updated || result.removed)) {
             const summary: string[] = [];
             if (result.added) summary.push(`+${result.added}`);

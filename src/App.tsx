@@ -26,9 +26,15 @@ import { useUsageLogging } from "./hooks/useUsageLogging";
 import { useFolderSync } from "./hooks/useFolderSync";
 import { useElectronFolderWatcher } from "./hooks/useElectronFolderWatcher";
 // Custom menu bar removed; actions moved to title bar
-import { initializeOpenCV } from "./utils/opencv";
+import { getOpenCVInitState, initializeOpenCV } from "./utils/opencv";
 import { handleFolderDrop } from "./utils/dragDrop";
 import type { FolderKey } from "./types";
+import { ALL_FOLDER_KEYS, applyFolderIntake } from "./utils/folderIntake";
+import {
+  evaluateElectronStartupCapabilities,
+  reportStartupWarningOnce,
+  shouldExpectElectronRuntime
+} from "./utils/startupRuntimeGuards";
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -99,7 +105,13 @@ function ViewportControls({ imageDimensions }: {
 export default function App() {
   useUsageLogging();
   useFolderSync();
-  useElectronFolderWatcher(typeof window !== 'undefined' && Boolean((window as any).electronAPI));
+  const electronApi = typeof window !== "undefined" ? (window as any).electronAPI : undefined;
+  const electronCapabilities = useMemo(() => {
+    return evaluateElectronStartupCapabilities(electronApi, {
+      expectElectronRuntime: shouldExpectElectronRuntime()
+    });
+  }, [electronApi]);
+  useElectronFolderWatcher(electronCapabilities.watcherAvailable);
   const {
     appMode,
     setAppMode,
@@ -141,9 +153,8 @@ export default function App() {
     folders
   } = useStore();
   const { setShowFilelist, closeToggleModal, addToast } = useStore.getState();
-  const electronApi = typeof window !== "undefined" ? (window as any).electronAPI : undefined;
-  const hasUpdater = Boolean(electronApi?.updater);
-  const canToggleDevTools = Boolean(electronApi?.windowActions?.toggleDevTools);
+  const hasUpdater = electronCapabilities.updaterAvailable;
+  const canToggleDevTools = electronCapabilities.canToggleDevTools;
   const defaultDevChannel = isDevChannel();
   const [isDevBuild, setIsDevBuild] = useState<boolean>(!!defaultDevChannel);
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
@@ -516,64 +527,14 @@ export default function App() {
   };
 
   // Helper functions for global folder drag-drop
-  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
-
-  const findEmptyFolder = (): FolderKey | null => {
-    for (const key of FOLDER_KEYS) {
-      if (!folders[key]) return key;
-    }
-    return null;
-  };
-
-  const placeFolderAsNewFolder = async (folderName: string, imageFiles: File[]): Promise<void> => {
-    try {
-      if (imageFiles.length === 0) {
-        addToast({
-          type: 'warning',
-          title: 'Empty Folder',
-          message: `Folder "${folderName}" contains no valid images`,
-          duration: 5000
-        });
-        return;
-      }
-
-      const emptyKey = findEmptyFolder();
-      if (!emptyKey) {
-        addToast({
-          type: 'error',
-          title: 'No Empty Slots',
-          message: 'All folder slots are in use. Please clear a folder first.',
-          duration: 5000
-        });
-        return;
-      }
-
-      const filesMap = new Map<string, File>();
-      for (const file of imageFiles) {
-        filesMap.set(file.name, file);
-      }
-
-      setFolder(emptyKey, {
-        data: { name: folderName, files: filesMap, meta: new Map(), source: { kind: 'files' } },
-        alias: folderName
-      });
-
-      addToast({
-        type: 'success',
-        title: 'Folder Added',
-        message: `Folder "${folderName}" added with ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''}`,
-        details: [`Assigned to slot ${emptyKey}`, `Images: ${imageFiles.map(f => f.name).slice(0, 5).join(', ')}${imageFiles.length > 5 ? ` and ${imageFiles.length - 5} more...` : ''}`],
-        duration: 5000
-      });
-    } catch (error) {
-      addToast({
-        type: 'error',
-        title: 'Failed to Add Folder',
-        message: `Could not add folder "${folderName}"`,
-        details: [error instanceof Error ? error.message : 'Unknown error'],
-        duration: 5000
-      });
-    }
+  const placeFolderAsNewFolder = async (candidate: Parameters<typeof applyFolderIntake>[0]["candidate"]): Promise<void> => {
+    applyFolderIntake({
+      candidate,
+      getFolders: () => useStore.getState().folders,
+      setFolder,
+      addToast,
+      showSuccessToast: true
+    });
   };
 
   const placeImagesIntoTempFolders = async (imageFiles: File[]): Promise<void> => {
@@ -584,7 +545,7 @@ export default function App() {
       const keyToAlias = new Map<FolderKey, string>();
       const reservedKeys = new Set<FolderKey>();
 
-      for (const key of FOLDER_KEYS) {
+      for (const key of ALL_FOLDER_KEYS) {
         const folder = folders[key];
         if (folder?.alias) {
           aliasToKey.set(folder.alias, key);
@@ -598,7 +559,7 @@ export default function App() {
       const getOrReserveAlias = (alias: string): FolderKey | null => {
         const existingKey = aliasToKey.get(alias);
         if (existingKey) return existingKey;
-        const candidate = FOLDER_KEYS.find(key => !folders[key] && !reservedKeys.has(key));
+        const candidate = ALL_FOLDER_KEYS.find(key => !folders[key] && !reservedKeys.has(key));
         if (!candidate) return null;
         aliasToKey.set(alias, candidate);
         keyToAlias.set(candidate, alias);
@@ -622,7 +583,7 @@ export default function App() {
       for (const file of imageFiles) {
         let aliasIndex = 1;
         let placed = false;
-        while (aliasIndex <= FOLDER_KEYS.length) {
+        while (aliasIndex <= ALL_FOLDER_KEYS.length) {
           const alias = getAliasForIndex(aliasIndex);
           const key = getOrReserveAlias(alias);
           if (!key) break;
@@ -816,8 +777,44 @@ export default function App() {
   }, [current, analysisFile, appMode]);
 
   useEffect(() => {
-    initializeOpenCV().catch(console.error);
-  }, []);
+    if (!electronCapabilities.shouldWarn || !electronCapabilities.warningMessage) {
+      return;
+    }
+    reportStartupWarningOnce({
+      code: "electron-runtime-degraded",
+      title: "Runtime Guard",
+      message: electronCapabilities.warningMessage,
+      details: electronCapabilities.warningDetails,
+      addToast
+    });
+  }, [addToast, electronCapabilities]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const initRuntime = async () => {
+      await initializeOpenCV();
+      if (cancelled) {
+        return;
+      }
+      const openCVState = getOpenCVInitState();
+      if (!openCVState.failed) {
+        return;
+      }
+      reportStartupWarningOnce({
+        code: "opencv-runtime-degraded",
+        title: "Runtime Guard",
+        message: "OpenCV acceleration is unavailable. compareX will continue with non-OpenCV filters.",
+        details: openCVState.error ? [openCVState.error] : undefined,
+        addToast
+      });
+    };
+
+    void initRuntime();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [addToast]);
 
   useEffect(() => {
     if (!showColorPalette) {
