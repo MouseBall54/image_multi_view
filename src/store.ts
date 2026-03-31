@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Viewport, AppMode, FolderKey, Pinpoint, PinpointMouseMode, MatchedItem, FilterType, GridColor, FilterChain, FilterChainItem, FilterPreset } from "./types";
+import type { Viewport, AppMode, FolderKey, Pinpoint, PinpointMouseMode, MatchedItem, FilterType, GridColor, FilterChain, FilterChainItem, FilterPreset, ReviewType, ReviewFileStatusFilter, ReviewWarningSummary } from "./types";
 import { DEFAULT_VIEWPORT } from "./config";
 import { FolderData } from "./utils/folder";
 import { ensureMeta, rescanFolderData } from "./utils/folderSync";
@@ -136,6 +136,23 @@ const defaultFilterParams: FilterParams = {
 
 const DEFAULT_VIEWER_ORDER = Array.from({ length: 26 }, (_, index) => index);
 
+const createDefaultReviewWarningSummary = (): ReviewWarningSummary => ({
+  matched: 0,
+  unmatched: 0,
+  invalid: 0,
+  messages: []
+});
+
+const createDefaultReviewState = () => ({
+  reviewType: "detection" as ReviewType,
+  selectedReviewItemId: null as string | null,
+  reviewFileStatusFilter: "matched" as ReviewFileStatusFilter,
+  reviewOverlayVisible: true,
+  reviewMaskOpacity: 0.5,
+  reviewHasClassesMetadata: false,
+  reviewWarningSummary: createDefaultReviewWarningSummary()
+});
+
 const folderKeyFromSlotIndex = (slotIndex: number): FolderKey => {
   return String.fromCharCode(65 + slotIndex) as FolderKey;
 };
@@ -200,6 +217,14 @@ interface State {
   analysisRotation: number;
   // Compare Mode State
   compareRotation: number;
+
+  reviewType: ReviewType;
+  selectedReviewItemId: string | null;
+  reviewFileStatusFilter: ReviewFileStatusFilter;
+  reviewOverlayVisible: boolean;
+  reviewMaskOpacity: number;
+  reviewHasClassesMetadata: boolean;
+  reviewWarningSummary: ReviewWarningSummary;
 
 
   // Toggle Modal state - viewer-based image selection
@@ -283,6 +308,15 @@ interface State {
   setAnalysisRotation: (angle: number) => void;
   // Compare Mode Actions
   setCompareRotation: (angle: number) => void;
+
+  setReviewType: (type: ReviewType) => void;
+  setSelectedReviewItemId: (id: string | null) => void;
+  setReviewFileStatusFilter: (filter: ReviewFileStatusFilter) => void;
+  setReviewOverlayVisible: (visible: boolean) => void;
+  setReviewMaskOpacity: (opacity: number) => void;
+  setReviewHasClassesMetadata: (hasClassesMetadata: boolean) => void;
+  setReviewWarningSummary: (summary: ReviewWarningSummary) => void;
+  resetReviewState: () => void;
 
 
   // Toggle actions
@@ -592,6 +626,8 @@ export const useStore = create<State>((set, get) => ({
   analysisRotation: 0,
   compareRotation: 0,
 
+  ...createDefaultReviewState(),
+
 
   // Toggle state
   selectedViewers: [],
@@ -786,6 +822,15 @@ export const useStore = create<State>((set, get) => ({
   }),
   setAnalysisRotation: (angle) => set({ analysisRotation: angle }),
   setCompareRotation: (angle) => set({ compareRotation: angle }),
+
+  setReviewType: (type) => set({ reviewType: type }),
+  setSelectedReviewItemId: (id) => set({ selectedReviewItemId: id }),
+  setReviewFileStatusFilter: (filter) => set({ reviewFileStatusFilter: filter }),
+  setReviewOverlayVisible: (visible) => set({ reviewOverlayVisible: visible }),
+  setReviewMaskOpacity: (opacity) => set({ reviewMaskOpacity: Math.max(0, Math.min(1, opacity)) }),
+  setReviewHasClassesMetadata: (hasClassesMetadata) => set({ reviewHasClassesMetadata: hasClassesMetadata }),
+  setReviewWarningSummary: (summary) => set({ reviewWarningSummary: summary }),
+  resetReviewState: () => set(createDefaultReviewState()),
 
 
   // Toggle actions
@@ -1320,6 +1365,7 @@ useStore.subscribe((state, prevState) => {
         stickySource: false,
         sourceFile: undefined,
       },
+      ...createDefaultReviewState(),
     });
 
     // Clear analysis file if leaving analysis mode

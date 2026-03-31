@@ -5,6 +5,7 @@ import type { AppMode } from "./types";
 import { CompareMode, CompareModeHandle } from './modes/CompareMode';
 import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
+import { ReviewMode } from "./modes/ReviewMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterCart } from "./components/FilterCart";
 import { FilterPreviewModal } from "./components/FilterPreviewModal";
@@ -210,6 +211,7 @@ export default function App() {
 
   const showDevControls = isDevBuild;
   const canUseUpdater = hasUpdater;
+  const isReviewMode = appMode === "review";
 
   useEffect(() => {
     if (!showDevControls) {
@@ -848,6 +850,7 @@ export default function App() {
 
       const state = useStore.getState();
       const { viewport, appMode, activeCanvasKey, pinpointScales, pinpointGlobalScale, setAppMode, setViewport } = state;
+      const isReviewModeActive = appMode === 'review';
       const KEY_PAN_AMOUNT = 50;
 
       const key = rawKey.toLowerCase();
@@ -881,7 +884,7 @@ export default function App() {
         setShowControls((prev: boolean) => !prev);
         return;
       }
-      if (e.ctrlKey && key === 'l') {
+      if (!isReviewModeActive && e.ctrlKey && key === 'l') {
         e.preventDefault();
         setShowFilterLabels(!showFilterLabels);
         return;
@@ -896,7 +899,7 @@ export default function App() {
         setShowMinimap(!showMinimap);
         return;
       }
-      if (e.altKey && key === 'g') {
+      if (!isReviewModeActive && e.altKey && key === 'g') {
         e.preventDefault();
         setShowGrid(!showGrid);
         return;
@@ -924,7 +927,7 @@ export default function App() {
         if (handled) { e.preventDefault(); return; }
       }
 
-      // Disable mode switching (1/2/3) when any modal/overlay is active
+      // Disable mode switching (Ctrl+1/2/3/4) when any modal/overlay is active
       // Use both state flags and DOM presence as a safety net to avoid stale state issues
       const overlayPresent = !!(
         document.querySelector('.filter-controls-overlay') ||
@@ -955,12 +958,13 @@ export default function App() {
       }
 
       // Mode switching - Ctrl + 숫자로 변경
-      if (e.ctrlKey && (key === '1' || key === '2' || key === '3')) {
+      if (e.ctrlKey && (key === '1' || key === '2' || key === '3' || key === '4')) {
         e.preventDefault();
         switch (key) {
           case '1': setAppMode('pinpoint'); break;
           case '2': setAppMode('analysis'); break;
           case '3': setAppMode('compare'); break;
+          case '4': setAppMode('review'); break;
         }
         return;
       }
@@ -1008,6 +1012,8 @@ export default function App() {
         return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} setIsInternalDragActive={setIsInternalDragActive} />;
       case 'analysis':
         return <AnalysisMode ref={analysisModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
+      case 'review':
+        return <ReviewMode />;
       default:
         return null;
     }
@@ -1041,27 +1047,31 @@ export default function App() {
             onToggleControls={() => setShowControls(!showControls)} 
           />
           {/* Moved Toggle and Capture buttons next to view-toggle-controls */}
-          <button
-            className={"controls-main-button toggle-main-btn"}
-            onClick={() => openToggleModal()}
-            title={"Toggle Mode (Space)"}
-            disabled={
-              selectedViewers.length === 0 ||
-              (appMode === 'compare' && !current) ||
-              (appMode === 'analysis' && !analysisFile)
-            }
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
-            Toggle ({selectedViewers.length})
-          </button>
-          <button 
-            className="controls-main-button capture-button" 
-            onClick={handleOpenCaptureModal}
-            title="Capture screenshot"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-            Capture
-          </button>
+          {!isReviewMode && (
+            <button
+              className={"controls-main-button toggle-main-btn"}
+              onClick={() => openToggleModal()}
+              title={"Toggle Mode (Space)"}
+              disabled={
+                selectedViewers.length === 0 ||
+                (appMode === 'compare' && !current) ||
+                (appMode === 'analysis' && !analysisFile)
+              }
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+              Toggle ({selectedViewers.length})
+            </button>
+          )}
+          {!isReviewMode && (
+            <button 
+              className="controls-main-button capture-button" 
+              onClick={handleOpenCaptureModal}
+              title="Capture screenshot"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              Capture
+            </button>
+          )}
           <div className="minimap-button-unified">
             <button 
               onClick={() => setShowMinimap(!showMinimap)} 
@@ -1079,7 +1089,8 @@ export default function App() {
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0A1.65 1.65 0 0 0 20.91 12H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51-1Z"/></svg>
             </button>
           </div>
-          <div className="grid-button-unified" ref={gridColorAnchorRef}>
+          {!isReviewMode && (
+            <div className="grid-button-unified" ref={gridColorAnchorRef}>
             <button
               className={`grid-button-toggle ${showGrid ? 'active' : ''}`}
               onClick={() => setShowGrid(!showGrid)}
@@ -1111,6 +1122,7 @@ export default function App() {
               </div>
             )}
           </div>
+          )}
           <div className="title-right-actions">
             <button
               className={`controls-main-button tutorial-button${showTutorialPanel ? ' active' : ''}`}
@@ -1200,11 +1212,13 @@ export default function App() {
                 className="mode-selector" 
                 value={appMode} 
                 onChange={e => setAppMode(e.target.value as AppMode)}
-                title="Select app mode (Ctrl+1/2/3)"
+                title="Select app mode (Ctrl+1/2/3/4)"
+                data-testid="app-mode-select"
               >
                 <option value="pinpoint" className="mode-option">🎯 Pinpoint</option>
                 <option value="analysis" className="mode-option">🔬 Analysis</option>
                 <option value="compare" className="mode-option">📚 Compare</option>
+                <option value="review" className="mode-option" data-testid="mode-option-review">📝 Review</option>
               </select>
             </label>
             {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'analysis') && (
@@ -1222,7 +1236,7 @@ export default function App() {
                 </select>
               </label>
             )}
-            <div className="pinpoint-reorder-controls" title="Reorder behavior for viewer drag">
+            {appMode === 'pinpoint' && <div className="pinpoint-reorder-controls" title="Reorder behavior for viewer drag">
               <button
                 className={`controls-main-button ${pinpointReorderMode === 'shift' ? 'active' : ''}`}
                 onClick={() => setPinpointReorderMode('shift')}
@@ -1235,7 +1249,7 @@ export default function App() {
               >
                 Swap
               </button>
-            </div>
+            </div>}
             
           </div>
           <div className="controls-right">
@@ -1247,8 +1261,8 @@ export default function App() {
                 <PinpointGlobalScaleControl />
               </div>
             )}
-          {appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
-            <button
+          {!isReviewMode && appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
+            {!isReviewMode && <button
               onClick={() => {
                 if (syncCapture.active) {
                   cancelSync();
@@ -1266,14 +1280,14 @@ export default function App() {
                 <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15"/>
               </svg>
               Sync
-            </button>
-            <button 
+            </button>}
+            {!isReviewMode && <button 
               onClick={resetView} 
               title="Reset View (Alt+R)" 
               className="controls-main-button"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4M12 12l-8 8M12 12l8 8M12 12l-8-8M12 12l8-8"/></svg>
-            </button>
+            </button>}
           </div>
         </div>
       </header>
@@ -1288,7 +1302,7 @@ export default function App() {
         />
       }
 
-      {isCaptureModalOpen && (
+      {!isReviewMode && isCaptureModalOpen && (
         <div className="capture-modal" onClick={() => setCaptureModalOpen(false)}>
           <div className="capture-modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>Capture Options</h3>
@@ -1455,10 +1469,10 @@ export default function App() {
         </div>
       )}
 
-      <FilterCart />
+      {!isReviewMode && <FilterCart />}
       
       {/* Only render FilterPreviewModal for modal mode, sidebar mode is rendered within FilterCart */}
-      {previewModal.position !== 'sidebar' && (
+      {!isReviewMode && previewModal.position !== 'sidebar' && (
         <FilterPreviewModal
           isOpen={previewModal.isOpen}
           onClose={closePreviewModal}
