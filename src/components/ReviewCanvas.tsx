@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
 import { ImageCanvas, type ImageCanvasHandle } from "./ImageCanvas";
 import { useStore } from "../store";
@@ -137,13 +137,24 @@ export const ReviewCanvas = ({
   const reviewMaskOpacity = useStore((state) => state.reviewMaskOpacity);
   const viewport = useStore((state) => state.viewport);
   const compareRotation = useStore((state) => state.compareRotation);
-  const imageDimensions = useStore((state) => state.analysisImageSizes[REVIEW_CANVAS_SLOT] ?? null);
+  const canvasImageDimensions = useStore((state) => state.analysisImageSizes[REVIEW_CANVAS_SLOT] ?? null);
   const setReviewOverlayVisible = useStore((state) => state.setReviewOverlayVisible);
   const setReviewMaskOpacity = useStore((state) => state.setReviewMaskOpacity);
 
   const resolvedReviewType = reviewType ?? storeReviewType;
+  const imageDimensions = useMemo(() => {
+    if (resolvedReviewType === "segmentation") {
+      return record?.segmentation?.sourceImageDimensions ?? canvasImageDimensions;
+    }
+
+    return canvasImageDimensions;
+  }, [canvasImageDimensions, record?.segmentation?.sourceImageDimensions, resolvedReviewType]);
+
   const detectionPrimitives = useMemo(() => normalizeDetectionOverlayPrimitives(record), [record]);
   const displayLabel = label ?? record?.basename ?? "Review";
+  const handleReviewMaskOpacityInput = (event: ChangeEvent<HTMLInputElement>) => {
+    setReviewMaskOpacity(Number(event.target.value));
+  };
   const maskOpacityState = useMemo(() => {
     return getReviewMaskOpacityState({
       reviewType: resolvedReviewType,
@@ -308,7 +319,8 @@ export const ReviewCanvas = ({
               max="1"
               step="0.05"
               value={reviewMaskOpacity}
-              onChange={(event) => setReviewMaskOpacity(Number(event.target.value))}
+              onInput={handleReviewMaskOpacityInput}
+              onChange={handleReviewMaskOpacityInput}
               data-testid="review-mask-opacity"
               disabled={maskOpacityState.disabled}
             />

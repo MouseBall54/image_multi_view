@@ -20,6 +20,21 @@ export type ReviewOverlayPalette = {
 
 const DEFAULT_LABEL_FONT_SIZE = 13;
 
+const DETECTION_CLASS_COLORS = [
+  "#4f9dff",
+  "#ff7a59",
+  "#22c55e",
+  "#eab308",
+  "#a78bfa",
+  "#06b6d4",
+  "#f43f5e",
+  "#84cc16",
+  "#fb7185",
+  "#14b8a6",
+  "#f59e0b",
+  "#60a5fa"
+] as const;
+
 export const DEFAULT_REVIEW_OVERLAY_PALETTE: ReviewOverlayPalette = {
   detectionStroke: "rgba(0, 123, 255, 0.95)",
   detectionFill: "rgba(0, 123, 255, 0.16)",
@@ -48,6 +63,47 @@ const sanitizeLabel = (label: string | number | null | undefined, classId: numbe
   }
 
   return String(classId);
+};
+
+const hexToRgb = (hexColor: string): { r: number; g: number; b: number } | null => {
+  const normalized = hexColor.trim().replace("#", "");
+  if (!/^[\da-fA-F]{6}$/.test(normalized)) {
+    return null;
+  }
+
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  return { r, g, b };
+};
+
+const toRgba = (rgb: { r: number; g: number; b: number }, alpha: number): string => {
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${Math.max(0, Math.min(1, alpha))})`;
+};
+
+const getClassColor = (classId: number): { r: number; g: number; b: number } | null => {
+  if (!Number.isFinite(classId)) {
+    return null;
+  }
+
+  const safeIndex = ((Math.trunc(classId) % DETECTION_CLASS_COLORS.length) + DETECTION_CLASS_COLORS.length) % DETECTION_CLASS_COLORS.length;
+  return hexToRgb(DETECTION_CLASS_COLORS[safeIndex]);
+};
+
+const getDetectionClassStyle = (classId: number, fallback: ReviewOverlayPalette): ReviewOverlayPalette => {
+  const rgb = getClassColor(classId);
+  if (!rgb) {
+    return fallback;
+  }
+
+  const luminance = ((0.2126 * rgb.r) + (0.7152 * rgb.g) + (0.0722 * rgb.b)) / 255;
+
+  return {
+    detectionStroke: toRgba(rgb, 0.95),
+    detectionFill: toRgba(rgb, 0.2),
+    labelBackground: toRgba(rgb, 0.9),
+    labelText: luminance > 0.62 ? "#111418" : "#f8fafc"
+  };
 };
 
 const getLabelWidth = (ctx: CanvasRenderingContext2D, label: string, fontSize: number): number => {
@@ -185,6 +241,18 @@ export const drawDetectionOverlayPrimitives = (
   ctx.textBaseline = "top";
   ctx.lineWidth = lineWidth;
 
+  const canvasWidth = Number.isFinite(ctx.canvas?.width) && (ctx.canvas?.width ?? 0) > 0 ? (ctx.canvas?.width ?? 0) : Number.POSITIVE_INFINITY;
+  const canvasHeight = Number.isFinite(ctx.canvas?.height) && (ctx.canvas?.height ?? 0) > 0 ? (ctx.canvas?.height ?? 0) : Number.POSITIVE_INFINITY;
+
+  ctx.beginPath();
+  ctx.rect(
+    transform.drawX,
+    transform.drawY,
+    imageDimensions.width * transform.scale,
+    imageDimensions.height * transform.scale
+  );
+  ctx.clip();
+
   for (const primitive of primitives) {
     const screenX = transform.drawX + (primitive.left * imageDimensions.width * transform.scale);
     const screenY = transform.drawY + (primitive.top * imageDimensions.height * transform.scale);
@@ -199,8 +267,17 @@ export const drawDetectionOverlayPrimitives = (
       continue;
     }
 
-    ctx.strokeStyle = palette.detectionStroke;
-    ctx.fillStyle = palette.detectionFill;
+    const right = screenX + screenWidth;
+    const bottom = screenY + screenHeight;
+    const intersectsViewport = right > 0 && bottom > 0 && screenX < canvasWidth && screenY < canvasHeight;
+    if (!intersectsViewport) {
+      continue;
+    }
+
+    const classStyle = getDetectionClassStyle(primitive.classId, palette);
+
+    ctx.strokeStyle = classStyle.detectionStroke;
+    ctx.fillStyle = classStyle.detectionFill;
     ctx.beginPath();
     ctx.rect(screenX, screenY, screenWidth, screenHeight);
     ctx.fill();
@@ -210,13 +287,17 @@ export const drawDetectionOverlayPrimitives = (
     if (label.length > 0) {
       const labelWidth = getLabelWidth(ctx, label, fontSize);
       const labelHeight = fontSize + 8;
-      const labelY = Math.max(0, screenY - labelHeight - 4);
+      const labelBoxWidth = labelWidth + 12;
+      const maxLabelX = Math.max(0, canvasWidth - labelBoxWidth);
+      const maxLabelY = Math.max(0, canvasHeight - labelHeight);
+      const labelX = Math.max(0, Math.min(screenX, maxLabelX));
+      const labelY = Math.max(0, Math.min(screenY - labelHeight - 4, maxLabelY));
 
-      ctx.fillStyle = palette.labelBackground;
-      ctx.fillRect(screenX, labelY, labelWidth + 12, labelHeight);
+      ctx.fillStyle = classStyle.labelBackground;
+      ctx.fillRect(labelX, labelY, labelBoxWidth, labelHeight);
 
-      ctx.fillStyle = palette.labelText;
-      ctx.fillText(label, screenX + 6, labelY + 4);
+      ctx.fillStyle = classStyle.labelText;
+      ctx.fillText(label, labelX + 6, labelY + 4);
     }
 
     renderedCount += 1;

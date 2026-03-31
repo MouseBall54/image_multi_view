@@ -50,6 +50,7 @@ const createFakeContext = () => {
     translate: vi.fn(),
     rotate: vi.fn(),
     beginPath: vi.fn(),
+    clip: vi.fn(),
     rect: vi.fn(),
     fill: vi.fn(),
     stroke: vi.fn(),
@@ -139,5 +140,78 @@ describe("runtime review overlay primitives", () => {
     expect(drawn).toBe(true);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
     expect(ctx.globalAlpha).toBe(1);
+  });
+
+  it("assigns distinct overlay colors by detection class", () => {
+    const strokeColors: string[] = [];
+    const labelBackgrounds: string[] = [];
+
+    const ctx = createFakeContext() as unknown as CanvasRenderingContext2D & {
+      strokeStyle: string;
+      fillStyle: string;
+    };
+
+    ctx.stroke = vi.fn(() => {
+      strokeColors.push(String(ctx.strokeStyle));
+    });
+
+    ctx.fillRect = vi.fn(() => {
+      labelBackgrounds.push(String(ctx.fillStyle));
+    });
+
+    const transform = computeStandardTransform({
+      imageW: 100,
+      imageH: 100,
+      viewport: { scale: 1, cx: 0.5, cy: 0.5 },
+      scale: 1,
+      angleDeg: 0,
+      canvasW: 100,
+      canvasH: 100
+    });
+
+    const rendered = drawDetectionOverlayPrimitives(ctx, {
+      primitives: [
+        { classId: 1, label: "car", line: 1, left: 0.1, top: 0.1, width: 0.2, height: 0.2 },
+        { classId: 5, label: "person", line: 2, left: 0.5, top: 0.5, width: 0.2, height: 0.2 }
+      ],
+      imageDimensions: { width: 100, height: 100 },
+      transform
+    });
+
+    expect(rendered).toBe(2);
+    expect(ctx.clip).toHaveBeenCalledTimes(1);
+    expect(strokeColors).toHaveLength(2);
+    expect(new Set(strokeColors).size).toBeGreaterThan(1);
+    expect(labelBackgrounds).toHaveLength(2);
+    expect(new Set(labelBackgrounds).size).toBeGreaterThan(1);
+  });
+
+  it("does not render labels for detection boxes fully outside viewport", () => {
+    const ctx = createFakeContext() as unknown as CanvasRenderingContext2D;
+    const fillTextSpy = vi.fn();
+    ctx.fillText = fillTextSpy;
+
+    const transform = computeStandardTransform({
+      imageW: 100,
+      imageH: 100,
+      viewport: { scale: 1, cx: 0.5, cy: 0.5 },
+      scale: 1,
+      angleDeg: 0,
+      canvasW: 100,
+      canvasH: 100
+    });
+
+    const rendered = drawDetectionOverlayPrimitives(ctx, {
+      primitives: [
+        { classId: 0, label: "visible", line: 1, left: 0.2, top: 0.2, width: 0.2, height: 0.2 },
+        { classId: 1, label: "outside", line: 2, left: -1.2, top: -1.2, width: 0.2, height: 0.2 }
+      ],
+      imageDimensions: { width: 100, height: 100 },
+      transform
+    });
+
+    expect(rendered).toBe(1);
+    expect(fillTextSpy).toHaveBeenCalledTimes(1);
+    expect(fillTextSpy).toHaveBeenCalledWith("visible", expect.any(Number), expect.any(Number));
   });
 });
