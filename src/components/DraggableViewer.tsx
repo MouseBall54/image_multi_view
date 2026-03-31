@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 
 interface DraggableViewerProps {
   position: number;
@@ -22,12 +22,40 @@ export const DraggableViewer: React.FC<DraggableViewerProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isDropTarget, setIsDropTarget] = useState(false);
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+  const mouseMoveHandlerRef = useRef<((event: MouseEvent) => void) | null>(null);
+  const mouseUpHandlerRef = useRef<(() => void) | null>(null);
   const dragThreshold = 8; // minimum pixels to start drag
   
   const updateGlobalDragState = useCallback((dragging: boolean, pos: number | null = null) => {
     globalDragState.isDragging = dragging;
     globalDragState.draggedPosition = pos;
   }, []);
+
+  const clearDragInteraction = useCallback(() => {
+    dragStartPos.current = null;
+    setIsDragging(false);
+    setIsDropTarget(false);
+    updateGlobalDragState(false, null);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.body.classList.remove('viewer-dragging');
+
+    if (mouseMoveHandlerRef.current) {
+      document.removeEventListener('mousemove', mouseMoveHandlerRef.current);
+      mouseMoveHandlerRef.current = null;
+    }
+
+    if (mouseUpHandlerRef.current) {
+      document.removeEventListener('mouseup', mouseUpHandlerRef.current);
+      mouseUpHandlerRef.current = null;
+    }
+  }, [updateGlobalDragState]);
+
+  useEffect(() => {
+    return () => {
+      clearDragInteraction();
+    };
+  }, [clearDragInteraction]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     // Only start drag if Shift is held and not already dragging
@@ -58,17 +86,12 @@ export const DraggableViewer: React.FC<DraggableViewerProps> = ({
     };
     
     const handleMouseUp = () => {
-      dragStartPos.current = null;
-      setIsDragging(false);
-      setIsDropTarget(false);
-      updateGlobalDragState(false, null);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      document.body.classList.remove('viewer-dragging');
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      clearDragInteraction();
     };
-    
+
+    mouseMoveHandlerRef.current = handleMouseMove;
+    mouseUpHandlerRef.current = handleMouseUp;
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };

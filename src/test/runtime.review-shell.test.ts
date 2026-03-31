@@ -331,4 +331,33 @@ describe("runtime review shell integration", () => {
     });
     expect(selectedFilename()).toContain("det-2.jpg");
   });
+
+  it("clears leaked dragging lock so review rail controls remain interactive", async () => {
+    resetState();
+    const { host } = await mount(React.createElement(App));
+
+    document.body.classList.add("viewer-dragging");
+    document.body.style.cursor = "grabbing";
+    document.body.style.userSelect = "none";
+
+    await enterReviewMode(host);
+
+    expect(document.body.classList.contains("viewer-dragging")).toBe(false);
+    expect(document.body.style.cursor).toBe("");
+    expect(document.body.style.userSelect).toBe("");
+
+    await loadDetectionReviewDataset(host, ["det-1.jpg", "det-2.jpg"]);
+
+    expect(host.querySelector('[data-testid="review-detail-rail"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="review-detection-summary"]')).not.toBeNull();
+
+    const selectedFilename = () => host.querySelector('[data-testid="review-selected-filename"]')?.textContent ?? "";
+    const nextButton = host.querySelector('[data-testid="review-next-item"]') as HTMLButtonElement;
+
+    expect(selectedFilename()).toContain("det-1.jpg");
+    await act(async () => {
+      nextButton.click();
+    });
+    expect(selectedFilename()).toContain("det-2.jpg");
+  });
 });
