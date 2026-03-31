@@ -156,8 +156,8 @@ export const getReviewMaskOpacityState = (params: {
 
   if (!hasMaskOverlaySource) {
     return {
-      disabled: true,
-      message: "Mask overlay is still loading or could not be prepared for the selected record."
+      disabled: false,
+      message: "Mask overlay is loading. Opacity changes will apply once rendering is ready."
     };
   }
 

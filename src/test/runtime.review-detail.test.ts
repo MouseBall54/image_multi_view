@@ -145,6 +145,15 @@ describe("runtime review detail helpers", () => {
 
     expect(getReviewMaskOpacityState({
       reviewType: "segmentation",
+      record: matchedSegmentationRecord,
+      hasMaskOverlaySource: false
+    })).toEqual({
+      disabled: false,
+      message: "Mask overlay is loading. Opacity changes will apply once rendering is ready."
+    });
+
+    expect(getReviewMaskOpacityState({
+      reviewType: "segmentation",
       record: invalidSegmentationRecord,
       hasMaskOverlaySource: false
     })).toEqual({
