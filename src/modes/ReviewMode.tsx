@@ -22,6 +22,11 @@ type ReviewEmptyState = {
   description: string;
 };
 
+type ReviewInfoChip = {
+  label: string;
+  tone: "neutral" | "success" | "warning" | "danger";
+};
+
 const REVIEW_FILTER_CONFIG: Array<{ status: ReviewFileStatusFilter; testId: string }> = [
   { status: "matched", testId: "review-filter-matched" },
   { status: "unmatched", testId: "review-filter-unmatched" },
@@ -41,11 +46,15 @@ const getRoleLabel = (role: ReviewFolderRole): string => {
   return role === "images" ? "Image Folder" : "Annotation Folder";
 };
 
-const getRoleActionLabel = (role: ReviewFolderRole, hasFolder: boolean): string => {
+const getRoleConsoleLabel = (role: ReviewFolderRole): string => {
+  return role === "images" ? "Images" : "Annotations";
+};
+
+const getRoleActionLabel = (hasFolder: boolean): string => {
   if (hasFolder) {
-    return role === "images" ? "Change Images" : "Change Annotations";
+    return "Change";
   }
-  return role === "images" ? "Select Images" : "Select Annotations";
+  return "Select";
 };
 
 const buildWarningSummary = (params: {
@@ -199,16 +208,26 @@ const formatStatusLabel = (status: ReviewFileStatusFilter): string => {
   return status.charAt(0).toUpperCase() + status.slice(1);
 };
 
-const formatFolderStats = (candidate: FolderIntakeCandidate | null, reviewType: ReviewType, role: ReviewFolderRole): string => {
+const formatFolderStats = (candidate: FolderIntakeCandidate | null): ReviewInfoChip[] => {
   if (!candidate) {
-    return getReviewFolderFormatLabel(role, reviewType);
+    return [];
   }
+
+  const chips: ReviewInfoChip[] = [];
+  chips.push({
+    label: `${candidate.data.files.size} file${candidate.data.files.size === 1 ? "" : "s"}`,
+    tone: "success"
+  });
 
   const skipped = candidate.stats.unsupportedFileCount + candidate.stats.unreadableFileCount;
   if (skipped > 0) {
-    return `${candidate.data.files.size} accepted · ${skipped} skipped`;
+    chips.push({
+      label: `${skipped} skipped`,
+      tone: "warning"
+    });
   }
-  return `${candidate.data.files.size} accepted`;
+
+  return chips;
 };
 
 const isEditableReviewNavigationTarget = (target: EventTarget | null): boolean => {
@@ -250,10 +269,8 @@ export const ReviewMode = () => {
   const reviewType = useStore((state) => state.reviewType);
   const reviewFileStatusFilter = useStore((state) => state.reviewFileStatusFilter);
   const reviewHasClassesMetadata = useStore((state) => state.reviewHasClassesMetadata);
-  const reviewWarningSummary = useStore((state) => state.reviewWarningSummary);
   const selectedReviewItemId = useStore((state) => state.selectedReviewItemId);
   const showFilelist = useStore((state) => state.showFilelist);
-  const setReviewType = useStore((state) => state.setReviewType);
   const setReviewFileStatusFilter = useStore((state) => state.setReviewFileStatusFilter);
   const setReviewHasClassesMetadata = useStore((state) => state.setReviewHasClassesMetadata);
   const setReviewWarningSummary = useStore((state) => state.setReviewWarningSummary);
@@ -268,6 +285,16 @@ export const ReviewMode = () => {
   const [isBuildingDataset, setIsBuildingDataset] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const annotationInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    document.body.classList.remove("viewer-dragging");
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  }, []);
 
   const warningSummary = useMemo(() => {
     return buildWarningSummary({
@@ -333,6 +360,28 @@ export const ReviewMode = () => {
       isBuildingDataset
     });
   }, [annotationFolder, datasetError, datasetResult, imageFolder, isBuildingDataset, reviewFileStatusFilter, reviewType, searchQuery, visibleRecords]);
+
+  const summaryMetaChips = useMemo(() => {
+    const chips: ReviewInfoChip[] = [];
+
+    if (isBuildingDataset && imageFolder && annotationFolder) {
+      chips.push({ label: "Preparing dataset", tone: "neutral" });
+    }
+
+    if (datasetError) {
+      chips.push({ label: "Dataset error", tone: "danger" });
+    }
+
+    if (reviewType === "detection" && reviewHasClassesMetadata) {
+      const classCount = datasetResult?.classes.length ?? 0;
+      chips.push({
+        label: classCount > 0 ? `${classCount} classes` : "classes.txt",
+        tone: "success"
+      });
+    }
+
+    return chips;
+  }, [annotationFolder, datasetError, datasetResult?.classes.length, imageFolder, isBuildingDataset, reviewHasClassesMetadata, reviewType]);
 
   useEffect(() => {
     setReviewWarningSummary(warningSummary);
@@ -539,64 +588,104 @@ export const ReviewMode = () => {
   return (
     <main className="review-mode" data-testid="review-mode-root">
       <section className="review-mode-panel">
-        <header className="review-mode-panel-header">
-          <div>
-            <h2 className="review-mode-title">Review Mode</h2>
-            <p className="review-mode-copy">
-              Pair one image folder with one annotation folder, then inspect matched, unmatched, and invalid review records.
-            </p>
-          </div>
-          <div className="controls-main review-mode-toolbar">
-            <label>
-              <span>Review Type</span>
-              <select
-                value={reviewType}
-                onChange={(event) => setReviewType(event.target.value as ReviewType)}
-                data-testid="review-type-select"
-              >
-                <option value="detection">detection</option>
-                <option value="segmentation">segmentation</option>
-              </select>
-            </label>
-          </div>
-        </header>
+        <header className="review-mode-panel-header review-top-strip">
+          <div className="review-top-main">
+            <div className="review-top-left">
+              <div className="review-console-header">
+                {([
+                  { role: "images", candidate: imageFolder },
+                  { role: "annotations", candidate: annotationFolder }
+                ] as const).map(({ role, candidate }) => {
+                  const folderStats = formatFolderStats(candidate);
+                  const hasFolder = Boolean(candidate);
 
-        <section className="review-folder-grid">
-          {([
-            { role: "images", candidate: imageFolder },
-            { role: "annotations", candidate: annotationFolder }
-          ] as const).map(({ role, candidate }) => (
-            <article
-              key={role}
-              className={`review-folder-card ${candidate ? "loaded" : "unloaded"}`}
-              data-testid={role === "images" ? "review-images-folder-control" : "review-annotations-folder-control"}
-            >
-              <div className="review-folder-card-header">
-                <div>
-                  <h3>{getRoleLabel(role)}</h3>
-                  <p>{getReviewFolderFormatLabel(role, reviewType)}</p>
+                  return (
+                    <div
+                      key={role}
+                      className={`review-source-inline ${hasFolder ? "loaded" : "unloaded"}`}
+                      data-testid={role === "images" ? "review-images-folder-control" : "review-annotations-folder-control"}
+                    >
+                      <div className="review-source-inline-actions">
+                        <button
+                          type="button"
+                          className="controls-main-button review-folder-picker-button"
+                          onClick={() => handlePickFolder(role)}
+                        >
+                          {getRoleActionLabel(hasFolder)}
+                        </button>
+                        {candidate && (
+                          <button
+                            type="button"
+                            className="review-folder-clear-button"
+                            onClick={() => (role === "images" ? setImageFolder(null) : setAnnotationFolder(null))}
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="review-source-inline-main">
+                        <div className="review-source-inline-heading">
+                          <span className="review-source-inline-label">{getRoleConsoleLabel(role)}</span>
+                        </div>
+
+                        <strong
+                          className={`review-source-inline-name ${hasFolder ? "" : "is-placeholder"}`}
+                          title={candidate?.data.name}
+                        >
+                          {candidate?.data.name ?? "No folder selected"}
+                        </strong>
+
+                        {folderStats.length > 0 && (
+                          <div className="review-source-inline-chips">
+                            {folderStats.map((chip) => (
+                              <span
+                                key={`${role}-${chip.label}`}
+                                className={`review-inline-chip tone-${chip.tone}`}
+                              >
+                                {chip.label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <section className="review-warning-summary review-warning-summary-compact review-top-summary" data-testid="review-warning-summary">
+              <div className="review-warning-summary-header">
+                <h3>Dataset</h3>
+                <div className="review-warning-summary-counts">
+                  {REVIEW_STATUS_ORDER.map((status) => (
+                    <span
+                      key={status}
+                      className={`review-status-chip status-${status} ${warningSummary[status] > 0 ? "" : "is-empty"}`}
+                    >
+                      {formatStatusLabel(status)} {warningSummary[status]}
+                    </span>
+                  ))}
                 </div>
-                {candidate && (
-                  <button
-                    type="button"
-                    className="review-folder-clear-button"
-                    onClick={() => (role === "images" ? setImageFolder(null) : setAnnotationFolder(null))}
-                  >
-                    Clear
-                  </button>
-                )}
               </div>
-              <div className="review-folder-card-body">
-                <strong>{candidate?.data.name ?? "Not loaded"}</strong>
-                <span>{formatFolderStats(candidate, reviewType, role)}</span>
-              </div>
-              <div className="review-folder-card-actions">
-                <button type="button" className="controls-main-button" onClick={() => handlePickFolder(role)}>
-                  {getRoleActionLabel(role, Boolean(candidate))}
-                </button>
-              </div>
-            </article>
-          ))}
+
+              {summaryMetaChips.length > 0 && (
+                <div className="review-warning-summary-meta">
+                  {summaryMetaChips.map((chip) => (
+                    <span key={chip.label} className={`review-inline-chip tone-${chip.tone}`}>
+                      {chip.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {warningSummary.messages[0] && (
+                <p className="review-warning-summary-notice">{warningSummary.messages[0]}</p>
+              )}
+            </section>
+          </div>
+
           <div className="review-hidden-inputs" aria-hidden="true">
             <input
               ref={imageInputRef}
@@ -615,36 +704,7 @@ export const ReviewMode = () => {
               {...({ webkitdirectory: "" } as any)}
             />
           </div>
-        </section>
-
-        <section className="review-warning-summary" data-testid="review-warning-summary">
-          <div className="review-warning-summary-header">
-            <h3>Dataset Status</h3>
-            <div className="review-warning-summary-counts">
-              {REVIEW_STATUS_ORDER.map((status) => (
-                <span key={status} className={`review-status-chip status-${status}`}>
-                  {formatStatusLabel(status)} {reviewWarningSummary[status]}
-                </span>
-              ))}
-            </div>
-          </div>
-          {reviewType === "detection" && (
-            <p className="review-warning-summary-meta">
-              {reviewHasClassesMetadata
-                ? `classes.txt metadata loaded${datasetResult && datasetResult.classes.length > 0 ? ` (${datasetResult.classes.length} classes)` : ""}.`
-                : "classes.txt metadata is optional and currently not loaded."}
-            </p>
-          )}
-          {reviewWarningSummary.messages.length > 0 ? (
-            <ul>
-              {reviewWarningSummary.messages.map((message) => (
-                <li key={message}>{message}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="review-warning-summary-meta">Matched image and annotation pairs are ready for canvas review.</p>
-          )}
-        </section>
+        </header>
 
         <div className={`review-mode-main ${showFilelist ? "" : "filelist-hidden"}`}>
           {showFilelist && (
@@ -759,7 +819,7 @@ export const ReviewMode = () => {
                 />
 
                 {showSupportRail && (
-                  <aside className="review-detail-rail">
+                  <aside className="review-detail-rail" data-testid="review-detail-rail">
                     {reviewType === "detection" && selectedRecord && (
                       <section className="review-detail-summary" data-testid="review-detection-summary">
                         <h3>Detection Summary</h3>

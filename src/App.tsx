@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useStore } from "./store";
-import type { AppMode } from "./types";
+import type { AppMode, ReviewType } from "./types";
 import { CompareMode, CompareModeHandle } from './modes/CompareMode';
 import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
@@ -150,6 +150,8 @@ export default function App() {
     syncCapture,
     startSync,
     cancelSync,
+    reviewType,
+    setReviewType,
     setFolder,
     folders
   } = useStore();
@@ -1221,6 +1223,18 @@ export default function App() {
                 <option value="review" className="mode-option" data-testid="mode-option-review">📝 Review</option>
               </select>
             </label>
+            {appMode === 'review' && (
+              <label className="review-app-mode-field"><span>Review Type:</span>
+                <select
+                  value={reviewType}
+                  onChange={e => setReviewType(e.target.value as ReviewType)}
+                  data-testid="review-type-select"
+                >
+                  <option value="detection">detection</option>
+                  <option value="segmentation">segmentation</option>
+                </select>
+              </label>
+            )}
             {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'analysis') && (
               <LayoutGridSelector
                 currentRows={viewerRows}
