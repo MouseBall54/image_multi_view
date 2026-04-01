@@ -1,6 +1,14 @@
 // src/types.ts
 export type FolderKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z";
-export type AppMode = "compare" | "pinpoint" | "analysis";
+export type AppMode = "compare" | "pinpoint" | "analysis" | "review";
+export type ReviewType = "detection" | "segmentation";
+export type ReviewFileStatusFilter = "matched" | "unmatched" | "invalid";
+export interface ReviewWarningSummary {
+  matched: number;
+  unmatched: number;
+  invalid: number;
+  messages: string[];
+}
 export type PinpointMouseMode = "pin" | "pan";
 export type GridColor = 'white' | 'red' | 'yellow' | 'blue';
 
@@ -158,4 +166,3 @@ export interface FilterPreset {
   description?: string;
   createdAt: number;
 }
-

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useStore } from "./store";
-import type { AppMode } from "./types";
+import type { AppMode, ReviewType } from "./types";
 import { CompareMode, CompareModeHandle } from './modes/CompareMode';
 import { PinpointMode, PinpointModeHandle } from './modes/PinpointMode';
 import { AnalysisMode, AnalysisModeHandle } from "./modes/AnalysisMode";
+import { ReviewMode } from "./modes/ReviewMode";
 import { ImageInfoPanel } from "./components/ImageInfoPanel";
 import { FilterCart } from "./components/FilterCart";
 import { FilterPreviewModal } from "./components/FilterPreviewModal";
@@ -26,9 +27,15 @@ import { useUsageLogging } from "./hooks/useUsageLogging";
 import { useFolderSync } from "./hooks/useFolderSync";
 import { useElectronFolderWatcher } from "./hooks/useElectronFolderWatcher";
 // Custom menu bar removed; actions moved to title bar
-import { initializeOpenCV } from "./utils/opencv";
+import { getOpenCVInitState, initializeOpenCV } from "./utils/opencv";
 import { handleFolderDrop } from "./utils/dragDrop";
 import type { FolderKey } from "./types";
+import { ALL_FOLDER_KEYS, applyFolderIntake } from "./utils/folderIntake";
+import {
+  evaluateElectronStartupCapabilities,
+  reportStartupWarningOnce,
+  shouldExpectElectronRuntime
+} from "./utils/startupRuntimeGuards";
 
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
@@ -99,7 +106,13 @@ function ViewportControls({ imageDimensions }: {
 export default function App() {
   useUsageLogging();
   useFolderSync();
-  useElectronFolderWatcher(typeof window !== 'undefined' && Boolean((window as any).electronAPI));
+  const electronApi = typeof window !== "undefined" ? (window as any).electronAPI : undefined;
+  const electronCapabilities = useMemo(() => {
+    return evaluateElectronStartupCapabilities(electronApi, {
+      expectElectronRuntime: shouldExpectElectronRuntime()
+    });
+  }, [electronApi]);
+  useElectronFolderWatcher(electronCapabilities.watcherAvailable);
   const {
     appMode,
     setAppMode,
@@ -137,13 +150,14 @@ export default function App() {
     syncCapture,
     startSync,
     cancelSync,
+    reviewType,
+    setReviewType,
     setFolder,
     folders
   } = useStore();
   const { setShowFilelist, closeToggleModal, addToast } = useStore.getState();
-  const electronApi = typeof window !== "undefined" ? (window as any).electronAPI : undefined;
-  const hasUpdater = Boolean(electronApi?.updater);
-  const canToggleDevTools = Boolean(electronApi?.windowActions?.toggleDevTools);
+  const hasUpdater = electronCapabilities.updaterAvailable;
+  const canToggleDevTools = electronCapabilities.canToggleDevTools;
   const defaultDevChannel = isDevChannel();
   const [isDevBuild, setIsDevBuild] = useState<boolean>(!!defaultDevChannel);
   const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
@@ -199,6 +213,7 @@ export default function App() {
 
   const showDevControls = isDevBuild;
   const canUseUpdater = hasUpdater;
+  const isReviewMode = appMode === "review";
 
   useEffect(() => {
     if (!showDevControls) {
@@ -516,64 +531,14 @@ export default function App() {
   };
 
   // Helper functions for global folder drag-drop
-  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
-
-  const findEmptyFolder = (): FolderKey | null => {
-    for (const key of FOLDER_KEYS) {
-      if (!folders[key]) return key;
-    }
-    return null;
-  };
-
-  const placeFolderAsNewFolder = async (folderName: string, imageFiles: File[]): Promise<void> => {
-    try {
-      if (imageFiles.length === 0) {
-        addToast({
-          type: 'warning',
-          title: 'Empty Folder',
-          message: `Folder "${folderName}" contains no valid images`,
-          duration: 5000
-        });
-        return;
-      }
-
-      const emptyKey = findEmptyFolder();
-      if (!emptyKey) {
-        addToast({
-          type: 'error',
-          title: 'No Empty Slots',
-          message: 'All folder slots are in use. Please clear a folder first.',
-          duration: 5000
-        });
-        return;
-      }
-
-      const filesMap = new Map<string, File>();
-      for (const file of imageFiles) {
-        filesMap.set(file.name, file);
-      }
-
-      setFolder(emptyKey, {
-        data: { name: folderName, files: filesMap, meta: new Map(), source: { kind: 'files' } },
-        alias: folderName
-      });
-
-      addToast({
-        type: 'success',
-        title: 'Folder Added',
-        message: `Folder "${folderName}" added with ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''}`,
-        details: [`Assigned to slot ${emptyKey}`, `Images: ${imageFiles.map(f => f.name).slice(0, 5).join(', ')}${imageFiles.length > 5 ? ` and ${imageFiles.length - 5} more...` : ''}`],
-        duration: 5000
-      });
-    } catch (error) {
-      addToast({
-        type: 'error',
-        title: 'Failed to Add Folder',
-        message: `Could not add folder "${folderName}"`,
-        details: [error instanceof Error ? error.message : 'Unknown error'],
-        duration: 5000
-      });
-    }
+  const placeFolderAsNewFolder = async (candidate: Parameters<typeof applyFolderIntake>[0]["candidate"]): Promise<void> => {
+    applyFolderIntake({
+      candidate,
+      getFolders: () => useStore.getState().folders,
+      setFolder,
+      addToast,
+      showSuccessToast: true
+    });
   };
 
   const placeImagesIntoTempFolders = async (imageFiles: File[]): Promise<void> => {
@@ -584,7 +549,7 @@ export default function App() {
       const keyToAlias = new Map<FolderKey, string>();
       const reservedKeys = new Set<FolderKey>();
 
-      for (const key of FOLDER_KEYS) {
+      for (const key of ALL_FOLDER_KEYS) {
         const folder = folders[key];
         if (folder?.alias) {
           aliasToKey.set(folder.alias, key);
@@ -598,7 +563,7 @@ export default function App() {
       const getOrReserveAlias = (alias: string): FolderKey | null => {
         const existingKey = aliasToKey.get(alias);
         if (existingKey) return existingKey;
-        const candidate = FOLDER_KEYS.find(key => !folders[key] && !reservedKeys.has(key));
+        const candidate = ALL_FOLDER_KEYS.find(key => !folders[key] && !reservedKeys.has(key));
         if (!candidate) return null;
         aliasToKey.set(alias, candidate);
         keyToAlias.set(candidate, alias);
@@ -622,7 +587,7 @@ export default function App() {
       for (const file of imageFiles) {
         let aliasIndex = 1;
         let placed = false;
-        while (aliasIndex <= FOLDER_KEYS.length) {
+        while (aliasIndex <= ALL_FOLDER_KEYS.length) {
           const alias = getAliasForIndex(aliasIndex);
           const key = getOrReserveAlias(alias);
           if (!key) break;
@@ -816,8 +781,44 @@ export default function App() {
   }, [current, analysisFile, appMode]);
 
   useEffect(() => {
-    initializeOpenCV().catch(console.error);
-  }, []);
+    if (!electronCapabilities.shouldWarn || !electronCapabilities.warningMessage) {
+      return;
+    }
+    reportStartupWarningOnce({
+      code: "electron-runtime-degraded",
+      title: "Runtime Guard",
+      message: electronCapabilities.warningMessage,
+      details: electronCapabilities.warningDetails,
+      addToast
+    });
+  }, [addToast, electronCapabilities]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const initRuntime = async () => {
+      await initializeOpenCV();
+      if (cancelled) {
+        return;
+      }
+      const openCVState = getOpenCVInitState();
+      if (!openCVState.failed) {
+        return;
+      }
+      reportStartupWarningOnce({
+        code: "opencv-runtime-degraded",
+        title: "Runtime Guard",
+        message: "OpenCV acceleration is unavailable. compareX will continue with non-OpenCV filters.",
+        details: openCVState.error ? [openCVState.error] : undefined,
+        addToast
+      });
+    };
+
+    void initRuntime();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [addToast]);
 
   useEffect(() => {
     if (!showColorPalette) {
@@ -851,6 +852,7 @@ export default function App() {
 
       const state = useStore.getState();
       const { viewport, appMode, activeCanvasKey, pinpointScales, pinpointGlobalScale, setAppMode, setViewport } = state;
+      const isReviewModeActive = appMode === 'review';
       const KEY_PAN_AMOUNT = 50;
 
       const key = rawKey.toLowerCase();
@@ -884,7 +886,7 @@ export default function App() {
         setShowControls((prev: boolean) => !prev);
         return;
       }
-      if (e.ctrlKey && key === 'l') {
+      if (!isReviewModeActive && e.ctrlKey && key === 'l') {
         e.preventDefault();
         setShowFilterLabels(!showFilterLabels);
         return;
@@ -899,7 +901,7 @@ export default function App() {
         setShowMinimap(!showMinimap);
         return;
       }
-      if (e.altKey && key === 'g') {
+      if (!isReviewModeActive && e.altKey && key === 'g') {
         e.preventDefault();
         setShowGrid(!showGrid);
         return;
@@ -927,7 +929,7 @@ export default function App() {
         if (handled) { e.preventDefault(); return; }
       }
 
-      // Disable mode switching (1/2/3) when any modal/overlay is active
+      // Disable mode switching (Ctrl+1/2/3/4) when any modal/overlay is active
       // Use both state flags and DOM presence as a safety net to avoid stale state issues
       const overlayPresent = !!(
         document.querySelector('.filter-controls-overlay') ||
@@ -958,12 +960,13 @@ export default function App() {
       }
 
       // Mode switching - Ctrl + 숫자로 변경
-      if (e.ctrlKey && (key === '1' || key === '2' || key === '3')) {
+      if (e.ctrlKey && (key === '1' || key === '2' || key === '3' || key === '4')) {
         e.preventDefault();
         switch (key) {
           case '1': setAppMode('pinpoint'); break;
           case '2': setAppMode('analysis'); break;
           case '3': setAppMode('compare'); break;
+          case '4': setAppMode('review'); break;
         }
         return;
       }
@@ -1011,6 +1014,8 @@ export default function App() {
         return <PinpointMode ref={pinpointModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} setIsInternalDragActive={setIsInternalDragActive} />;
       case 'analysis':
         return <AnalysisMode ref={analysisModeRef} numViewers={numViewers} bitmapCache={bitmapCache} setPrimaryFile={setPrimaryFile} showControls={showControls} />;
+      case 'review':
+        return <ReviewMode />;
       default:
         return null;
     }
@@ -1044,27 +1049,31 @@ export default function App() {
             onToggleControls={() => setShowControls(!showControls)} 
           />
           {/* Moved Toggle and Capture buttons next to view-toggle-controls */}
-          <button
-            className={"controls-main-button toggle-main-btn"}
-            onClick={() => openToggleModal()}
-            title={"Toggle Mode (Space)"}
-            disabled={
-              selectedViewers.length === 0 ||
-              (appMode === 'compare' && !current) ||
-              (appMode === 'analysis' && !analysisFile)
-            }
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
-            Toggle ({selectedViewers.length})
-          </button>
-          <button 
-            className="controls-main-button capture-button" 
-            onClick={handleOpenCaptureModal}
-            title="Capture screenshot"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-            Capture
-          </button>
+          {!isReviewMode && (
+            <button
+              className={"controls-main-button toggle-main-btn"}
+              onClick={() => openToggleModal()}
+              title={"Toggle Mode (Space)"}
+              disabled={
+                selectedViewers.length === 0 ||
+                (appMode === 'compare' && !current) ||
+                (appMode === 'analysis' && !analysisFile)
+              }
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+              Toggle ({selectedViewers.length})
+            </button>
+          )}
+          {!isReviewMode && (
+            <button 
+              className="controls-main-button capture-button" 
+              onClick={handleOpenCaptureModal}
+              title="Capture screenshot"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><path d="M21 4H14.82A2 2 0 0 0 13 2H8a2 2 0 0 0-1.82 2H3v16h18v-8Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              Capture
+            </button>
+          )}
           <div className="minimap-button-unified">
             <button 
               onClick={() => setShowMinimap(!showMinimap)} 
@@ -1082,7 +1091,8 @@ export default function App() {
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0A1.65 1.65 0 0 0 20.91 12H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51-1Z"/></svg>
             </button>
           </div>
-          <div className="grid-button-unified" ref={gridColorAnchorRef}>
+          {!isReviewMode && (
+            <div className="grid-button-unified" ref={gridColorAnchorRef}>
             <button
               className={`grid-button-toggle ${showGrid ? 'active' : ''}`}
               onClick={() => setShowGrid(!showGrid)}
@@ -1114,6 +1124,7 @@ export default function App() {
               </div>
             )}
           </div>
+          )}
           <div className="title-right-actions">
             <button
               className={`controls-main-button tutorial-button${showTutorialPanel ? ' active' : ''}`}
@@ -1203,13 +1214,27 @@ export default function App() {
                 className="mode-selector" 
                 value={appMode} 
                 onChange={e => setAppMode(e.target.value as AppMode)}
-                title="Select app mode (Ctrl+1/2/3)"
+                title="Select app mode (Ctrl+1/2/3/4)"
+                data-testid="app-mode-select"
               >
                 <option value="pinpoint" className="mode-option">🎯 Pinpoint</option>
                 <option value="analysis" className="mode-option">🔬 Analysis</option>
                 <option value="compare" className="mode-option">📚 Compare</option>
+                <option value="review" className="mode-option" data-testid="mode-option-review">📝 Review</option>
               </select>
             </label>
+            {appMode === 'review' && (
+              <label className="review-app-mode-field"><span>Review Type:</span>
+                <select
+                  value={reviewType}
+                  onChange={e => setReviewType(e.target.value as ReviewType)}
+                  data-testid="review-type-select"
+                >
+                  <option value="detection">detection</option>
+                  <option value="segmentation">segmentation</option>
+                </select>
+              </label>
+            )}
             {(appMode === 'compare' || appMode === 'pinpoint' || appMode === 'analysis') && (
               <LayoutGridSelector
                 currentRows={viewerRows}
@@ -1225,7 +1250,7 @@ export default function App() {
                 </select>
               </label>
             )}
-            <div className="pinpoint-reorder-controls" title="Reorder behavior for viewer drag">
+            {appMode === 'pinpoint' && <div className="pinpoint-reorder-controls" title="Reorder behavior for viewer drag">
               <button
                 className={`controls-main-button ${pinpointReorderMode === 'shift' ? 'active' : ''}`}
                 onClick={() => setPinpointReorderMode('shift')}
@@ -1238,7 +1263,7 @@ export default function App() {
               >
                 Swap
               </button>
-            </div>
+            </div>}
             
           </div>
           <div className="controls-right">
@@ -1250,8 +1275,8 @@ export default function App() {
                 <PinpointGlobalScaleControl />
               </div>
             )}
-          {appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
-            <button
+          {!isReviewMode && appMode !== 'pinpoint' && <ViewportControls imageDimensions={imageDimensions} />}
+            {!isReviewMode && <button
               onClick={() => {
                 if (syncCapture.active) {
                   cancelSync();
@@ -1269,14 +1294,14 @@ export default function App() {
                 <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15"/>
               </svg>
               Sync
-            </button>
-            <button 
+            </button>}
+            {!isReviewMode && <button 
               onClick={resetView} 
               title="Reset View (Alt+R)" 
               className="controls-main-button"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4M12 12l-8 8M12 12l8 8M12 12l-8-8M12 12l8-8"/></svg>
-            </button>
+            </button>}
           </div>
         </div>
       </header>
@@ -1291,7 +1316,7 @@ export default function App() {
         />
       }
 
-      {isCaptureModalOpen && (
+      {!isReviewMode && isCaptureModalOpen && (
         <div className="capture-modal" onClick={() => setCaptureModalOpen(false)}>
           <div className="capture-modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>Capture Options</h3>
@@ -1458,10 +1483,10 @@ export default function App() {
         </div>
       )}
 
-      <FilterCart />
+      {!isReviewMode && <FilterCart />}
       
       {/* Only render FilterPreviewModal for modal mode, sidebar mode is rendered within FilterCart */}
-      {previewModal.position !== 'sidebar' && (
+      {!isReviewMode && previewModal.position !== 'sidebar' && (
         <FilterPreviewModal
           isOpen={previewModal.isOpen}
           onClose={closePreviewModal}

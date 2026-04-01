@@ -1,17 +1,28 @@
 
 import { useRef } from 'react';
-import { pickDirectory, filesFromInput } from '../utils/folder';
+import { pickDirectoryForIntake, filesFromInputForIntake } from '../utils/folder';
 import type { FolderKey } from '../types';
 import { useStore } from '../store';
+import { ALL_FOLDER_KEYS, applyFolderIntake } from '../utils/folderIntake';
 
 export function useFolderPickers() {
-  const { folders, setFolder, updateFolderAlias: updateAliasInStore } = useStore();
+  const { folders, setFolder, updateFolderAlias: updateAliasInStore, addToast } = useStore();
+
+  const inputRefs = ALL_FOLDER_KEYS.reduce((acc, key) => {
+    acc[key] = useRef<HTMLInputElement>(null);
+    return acc;
+  }, {} as Record<FolderKey, React.RefObject<HTMLInputElement>>);
 
   const pick = async (key: FolderKey) => {
     try {
-      const folderData = await pickDirectory();
-      const newState = { data: folderData, alias: folderData.name };
-      setFolder(key, newState);
+      const intake = await pickDirectoryForIntake();
+      applyFolderIntake({
+        candidate: intake,
+        getFolders: () => useStore.getState().folders,
+        setFolder,
+        addToast,
+        targetKey: key
+      });
     } catch (error) {
       const err = error as Error;
       if (err.name === 'AbortError') {
@@ -26,17 +37,17 @@ export function useFolderPickers() {
     }
   };
 
-  const inputRefs = (["A", "B", "C", "D", "E", "F", "G", "H", "I"] as const).reduce((acc, key) => {
-    acc[key] = useRef<HTMLInputElement>(null);
-    return acc;
-  }, {} as Record<FolderKey, React.RefObject<HTMLInputElement>>);
-
   const onInput = (key: FolderKey, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
-    const folderData = filesFromInput(e.target.files);
-    if (!folderData) return;
-    const newState = { data: folderData, alias: folderData.name };
-    setFolder(key, newState);
+    const intake = filesFromInputForIntake(e.target.files);
+    if (!intake) return;
+    applyFolderIntake({
+      candidate: intake,
+      getFolders: () => useStore.getState().folders,
+      setFolder,
+      addToast,
+      targetKey: key
+    });
   };
 
   const updateAlias = (key: FolderKey, newAlias: string) => {

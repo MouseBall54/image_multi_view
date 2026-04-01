@@ -3,7 +3,7 @@ import { useStore } from "../store";
 import { MIN_ZOOM, MAX_ZOOM } from "../config";
 
 export function PinpointGlobalScaleControl() {
-  const { pinpointGlobalScale, setPinpointGlobalScale, pinpointScales, viewport, numViewers, viewerArrangement } = useStore();
+  const { pinpointGlobalScale, setPinpointGlobalScale, pinpointScales, viewport, numViewers, getViewerContentAtPosition } = useStore();
   const [inputValue, setInputValue] = useState<string>((pinpointGlobalScale * 100).toFixed(0));
 
   useEffect(() => {
@@ -13,7 +13,7 @@ export function PinpointGlobalScaleControl() {
 
   const clampGlobal = (proposed: number): number => {
     try {
-      const orderedKeys = Array.from({ length: numViewers }).map((_, pos) => viewerArrangement.pinpoint[pos]);
+      const orderedKeys = Array.from({ length: numViewers }).map((_, pos) => getViewerContentAtPosition(pos, "pinpoint") as keyof typeof pinpointScales);
       const individualScales = orderedKeys.map(k => (pinpointScales[k] ?? viewport.scale) || viewport.scale);
       const minInd = Math.min(...individualScales);
       const maxInd = Math.max(...individualScales);

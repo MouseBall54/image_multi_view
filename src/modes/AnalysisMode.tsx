@@ -11,6 +11,7 @@ import type { DrawableImage, FolderKey, FilterType } from '../types';
 import type { FilterParams } from '../store';
 import { createFileComparator } from '../utils/naturalSort';
 import { handleFolderDrop } from '../utils/dragDrop';
+import { ALL_FOLDER_KEYS, applyFolderIntake, findFirstEmptyFolderKey } from '../utils/folderIntake';
 
 type Props = {
   numViewers: number;
@@ -24,7 +25,6 @@ export interface AnalysisModeHandle {
 }
 
 export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers, bitmapCache, setPrimaryFile, showControls }, ref) => {
-  const FOLDER_KEYS: FolderKey[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
   const { 
     analysisFile, setAnalysisFile, 
     analysisFileSource,
@@ -35,11 +35,16 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     previewLayout,
     syncCapture, confirmSyncFromTarget,
     openPreviewModal, refreshFolder, folderActivities,
+    getViewerContentAtPosition, reorderViewers,
   } = useStore();
   const { pick, inputRefs, onInput, allFolders, updateAlias } = useFolderPickers();
   const imageCanvasRefs = useRef<Map<number, ImageCanvasHandle>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
   const [folderFilter, setFolderFilter] = useState<FolderKey | 'all'>('all');
+
+  const getAnalysisSlotAtPosition = (position: number): number => {
+    return getViewerContentAtPosition(position, "analysis") as number;
+  };
   
   // Drag and drop states for image import
   const [isDragOver, setIsDragOver] = useState(false);
@@ -55,15 +60,22 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
 
   // Helper function to find the first empty folder for temporary storage
   const findEmptyFolder = (): FolderKey | null => {
-    for (const key of FOLDER_KEYS) {
-      if (!allFolders[key]) return key;
-    }
-    return null;
+    return findFirstEmptyFolderKey(allFolders);
   };
 
   const handleRescan = async (key: FolderKey) => {
     const result = await refreshFolder(key, { showActivity: true });
     if (!addToast) return;
+    if (result?.issue) {
+      addToast({
+        type: 'warning',
+        title: 'Folder Sync Warning',
+        message: result.issue.message,
+        details: result.issue.details,
+        duration: 3000
+      });
+      return;
+    }
     if (!result) {
       addToast({ type: 'info', title: 'Folder Sync', message: '변경 없음', duration: 2000 });
       return;
@@ -81,58 +93,14 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   };
 
   // Place folder as a new folder in the controls
-  const placeFolderAsNewFolder = async (folderName: string, imageFiles: File[]): Promise<void> => {
-    try {
-      if (imageFiles.length === 0) {
-        addToast?.({
-          type: 'warning',
-          title: 'Empty Folder',
-          message: `Folder "${folderName}" contains no valid images`,
-          duration: 5000
-        });
-        return;
-      }
-
-      // Find the first empty folder key
-      const emptyKey = findEmptyFolder();
-      if (!emptyKey) {
-        addToast?.({
-          type: 'error',
-          title: 'No Empty Slots',
-          message: 'All folder slots are in use. Please clear a folder first.',
-          duration: 5000
-        });
-        return;
-      }
-
-      // Create file map from the image files
-      const filesMap = new Map<string, File>();
-      for (const file of imageFiles) {
-        filesMap.set(file.name, file);
-      }
-
-      // Set the folder in the store with the folder name as alias
-      setFolder(emptyKey, {
-        data: { name: folderName, files: filesMap, meta: new Map(), source: { kind: 'files' } },
-        alias: folderName
-      });
-
-      addToast?.({
-        type: 'success',
-        title: 'Folder Added',
-        message: `Folder "${folderName}" added with ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''}`,
-        details: [`Assigned to slot ${emptyKey}`, `Images: ${imageFiles.map(f => f.name).slice(0, 5).join(', ')}${imageFiles.length > 5 ? ` and ${imageFiles.length - 5} more...` : ''}`],
-        duration: 5000
-      });
-    } catch (error) {
-      addToast?.({
-        type: 'error',
-        title: 'Failed to Add Folder',
-        message: `Could not add folder "${folderName}"`,
-        details: [error instanceof Error ? error.message : 'Unknown error'],
-        duration: 5000
-      });
-    }
+  const placeFolderAsNewFolder = async (candidate: Parameters<typeof applyFolderIntake>[0]["candidate"]): Promise<void> => {
+    applyFolderIntake({
+      candidate,
+      getFolders: () => useStore.getState().folders,
+      setFolder,
+      addToast,
+      showSuccessToast: true
+    });
   };
 
   // Place dropped images into TEMP; if filename conflicts, spill to TEMP_2, TEMP_3, ...
@@ -146,7 +114,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
       const createdAliases = new Map<FolderKey, string>();
       // Local alias -> key map to avoid relying on async state updates
       const aliasToKey = new Map<string, FolderKey>();
-      for (const k of FOLDER_KEYS) {
+      for (const k of ALL_FOLDER_KEYS) {
         const f = allFolders[k];
         if (f?.alias) aliasToKey.set(f.alias, k);
       }
@@ -156,7 +124,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
         if (existing) return existing;
         // find first empty unreserved key
         let candidate: FolderKey | null = null;
-        for (const key of FOLDER_KEYS) {
+        for (const key of ALL_FOLDER_KEYS) {
           if (!allFolders[key] && !reservedKeys.has(key)) { candidate = key; break; }
         }
         if (!candidate) return null;
@@ -349,6 +317,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
         if (row > 0) finalCtx.fillRect(dx, dy - BORDER_WIDTH / 2, width, BORDER_WIDTH);
 
         if (showLabels) {
+          const slotIndex = getAnalysisSlotAtPosition(index);
           const lines: string[] = [];
           if (analysisFileSource) {
             lines.push(analysisFileSource);
@@ -356,7 +325,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
           if (analysisFile) {
             lines.push(analysisFile.name);
           }
-          const filterName = getFilterName(analysisFilters[index], analysisFilterParams[index]);
+          const filterName = getFilterName(analysisFilters[slotIndex], analysisFilterParams[slotIndex]);
           if (filterName && showFilterLabels) {
             lines.push(`[${filterName}]`);
           }
@@ -394,7 +363,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
     };
 
     if (folderFilter === 'all') {
-      FOLDER_KEYS.forEach((key: FolderKey) => {
+      ALL_FOLDER_KEYS.forEach((key: FolderKey) => {
         if (allFolders[key]) addFilesFromKey(key);
       });
     } else {
@@ -428,9 +397,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   };
 
   // Viewer selection for toggle functionality
-  const handleViewerSelect = (viewerIndex: number) => {
-    // For analysis mode, use viewer index as string key
-    const key = viewerIndex.toString() as FolderKey;
+  const handleViewerSelect = (slotIndex: number) => {
+    const key = slotIndex.toString() as FolderKey;
     const newSelected = selectedViewers.includes(key)
       ? selectedViewers.filter(k => k !== key)
       : [...selectedViewers, key];
@@ -463,7 +431,9 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
   return (
     <>
       {showControls && <div className="controls">
-        {FOLDER_KEYS.slice(0, numViewers).map(key => (
+        {Array.from({ length: numViewers }).map((_, position) => {
+          const key = String.fromCharCode(65 + getAnalysisSlotAtPosition(position)) as FolderKey;
+          return (
           <FolderControl
             key={key}
             folderKey={key}
@@ -475,9 +445,10 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
             onUpdateAlias={updateAlias}
             onRescan={handleRescan}
           />
-        ))}
+          );
+        })}
         <div style={{ display: 'none' }}>
-          {FOLDER_KEYS.map(key => (
+          {ALL_FOLDER_KEYS.map(key => (
             <input
               key={key}
               ref={inputRefs[key]}
@@ -542,7 +513,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               {/* Toggle moved to header controls-main */}
               <select value={folderFilter} onChange={e => setFolderFilter(e.target.value as FolderKey | 'all')}>
                 <option value="all">All Folders</option>
-                {FOLDER_KEYS.map(key => 
+                {ALL_FOLDER_KEYS.map(key => 
                   allFolders[key] && <option key={key} value={key}>Folder {allFolders[key]?.alias || key}</option>
                 )}
               </select>
@@ -592,7 +563,8 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
             </div>
           )}
           {Array.from({ length: numViewers }).map((_, i) => {
-              const filterName = getFilterName(analysisFilters[i], analysisFilterParams[i]);
+              const slotIndex = getAnalysisSlotAtPosition(i);
+              const filterName = getFilterName(analysisFilters[slotIndex], analysisFilterParams[slotIndex]);
               const lines: string[] = [];
               if (analysisFileSource) {
                 lines.push(analysisFileSource);
@@ -605,55 +577,13 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
               }
               const label = lines.join('\n');
 
-              const isSelected = selectedViewers.includes(i.toString() as FolderKey);
+              const selectedKey = slotIndex.toString() as FolderKey;
+              const isSelected = selectedViewers.includes(selectedKey);
               return (
             <DraggableViewer 
                   key={i} 
                   position={i}
-                  onReorder={(fromPosition, toPosition) => {
-                    if (fromPosition === toPosition) return;
-                    const st = useStore.getState();
-                    const count = st.numViewers;
-                    // Snapshot current ordered filters/params by index 0..count-1
-                    const filtersByPos = Array.from({ length: count }).map((_, idx) => st.analysisFilters[idx]);
-                    const paramsByPos = Array.from({ length: count }).map((_, idx) => st.analysisFilterParams[idx]);
-
-                    if (st.pinpointReorderMode === 'swap') {
-                      const tf = filtersByPos[fromPosition];
-                      const tp = paramsByPos[fromPosition];
-                      filtersByPos[fromPosition] = filtersByPos[toPosition];
-                      paramsByPos[fromPosition] = paramsByPos[toPosition];
-                      filtersByPos[toPosition] = tf;
-                      paramsByPos[toPosition] = tp;
-                    } else {
-                      const [mf] = filtersByPos.splice(fromPosition, 1);
-                      filtersByPos.splice(toPosition, 0, mf);
-                      const [mp] = paramsByPos.splice(fromPosition, 1);
-                      paramsByPos.splice(toPosition, 0, mp);
-                    }
-
-                    const nextFilters: Partial<Record<number, FilterType>> = { ...st.analysisFilters } as any;
-                    const nextParams: Partial<Record<number, FilterParams>> = { ...st.analysisFilterParams } as any;
-                    for (let idx = 0; idx < count; idx++) {
-                      const f = filtersByPos[idx];
-                      const p = paramsByPos[idx];
-                      if (f == null) {
-                        delete (nextFilters as any)[idx];
-                      } else {
-                        (nextFilters as any)[idx] = f;
-                      }
-                      if (p == null) {
-                        delete (nextParams as any)[idx];
-                      } else {
-                        (nextParams as any)[idx] = p as any;
-                      }
-                    }
-
-                    useStore.setState({
-                      analysisFilters: nextFilters,
-                      analysisFilterParams: nextParams,
-                    } as any);
-                  }}
+                  onReorder={reorderViewers}
                   className={`viewer-container ${isSelected ? 'selected' : ''}`}
                 >
                   {syncCapture.active && syncCapture.mode === 'analysis' && (
@@ -661,7 +591,7 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                       className="sync-select-overlay"
                       title="Click to sync filters from this viewer"
                       onClick={() => { 
-                        confirmSyncFromTarget(i);
+                        confirmSyncFromTarget(slotIndex);
                         addToast?.({ type: 'success', title: 'Synced', message: `Filters copied from Viewer ${i + 1} to all viewers`, duration: 2500 });
                       }}
                     >
@@ -676,26 +606,26 @@ export const AnalysisMode = forwardRef<AnalysisModeHandle, Props>(({ numViewers,
                     appMode="analysis"
                     folderKey={i}
                     isActive={false}
-                    overrideFilterType={analysisFilters[i]}
-                    overrideFilterParams={analysisFilterParams[i]}
+                    overrideFilterType={analysisFilters[slotIndex]}
+                    overrideFilterParams={analysisFilterParams[slotIndex]}
                     rotation={analysisRotation}
                   />
                   <div className="viewer-controls">
                     <button 
-                      className={`viewer-select-btn ${selectedViewers.includes(i.toString() as FolderKey) ? 'selected' : ''}`}
-                      onClick={() => handleViewerSelect(i)}
+                      className={`viewer-select-btn ${selectedViewers.includes(selectedKey) ? 'selected' : ''}`}
+                      onClick={() => handleViewerSelect(slotIndex)}
                       title={`Select viewer ${i + 1} for toggle`}
                     >
-                      {selectedViewers.includes(i.toString() as FolderKey) ? '✓' : '○'}
+                      {selectedViewers.includes(selectedKey) ? '✓' : '○'}
                     </button>
                     <button 
                       className="viewer__filter-button" 
                       title={`Filter Settings for Viewer ${i + 1}`}
                       onClick={() => {
-                        openFilterEditor(i);
+                        openFilterEditor(slotIndex);
                         if (analysisFile) {
-                          const type = analysisFilters[i] || 'none';
-                          const params = analysisFilterParams[i] || ({} as any);
+                          const type = analysisFilters[slotIndex] || 'none';
+                          const params = analysisFilterParams[slotIndex] || ({} as any);
                           openPreviewModal({
                             mode: 'single',
                             filterType: type,

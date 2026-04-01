@@ -1,6 +1,7 @@
 import type { FilterChainItem, FilterType } from '../types';
 import type { FilterParams } from '../store';
 import * as Filters from './filters';
+import { isValidFilterImageDimensions, normalizeFilterParams } from './filterRuntimeGuards';
 
 // Cache for intermediate filter results to improve performance
 // Use HTMLCanvasElement for stability (ImageBitmap can become detached/closed)
@@ -51,6 +52,13 @@ export async function applyFilterChain(
   chainItems: FilterChainItem[],
   progressCallback?: (progress: number) => void
 ): Promise<HTMLCanvasElement> {
+  if (!isValidFilterImageDimensions(sourceCanvas.width, sourceCanvas.height)) {
+    const safeCanvas = document.createElement('canvas');
+    safeCanvas.width = Math.max(1, Math.floor(sourceCanvas.width) || 1);
+    safeCanvas.height = Math.max(1, Math.floor(sourceCanvas.height) || 1);
+    return safeCanvas;
+  }
+
   // Filter out disabled items
   const enabledItems = chainItems.filter(item => item.enabled);
   
@@ -286,12 +294,22 @@ async function applySingleFilter(
   filterType: FilterType,
   params: FilterParams
 ): Promise<void> {
+  if (!isValidFilterImageDimensions(sourceCanvas.width, sourceCanvas.height)) {
+    outputCanvas.width = Math.max(1, Math.floor(sourceCanvas.width) || 1);
+    outputCanvas.height = Math.max(1, Math.floor(sourceCanvas.height) || 1);
+    return;
+  }
+
   const ctx = outputCanvas.getContext('2d');
   if (!ctx) throw new Error('Could not get canvas context');
 
   // Set canvas size to match source
   outputCanvas.width = sourceCanvas.width;
   outputCanvas.height = sourceCanvas.height;
+  const normalizedParams = normalizeFilterParams(filterType, params ?? ({} as FilterParams), {
+    width: sourceCanvas.width,
+    height: sourceCanvas.height
+  });
 
   // Handle CSS filters first
   const cssFilters: Partial<Record<FilterType, string>> = {
@@ -325,40 +343,40 @@ async function applySingleFilter(
       break;
     }
     case 'brightness':
-      if (params) await Filters.applyBrightness(ctx, params);
+      if (normalizedParams) await Filters.applyBrightness(ctx, normalizedParams);
       break;
     case 'contrast':
-      if (params) await Filters.applyContrast(ctx, params);
+      if (normalizedParams) await Filters.applyContrast(ctx, normalizedParams);
       break;
     case 'threshold_binary':
-      await Filters.applyThresholdBinary(ctx, (params ?? {}) as any);
+      await Filters.applyThresholdBinary(ctx, (normalizedParams ?? {}) as any);
       break;
     case 'threshold_otsu':
-      await Filters.applyThresholdOtsu(ctx, (params ?? {}) as any);
+      await Filters.applyThresholdOtsu(ctx, (normalizedParams ?? {}) as any);
       break;
     case 'threshold_triangle':
-      await Filters.applyThresholdTriangle(ctx, (params ?? {}) as any);
+      await Filters.applyThresholdTriangle(ctx, (normalizedParams ?? {}) as any);
       break;
     case 'threshold_adaptive_mean':
-      await Filters.applyThresholdAdaptiveMean(ctx, (params ?? {}) as any);
+      await Filters.applyThresholdAdaptiveMean(ctx, (normalizedParams ?? {}) as any);
       break;
     case 'threshold_adaptive_gaussian':
-      await Filters.applyThresholdAdaptiveGaussian(ctx, (params ?? {}) as any);
+      await Filters.applyThresholdAdaptiveGaussian(ctx, (normalizedParams ?? {}) as any);
       break;
     case 'threshold_sauvola':
-      await Filters.applyThresholdSauvola(ctx, (params ?? {}) as any);
+      await Filters.applyThresholdSauvola(ctx, (normalizedParams ?? {}) as any);
       break;
     case 'threshold_bradley':
-      await Filters.applyThresholdBradley(ctx, (params ?? {}) as any);
+      await Filters.applyThresholdBradley(ctx, (normalizedParams ?? {}) as any);
       break;
     case 'threshold_bernsen':
-      await Filters.applyThresholdBernsen(ctx, (params ?? {}) as any);
+      await Filters.applyThresholdBernsen(ctx, (normalizedParams ?? {}) as any);
       break;
     case 'threshold_phansalkar':
-      await Filters.applyThresholdPhansalkar(ctx, (params ?? {}) as any);
+      await Filters.applyThresholdPhansalkar(ctx, (normalizedParams ?? {}) as any);
       break;
     case 'threshold_kittler':
-      await Filters.applyThresholdKittler(ctx, (params ?? {}) as any);
+      await Filters.applyThresholdKittler(ctx, (normalizedParams ?? {}) as any);
       break;
     case 'none':
       // Already drawn above
@@ -370,88 +388,88 @@ async function applySingleFilter(
       await Filters.applyHistogramEqualization(ctx); 
       break;
     case 'laplacian': 
-      if (params) await Filters.applyLaplacian(ctx, params); 
+      if (normalizedParams) await Filters.applyLaplacian(ctx, normalizedParams); 
       break;
     case 'highpass': 
       Filters.applyHighpass(ctx); 
       break;
     case 'prewitt': 
-      if (params) await Filters.applyPrewitt(ctx, params); 
+      if (normalizedParams) await Filters.applyPrewitt(ctx, normalizedParams); 
       break;
     case 'scharr': 
-      if (params) await Filters.applyScharr(ctx, params); 
+      if (normalizedParams) await Filters.applyScharr(ctx, normalizedParams); 
       break;
     case 'sobel': 
-      if (params) await Filters.applySobel(ctx, params); 
+      if (normalizedParams) await Filters.applySobel(ctx, normalizedParams); 
       break;
     case 'robertscross': 
-      if (params) await Filters.applyRobertsCross(ctx, params); 
+      if (normalizedParams) await Filters.applyRobertsCross(ctx, normalizedParams); 
       break;
     case 'log': 
-      if (params) await Filters.applyLoG(ctx, params); 
+      if (normalizedParams) await Filters.applyLoG(ctx, normalizedParams); 
       break;
     case 'dog': 
-      if (params) await Filters.applyDoG(ctx, params); 
+      if (normalizedParams) await Filters.applyDoG(ctx, normalizedParams); 
       break;
     case 'marrhildreth': 
-      if (params) await Filters.applyMarrHildreth(ctx, params); 
+      if (normalizedParams) await Filters.applyMarrHildreth(ctx, normalizedParams); 
       break;
     case 'gaussianblur': 
-      if (params) await Filters.applyGaussianBlur(ctx, params); 
+      if (normalizedParams) await Filters.applyGaussianBlur(ctx, normalizedParams); 
       break;
     case 'gaussianblur_xy':
-      if (params) await Filters.applyGaussianBlurAxis(ctx, params);
+      if (normalizedParams) await Filters.applyGaussianBlurAxis(ctx, normalizedParams);
       break;
     case 'boxblur': 
-      if (params) await Filters.applyBoxBlur(ctx, params); 
+      if (normalizedParams) await Filters.applyBoxBlur(ctx, normalizedParams); 
       break;
     case 'boxblur_xy':
-      if (params) await Filters.applyBoxBlurAxis(ctx, params);
+      if (normalizedParams) await Filters.applyBoxBlurAxis(ctx, normalizedParams);
       break;
     case 'median': 
-      if (params) Filters.applyMedian(ctx, params); 
+      if (normalizedParams) Filters.applyMedian(ctx, normalizedParams); 
       break;
     case 'weightedmedian': 
-      if (params) Filters.applyWeightedMedian(ctx, params); 
+      if (normalizedParams) Filters.applyWeightedMedian(ctx, normalizedParams); 
       break;
     case 'alphatrimmedmean': 
-      if (params) Filters.applyAlphaTrimmedMean(ctx, params); 
+      if (normalizedParams) Filters.applyAlphaTrimmedMean(ctx, normalizedParams); 
       break;
     case 'localhistogramequalization': 
-      if (params) await Filters.applyLocalHistogramEqualization(ctx, params); 
+      if (normalizedParams) await Filters.applyLocalHistogramEqualization(ctx, normalizedParams); 
       break;
     case 'adaptivehistogramequalization': 
-      if (params) Filters.applyAdaptiveHistogramEqualization(ctx, params); 
+      if (normalizedParams) Filters.applyAdaptiveHistogramEqualization(ctx, normalizedParams); 
       break;
     case 'sharpen': 
-      if (params) Filters.applySharpen(ctx, params); 
+      if (normalizedParams) Filters.applySharpen(ctx, normalizedParams); 
       break;
     case 'canny': 
-      if (params) await Filters.applyCanny(ctx, params); 
+      if (normalizedParams) await Filters.applyCanny(ctx, normalizedParams); 
       break;
     case 'clahe': 
-      if (params) await Filters.applyClahe(ctx, params); 
+      if (normalizedParams) await Filters.applyClahe(ctx, normalizedParams); 
       break;
     case 'gammacorrection': 
-      if (params) Filters.applyGammaCorrection(ctx, params); 
+      if (normalizedParams) Filters.applyGammaCorrection(ctx, normalizedParams); 
       break;
     case 'unsharpmask': 
-      if (params) Filters.applyUnsharpMask(ctx, params); 
+      if (normalizedParams) Filters.applyUnsharpMask(ctx, normalizedParams); 
       break;
     case 'gabor': 
-      if (params) await Filters.applyGabor(ctx, params); 
+      if (normalizedParams) await Filters.applyGabor(ctx, normalizedParams); 
       break;
     case 'lawstextureenergy': 
-      if (params) await Filters.applyLawsTextureEnergy(ctx, params); 
+      if (normalizedParams) await Filters.applyLawsTextureEnergy(ctx, normalizedParams); 
       break;
     case 'lbp': 
       await Filters.applyLbp(ctx); 
       break;
     case 'guided': 
-      if (params) Filters.applyGuidedFilter(ctx, params); 
+      if (normalizedParams) Filters.applyGuidedFilter(ctx, normalizedParams); 
       break;
     case 'edgepreserving': 
-      if (params) await Filters.applyEdgePreserving(ctx, params); 
+      if (normalizedParams) await Filters.applyEdgePreserving(ctx, normalizedParams); 
       break;
     case 'bilateral': 
       if (params) await Filters.applyEdgePreserving(ctx, params); // Using edgepreserving as fallback for bilateral
@@ -472,112 +490,112 @@ async function applySingleFilter(
       Filters.applyWavelet(ctx); 
       break;
     case 'morph_open': 
-      if (params) await Filters.applyMorphOpen(ctx, params); 
+      if (normalizedParams) await Filters.applyMorphOpen(ctx, normalizedParams); 
       break;
     case 'morph_close': 
-      if (params) await Filters.applyMorphClose(ctx, params); 
+      if (normalizedParams) await Filters.applyMorphClose(ctx, normalizedParams); 
       break;
     case 'morph_tophat': 
-      if (params) await Filters.applyMorphTopHat(ctx, params); 
+      if (normalizedParams) await Filters.applyMorphTopHat(ctx, normalizedParams); 
       break;
     case 'morph_blackhat': 
-      if (params) await Filters.applyMorphBlackHat(ctx, params); 
+      if (normalizedParams) await Filters.applyMorphBlackHat(ctx, normalizedParams); 
       break;
     case 'morph_gradient': 
-      if (params) await Filters.applyMorphGradient(ctx, params); 
+      if (normalizedParams) await Filters.applyMorphGradient(ctx, normalizedParams); 
       break;
     case 'distancetransform': 
-      if (params) await Filters.applyDistanceTransform(ctx, params); 
+      if (normalizedParams) await Filters.applyDistanceTransform(ctx, normalizedParams); 
       break;
     
     // Colormap - Perceptually Uniform (Recommended)
     case 'colormap_viridis': 
-      await Filters.applyViridisColormap(ctx, params); 
+      await Filters.applyViridisColormap(ctx, normalizedParams); 
       break;
     case 'colormap_inferno': 
-      await Filters.applyInfernoColormap(ctx, params); 
+      await Filters.applyInfernoColormap(ctx, normalizedParams); 
       break;
     case 'colormap_plasma': 
-      await Filters.applyPlasmaColormap(ctx, params); 
+      await Filters.applyPlasmaColormap(ctx, normalizedParams); 
       break;
     case 'colormap_magma': 
-      await Filters.applyMagmaColormap(ctx, params); 
+      await Filters.applyMagmaColormap(ctx, normalizedParams); 
       break;
     case 'colormap_parula': 
-      await Filters.applyParulaColormap(ctx, params); 
+      await Filters.applyParulaColormap(ctx, normalizedParams); 
       break;
     
     // Colormap - Rainbow/Legacy
     case 'colormap_jet': 
-      await Filters.applyJetColormap(ctx, params); 
+      await Filters.applyJetColormap(ctx, normalizedParams); 
       break;
     case 'colormap_hsv': 
-      await Filters.applyHsvColormap(ctx, params); 
+      await Filters.applyHsvColormap(ctx, normalizedParams); 
       break;
     case 'colormap_hot': 
-      await Filters.applyHotColormap(ctx, params); 
+      await Filters.applyHotColormap(ctx, normalizedParams); 
       break;
     
     // Colormap - Aesthetic Gradients
     case 'colormap_cool': 
-      await Filters.applyCoolColormap(ctx, params); 
+      await Filters.applyCoolColormap(ctx, normalizedParams); 
       break;
     case 'colormap_warm': 
-      await Filters.applyWarmColormap(ctx, params); 
+      await Filters.applyWarmColormap(ctx, normalizedParams); 
       break;
     case 'colormap_spring': 
-      await Filters.applySpringColormap(ctx, params); 
+      await Filters.applySpringColormap(ctx, normalizedParams); 
       break;
     case 'colormap_summer': 
-      await Filters.applySummerColormap(ctx, params); 
+      await Filters.applySummerColormap(ctx, normalizedParams); 
       break;
     case 'colormap_autumn': 
-      await Filters.applyAutumnColormap(ctx, params); 
+      await Filters.applyAutumnColormap(ctx, normalizedParams); 
       break;
     case 'colormap_winter': 
-      await Filters.applyWinterColormap(ctx, params); 
+      await Filters.applyWinterColormap(ctx, normalizedParams); 
       break;
     
     // Colormap - Specialized
     case 'colormap_bone': 
-      await Filters.applyBoneColormap(ctx, params); 
+      await Filters.applyBoneColormap(ctx, normalizedParams); 
       break;
     case 'colormap_copper': 
-      await Filters.applyCopperColormap(ctx, params); 
+      await Filters.applyCopperColormap(ctx, normalizedParams); 
       break;
     case 'colormap_pink': 
-      await Filters.applyPinkColormap(ctx, params); 
+      await Filters.applyPinkColormap(ctx, normalizedParams); 
       break;
     
     // Colormap - Diverging (Change-based)
     case 'colormap_rdbu': 
-      await Filters.applyRdbuColormap(ctx, params); 
+      await Filters.applyRdbuColormap(ctx, normalizedParams); 
       break;
     case 'colormap_rdylbu': 
-      await Filters.applyRdylbuColormap(ctx, params); 
+      await Filters.applyRdylbuColormap(ctx, normalizedParams); 
       break;
     case 'colormap_bwr': 
-      await Filters.applyBwrColormap(ctx, params); 
+      await Filters.applyBwrColormap(ctx, normalizedParams); 
       break;
     case 'colormap_seismic': 
-      await Filters.applySeismicColormap(ctx, params); 
+      await Filters.applySeismicColormap(ctx, normalizedParams); 
       break;
     case 'colormap_coolwarm': 
-      await Filters.applyCoolwarmColormap(ctx, params); 
+      await Filters.applyCoolwarmColormap(ctx, normalizedParams); 
       break;
     case 'colormap_spectral': 
-      await Filters.applySpectralColormap(ctx, params); 
+      await Filters.applySpectralColormap(ctx, normalizedParams); 
       break;
     
     // Colormap - Gradient-based
     case 'colormap_gradient_magnitude': 
-      await Filters.applyGradientMagnitudeColormap(ctx, params); 
+      await Filters.applyGradientMagnitudeColormap(ctx, normalizedParams); 
       break;
     case 'colormap_edge_intensity': 
-      await Filters.applyEdgeIntensityColormap(ctx, params); 
+      await Filters.applyEdgeIntensityColormap(ctx, normalizedParams); 
       break;
     case 'colormap_difference': 
-      await Filters.applyDifferenceColormap(ctx, params); 
+      await Filters.applyDifferenceColormap(ctx, normalizedParams); 
       break;
     
     default:

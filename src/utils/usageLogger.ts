@@ -41,6 +41,22 @@ const FALLBACK_ENDPOINTS: Record<BuildChannel, string> = {
 
 const pkg = appPackageJson as PackageJson;
 const usageLoggingTargets = pkg.usageLogging ?? {};
+const warnedEndpoints = new Set<string>();
+
+const isTruthy = (value?: string): boolean => {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+};
+
+const isLoopbackEndpoint = (endpoint: string): boolean => {
+  try {
+    const url = new URL(endpoint);
+    return ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  } catch {
+    return false;
+  }
+};
 
 const normalizeEndpoint = (value?: string): string | undefined => {
   if (!value) return undefined;
@@ -136,6 +152,13 @@ export const logUsageEvent = async (
   if (!endpoint) {
     return { success: false, error: "Usage logging endpoint not configured" };
   }
+
+  const enableDevWebUsageLogging = isTruthy(readEnvValue("VITE_ENABLE_DEV_USAGE_LOGGING"));
+  const isWebRuntime = typeof window !== "undefined" && !window.electronAPI;
+  if (channel === "dev" && isWebRuntime && isLoopbackEndpoint(endpoint) && !enableDevWebUsageLogging) {
+    return { success: false, error: "Usage logging disabled for dev web runtime" };
+  }
+
   if (typeof fetch !== "function") {
     return { success: false, error: "Fetch API not available" };
   }
@@ -162,7 +185,11 @@ export const logUsageEvent = async (
       statusText: response.statusText
     };
   } catch (error) {
-    console.error("Failed to send usage log:", error);
+    if (!warnedEndpoints.has(endpoint)) {
+      warnedEndpoints.add(endpoint);
+      const message = error instanceof Error ? error.message : "Unknown logging error";
+      console.warn(`Usage logging unavailable for endpoint ${endpoint}: ${message}`);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown logging error"

@@ -1,6 +1,8 @@
 // src/utils/dragDrop.ts
 // Common drag and drop utilities for folder handling across all modes
 
+import { createFolderIntakeCandidate, type FolderIntakeCandidate } from "./folder";
+
 // Helper function to check if a file is a valid image
 export const isValidImageFile = (file: File): boolean => {
   const validTypes = [
@@ -53,21 +55,30 @@ export const detectFoldersFromFiles = (files: FileList): boolean => {
 };
 
 // Helper function to scan folder for images (non-recursive)
-export const scanFolderForImages = async (folderEntry: FileSystemDirectoryEntry): Promise<{ name: string; files: File[] }> => {
+export const scanFolderForImages = async (folderEntry: FileSystemDirectoryEntry): Promise<FolderIntakeCandidate> => {
   return new Promise((resolve, reject) => {
     const files: File[] = [];
+    let scannedEntryCount = 0;
+    let unsupportedFileCount = 0;
+    let unreadableFileCount = 0;
     const reader = folderEntry.createReader();
 
     const readEntries = () => {
       reader.readEntries(async (entries) => {
         if (entries.length === 0) {
           // Done reading
-          resolve({ name: folderEntry.name, files });
+          resolve(createFolderIntakeCandidate(
+            folderEntry.name,
+            files.map((file) => [file.name, file] as [string, File]),
+            { kind: 'files' },
+            { scannedEntryCount, unsupportedFileCount, unreadableFileCount }
+          ));
           return;
         }
 
         // Process entries (files only, no subdirectories)
         for (const entry of entries) {
+          scannedEntryCount += 1;
           if (entry.isFile) {
             const fileEntry = entry as FileSystemFileEntry;
             try {
@@ -77,10 +88,15 @@ export const scanFolderForImages = async (folderEntry: FileSystemDirectoryEntry)
 
               if (isValidImageFile(file)) {
                 files.push(file);
+              } else {
+                unsupportedFileCount += 1;
               }
             } catch (error) {
+              unreadableFileCount += 1;
               console.warn(`Could not read file ${entry.name}:`, error);
             }
+          } else {
+            unsupportedFileCount += 1;
           }
         }
 
@@ -96,7 +112,7 @@ export const scanFolderForImages = async (folderEntry: FileSystemDirectoryEntry)
 // Enhanced folder drag-drop handler that works for all modes
 export const handleFolderDrop = async (
   e: React.DragEvent,
-  onAddFolder: (folderName: string, files: File[]) => Promise<void>,
+  onAddFolder: (candidate: FolderIntakeCandidate) => Promise<void>,
   onAddFiles: (files: File[]) => Promise<void>,
   addToast?: (toast: { type: 'success' | 'error' | 'warning'; title: string; message: string; details?: string[]; duration: number }) => void
 ) => {
@@ -110,8 +126,8 @@ export const handleFolderDrop = async (
     // Handle folder drops - process each folder separately
     for (const folderEntry of folders) {
       try {
-        const { name, files } = await scanFolderForImages(folderEntry);
-        await onAddFolder(name, files);
+        const intake = await scanFolderForImages(folderEntry);
+        await onAddFolder(intake);
       } catch (error) {
         console.error(`Failed to process folder ${folderEntry.name}:`, error);
         addToast?.({
