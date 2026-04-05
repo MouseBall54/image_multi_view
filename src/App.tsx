@@ -179,6 +179,10 @@ export default function App() {
   const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
   const globalDragCounterRef = useRef(0);
   const [isInternalDragActive, setIsInternalDragActive] = useState(false);
+  const clearGlobalDragState = useCallback(() => {
+    globalDragCounterRef.current = 0;
+    setIsGlobalDragOver(false);
+  }, []);
   
   const primaryFileRef = useRef<File | null>(null);
   const compareModeRef = useRef<CompareModeHandle>(null);
@@ -214,6 +218,12 @@ export default function App() {
   const showDevControls = isDevBuild;
   const canUseUpdater = hasUpdater;
   const isReviewMode = appMode === "review";
+
+  useEffect(() => {
+    if (isReviewMode) {
+      clearGlobalDragState();
+    }
+  }, [clearGlobalDragState, isReviewMode]);
 
   useEffect(() => {
     if (!showDevControls) {
@@ -649,7 +659,9 @@ export default function App() {
     e.preventDefault();
     e.stopPropagation();
 
-    if (isCaptureModalOpen) {
+    const dataTransferTypes = Array.from(e.dataTransfer?.types ?? []);
+
+    if (isCaptureModalOpen || isReviewMode) {
       return;
     }
 
@@ -660,7 +672,7 @@ export default function App() {
     }
 
     // Check if this is an internal drag from file list (fallback check)
-    const isInternalDrag = e.dataTransfer.types.includes('application/x-compareX-internal');
+    const isInternalDrag = dataTransferTypes.includes('application/x-compareX-internal');
 
     if (isInternalDrag) {
       return; // Ignore internal drags
@@ -677,7 +689,9 @@ export default function App() {
     e.preventDefault();
     e.stopPropagation();
 
-    if (isCaptureModalOpen) {
+    const dataTransferTypes = Array.from(e.dataTransfer?.types ?? []);
+
+    if (isCaptureModalOpen || isReviewMode) {
       return;
     }
 
@@ -687,7 +701,7 @@ export default function App() {
     }
 
     // Check if this is an internal drag from file list (fallback check)
-    const isInternalDrag = e.dataTransfer.types.includes('application/x-compareX-internal');
+    const isInternalDrag = dataTransferTypes.includes('application/x-compareX-internal');
 
     if (isInternalDrag) {
       return; // Ignore internal drags
@@ -705,7 +719,9 @@ export default function App() {
     e.preventDefault();
     e.stopPropagation();
 
-    if (isCaptureModalOpen) {
+    const dataTransferTypes = Array.from(e.dataTransfer?.types ?? []);
+
+    if (isCaptureModalOpen || isReviewMode) {
       return;
     }
 
@@ -715,7 +731,7 @@ export default function App() {
     }
 
     // Check if this is an internal drag from file list (fallback check)
-    const isInternalDrag = e.dataTransfer.types.includes('application/x-compareX-internal');
+    const isInternalDrag = dataTransferTypes.includes('application/x-compareX-internal');
 
     if (isInternalDrag) {
       return; // Ignore internal drags
@@ -729,17 +745,17 @@ export default function App() {
     e.stopPropagation();
 
     // Check if this is an internal drag from file list
-    const isInternalDrag = e.dataTransfer.types.includes('application/x-compareX-internal');
+    const dataTransferTypes = Array.from(e.dataTransfer?.types ?? []);
+    const isInternalDrag = dataTransferTypes.includes('application/x-compareX-internal');
 
-    setIsGlobalDragOver(false);
-    globalDragCounterRef.current = 0;
+    clearGlobalDragState();
 
     // If internal drag is active, ignore global drag handling
     if (isInternalDragActive || isInternalDrag) {
       return; // Ignore internal drags
     }
 
-    if (isCaptureModalOpen) {
+    if (isCaptureModalOpen || isReviewMode) {
       return;
     }
 
@@ -1023,7 +1039,7 @@ export default function App() {
 
   return (
     <div
-      className={`app ${showFilterCart ? 'filter-cart-open' : ''} ${previewModal.isOpen && previewModal.position === 'sidebar' ? 'preview-active' : ''} ${isGlobalDragOver ? 'global-drag-over' : ''}`}
+      className={`app ${showFilterCart ? 'filter-cart-open' : ''} ${previewModal.isOpen && previewModal.position === 'sidebar' ? 'preview-active' : ''} ${!isReviewMode && isGlobalDragOver ? 'global-drag-over' : ''}`}
       onDragEnter={handleGlobalDragEnter}
       onDragLeave={handleGlobalDragLeave}
       onDragOver={handleGlobalDragOver}
@@ -1503,7 +1519,7 @@ export default function App() {
       )}
       
       {/* Global Drag and Drop Overlay */}
-      {isGlobalDragOver && (
+      {!isReviewMode && isGlobalDragOver && (
         <div className="global-drag-overlay">
           <div className="global-drag-overlay-content">
             <div className="global-drag-icon">📁</div>

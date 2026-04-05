@@ -97,14 +97,7 @@ const flush = async (cycles = 2): Promise<void> => {
   }
 };
 
-const assignInputFiles = (input: HTMLInputElement, files: File[], folderName: string) => {
-  files.forEach((file) => {
-    Object.defineProperty(file, "webkitRelativePath", {
-      value: `${folderName}/${file.name}`,
-      configurable: true
-    });
-  });
-
+const createFileListLike = (files: File[]) => {
   const fileListLike = {
     item: (index: number) => files[index] ?? null
   } as { [index: number]: File; item: (index: number) => File | null; length: number };
@@ -114,11 +107,91 @@ const assignInputFiles = (input: HTMLInputElement, files: File[], folderName: st
   });
   fileListLike.length = files.length;
 
+  return fileListLike;
+};
+
+const assignInputFiles = (input: HTMLInputElement, files: File[], folderName: string) => {
+  files.forEach((file) => {
+    Object.defineProperty(file, "webkitRelativePath", {
+      value: `${folderName}/${file.name}`,
+      configurable: true
+    });
+  });
+
   Object.defineProperty(input, "files", {
-    value: fileListLike,
+    value: createFileListLike(files),
     configurable: true
   });
 };
+
+const dispatchDrop = async (target: Element, files: File[]) => {
+  const event = new Event("drop", { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "dataTransfer", {
+    value: {
+      files: createFileListLike(files),
+      items: { length: 0 }
+    },
+    configurable: true
+  });
+
+  await act(async () => {
+    target.dispatchEvent(event);
+  });
+};
+
+const dispatchDragEvent = async (
+  target: Element,
+  type: "dragenter" | "dragover" | "dragleave",
+  options: {
+    files?: File[];
+    itemCount?: number;
+  } = {}
+) => {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  const files = options.files ?? [];
+  Object.defineProperty(event, "dataTransfer", {
+    value: {
+      files: createFileListLike(files),
+      items: { length: options.itemCount ?? files.length }
+    },
+    configurable: true
+  });
+
+  await act(async () => {
+    target.dispatchEvent(event);
+  });
+};
+
+type MockFileHandle = {
+  kind: "file";
+  name: string;
+  getFile: () => Promise<File>;
+};
+
+type MockDirectoryHandle = {
+  kind: "directory";
+  name: string;
+  entries: () => AsyncGenerator<[string, MockFileHandle | MockDirectoryHandle], void, unknown>;
+};
+
+const createFileHandle = (file: File): MockFileHandle => ({
+  kind: "file",
+  name: file.name,
+  getFile: async () => file
+});
+
+const createDirectoryHandle = (
+  name: string,
+  entries: Array<MockFileHandle | MockDirectoryHandle>
+): MockDirectoryHandle => ({
+  kind: "directory",
+  name,
+  async *entries() {
+    for (const entry of entries) {
+      yield [entry.name, entry];
+    }
+  }
+});
 
 const enterReviewMode = async (host: HTMLDivElement) => {
   const modeSelect = host.querySelector('[data-testid="app-mode-select"]') as HTMLSelectElement;
@@ -261,6 +334,280 @@ describe("runtime review shell integration", () => {
     expect(host.querySelector('[data-testid="mock-review-canvas-segmentation"]')).not.toBeNull();
 
     (globalThis as any).createImageBitmap = originalCreateImageBitmap;
+  });
+
+  it("renders refined review header states from intake to ready dataset", async () => {
+    resetState();
+    const { host } = await mount(React.createElement(App));
+
+    await enterReviewMode(host);
+
+    const imageInput = host.querySelector('[data-testid="review-images-input"]') as HTMLInputElement;
+    const annotationInput = host.querySelector('[data-testid="review-annotations-input"]') as HTMLInputElement;
+    const imagesControl = () => host.querySelector('[data-testid="review-images-folder-control"]') as HTMLElement;
+    const annotationsControl = () => host.querySelector('[data-testid="review-annotations-folder-control"]') as HTMLElement;
+    const warningSummary = () => host.querySelector('[data-testid="review-warning-summary"]') as HTMLElement;
+
+    expect(imagesControl().textContent).toContain("Load the source images that should appear on the review canvas.");
+    expect(annotationsControl().textContent).toContain("Choose YOLO .txt labels and optional classes.txt metadata.");
+    expect(warningSummary().textContent).toContain("Waiting for sources");
+    expect(warningSummary().textContent).toContain("Load both folders to unlock the file list, status counts, and overlay canvas.");
+
+    assignInputFiles(imageInput, [
+      createSyntheticFile("det-1.jpg", { type: "image/jpeg" })
+    ], "det-images");
+
+    await act(async () => {
+      imageInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await flush(2);
+
+    expect(imagesControl().textContent).toContain("det-images");
+    expect(imagesControl().textContent).toContain("Source imagery is ready for pairing and canvas review.");
+    expect(imagesControl().textContent).toContain("1 file");
+    expect(warningSummary().textContent).toContain("Waiting for annotations");
+    expect(warningSummary().textContent).toContain("Add the annotation folder with YOLO labels to complete matching.");
+
+    assignInputFiles(annotationInput, [
+      createSyntheticFile("det-1.txt", { content: "0 0.5 0.5 0.2 0.2" })
+    ], "det-labels");
+
+    await act(async () => {
+      annotationInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await flush(3);
+
+    expect(annotationsControl().textContent).toContain("det-labels");
+    expect(annotationsControl().textContent).toContain("YOLO labels will be matched to images by basename.");
+    expect(annotationsControl().textContent).toContain("1 file");
+    expect(warningSummary().textContent).toContain("Ready to review");
+    expect(warningSummary().textContent).toContain("Matched");
+    expect(warningSummary().textContent).toContain("Matched files are ready on the canvas with no blocking issues detected.");
+  });
+
+  it("clears incompatible annotation folders and explains the required mask format in segmentation review", async () => {
+    resetState();
+    const { host } = await mount(React.createElement(App));
+
+    await enterReviewMode(host);
+
+    const reviewTypeSelect = host.querySelector('[data-testid="review-type-select"]') as HTMLSelectElement;
+    const imageInput = host.querySelector('[data-testid="review-images-input"]') as HTMLInputElement;
+    const annotationInput = host.querySelector('[data-testid="review-annotations-input"]') as HTMLInputElement;
+    const annotationsControl = () => host.querySelector('[data-testid="review-annotations-folder-control"]') as HTMLElement;
+    const warningSummary = () => host.querySelector('[data-testid="review-warning-summary"]') as HTMLElement;
+    const emptyState = () => host.querySelector('[data-testid="review-empty-state"]') as HTMLElement;
+
+    await act(async () => {
+      reviewTypeSelect.value = "segmentation";
+      reviewTypeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    assignInputFiles(imageInput, [
+      createSyntheticFile("seg-1.png", { type: "image/png" })
+    ], "seg-images");
+
+    assignInputFiles(annotationInput, [
+      createSyntheticFile("seg-1.txt", { content: "0 0.5 0.5 0.2 0.2" })
+    ], "label");
+
+    await act(async () => {
+      imageInput.dispatchEvent(new Event("change", { bubbles: true }));
+      annotationInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await flush(3);
+
+    expect(annotationsControl().textContent).toContain("No folder selected");
+    expect(annotationsControl().textContent).toContain("does not contain supported image masks for segmentation review");
+    expect(warningSummary().textContent).toContain("Wrong annotation folder");
+    expect(warningSummary().textContent).toContain("Annotation mismatch");
+    expect(emptyState().textContent).toContain("Load a compatible annotation folder to continue");
+    expect(emptyState().textContent).toContain("Choose mask images whose basenames match the source images.");
+  });
+
+  it("auto-clears stale detection labels when review type switches to segmentation", async () => {
+    resetState();
+    const { host } = await mount(React.createElement(App));
+
+    await enterReviewMode(host);
+    await loadDetectionReviewDataset(host, ["det-1.jpg"]);
+
+    const reviewTypeSelect = host.querySelector('[data-testid="review-type-select"]') as HTMLSelectElement;
+    const annotationsControl = () => host.querySelector('[data-testid="review-annotations-folder-control"]') as HTMLElement;
+    const warningSummary = () => host.querySelector('[data-testid="review-warning-summary"]') as HTMLElement;
+
+    expect(annotationsControl().textContent).toContain("det-labels");
+
+    await act(async () => {
+      reviewTypeSelect.value = "segmentation";
+      reviewTypeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await flush(3);
+
+    expect(annotationsControl().textContent).toContain("No folder selected");
+    expect(annotationsControl().textContent).toContain("does not contain supported image masks for segmentation review");
+    expect(warningSummary().textContent).toContain("Wrong annotation folder");
+    expect(host.querySelector('[data-testid="mock-review-canvas-segmentation"]')).toBeNull();
+  });
+
+  it("supports drag-and-drop loading for review source controls and surfaces loose-file discovery limits", async () => {
+    resetState();
+    const { host } = await mount(React.createElement(App));
+
+    await enterReviewMode(host);
+
+    const imagesControl = host.querySelector('[data-testid="review-images-folder-control"]') as HTMLElement;
+    const annotationsControl = host.querySelector('[data-testid="review-annotations-folder-control"]') as HTMLElement;
+
+    await dispatchDrop(imagesControl, [
+      createSyntheticFile("drag-1.png", { type: "image/png" }),
+      createSyntheticFile("drag-2.png", { type: "image/png" })
+    ]);
+    await flush(3);
+
+    expect(imagesControl.textContent).toContain("Dropped files");
+    expect(imagesControl.textContent).toContain("2 files");
+    expect(host.querySelector('[data-testid="review-image-support-discovery"]')?.textContent).toContain("Folder-based suggestions unavailable for loose files.");
+    expect(host.querySelector(".global-drag-overlay")).toBeNull();
+    expect(host.querySelector(".app")?.className).not.toContain("global-drag-over");
+
+    await dispatchDrop(annotationsControl, [
+      createSyntheticFile("drag-1.txt", { content: "0 0.5 0.5 0.2 0.2" }),
+      createSyntheticFile("classes.yaml", { content: "0: person\n" })
+    ]);
+    await flush(3);
+
+    expect(annotationsControl.textContent).toContain("Dropped files");
+    expect(annotationsControl.textContent).toContain("YOLO labels will be matched to images by basename.");
+    expect(host.querySelector('[data-testid="review-class-explorer"]')).not.toBeNull();
+  });
+
+  it("discovers detection and segmentation-ready child folders from a picked image folder", async () => {
+    resetState();
+    const { host } = await mount(React.createElement(App));
+
+    await enterReviewMode(host);
+
+    const imageA = createSyntheticFile("a.png", { type: "image/png" });
+    const imageB = createSyntheticFile("b.png", { type: "image/png" });
+    const labelA = createSyntheticFile("a.txt", { content: "0 0.5 0.5 0.2 0.2" });
+    const labelMeta = createSyntheticFile("classes.yaml", { content: "0: person\n" });
+    const maskA = createSyntheticFile("a.png", { type: "image/png" });
+    const maskSidecar = createSyntheticFile("a.seg.json", { content: "{}" });
+
+    const labelHandle = createDirectoryHandle("label", [
+      createFileHandle(labelA),
+      createFileHandle(labelMeta)
+    ]);
+    const maskHandle = createDirectoryHandle("mask", [
+      createFileHandle(maskA),
+      createFileHandle(maskSidecar)
+    ]);
+    const rootHandle = createDirectoryHandle("Pictures", [
+      createFileHandle(imageA),
+      createFileHandle(imageB),
+      labelHandle,
+      maskHandle
+    ]);
+
+    (window as Window & typeof globalThis & {
+      showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
+    }).showDirectoryPicker = vi.fn(async () => rootHandle as unknown as FileSystemDirectoryHandle);
+
+    const imageSelectButton = host.querySelector('[data-testid="review-images-folder-control"] .review-folder-picker-button') as HTMLButtonElement;
+    await act(async () => {
+      imageSelectButton.click();
+    });
+    await flush(4);
+
+    const supportText = host.querySelector('[data-testid="review-image-support-discovery"]')?.textContent ?? "";
+    expect(supportText).toContain("Detection available");
+    expect(supportText).toContain("Segmentation available");
+    expect(supportText).toContain("label");
+    expect(supportText).toContain("mask");
+    expect(supportText).toContain("1 match");
+    expect(supportText).toContain("metadata");
+    expect(supportText).not.toContain("ready for detection review");
+
+    const useDetectionSuggestion = host.querySelector('[data-testid="review-support-action-detection-label"]') as HTMLButtonElement;
+    await act(async () => {
+      useDetectionSuggestion.click();
+    });
+    await flush(3);
+
+    expect(host.querySelector('[data-testid="review-annotations-folder-control"]')?.textContent).toContain("label");
+  });
+
+  it("keeps app-level drag overlay disabled in review mode and ignores root-level drops", async () => {
+    resetState();
+    const { host } = await mount(React.createElement(App));
+
+    await enterReviewMode(host);
+
+    const appRoot = host.querySelector(".app") as HTMLElement;
+    expect(appRoot).not.toBeNull();
+
+    await dispatchDragEvent(appRoot, "dragenter", { itemCount: 1 });
+    await dispatchDragEvent(appRoot, "dragover", { itemCount: 1 });
+    await flush(2);
+
+    expect(appRoot.className).not.toContain("global-drag-over");
+    expect(host.querySelector(".global-drag-overlay")).toBeNull();
+
+    await dispatchDrop(appRoot, [
+      createSyntheticFile("root-drop.png", { type: "image/png" })
+    ]);
+    await flush(3);
+
+    expect(host.querySelector('[data-testid="review-images-folder-control"]')?.textContent).toContain("No folder selected");
+    expect(useStore.getState().folders).toEqual({});
+  });
+
+  it("filters the review file list through the shared class explorer", async () => {
+    resetState();
+    const { host } = await mount(React.createElement(App));
+
+    await enterReviewMode(host);
+
+    const imageInput = host.querySelector('[data-testid="review-images-input"]') as HTMLInputElement;
+    const annotationInput = host.querySelector('[data-testid="review-annotations-input"]') as HTMLInputElement;
+
+    assignInputFiles(imageInput, [
+      createSyntheticFile("det-1.jpg", { type: "image/jpeg" }),
+      createSyntheticFile("det-2.jpg", { type: "image/jpeg" })
+    ], "det-images");
+
+    assignInputFiles(annotationInput, [
+      createSyntheticFile("det-1.txt", { content: "0 0.5 0.5 0.2 0.2" }),
+      createSyntheticFile("det-2.txt", { content: "1 0.5 0.5 0.2 0.2" }),
+      createSyntheticFile("classes.txt", { content: "person\ncar\n" })
+    ], "det-labels");
+
+    await act(async () => {
+      imageInput.dispatchEvent(new Event("change", { bubbles: true }));
+      annotationInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await flush(4);
+
+    expect(host.querySelector('[data-testid="review-class-explorer"]')?.textContent).toContain("person");
+    expect(host.querySelector('[data-testid="review-class-explorer"]')?.textContent).toContain("car");
+
+    const personClassButton = host.querySelector('[data-testid="review-class-item-0"] .review-class-item-main') as HTMLButtonElement;
+    const classFilterToggle = host.querySelector('[data-testid="review-class-record-filter-toggle"]') as HTMLInputElement;
+
+    await act(async () => {
+      personClassButton.click();
+    });
+
+    await act(async () => {
+      classFilterToggle.click();
+    });
+    await flush(2);
+
+    const fileListText = host.querySelector('[data-testid="review-filelist"]')?.textContent ?? "";
+    expect(fileListText).toContain("det-1");
+    expect(fileListText).not.toContain("det-2");
+    expect(host.querySelector(".review-filelist .count")?.textContent).toContain("Showing 1 matched");
   });
 
   it("supports review keyboard traversal without navigating from editable controls", async () => {
