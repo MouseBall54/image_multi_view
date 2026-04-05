@@ -13,6 +13,7 @@ import {
   DEFAULT_REVIEW_OVERLAY_PALETTE,
   drawDetectionOverlayPrimitives,
   drawSegmentationOverlay,
+  filterDetectionOverlayPrimitives,
   normalizeDetectionOverlayPrimitives,
   type ReviewOverlayPalette
 } from "../utils/reviewOverlay";
@@ -25,6 +26,7 @@ export type ReviewCanvasProps = {
   record?: ReviewDatasetRecord | null;
   reviewType?: ReviewType;
   label?: string;
+  visibleClassIds?: number[];
 };
 
 const isTiffFile = (filename: string): boolean => {
@@ -66,7 +68,36 @@ const loadCanvasImageSource = async (file: File): Promise<ImageBitmap | null> =>
   return null;
 };
 
-const createTintedMaskCanvas = async (source: CanvasImageSource): Promise<HTMLCanvasElement | null> => {
+const createMaskSourceCanvas = async (source: CanvasImageSource): Promise<HTMLCanvasElement | null> => {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const width = (source as { width?: number }).width ?? 0;
+  const height = (source as { height?: number }).height ?? 0;
+  if (!width || !height) {
+    return null;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return null;
+  }
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(source, 0, 0, width, height);
+
+  return canvas;
+};
+
+const createTintedMaskCanvas = async (
+  source: CanvasImageSource,
+  visibleClassIds: number[] | null | undefined
+): Promise<HTMLCanvasElement | null> => {
   if (typeof document === "undefined") {
     return null;
   }
@@ -96,6 +127,10 @@ const createTintedMaskCanvas = async (source: CanvasImageSource): Promise<HTMLCa
     return null;
   }
 
+  const visibleClassIdSet = visibleClassIds && visibleClassIds.length > 0
+    ? new Set(visibleClassIds)
+    : null;
+
   const data = imageData.data;
   for (let index = 0; index < data.length; index += 4) {
     const red = data[index] ?? 0;
@@ -105,6 +140,12 @@ const createTintedMaskCanvas = async (source: CanvasImageSource): Promise<HTMLCa
     const intensity = Math.max(alpha, red, green, blue);
 
     if (intensity <= 0) {
+      data[index + 3] = 0;
+      continue;
+    }
+
+    const classId = green;
+    if (classId <= 0 || (visibleClassIdSet && !visibleClassIdSet.has(classId))) {
       data[index + 3] = 0;
       continue;
     }
@@ -122,13 +163,15 @@ const createTintedMaskCanvas = async (source: CanvasImageSource): Promise<HTMLCa
 export const ReviewCanvas = ({
   record = null,
   reviewType,
-  label
+  label,
+  visibleClassIds
 }: ReviewCanvasProps) => {
   const imageCanvasRef = useRef<ImageCanvasHandle>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const bitmapCacheRef = useRef<Map<string, DrawableImage>>(new Map());
   const filteredCacheRef = useRef<Map<string, DrawableImage>>(new Map());
   const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
+  const [maskSourceCanvas, setMaskSourceCanvas] = useState<HTMLCanvasElement | null>(null);
   const [maskOverlaySource, setMaskOverlaySource] = useState<HTMLCanvasElement | null>(null);
   const [overlayCanvasSize, setOverlayCanvasSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
@@ -151,6 +194,9 @@ export const ReviewCanvas = ({
   }, [canvasImageDimensions, record?.segmentation?.sourceImageDimensions, resolvedReviewType]);
 
   const detectionPrimitives = useMemo(() => normalizeDetectionOverlayPrimitives(record), [record]);
+  const visibleDetectionPrimitives = useMemo(() => {
+    return filterDetectionOverlayPrimitives(detectionPrimitives, visibleClassIds);
+  }, [detectionPrimitives, visibleClassIds]);
   const displayLabel = label ?? record?.basename ?? "Review";
   const handleReviewMaskOpacityInput = (event: ChangeEvent<HTMLInputElement>) => {
     setReviewMaskOpacity(Number(event.target.value));
@@ -162,6 +208,8 @@ export const ReviewCanvas = ({
       hasMaskOverlaySource: Boolean(maskOverlaySource)
     });
   }, [maskOverlaySource, record, resolvedReviewType]);
+  const showInteractiveMaskOpacity = resolvedReviewType === "segmentation" && !maskOpacityState.disabled;
+  const maskOpacityStaticLabel = resolvedReviewType === "detection" ? "Segmentation only" : "Unavailable";
 
   useLayoutEffect(() => {
     const syncOverlayHost = () => {
@@ -205,6 +253,7 @@ export const ReviewCanvas = ({
 
     const loadSegmentationOverlay = async () => {
       if (resolvedReviewType !== "segmentation" || !canRenderSegmentationOverlay(record) || !record?.annotationFile) {
+        setMaskSourceCanvas(null);
         setMaskOverlaySource(null);
         return;
       }
@@ -212,14 +261,15 @@ export const ReviewCanvas = ({
       const maskBitmap = await loadCanvasImageSource(record.annotationFile);
       if (!maskBitmap || cancelled) {
         if (!cancelled) {
+          setMaskSourceCanvas(null);
           setMaskOverlaySource(null);
         }
         return;
       }
 
-      const tintedCanvas = await createTintedMaskCanvas(maskBitmap);
+      const rawMaskCanvas = await createMaskSourceCanvas(maskBitmap);
       if (!cancelled) {
-        setMaskOverlaySource(tintedCanvas);
+        setMaskSourceCanvas(rawMaskCanvas);
       }
 
       if (typeof maskBitmap.close === "function") {
@@ -233,6 +283,28 @@ export const ReviewCanvas = ({
       cancelled = true;
     };
   }, [record, resolvedReviewType]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const buildVisibleMaskOverlay = async () => {
+      if (!maskSourceCanvas) {
+        setMaskOverlaySource(null);
+        return;
+      }
+
+      const tintedCanvas = await createTintedMaskCanvas(maskSourceCanvas, visibleClassIds);
+      if (!cancelled) {
+        setMaskOverlaySource(tintedCanvas);
+      }
+    };
+
+    buildVisibleMaskOverlay();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [maskSourceCanvas, visibleClassIds]);
 
   useEffect(() => {
     const canvas = overlayCanvasRef.current;
@@ -265,7 +337,7 @@ export const ReviewCanvas = ({
 
     if (resolvedReviewType === "detection") {
       drawDetectionOverlayPrimitives(ctx, {
-        primitives: detectionPrimitives,
+        primitives: visibleDetectionPrimitives,
         imageDimensions,
         transform,
         palette
@@ -283,7 +355,6 @@ export const ReviewCanvas = ({
     }
   }, [
     compareRotation,
-    detectionPrimitives,
     imageDimensions,
     maskOverlaySource,
     overlayCanvasSize.height,
@@ -292,6 +363,7 @@ export const ReviewCanvas = ({
     resolvedReviewType,
     reviewMaskOpacity,
     reviewOverlayVisible,
+    visibleDetectionPrimitives,
     viewport
   ]);
 
@@ -312,20 +384,25 @@ export const ReviewCanvas = ({
         </label>
         <label className="review-canvas-control-group review-mask-opacity-group">
           <span>Mask Opacity</span>
-          <div className="review-mask-opacity-field">
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={reviewMaskOpacity}
-              onInput={handleReviewMaskOpacityInput}
-              onChange={handleReviewMaskOpacityInput}
-              data-testid="review-mask-opacity"
-              disabled={maskOpacityState.disabled}
-            />
-            <output>{Math.round(clampReviewMaskOpacity(reviewMaskOpacity) * 100)}%</output>
-          </div>
+          {showInteractiveMaskOpacity ? (
+            <div className="review-mask-opacity-field">
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={reviewMaskOpacity}
+                onInput={handleReviewMaskOpacityInput}
+                onChange={handleReviewMaskOpacityInput}
+                data-testid="review-mask-opacity"
+              />
+              <output>{Math.round(clampReviewMaskOpacity(reviewMaskOpacity) * 100)}%</output>
+            </div>
+          ) : (
+            <div className="review-mask-opacity-static" data-testid="review-mask-opacity-static">
+              <span>{maskOpacityStaticLabel}</span>
+            </div>
+          )}
         </label>
       </div>
 

@@ -16,6 +16,7 @@ export type FileMeta = {
 
 export type FolderSource =
   | { kind: 'picker'; handle: FileSystemDirectoryHandle }
+  | { kind: 'directory-entry'; entry: FileSystemDirectoryEntry }
   | { kind: 'files' }
   | { kind: 'electron'; path: string };
 

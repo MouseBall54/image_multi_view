@@ -179,6 +179,34 @@ export const normalizeDetectionOverlayPrimitives = (
   return primitives;
 };
 
+const toVisibleClassIdSet = (
+  visibleClassIds: Iterable<number> | null | undefined
+): Set<number> | null => {
+  if (!visibleClassIds) {
+    return null;
+  }
+
+  const classIds = Array.from(visibleClassIds)
+    .filter((classId) => Number.isInteger(classId) && classId >= 0);
+  if (classIds.length === 0) {
+    return null;
+  }
+
+  return new Set(classIds);
+};
+
+export const filterDetectionOverlayPrimitives = (
+  primitives: ReviewDetectionOverlayPrimitive[],
+  visibleClassIds: Iterable<number> | null | undefined
+): ReviewDetectionOverlayPrimitive[] => {
+  const visibleClassIdSet = toVisibleClassIdSet(visibleClassIds);
+  if (!visibleClassIdSet) {
+    return primitives;
+  }
+
+  return primitives.filter((primitive) => visibleClassIdSet.has(primitive.classId));
+};
+
 export const canRenderSegmentationOverlay = (
   record: ReviewDatasetRecord | null | undefined
 ): boolean => {
@@ -210,13 +238,15 @@ export const drawDetectionOverlayPrimitives = (
     imageDimensions: ImageDimensions | null | undefined;
     transform: StandardTransform | null | undefined;
     palette?: Partial<ReviewOverlayPalette>;
+    visibleClassIds?: Iterable<number> | null;
   }
 ): number => {
   if (!ctx || !params.transform || !params.imageDimensions) {
     return 0;
   }
 
-  const { primitives, imageDimensions, transform } = params;
+  const primitives = filterDetectionOverlayPrimitives(params.primitives, params.visibleClassIds);
+  const { imageDimensions, transform } = params;
   if (!Array.isArray(primitives) || primitives.length === 0) {
     return 0;
   }

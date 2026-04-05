@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildReviewDataset,
   type ImageDimensionResolver,
+  type SegmentationMaskAnalysisResolver,
+  type SegmentationSidecarResolver,
   type ReviewDatasetRecord
 } from "../utils/reviewDataset";
 import { createSyntheticFile } from "./runtimeTestHelpers";
@@ -86,9 +88,15 @@ describe("runtime review dataset utility", () => {
     expect(good.detection?.objects).toHaveLength(2);
     expect(good.detection?.objects[0]?.className).toBe("car");
     expect(good.detection?.objects[1]?.className).toBe("3");
+    expect(good.classIds).toEqual([1, 3]);
 
     expect(result.hasClassesMetadata).toBe(true);
     expect(result.classes).toEqual(["person", "car"]);
+    expect(result.classCatalog).toEqual([
+      { id: 0, label: "person", recordCount: 0, hasMetadata: true },
+      { id: 1, label: "car", recordCount: 1, hasMetadata: true },
+      { id: 3, label: "3", recordCount: 1, hasMetadata: false }
+    ]);
   });
 
   it("falls back to numeric class labels when classes metadata is absent", async () => {
@@ -104,7 +112,31 @@ describe("runtime review dataset utility", () => {
     expect(result.classes).toEqual([]);
     expect(result.summary).toEqual({ matched: 1, unmatched: 0, invalid: 0 });
     const single = getRecordByBasename(result.records, "single");
+    expect(single.classIds).toEqual([5]);
     expect(single.detection?.objects[0]?.className).toBe("5");
+    expect(result.classCatalog).toEqual([
+      { id: 5, label: "5", recordCount: 1, hasMetadata: false }
+    ]);
+  });
+
+  it("parses lightweight classes.yaml metadata for detection review", async () => {
+    const result = await buildReviewDataset({
+      mode: "detection",
+      imageFiles: toMap([createSyntheticFile("sample.png", { type: "image/png" })]),
+      annotationFiles: toMap([
+        createSyntheticFile("sample.txt", { content: "3 0.5 0.5 0.2 0.2" }),
+        createSyntheticFile("classes.yaml", { content: "0: background\n1: person\n3: wheel\n" })
+      ])
+    });
+
+    const sample = getRecordByBasename(result.records, "sample");
+    expect(result.hasClassesMetadata).toBe(true);
+    expect(sample.detection?.objects[0]?.className).toBe("wheel");
+    expect(result.classCatalog).toEqual([
+      { id: 0, label: "background", recordCount: 0, hasMetadata: true },
+      { id: 1, label: "person", recordCount: 0, hasMetadata: true },
+      { id: 3, label: "wheel", recordCount: 1, hasMetadata: true }
+    ]);
   });
 
   it("marks segmentation decode failure and size mismatch as invalid without blocking valid pairs", async () => {
@@ -135,35 +167,53 @@ describe("runtime review dataset utility", () => {
     ]);
 
     const resolver: ImageDimensionResolver = async (file) => {
-      if (file === okImage || file === okMask) {
+      if (file === okImage) {
         return { width: 100, height: 80 };
       }
       if (file === mismatchImage) {
         return { width: 120, height: 120 };
       }
-      if (file === mismatchMask) {
-        return { width: 120, height: 100 };
-      }
       if (file === decodeImageSource) {
         return null;
-      }
-      if (file === decodeImageMask) {
-        return { width: 64, height: 64 };
       }
       if (file === decodeMaskImage) {
         return { width: 64, height: 64 };
       }
-      if (file === decodeMaskMask) {
-        return null;
-      }
       return { width: 50, height: 50 };
     };
+
+    const segmentationMaskResolver: SegmentationMaskAnalysisResolver = async (file) => {
+      if (file === okMask) {
+        return { dimensions: { width: 100, height: 80 }, classIds: [1, 3] };
+      }
+      if (file === mismatchMask) {
+        return { dimensions: { width: 120, height: 100 }, classIds: [2] };
+      }
+      if (file === decodeImageMask) {
+        return { dimensions: { width: 64, height: 64 }, classIds: [4] };
+      }
+      if (file === decodeMaskMask) {
+        return { dimensions: null, classIds: [9] };
+      }
+      return { dimensions: { width: 50, height: 50 }, classIds: [] };
+    };
+
+    const segmentationSidecarResolver: SegmentationSidecarResolver = async (file) => {
+      if (file.name === "ok.seg.json") {
+        return { activeClassId: 3, hiddenClassIds: [1], overlayOpacity: 0.6 };
+      }
+      return null;
+    };
+
+    annotationFiles.set("ok.seg.json", createSyntheticFile("ok.seg.json", { content: "{}" }));
 
     const result = await buildReviewDataset({
       mode: "segmentation",
       imageFiles,
       annotationFiles,
-      resolveImageDimensions: resolver
+      resolveImageDimensions: resolver,
+      resolveSegmentationMask: segmentationMaskResolver,
+      resolveSegmentationSidecar: segmentationSidecarResolver
     });
 
     expect(result.mode).toBe("segmentation");
@@ -179,22 +229,27 @@ describe("runtime review dataset utility", () => {
 
     const ok = getRecordByBasename(result.records, "ok");
     expect(ok.status).toBe("matched");
+    expect(ok.classIds).toEqual([1, 3]);
     expect(ok.segmentation?.sourceImageDimensions).toEqual({ width: 100, height: 80 });
     expect(ok.segmentation?.annotationDimensions).toEqual({ width: 100, height: 80 });
+    expect(ok.segmentation?.sidecarState).toEqual({ activeClassId: 3, hiddenClassIds: [1], overlayOpacity: 0.6 });
 
     const mismatch = getRecordByBasename(result.records, "mismatch");
     expect(mismatch.status).toBe("invalid");
     expect(mismatch.validation.reasons[0]?.code).toBe("segmentation_dimension_mismatch");
+    expect(mismatch.classIds).toEqual([2]);
 
     const decodeImage = getRecordByBasename(result.records, "decodeImage");
     expect(decodeImage.status).toBe("invalid");
     expect(decodeImage.validation.reasons[0]?.code).toBe("segmentation_decode_failed");
     expect(decodeImage.validation.reasons[0]?.side).toBe("image");
+    expect(decodeImage.classIds).toEqual([4]);
 
     const decodeMask = getRecordByBasename(result.records, "decodeMask");
     expect(decodeMask.status).toBe("invalid");
     expect(decodeMask.validation.reasons[0]?.code).toBe("segmentation_decode_failed");
     expect(decodeMask.validation.reasons[0]?.side).toBe("annotation");
+    expect(decodeMask.classIds).toEqual([9]);
 
     const missingMask = getRecordByBasename(result.records, "missingMask");
     expect(missingMask.status).toBe("unmatched");
@@ -203,5 +258,12 @@ describe("runtime review dataset utility", () => {
     const orphan = getRecordByBasename(result.records, "orphanOnly");
     expect(orphan.status).toBe("unmatched");
     expect(orphan.validation.reasons[0]?.code).toBe("missing_image");
+    expect(result.classCatalog).toEqual([
+      { id: 1, label: "1", recordCount: 1, hasMetadata: false },
+      { id: 2, label: "2", recordCount: 1, hasMetadata: false },
+      { id: 3, label: "3", recordCount: 1, hasMetadata: false },
+      { id: 4, label: "4", recordCount: 1, hasMetadata: false },
+      { id: 9, label: "9", recordCount: 1, hasMetadata: false }
+    ]);
   });
 });

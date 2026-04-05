@@ -45,9 +45,11 @@ const createSegmentationRecord = (): ReviewDatasetRecord => ({
   annotationFile: createSyntheticFile("seg-1.png", { type: "image/png" }),
   status: "matched",
   validation: { valid: true, reasons: [] },
+  classIds: [1, 3],
   segmentation: {
     sourceImageDimensions: { width: 64, height: 64 },
-    annotationDimensions: { width: 64, height: 64 }
+    annotationDimensions: { width: 64, height: 64 },
+    sidecarState: null
   }
 });
 
@@ -130,8 +132,9 @@ describe("runtime review canvas interactions", () => {
     expect(output.textContent).toBe("35%");
 
     await act(async () => {
-      slider.value = "0.2";
-      slider.dispatchEvent(new Event("change", { bubbles: true }));
+      const updatedSlider = host.querySelector('[data-testid="review-mask-opacity"]') as HTMLInputElement;
+      updatedSlider.value = "0.2";
+      updatedSlider.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
     expect(useStore.getState().reviewMaskOpacity).toBe(0.2);
@@ -144,5 +147,18 @@ describe("runtime review canvas interactions", () => {
 
     expect(useStore.getState().reviewOverlayVisible).toBe(false);
     expect(toggle.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("renders a non-interactive mask opacity hint in detection review", async () => {
+    const { host } = await mount(
+      <ReviewCanvas
+        reviewType="detection"
+        label="det-1"
+      />
+    );
+
+    expect(host.querySelector('[data-testid="review-mask-opacity"]')).toBeNull();
+    expect(host.querySelector('[data-testid="review-mask-opacity-static"]')?.textContent).toContain("Segmentation only");
+    expect(host.querySelector(".review-mask-opacity-copy")?.textContent).toContain("Mask opacity applies only to segmentation overlays.");
   });
 });

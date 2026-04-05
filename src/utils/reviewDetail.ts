@@ -51,12 +51,25 @@ const formatCountLabel = (count: number, singular: string, plural = `${singular}
   return `${count} ${count === 1 ? singular : plural}`;
 };
 
-export const buildReviewDetectionSummary = (record: ReviewDatasetRecord | null): string => {
+export const buildReviewDetectionSummary = (
+  record: ReviewDatasetRecord | null,
+  options?: { visibleClassIds?: Iterable<number> | null }
+): string => {
   if (!record) {
     return "No detection record selected.";
   }
 
-  const objects = record.detection?.objects ?? [];
+  const visibleClassIdSet = options?.visibleClassIds
+    ? new Set(
+      Array.from(options.visibleClassIds).filter((classId) => Number.isInteger(classId) && classId >= 0)
+    )
+    : null;
+  const objects = (record.detection?.objects ?? []).filter((object) => {
+    if (!visibleClassIdSet || visibleClassIdSet.size === 0) {
+      return true;
+    }
+    return visibleClassIdSet.has(object.classId);
+  });
   const objectSummary = formatCountLabel(objects.length, "object");
 
   if (objects.length === 0) {

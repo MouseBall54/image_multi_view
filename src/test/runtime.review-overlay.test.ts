@@ -6,6 +6,7 @@ import {
   clampReviewMaskOpacity,
   drawDetectionOverlayPrimitives,
   drawSegmentationOverlay,
+  filterDetectionOverlayPrimitives,
   normalizeDetectionOverlayPrimitives
 } from "../utils/reviewOverlay";
 import { computeStandardTransform } from "../utils/viewTransforms";
@@ -19,6 +20,7 @@ const createDetectionRecord = (): ReviewDatasetRecord => ({
   annotationFile: createSyntheticFile("sample.txt", { content: "0 0.5 0.5 0.5 0.5" }),
   status: "matched",
   validation: { valid: true, reasons: [] },
+  classIds: [2, 4, 9, 5],
   detection: {
     objects: [
       { classId: 2, className: "", x: 0.5, y: 0.5, width: 0.4, height: 0.2, line: 1 },
@@ -37,9 +39,11 @@ const createSegmentationRecord = (status: ReviewDatasetRecord["status"] = "match
   annotationFile: createSyntheticFile("mask-label.png", { type: "image/png" }),
   status,
   validation: { valid: status === "matched", reasons: [] },
+  classIds: status === "matched" ? [1, 3] : [],
   segmentation: {
     sourceImageDimensions: status === "matched" ? { width: 80, height: 60 } : null,
-    annotationDimensions: status === "matched" ? { width: 80, height: 60 } : null
+    annotationDimensions: status === "matched" ? { width: 80, height: 60 } : null,
+    sidecarState: null
   }
 });
 
@@ -81,6 +85,9 @@ describe("runtime review overlay primitives", () => {
       classId: 4,
       label: "car"
     });
+    expect(filterDetectionOverlayPrimitives(primitives, [4])).toEqual([
+      expect.objectContaining({ classId: 4, label: "car" })
+    ]);
   });
 
   it("fails closed when malformed detection input reaches draw helpers", () => {
@@ -184,6 +191,36 @@ describe("runtime review overlay primitives", () => {
     expect(new Set(strokeColors).size).toBeGreaterThan(1);
     expect(labelBackgrounds).toHaveLength(2);
     expect(new Set(labelBackgrounds).size).toBeGreaterThan(1);
+  });
+
+  it("respects visible detection classes when drawing filtered overlays", () => {
+    const ctx = createFakeContext() as unknown as CanvasRenderingContext2D;
+    const fillTextSpy = vi.fn();
+    ctx.fillText = fillTextSpy;
+
+    const transform = computeStandardTransform({
+      imageW: 100,
+      imageH: 100,
+      viewport: { scale: 1, cx: 0.5, cy: 0.5 },
+      scale: 1,
+      angleDeg: 0,
+      canvasW: 100,
+      canvasH: 100
+    });
+
+    const rendered = drawDetectionOverlayPrimitives(ctx, {
+      primitives: [
+        { classId: 1, label: "car", line: 1, left: 0.1, top: 0.1, width: 0.2, height: 0.2 },
+        { classId: 5, label: "person", line: 2, left: 0.5, top: 0.5, width: 0.2, height: 0.2 }
+      ],
+      imageDimensions: { width: 100, height: 100 },
+      transform,
+      visibleClassIds: [5]
+    });
+
+    expect(rendered).toBe(1);
+    expect(fillTextSpy).toHaveBeenCalledTimes(1);
+    expect(fillTextSpy).toHaveBeenCalledWith("person", expect.any(Number), expect.any(Number));
   });
 
   it("does not render labels for detection boxes fully outside viewport", () => {

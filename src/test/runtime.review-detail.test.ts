@@ -18,6 +18,7 @@ const createBaseRecord = (overrides: Partial<ReviewDatasetRecord> = {}): ReviewD
   annotationFile: createSyntheticFile("sample.txt", { content: "0 0.5 0.5 0.4 0.4" }),
   status: "matched",
   validation: { valid: true, reasons: [] },
+  classIds: [],
   ...overrides
 });
 
@@ -109,9 +110,11 @@ describe("runtime review detail helpers", () => {
     const matchedSegmentationRecord = createBaseRecord({
       annotationName: "sample-mask.png",
       annotationFile: createSyntheticFile("sample-mask.png", { type: "image/png" }),
+      classIds: [1, 3],
       segmentation: {
         sourceImageDimensions: { width: 64, height: 64 },
-        annotationDimensions: { width: 64, height: 64 }
+        annotationDimensions: { width: 64, height: 64 },
+        sidecarState: null
       }
     });
     const invalidSegmentationRecord = createBaseRecord({
@@ -128,9 +131,11 @@ describe("runtime review detail helpers", () => {
           }
         ]
       },
+      classIds: [1, 3],
       segmentation: {
         sourceImageDimensions: { width: 64, height: 64 },
-        annotationDimensions: { width: 32, height: 32 }
+        annotationDimensions: { width: 32, height: 32 },
+        sidecarState: null
       }
     });
 

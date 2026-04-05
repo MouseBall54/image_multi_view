@@ -43,6 +43,24 @@ export type ImageDimensions = {
   height: number;
 };
 
+export type ReviewClassCatalogEntry = {
+  id: number;
+  label: string;
+  recordCount: number;
+  hasMetadata: boolean;
+};
+
+export type ReviewSegmentationSidecarState = {
+  activeClassId: number | null;
+  hiddenClassIds: number[];
+  overlayOpacity: number | null;
+};
+
+export type ReviewSegmentationMaskAnalysis = {
+  dimensions: ImageDimensions | null;
+  classIds: number[];
+};
+
 export type ReviewDatasetRecord = {
   basename: string;
   sourceImageName: string | null;
@@ -51,12 +69,14 @@ export type ReviewDatasetRecord = {
   annotationFile: File | null;
   status: ReviewFileStatusFilter;
   validation: ReviewValidationDetail;
+  classIds: number[];
   detection?: {
     objects: DetectionObject[];
   };
   segmentation?: {
     sourceImageDimensions: ImageDimensions | null;
     annotationDimensions: ImageDimensions | null;
+    sidecarState: ReviewSegmentationSidecarState | null;
   };
 };
 
@@ -72,6 +92,7 @@ export type ReviewDatasetResult = {
   summary: ReviewDatasetSummary;
   classes: string[];
   hasClassesMetadata: boolean;
+  classCatalog: ReviewClassCatalogEntry[];
 };
 
 type BasenameEntry = {
@@ -80,16 +101,45 @@ type BasenameEntry = {
   file: File;
 };
 
+type DetectionClassMetadata = {
+  classNamesById: Map<number, string>;
+  classes: string[];
+  hasClassesMetadata: boolean;
+};
+
 export type ImageDimensionResolver = (file: File) => Promise<ImageDimensions | null>;
+export type SegmentationMaskAnalysisResolver = (file: File) => Promise<ReviewSegmentationMaskAnalysis>;
+export type SegmentationSidecarResolver = (file: File) => Promise<ReviewSegmentationSidecarState | null>;
 
 export type BuildReviewDatasetInput = {
   mode: ReviewType;
   imageFiles: Map<string, File>;
   annotationFiles: Map<string, File>;
   resolveImageDimensions?: ImageDimensionResolver;
+  resolveSegmentationMask?: SegmentationMaskAnalysisResolver;
+  resolveSegmentationSidecar?: SegmentationSidecarResolver;
 };
 
+const DETECTION_METADATA_FILENAMES = new Set(["classes.txt", "classes.yaml", "classes.yml"]);
+const SEGMENTATION_SIDECAR_PATTERN = /\.seg\.json$/i;
+
 const stripExtension = (filename: string): string => filename.replace(/\.[^/.]+$/, "");
+
+const stripSegmentationSidecarSuffix = (filename: string): string => {
+  return filename.replace(SEGMENTATION_SIDECAR_PATTERN, "");
+};
+
+const isDetectionMetadataFile = (filename: string): boolean => {
+  return DETECTION_METADATA_FILENAMES.has(filename.toLowerCase());
+};
+
+const isDetectionAnnotationFile = (filename: string): boolean => {
+  return filename.toLowerCase().endsWith(".txt") && !isDetectionMetadataFile(filename);
+};
+
+const isSegmentationSidecarFile = (filename: string): boolean => {
+  return SEGMENTATION_SIDECAR_PATTERN.test(filename);
+};
 
 const getSortedImageEntries = (files: Map<string, File>): BasenameEntry[] => {
   return Array.from(files.entries())
@@ -127,26 +177,131 @@ const getSortedBasenames = (first: Iterable<string>, second: Iterable<string>): 
   return Array.from(union).sort((a, b) => naturalSort(a, b));
 };
 
-const parseClassesMetadata = async (annotationFiles: Map<string, File>): Promise<{ classes: string[]; hasClassesMetadata: boolean }> => {
-  const classesFile = annotationFiles.get("classes.txt");
-  if (!classesFile) {
-    return { classes: [], hasClassesMetadata: false };
+const cleanMetadataLabel = (value: string): string => {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith("\"") && trimmed.endsWith("\""))
+    || (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+};
+
+const parseYamlClassMetadata = (text: string): Map<number, string> => {
+  const classNamesById = new Map<number, string>();
+  const lines = text.split(/\r?\n/);
+  let inNamesBlock = false;
+  let nextListIndex = 0;
+
+  for (const rawLine of lines) {
+    if (!rawLine.trim() || rawLine.trim().startsWith("#")) {
+      continue;
+    }
+
+    const trimmed = rawLine.trim();
+
+    if (/^names\s*:/i.test(trimmed)) {
+      inNamesBlock = true;
+      nextListIndex = 0;
+
+      const inlineValue = trimmed.replace(/^names\s*:/i, "").trim();
+      if (inlineValue.length > 0) {
+        const match = inlineValue.match(/^\[(.*)\]$/);
+        if (match?.[1]) {
+          match[1]
+            .split(",")
+            .map((value) => cleanMetadataLabel(value))
+            .filter((value) => value.length > 0)
+            .forEach((label, index) => {
+              classNamesById.set(index, label);
+            });
+        }
+      }
+      continue;
+    }
+
+    const topLevelMapping = trimmed.match(/^(\d+)\s*:\s*(.+)$/);
+    if (topLevelMapping) {
+      classNamesById.set(Number(topLevelMapping[1]), cleanMetadataLabel(topLevelMapping[2]));
+      continue;
+    }
+
+    if (!inNamesBlock) {
+      continue;
+    }
+
+    if (!rawLine.startsWith(" ") && !rawLine.startsWith("\t")) {
+      inNamesBlock = false;
+      continue;
+    }
+
+    const listItem = trimmed.match(/^-\s*(.+)$/);
+    if (listItem) {
+      classNamesById.set(nextListIndex, cleanMetadataLabel(listItem[1]));
+      nextListIndex += 1;
+      continue;
+    }
+
+    const nestedMapping = trimmed.match(/^(\d+)\s*:\s*(.+)$/);
+    if (nestedMapping) {
+      classNamesById.set(Number(nestedMapping[1]), cleanMetadataLabel(nestedMapping[2]));
+    }
+  }
+
+  return classNamesById;
+};
+
+const parseClassesMetadata = async (
+  annotationFiles: Map<string, File>
+): Promise<DetectionClassMetadata> => {
+  const classesTextFile = annotationFiles.get("classes.txt");
+  if (classesTextFile) {
+    try {
+      const text = await classesTextFile.text();
+      const classNamesById = new Map<number, string>();
+      text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .forEach((label, index) => {
+          classNamesById.set(index, label);
+        });
+
+      return {
+        classNamesById,
+        classes: Array.from(classNamesById.values()),
+        hasClassesMetadata: true
+      };
+    } catch {
+      return { classNamesById: new Map(), classes: [], hasClassesMetadata: true };
+    }
+  }
+
+  const yamlMetadataFile = annotationFiles.get("classes.yaml") ?? annotationFiles.get("classes.yml");
+  if (!yamlMetadataFile) {
+    return { classNamesById: new Map(), classes: [], hasClassesMetadata: false };
   }
 
   try {
-    const text = await classesFile.text();
-    const classes = text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-    return { classes, hasClassesMetadata: true };
+    const text = await yamlMetadataFile.text();
+    const classNamesById = parseYamlClassMetadata(text);
+    const classes = Array.from(classNamesById.entries())
+      .sort((left, right) => left[0] - right[0])
+      .map(([, label]) => label);
+
+    return {
+      classNamesById,
+      classes,
+      hasClassesMetadata: true
+    };
   } catch {
-    return { classes: [], hasClassesMetadata: true };
+    return { classNamesById: new Map(), classes: [], hasClassesMetadata: true };
   }
 };
 
-const toDetectionClassName = (classId: number, classes: string[]): string => {
-  const className = classes[classId];
+const toDetectionClassName = (classId: number, classNamesById: Map<number, string>): string => {
+  const className = classNamesById.get(classId);
   if (!className) {
     return String(classId);
   }
@@ -158,7 +313,10 @@ type ParsedYoloResult = {
   validation: ReviewValidationDetail;
 };
 
-const parseYoloLabelFile = async (file: File, classes: string[]): Promise<ParsedYoloResult> => {
+const parseYoloLabelFile = async (
+  file: File,
+  classNamesById: Map<number, string>
+): Promise<ParsedYoloResult> => {
   const text = await file.text();
   const lines = text
     .split(/\r?\n/)
@@ -230,7 +388,7 @@ const parseYoloLabelFile = async (file: File, classes: string[]): Promise<Parsed
 
     objects.push({
       classId,
-      className: toDetectionClassName(classId, classes),
+      className: toDetectionClassName(classId, classNamesById),
       x,
       y,
       width,
@@ -271,6 +429,159 @@ export const defaultImageDimensionResolver: ImageDimensionResolver = async (file
   return null;
 };
 
+const extractSegmentationClassIdsFromPixels = (
+  pixels: Uint8ClampedArray
+): number[] => {
+  const classIds = new Set<number>();
+
+  for (let index = 0; index < pixels.length; index += 4) {
+    const alpha = pixels[index + 3] ?? 0;
+    if (alpha <= 0) {
+      continue;
+    }
+
+    const classId = pixels[index + 1] ?? 0;
+    if (classId > 0) {
+      classIds.add(classId);
+    }
+  }
+
+  return Array.from(classIds).sort((left, right) => left - right);
+};
+
+const readImageDataFromSource = (
+  source: CanvasImageSource,
+  width: number,
+  height: number
+): ImageData | null => {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+
+  context.clearRect(0, 0, width, height);
+  context.drawImage(source, 0, 0, width, height);
+
+  try {
+    return context.getImageData(0, 0, width, height);
+  } catch {
+    return null;
+  }
+};
+
+export const defaultSegmentationMaskAnalysisResolver: SegmentationMaskAnalysisResolver = async (file) => {
+  try {
+    if (isTiffFile(file.name) && typeof document !== "undefined") {
+      const tiffImage = await decodeTiffWithUTIF(file, UTIF_OPTIONS);
+      const imageData = readImageDataFromSource(tiffImage, tiffImage.width, tiffImage.height);
+      return {
+        dimensions: { width: tiffImage.width, height: tiffImage.height },
+        classIds: imageData ? extractSegmentationClassIdsFromPixels(imageData.data) : []
+      };
+    }
+
+    if (typeof createImageBitmap === "function") {
+      const bitmap = await createImageBitmap(file);
+      const imageData = readImageDataFromSource(bitmap, bitmap.width, bitmap.height);
+      if (typeof bitmap.close === "function") {
+        bitmap.close();
+      }
+
+      return {
+        dimensions: { width: bitmap.width, height: bitmap.height },
+        classIds: imageData ? extractSegmentationClassIdsFromPixels(imageData.data) : []
+      };
+    }
+  } catch {
+    return { dimensions: null, classIds: [] };
+  }
+
+  return { dimensions: null, classIds: [] };
+};
+
+const toOptionalNonNegativeInteger = (value: unknown): number | null => {
+  const numeric = typeof value === "string" ? Number(value) : value;
+  if (!Number.isInteger(numeric) || (numeric as number) < 0) {
+    return null;
+  }
+  return numeric as number;
+};
+
+export const defaultSegmentationSidecarResolver: SegmentationSidecarResolver = async (file) => {
+  try {
+    const payload = JSON.parse(await file.text()) as {
+      activeClassId?: unknown;
+      hiddenClassIds?: unknown;
+      overlayOpacity?: unknown;
+    };
+
+    const hiddenClassIds = Array.isArray(payload.hiddenClassIds)
+      ? Array.from(new Set(
+        payload.hiddenClassIds
+          .map((value) => toOptionalNonNegativeInteger(value))
+          .filter((value): value is number => value !== null)
+      )).sort((left, right) => left - right)
+      : [];
+
+    const overlayOpacity = typeof payload.overlayOpacity === "number" && Number.isFinite(payload.overlayOpacity)
+      ? payload.overlayOpacity
+      : null;
+
+    return {
+      activeClassId: toOptionalNonNegativeInteger(payload.activeClassId),
+      hiddenClassIds,
+      overlayOpacity
+    };
+  } catch {
+    return null;
+  }
+};
+
+const toSortedUniqueClassIds = (classIds: Iterable<number>): number[] => {
+  return Array.from(
+    new Set(
+      Array.from(classIds).filter((classId) => Number.isInteger(classId) && classId >= 0)
+    )
+  ).sort((left, right) => left - right);
+};
+
+const buildClassCatalog = (
+  records: ReviewDatasetRecord[],
+  resolveLabel: (classId: number) => string,
+  metadataClassIds: Iterable<number> = []
+): ReviewClassCatalogEntry[] => {
+  const metadataIds = new Set<number>(metadataClassIds);
+  const recordCountById = new Map<number, number>();
+
+  for (const record of records) {
+    const uniqueRecordClassIds = new Set(record.classIds);
+    uniqueRecordClassIds.forEach((classId) => {
+      recordCountById.set(classId, (recordCountById.get(classId) ?? 0) + 1);
+    });
+  }
+
+  const allClassIds = new Set<number>(metadataIds);
+  recordCountById.forEach((_, classId) => {
+    allClassIds.add(classId);
+  });
+
+  return Array.from(allClassIds)
+    .sort((left, right) => left - right)
+    .map((classId) => ({
+      id: classId,
+      label: resolveLabel(classId),
+      recordCount: recordCountById.get(classId) ?? 0,
+      hasMetadata: metadataIds.has(classId)
+    }));
+};
+
 const buildUnmatchedRecord = (params: {
   basename: string;
   imageEntry: BasenameEntry | undefined;
@@ -294,7 +605,8 @@ const buildUnmatchedRecord = (params: {
             : "Image file is missing for this annotation."
         }
       ]
-    }
+    },
+    classIds: []
   };
 };
 
@@ -303,13 +615,12 @@ const buildDetectionReviewDataset = async (input: BuildReviewDatasetInput): Prom
   const imageByBasename = indexFirstByBasename(imageEntries);
 
   const detectionAnnotationEntries = Array.from(input.annotationFiles.entries())
-    .filter(([filename]) => filename.toLowerCase() !== "classes.txt")
-    .filter(([filename]) => filename.toLowerCase().endsWith(".txt"))
+    .filter(([filename]) => isDetectionAnnotationFile(filename))
     .map(([filename, file]) => ({ basename: stripExtension(filename), filename, file }))
     .sort((a, b) => naturalSort(a.filename, b.filename));
   const annotationByBasename = indexFirstByBasename(detectionAnnotationEntries);
 
-  const { classes, hasClassesMetadata } = await parseClassesMetadata(input.annotationFiles);
+  const { classNamesById, classes, hasClassesMetadata } = await parseClassesMetadata(input.annotationFiles);
   const basenames = getSortedBasenames(imageByBasename.keys(), annotationByBasename.keys());
   const records: ReviewDatasetRecord[] = [];
 
@@ -327,7 +638,7 @@ const buildDetectionReviewDataset = async (input: BuildReviewDatasetInput): Prom
       continue;
     }
 
-    const parsed = await parseYoloLabelFile(annotationEntry.file, classes);
+    const parsed = await parseYoloLabelFile(annotationEntry.file, classNamesById);
     records.push({
       basename,
       sourceImageName: imageEntry.filename,
@@ -336,25 +647,41 @@ const buildDetectionReviewDataset = async (input: BuildReviewDatasetInput): Prom
       annotationFile: annotationEntry.file,
       status: parsed.validation.valid ? "matched" : "invalid",
       validation: parsed.validation,
+      classIds: toSortedUniqueClassIds(parsed.objects.map((object) => object.classId)),
       detection: {
         objects: parsed.objects
       }
     });
   }
 
+  const classCatalog = buildClassCatalog(
+    records,
+    (classId) => toDetectionClassName(classId, classNamesById),
+    classNamesById.keys()
+  );
+
   return {
     mode: "detection",
     records,
     summary: buildSummary(records),
     classes,
-    hasClassesMetadata
+    hasClassesMetadata,
+    classCatalog
   };
 };
 
 const buildSegmentationReviewDataset = async (input: BuildReviewDatasetInput): Promise<ReviewDatasetResult> => {
   const resolveImageDimensions = input.resolveImageDimensions ?? defaultImageDimensionResolver;
+  const resolveSegmentationMask = input.resolveSegmentationMask ?? defaultSegmentationMaskAnalysisResolver;
+  const resolveSegmentationSidecar = input.resolveSegmentationSidecar ?? defaultSegmentationSidecarResolver;
+
   const imageEntries = getSortedImageEntries(input.imageFiles);
   const maskEntries = getSortedImageEntries(input.annotationFiles);
+  const sidecarByBasename = new Map<string, File>(
+    Array.from(input.annotationFiles.entries())
+      .filter(([filename]) => isSegmentationSidecarFile(filename))
+      .map(([filename, file]) => [stripSegmentationSidecarSuffix(filename), file] as [string, File])
+  );
 
   const imageByBasename = indexFirstByBasename(imageEntries);
   const maskByBasename = indexFirstByBasename(maskEntries);
@@ -375,7 +702,14 @@ const buildSegmentationReviewDataset = async (input: BuildReviewDatasetInput): P
       continue;
     }
 
-    const sourceImageDimensions = await resolveImageDimensions(imageEntry.file);
+    const [sourceImageDimensions, annotationMask, sidecarState] = await Promise.all([
+      resolveImageDimensions(imageEntry.file),
+      resolveSegmentationMask(annotationEntry.file),
+      sidecarByBasename.has(basename)
+        ? resolveSegmentationSidecar(sidecarByBasename.get(basename) as File)
+        : Promise.resolve(null)
+    ]);
+
     if (!sourceImageDimensions) {
       records.push({
         basename,
@@ -388,16 +722,17 @@ const buildSegmentationReviewDataset = async (input: BuildReviewDatasetInput): P
           valid: false,
           reasons: [{ code: "segmentation_decode_failed", side: "image", message: "Failed to decode source image dimensions." }]
         },
+        classIds: annotationMask.classIds,
         segmentation: {
           sourceImageDimensions: null,
-          annotationDimensions: null
+          annotationDimensions: annotationMask.dimensions,
+          sidecarState
         }
       });
       continue;
     }
 
-    const annotationDimensions = await resolveImageDimensions(annotationEntry.file);
-    if (!annotationDimensions) {
+    if (!annotationMask.dimensions) {
       records.push({
         basename,
         sourceImageName: imageEntry.filename,
@@ -409,16 +744,18 @@ const buildSegmentationReviewDataset = async (input: BuildReviewDatasetInput): P
           valid: false,
           reasons: [{ code: "segmentation_decode_failed", side: "annotation", message: "Failed to decode annotation mask dimensions." }]
         },
+        classIds: annotationMask.classIds,
         segmentation: {
           sourceImageDimensions,
-          annotationDimensions: null
+          annotationDimensions: null,
+          sidecarState
         }
       });
       continue;
     }
 
-    const sameSize = sourceImageDimensions.width === annotationDimensions.width
-      && sourceImageDimensions.height === annotationDimensions.height;
+    const sameSize = sourceImageDimensions.width === annotationMask.dimensions.width
+      && sourceImageDimensions.height === annotationMask.dimensions.height;
 
     if (!sameSize) {
       records.push({
@@ -436,14 +773,16 @@ const buildSegmentationReviewDataset = async (input: BuildReviewDatasetInput): P
             values: [
               sourceImageDimensions.width,
               sourceImageDimensions.height,
-              annotationDimensions.width,
-              annotationDimensions.height
+              annotationMask.dimensions.width,
+              annotationMask.dimensions.height
             ]
           }]
         },
+        classIds: annotationMask.classIds,
         segmentation: {
           sourceImageDimensions,
-          annotationDimensions
+          annotationDimensions: annotationMask.dimensions,
+          sidecarState
         }
       });
       continue;
@@ -460,19 +799,24 @@ const buildSegmentationReviewDataset = async (input: BuildReviewDatasetInput): P
         valid: true,
         reasons: []
       },
+      classIds: annotationMask.classIds,
       segmentation: {
         sourceImageDimensions,
-        annotationDimensions
+        annotationDimensions: annotationMask.dimensions,
+        sidecarState
       }
     });
   }
+
+  const classCatalog = buildClassCatalog(records, (classId) => String(classId));
 
   return {
     mode: "segmentation",
     records,
     summary: buildSummary(records),
-    classes: [],
-    hasClassesMetadata: false
+    classes: classCatalog.map((entry) => entry.label),
+    hasClassesMetadata: false,
+    classCatalog
   };
 };
 
